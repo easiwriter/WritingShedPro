@@ -94,6 +94,7 @@ class JSONImportService {
         #if DEBUG
         print("[JSONImport] ===== WSP IMPORT =====")
         print("[JSONImport] Project Name: \(data.project.name)")
+        print("[JSONImport] Original Project ID (from file): \(data.project.id)")
         print("[JSONImport] Format Version: \(data.formatVersion)")
         print("[JSONImport] Folders: \(data.folders.count)")
         print("[JSONImport] Prose Sections: \(data.proseSections?.count ?? 0)")
@@ -126,6 +127,17 @@ class JSONImportService {
             notes: data.project.notes,
             userOrder: ProjectSortService.nextUserOrder(in: modelContext)
         )
+        
+        // CRITICAL: Always generate a new project ID on import to prevent CloudKit conflicts
+        // when the same .wsp file is imported multiple times or across devices.
+        // The new UUID ensures this is treated as a separate project, not a duplicate.
+        // (See ENTITY_ID_SYNC_INVESTIGATION.md for details on this fix)
+        project.id = UUID()
+        
+        #if DEBUG
+        print("[JSONImport] Generated new Project ID: \(project.id)")
+        print("[JSONImport] All child entities will also get new IDs: \(generateNewUUIDs)")
+        #endif
         project.modifiedDate = data.project.modifiedDate ?? Date()
         project.author = data.project.author
         project.statusRaw = data.project.status

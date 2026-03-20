@@ -6,6 +6,7 @@ struct ProjectTrashBinView: View {
     @Query(filter: #Predicate<Project> { $0.isTrashed == true }, sort: \Project.deletedDate, order: .reverse)
     private var trashedProjects: [Project]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @State private var selectedProjectIDs: Set<UUID> = []
     @State private var showPutBackConfirmation = false
     @State private var showPermanentDeleteConfirmation = false
@@ -38,27 +39,32 @@ struct ProjectTrashBinView: View {
                             }
                         }
                     }
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            if !selectedProjectIDs.isEmpty {
-                                Button(NSLocalizedString("projectTrash.putBack", comment: "Put Back")) {
-                                    projectsToPutBack = trashedProjects.filter { selectedProjectIDs.contains($0.id) }
-                                    showPutBackConfirmation = true
-                                }
-                            }
+                }
+            }
+            .navigationTitle(NSLocalizedString("projectTrash.title", comment: "Deleted Projects"))
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(NSLocalizedString("button.done", comment: "Done")) {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if !selectedProjectIDs.isEmpty {
+                        Button(NSLocalizedString("projectTrash.putBack", comment: "Put Back")) {
+                            projectsToPutBack = trashedProjects.filter { selectedProjectIDs.contains($0.id) }
+                            showPutBackConfirmation = true
                         }
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            if !selectedProjectIDs.isEmpty {
-                                Button(NSLocalizedString("projectTrash.deleteForever", comment: "Delete Forever"), role: .destructive) {
-                                    projectsToDelete = trashedProjects.filter { selectedProjectIDs.contains($0.id) }
-                                    showPermanentDeleteConfirmation = true
-                                }
-                            }
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if !selectedProjectIDs.isEmpty {
+                        Button(NSLocalizedString("projectTrash.deleteForever", comment: "Delete Forever"), role: .destructive) {
+                            projectsToDelete = trashedProjects.filter { selectedProjectIDs.contains($0.id) }
+                            showPermanentDeleteConfirmation = true
                         }
                     }
                 }
             }
-            .navigationTitle(NSLocalizedString("projectTrash.title", comment: "Deleted Projects"))
             .alert(NSLocalizedString("projectTrash.putBackConfirm", comment: "Restore selected projects?"), isPresented: $showPutBackConfirmation) {
                 Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
                 Button(NSLocalizedString("projectTrash.putBack", comment: "Put Back")) {

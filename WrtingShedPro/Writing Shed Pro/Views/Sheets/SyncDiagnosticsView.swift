@@ -33,6 +33,7 @@ struct SyncDiagnosticsView: View {
     @State private var isForceSyncInProgress = false
     @State private var lastForceSyncRequestDate: Date?
     @State private var forceSyncRequestToken = UUID()
+    @State private var subscriptionStatus: String = "Checking…"
     
     var body: some View {
         NavigationStack {
@@ -51,6 +52,7 @@ struct SyncDiagnosticsView: View {
                 checkForDuplicates()
                 checkForDuplicateProjects()
                 checkProjectOrderHealth()
+                checkCloudKitSubscriptions()
             }
             .alert("Repair Complete", isPresented: $showRepairResult) {
                 Button("OK") { }
@@ -74,6 +76,44 @@ struct SyncDiagnosticsView: View {
 
     private var liveCloudKitSection: some View {
         Section("Live CloudKit") {
+            // ── Blocking state warnings ──────────────────────────────────────────
+            if syncThrottler.isManualKickPaused {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sync kicks are paused (\(syncThrottler.consecutiveImportNetworkFailures) transport failure(s))")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.orange)
+                        if let until = syncThrottler.manualKickPausedUntil {
+                            Text("Resumes at \(until.formatted(date: .omitted, time: .standard))")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            if syncThrottler.isRateLimited {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("CloudKit rate-limited")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.red)
+                        if let until = syncThrottler.rateLimitedUntil {
+                            Text("Until \(until.formatted(date: .omitted, time: .standard))")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            // ───────────────────────────────────────────────────────────────────
             LabeledContent("isSyncing", value: syncThrottler.isSyncing ? "Yes" : "No")
             LabeledContent("Remote Events (Total)", value: "\(syncThrottler.totalSyncEventCount)")
             LabeledContent("Current Burst Count", value: "\(syncThrottler.syncEventCount)")
@@ -84,6 +124,7 @@ struct SyncDiagnosticsView: View {
             LabeledContent("Rate Limited", value: syncThrottler.isRateLimited ? "Yes" : "No")
             LabeledContent("Manual Kick Paused", value: syncThrottler.isManualKickPaused ? "Yes" : "No")
             LabeledContent("Import Network Failures", value: "\(syncThrottler.consecutiveImportNetworkFailures)")
+            LabeledContent("CK Subscription", value: subscriptionStatus)
 
             if let lastSync = syncThrottler.lastSyncTime {
                 LabeledContent("Last Remote Event") {
@@ -426,8 +467,30 @@ struct SyncDiagnosticsView: View {
 
     @ViewBuilder
     private var debugActionsSection: some View {
+        Section("Sync Actions") {
+            if !syncForceStatus.isEmpty {
+                Text(syncForceStatus)
+                    .font(.caption)
+                    .foregroundStyle(syncForceStatus.hasPrefix("✅") ? .green :
+                                     syncForceStatus.hasPrefix("❌") ? .red : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(isForceSyncInProgress ? "Syncing…" : "Force Sync Now") {
+                forceSyncFromCloud()
+            }
+            .disabled(isForceSyncInProgress)
+
+            if syncThrottler.isManualKickPaused || syncThrottler.consecutiveImportNetworkFailures > 0 {
+                Button("Reset Sync Backoff State") {
+                    resetSyncStateAndRetry()
+                }
+                .foregroundStyle(.orange)
+            }
+        }
+
         #if DEBUG
-        Section("Actions") {
+        Section("Debug Actions") {
             Button("Force Save Context") {
                 saveContextAndShowStatus()
             }
@@ -449,6 +512,52 @@ struct SyncDiagnosticsView: View {
     /// Check for duplicate projects (same name + creation date)
     private func checkForDuplicateProjects() {
         duplicateProjectCount = DeduplicationService.countDuplicateProjects(context: modelContext)
+    }
+
+    /// Check whether the NSPersistentCloudKitContainer CKDatabaseSubscription exists.
+    /// If it is missing, CloudKit won't be able to deliver silent pushes and sync will
+    /// rely entirely on the watchdog timer. The container normally re-registers the
+    /// subscription on every launch, so a missing subscription after some uptime is unusual.
+    private func checkCloudKitSubscriptions() {
+        let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
+        ckContainer.privateCloudDatabase.fetchAllSubscriptions { subscriptions, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    subscriptionStatus = "❌ Error: \(error.localizedDescription)"
+                    return
+                }
+                guard let subscriptions = subscriptions else {
+                    subscriptionStatus = "❌ No subscriptions returned"
+                    return
+                }
+                // NSPersistentCloudKitContainer registers a CKDatabaseSubscription
+                // whose ID starts with "NSPERSISTENTCLOUDKITCONTAINER"
+                let ckContainerSubs = subscriptions.filter { sub in
+                    if let dbSub = sub as? CKDatabaseSubscription {
+                        return dbSub.subscriptionID.hasPrefix("NSPERSISTENTCLOUDKITCONTAINER") ||
+                               dbSub.subscriptionID.lowercased().contains("coredata")
+                    }
+                    return false
+                }
+                if ckContainerSubs.isEmpty {
+                    subscriptionStatus = "⚠️ Missing (\(subscriptions.count) other sub(s) found)"
+                } else {
+                    subscriptionStatus = "✅ Found (\(ckContainerSubs.count) of \(subscriptions.count))"
+                }
+            }
+        }
+    }
+
+    /// Reset all sync backoff state and immediately attempt a manual zone fetch.
+    /// Use this when sync appears blocked due to prior transport failures.
+    private func resetSyncStateAndRetry() {
+        CloudKitSyncThrottler.shared.resetBackoffState()
+        syncForceStatus = "Backoff state cleared — retrying sync…"
+        // Small delay to let the backoff state clear on main thread before the zone fetch
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 200_000_000) // 0.2s
+            forceSyncFromCloud()
+        }
     }
     
     /// Force a CloudKit zone fetch to pick up any missed remote changes.

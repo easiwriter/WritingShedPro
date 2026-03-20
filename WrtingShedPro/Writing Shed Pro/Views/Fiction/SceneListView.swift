@@ -900,11 +900,19 @@ struct SceneListView: View {
                 modelContext: modelContext
             )
         } else if project.type == .fiction {
-            ContainerAssignmentView.forChapters(
-                project: project,
-                selectedScenes: scenes,
-                modelContext: modelContext
-            )
+            if isVerseNovel {
+                ContainerAssignmentView.forBooks(
+                    project: project,
+                    selectedScenes: scenes,
+                    modelContext: modelContext
+                )
+            } else {
+                ContainerAssignmentView.forChapters(
+                    project: project,
+                    selectedScenes: scenes,
+                    modelContext: modelContext
+                )
+            }
         }
     }
     

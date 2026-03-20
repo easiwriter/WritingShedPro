@@ -36,6 +36,8 @@ struct ContentView: View {
 
     @State private var showSyncRecoveryBanner = false
     @State private var syncRecoveryBannerTask: Task<Void, Never>?
+
+    @State private var offlinePurchaseBannerDismissed = false
     
     var body: some View {
         ContentViewBody(
@@ -51,35 +53,75 @@ struct ContentView: View {
             onRunMigrations: runMigrations
         )
         .overlay(alignment: .top) {
-            if showSyncRecoveryBanner {
-                HStack(spacing: 8) {
-                    Image(systemName: "arrow.triangle.2.circlepath.icloud")
-                    Text(NSLocalizedString("sync.recovery.banner", comment: "Sync delayed, retrying"))
-                        .font(.caption)
-                        .multilineTextAlignment(.leading)
+            VStack(spacing: 6) {
+                if showSyncRecoveryBanner {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.triangle.2.circlepath.icloud")
+                        Text(NSLocalizedString("sync.recovery.banner", comment: "Sync delayed, retrying"))
+                            .font(.caption)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(.horizontal, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .padding(.top, 8)
-                .padding(.horizontal, 12)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                if #available(macCatalyst 15, iOS 17.4, *) {
+                    if EntitlementManager.shared.showOfflinePurchaseWarning && !offlinePurchaseBannerDismissed {
+                        HStack(spacing: 8) {
+                            Image(systemName: "wifi.slash")
+                            Text(NSLocalizedString("purchases.offline.banner", comment: "Purchases unavailable offline"))
+                                .font(.caption)
+                                .multilineTextAlignment(.leading)
+                            Spacer()
+                            Button {
+                                withAnimation { offlinePurchaseBannerDismissed = true }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.caption2)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .padding(.horizontal, 12)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                }
             }
+            .padding(.top, 8)
         }
         .id(refreshTrigger)
         .task {
+            // On Mac Catalyst the process is never suspended, so start the timer
+            // unconditionally at launch and keep it running even when the window
+            // is in the background. On iOS we only run it while active.
+            #if targetEnvironment(macCatalyst)
+            syncOnForegroundResume()
+            startPeriodicSyncTimer()
+            #else
             if scenePhase == .active {
                 syncOnForegroundResume()
                 startPeriodicSyncTimer()
             }
+            #endif
             await monitorSyncAndRefreshIfNeeded()
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             if newPhase == .active && oldPhase != .active {
                 syncOnForegroundResume()
+                #if !targetEnvironment(macCatalyst)
+                // On Mac Catalyst the timer is already running continuously.
                 startPeriodicSyncTimer()
+                #endif
             } else if newPhase != .active && oldPhase == .active {
+                #if !targetEnvironment(macCatalyst)
+                // On iOS, stop the timer when suspended to avoid waking the process.
+                // On Mac Catalyst, keep it running — the process stays alive.
                 stopPeriodicSyncTimer()
+                #endif
             }
         }
         .onReceive(
@@ -97,6 +139,15 @@ struct ContentView: View {
         ) { _ in
             dismissSyncRecoveryBanner()
             scheduleRemoteReconcile(reason: "stores-did-change")
+        }
+        // When EntitlementManager clears the offline warning (connectivity restored +
+        // purchases verified), re-show the banner next time if it happens again.
+        .task {
+            if #available(macCatalyst 15, iOS 17.4, *) {
+                for await _ in offlinePurchaseWarningStream() {
+                    withAnimation { offlinePurchaseBannerDismissed = false }
+                }
+            }
         }
     }
     
@@ -159,12 +210,15 @@ struct ContentView: View {
             // Recovery path: if CloudKit reports an active event but we have seen no
             // remote-change activity for several minutes, proactively nudge the daemon.
             // This avoids requiring user edits (rename/touch) to wake stalled propagation.
-            if secondsSinceEvent >= 180 && !throttler.isRateLimited && !throttler.isManualKickPaused {
+            // After 600s, bypass the manual-kick-pause so a persistent backoff can't block
+            // recovery when CloudKit was offline temporarily at an earlier point this session.
+            let bypassPause = secondsSinceEvent >= 600
+            if secondsSinceEvent >= 180 && !throttler.isRateLimited && (!throttler.isManualKickPaused || bypassPause) {
                 showSyncRecoveryBannerTemporarily()
                 #if DEBUG
-                print("⚠️ [ContentView] Sync watchdog: CloudKit event appears idle for \(Int(secondsSinceEvent))s — issuing guarded recovery nudge")
+                print("⚠️ [ContentView] Sync watchdog: CloudKit event appears idle for \(Int(secondsSinceEvent))s — issuing guarded recovery nudge (bypassPause=\(bypassPause))")
                 #endif
-                forceCloudKitImport(allowDuringActiveEvent: true)
+                forceCloudKitImport(allowDuringActiveEvent: true, bypassManualKickPause: bypassPause)
                 lastForegroundSyncDate = now
             }
             #if DEBUG
@@ -187,10 +241,22 @@ struct ContentView: View {
 
         autoNormalizeProjectOrderIfNeeded()
 
+        // After 600s of idle, override any manual-kick-pause backoff. A prior transport
+        // failure that triggered the pause has long since resolved (or won't resolve at all),
+        // and leaving sync blocked indefinitely is worse than one extra CloudKit request.
+        let bypassPause = secondsSinceEvent >= 600
+        if throttler.isManualKickPaused && !bypassPause {
+            showSyncRecoveryBannerTemporarily()
+            #if DEBUG
+            print("⚠️ [ContentView] Sync watchdog: idle \(Int(secondsSinceEvent))s but manual kick paused — will retry after 600s")
+            #endif
+            return
+        }
+
         #if DEBUG
-        print("🔄 [ContentView] Sync watchdog: idle \(Int(secondsSinceEvent))s — forcing import")
+        print("🔄 [ContentView] Sync watchdog: idle \(Int(secondsSinceEvent))s — forcing import (bypassPause=\(bypassPause))")
         #endif
-        forceCloudKitImport()
+        forceCloudKitImport(bypassManualKickPause: bypassPause)
         lastForegroundSyncDate = now
     }
 
@@ -385,18 +451,20 @@ struct ContentView: View {
     /// **Rate-limit aware**: Skips the operation if CloudKit recently returned
     /// a rate-limit or service-unavailable error, to avoid piling on requests
     /// and making the throttling worse.
-    private func forceCloudKitImport(allowDuringActiveEvent: Bool = false) {
+    private func forceCloudKitImport(allowDuringActiveEvent: Bool = false, bypassManualKickPause: Bool = false) {
         guard allowDuringActiveEvent || !CloudKitSyncThrottler.shared.hasActiveCloudKitEvent else {
             #if DEBUG
             print("⏳ [ContentView] forceCloudKitImport skipped — CloudKit event in progress")
             #endif
             return
         }
-        guard !CloudKitSyncThrottler.shared.isManualKickPaused else {
-            #if DEBUG
-            print("⏳ [ContentView] forceCloudKitImport skipped — manual kick backoff active")
-            #endif
-            return
+        if !bypassManualKickPause {
+            guard !CloudKitSyncThrottler.shared.isManualKickPaused else {
+                #if DEBUG
+                print("⏳ [ContentView] forceCloudKitImport skipped — manual kick backoff active")
+                #endif
+                return
+            }
         }
         // Don't fire if we're currently rate-limited — let the container's
         // internal retry handle it with proper server-provided backoff.
@@ -477,7 +545,28 @@ struct ContentView: View {
             showSyncRecoveryBanner = false
         }
     }
-    
+
+    /// AsyncStream that emits whenever EntitlementManager clears the offline warning,
+    /// so the banner can be shown again if it reappears on a subsequent connection loss.
+    @available(macCatalyst 15, iOS 17.4, *)
+    private func offlinePurchaseWarningStream() -> AsyncStream<Void> {
+        AsyncStream { continuation in
+            Task { @MainActor in
+                var previousValue = EntitlementManager.shared.showOfflinePurchaseWarning
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 500_000_000) // poll every 0.5s
+                    let current = EntitlementManager.shared.showOfflinePurchaseWarning
+                    // Re-enable dismissed banner if a NEW offline warning fires
+                    if current && !previousValue {
+                        continuation.yield()
+                    }
+                    previousValue = current
+                }
+                continuation.finish()
+            }
+        }
+    }
+
     /// Run data migrations for new features, delayed to avoid CloudKit sync race conditions.
     /// When the app launches with a fresh database, CloudKit imports records immediately.
     /// Running migrations during that import can cause duplicate records because the

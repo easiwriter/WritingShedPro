@@ -627,7 +627,7 @@ class MigrationService {
 
         #if DEBUG
         if removedCount > 0 {
-            print("🧹 [MigrationService] Deduplicated \(removedCount) duplicate PoetryCollection records in \(project.name ?? \"Untitled\")")
+            print("🧹 [MigrationService] Deduplicated \(removedCount) duplicate PoetryCollection records in \(project.name ?? "Untitled")")
         }
         #endif
     }

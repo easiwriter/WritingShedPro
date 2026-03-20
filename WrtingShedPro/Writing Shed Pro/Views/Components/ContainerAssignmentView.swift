@@ -411,6 +411,10 @@ extension ContainerAssignmentView where Item == StoryScene {
         selectedScenes: [StoryScene],
         modelContext: ModelContext
     ) -> ContainerAssignmentView<StoryScene> {
+        if project.fictionClass == .verseNovel {
+            return forBooks(project: project, selectedScenes: selectedScenes, modelContext: modelContext)
+        }
+
         let chapters = (project.chapters ?? [])
             .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
         
@@ -419,10 +423,10 @@ extension ContainerAssignmentView where Item == StoryScene {
         switch fictionClass {
         case .novel:
             containerName = NSLocalizedString("fiction.chapter", comment: "Chapter")
-        case .verseNovel:
-            containerName = NSLocalizedString("fiction.book", comment: "Book")
         case .shortFiction:
             containerName = NSLocalizedString("fiction.story", comment: "Story")
+        case .verseNovel:
+            containerName = NSLocalizedString("fiction.book", comment: "Book")
         }
         
         let descriptors = chapters.map { chapter in

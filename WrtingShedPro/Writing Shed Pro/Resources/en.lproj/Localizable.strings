@@ -2747,6 +2747,9 @@
 "containerAssignment.copy" = "Copy";
 "containerAssignment.unassigned" = "Unassigned";
 
+// MARK: - Offline Purchase Warning
+"purchases.offline.banner" = "No internet — purchases can't be verified. Your content will unlock when you reconnect.";
+
 // Container type names (singular)
 "poetry.collection" = "Collection";
 "fiction.chapter" = "Chapter";

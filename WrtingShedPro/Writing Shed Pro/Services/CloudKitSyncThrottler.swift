@@ -340,6 +340,21 @@ final class CloudKitSyncThrottler {
     func clearRecentCloudKitEvents() {
         recentCloudKitEvents = []
     }
+
+    /// Clear only the transport-failure backoff state, leaving event history and
+    /// in-progress flags intact. Use this for an explicit user-initiated "try again"
+    /// without wiping all observable UI state.
+    func resetBackoffState() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.consecutiveImportNetworkFailures = 0
+            self.manualKickPausedUntil = nil
+            self.rateLimitedUntil = nil
+            #if DEBUG
+            print("✅ [CloudKitSyncThrottler] Backoff state cleared by user action")
+            #endif
+        }
+    }
     
     /// Track CloudKit import/export events via NSPersistentCloudKitContainer notifications
     private func setupCloudKitEventTracking() {

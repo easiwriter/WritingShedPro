@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Network
 import SwiftData
 import StoreKitManager
 import Observation
@@ -35,6 +36,15 @@ final class EntitlementManager {
     
     /// Whether entitlements have been loaded
     private(set) var isLoaded: Bool = false
+
+    /// True when: entitlements loaded, no purchases found, AND the device was offline
+    /// during the initial load. Clears automatically when purchases are verified online.
+    private(set) var showOfflinePurchaseWarning: Bool = false
+
+    /// Network path monitor — watches for connectivity changes so we can re-verify
+    /// entitlements as soon as connectivity is restored.
+    private let networkMonitor = NWPathMonitor()
+    private let networkQueue = DispatchQueue(label: "com.writingshedpro.entitlement.network")
     
     // MARK: - Initialization
     
@@ -44,18 +54,49 @@ final class EntitlementManager {
     
     /// Configure the manager and load initial entitlements
     func configure() async {
+        startNetworkMonitoring()
         await refreshEntitlements()
     }
     
     /// Refresh entitlements from StoreKit
     func refreshEntitlements() async {
+        let wasOffline = !networkMonitor.currentPath.status.isReachable
         await purchaseManager.checkEntitlement()
         cachedEntitlements = purchaseManager.entitledProductIDs
         isLoaded = true
+
+        // Show the offline warning only if we got no entitlements AND we were
+        // offline when we checked. If the user genuinely hasn't bought anything,
+        // we don't show a false warning (the warning clears when we go online).
+        if wasOffline && cachedEntitlements.isEmpty {
+            showOfflinePurchaseWarning = true
+        } else {
+            showOfflinePurchaseWarning = false
+        }
         
         #if DEBUG
-        print("📦 [EntitlementManager] Loaded entitlements: \(cachedEntitlements)")
+        print("📦 [EntitlementManager] Loaded entitlements: \(cachedEntitlements) (offline=\(wasOffline))")
         #endif
+    }
+
+    // MARK: - Network Monitoring
+
+    private func startNetworkMonitoring() {
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            guard let self else { return }
+            // If we just got connectivity and we're still showing the warning,
+            // re-verify entitlements on the main actor so the UI updates.
+            if path.status.isReachable {
+                Task { @MainActor in
+                    guard self.showOfflinePurchaseWarning else { return }
+                    #if DEBUG
+                    print("🌐 [EntitlementManager] Connection restored — re-verifying entitlements")
+                    #endif
+                    await self.refreshEntitlements()
+                }
+            }
+        }
+        networkMonitor.start(queue: networkQueue)
     }
     
     // MARK: - Purchase Status Checks
@@ -201,4 +242,10 @@ enum UpgradePromptReason {
             return "Printing requires \(moduleName). Upgrade to print your work."
         }
     }
+}
+
+// MARK: - NWPath.Status convenience
+
+private extension NWPath.Status {
+    var isReachable: Bool { self == .satisfied }
 }
