@@ -18,6 +18,7 @@ struct DocumentReaderView: View {
     @State private var showSearch: Bool = false
     @State private var showDocumentInfo: Bool = false
     @State private var showManuscriptSheet: Bool = false
+    @State private var showSettings: Bool = false
     
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(showSidebar ? .all : .detailOnly)) {
@@ -37,6 +38,20 @@ struct DocumentReaderView: View {
         }
         .sheet(isPresented: $showDocumentInfo) {
             DocumentInfoView(document: document)
+        }
+        .sheet(isPresented: $showSettings) {
+            NavigationStack {
+                ReaderSettingsView()
+                    .navigationTitle("Settings")
+                    #if os(iOS)
+                    .navigationBarTitleDisplayMode(.inline)
+                    #endif
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showSettings = false }
+                        }
+                    }
+            }
         }
         .sheet(isPresented: $showManuscriptSheet) {
             NavigationStack {
@@ -95,6 +110,12 @@ struct DocumentReaderView: View {
             }
 
             Section("Reader") {
+                Button {
+                    appState.closeDocument()
+                } label: {
+                    Label("Back to Home", systemImage: "chevron.backward")
+                }
+
                 Button {
                     appState.showFilePicker = true
                 } label: {
@@ -156,21 +177,15 @@ struct DocumentReaderView: View {
     
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .cancellationAction) {
-            HStack {
-                Button {
-                    appState.showFilePicker = true
-                } label: {
-                    Label("Open", systemImage: "folder.badge.plus")
-                }
-
-                Button("Close") {
-                    appState.closeDocument()
-                }
+        #if os(iOS)
+        ToolbarItem(placement: .topBarLeading) {
+            Button {
+                appState.closeDocument()
+            } label: {
+                Label("Back", systemImage: "chevron.backward")
             }
         }
-        
-        #if os(iOS)
+
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 // Full-screen reading toggle
@@ -210,12 +225,27 @@ struct DocumentReaderView: View {
                 } label: {
                     Label("Document Info", systemImage: "info.circle")
                 }
+
+                Divider()
+
+                Button {
+                    showSettings = true
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
         }
         #else
         ToolbarItemGroup(placement: .automatic) {
+            Button {
+                appState.closeDocument()
+            } label: {
+                Image(systemName: "chevron.backward")
+            }
+            .help("Back to Home")
+
             Button {
                 appState.showFilePicker = true
             } label: {
@@ -246,6 +276,13 @@ struct DocumentReaderView: View {
             } label: {
                 Image(systemName: "magnifyingglass")
             }
+
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: "gearshape")
+            }
+            .help("Settings")
             
             Button {
                 showDocumentInfo = true
