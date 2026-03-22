@@ -197,6 +197,7 @@ def create_flyer():
         ], SOFT_PURPLE),
         ("Publish Ready", [
             "Export to PDF",
+            "Export to EPUB",
             "Professional layouts",
             "Submission tracking",
             "Print directly"

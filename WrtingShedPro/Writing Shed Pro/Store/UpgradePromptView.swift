@@ -41,7 +41,7 @@ struct UpgradePromptView: View {
             VStack(alignment: .leading, spacing: 8) {
                 benefitRow(icon: "infinity", text: "Unlimited projects")
                 benefitRow(icon: "doc.on.doc", text: "Unlimited files")
-                benefitRow(icon: "square.and.arrow.up", text: "Export to PDF, Word, RTF")
+                benefitRow(icon: "square.and.arrow.up", text: "Export to PDF, Word, RTF, EPUB")
                 benefitRow(icon: "printer", text: "Full printing support")
             }
             .padding()
