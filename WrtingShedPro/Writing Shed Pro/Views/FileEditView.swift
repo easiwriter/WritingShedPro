@@ -44,7 +44,6 @@ struct FileEditView: View {
     @State private var currentParagraphStyle: UIFont.TextStyle? = .body
     @State private var documentPicker: UIDocumentPickerViewController? // Strong reference for Mac Catalyst
     @State private var showFileImporter = false // For SwiftUI file importer
-    @State private var showDocumentPicker = false // For UIViewControllerRepresentable picker
     @State private var showImageSourcePicker = false // Show Photos vs Files chooser
     @State private var isPaginationMode = false // Toggle between edit and pagination preview modes
     @State private var showInvisibles = false // Toggle to show invisible characters (spaces, tabs, paragraph marks, page breaks)
@@ -1649,7 +1648,7 @@ struct FileEditView: View {
                 textViewCoordinator: textViewCoordinator,
                 dismiss: dismiss,
                 showPhotosPickerFromCoordinator: showPhotosPickerFromCoordinator,
-                showDocumentPicker: $showDocumentPicker,
+                showFilesPickerFromCoordinator: showIOSImagePicker,
                 insertNewComment: insertNewComment,
                 insertNewFootnote: insertNewFootnote,
                 showCommentsList: { showCommentsList = true }
@@ -2217,7 +2216,7 @@ struct FileEditView: View {
         let textViewCoordinator: TextViewCoordinator
         let dismiss: DismissAction
         let showPhotosPickerFromCoordinator: () -> Void
-        @Binding var showDocumentPicker: Bool
+        let showFilesPickerFromCoordinator: () -> Void
         let insertNewComment: () -> Void
         let insertNewFootnote: () -> Void
         let showCommentsList: () -> Void
@@ -2258,7 +2257,7 @@ struct FileEditView: View {
                         showPhotosPickerFromCoordinator()
                     }
                     Button("fileEdit.chooseImageSource.files") {
-                        showDocumentPicker = true
+                        showFilesPickerFromCoordinator()
                     }
                     Button("button.cancel", role: .cancel) {
                         showImageSourcePicker = false

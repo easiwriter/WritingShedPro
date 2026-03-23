@@ -663,6 +663,26 @@ struct FormattedTextEditor: UIViewRepresentable {
         var previousSelection: NSRange = NSRange(location: 0, length: 0)
         var previousTextLength: Int = 0  // Track text length to detect paste operations
         var currentZoomScale: CGFloat = 1.0
+
+        private func bodyStyleAttributesFallback() -> [NSAttributedString.Key: Any] {
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.alignment = .natural
+            paragraphStyle.lineHeightMultiple = 1.0
+
+            return [
+                .font: parent.font,
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: paragraphStyle,
+                .textStyle: UIFont.TextStyle.body.rawValue
+            ]
+        }
+
+        private func resolvedBodyStyleAttributes() -> [NSAttributedString.Key: Any] {
+            if let style = parent.project?.styleSheet?.style(named: UIFont.TextStyle.body.rawValue) {
+                return style.generateAttributes()
+            }
+            return bodyStyleAttributesFallback()
+        }
         
         init(_ parent: FormattedTextEditor) {
             self.parent = parent
@@ -688,6 +708,13 @@ struct FormattedTextEditor: UIViewRepresentable {
                 // Get the attributes at the current position
                 if range.location > 0, let attrText = textView.attributedText {
                     var attrs = attrText.attributes(at: range.location > 0 ? range.location - 1 : 0, effectiveRange: nil)
+
+                    // If Enter is pressed after an attachment (e.g., image), start a normal body paragraph.
+                    // Attachment attributes can carry non-body paragraph alignment/formatting.
+                    if attrs[.attachment] != nil {
+                        attrs = resolvedBodyStyleAttributes()
+                    }
+
                     var useFollowOnStyle = false
                     
                     if let styleName = attrs[.textStyle] as? String {
