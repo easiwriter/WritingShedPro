@@ -262,7 +262,7 @@ struct PlotElementRowView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "circle.grid.3x3")
                         .font(.footnote)
-                    Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage"))
+                    Text(stage.localizedName)
                         .font(.footnote)
                 }
                 .foregroundColor(.purple)

@@ -2180,6 +2180,9 @@
 "cover.removeImage" = "Remove Image";
 "cover.noCoverImage" = "No cover image";
 "cover.addImage" = "Add Cover Image";
+"cover.chooseSource.title" = "Choose Image Source";
+"cover.chooseSource.photos" = "Photo Library";
+"cover.chooseSource.files" = "Choose from Files";
 
 /* Drama Front Matter Settings */
 "drama.frontMatter.titlePage" = "Title Page";
@@ -2201,6 +2204,73 @@
 "button.cancel" = "Cancel";
 "button.save" = "Save";
 "button.done" = "Done";
+
+/* Missing static localization keys from code usage */
+"accessibility.cancel" = "Cancel";
+"button.close" = "Close";
+"button.remove" = "Remove";
+"common.untitled" = "Untitled";
+"drama.insertCharacterLocation" = "Insert Character or Location";
+"error.saveFailed" = "Failed to save changes";
+"export.format.finalDraft" = "Final Draft (.fdx)";
+"export.format.fountain" = "Fountain (Screenplay)";
+"export.markdown.error.conversion" = "Markdown conversion failed";
+"export.markdown.error.empty" = "No content to export";
+"fiction.plot.element.stage.threeAct.footer" = "Assign to an act";
+"fiction.scenes.unassigned" = "Unassigned";
+"fileEdit.findReplace.accessibility" = "Find and Replace";
+"fileList.print" = "Print";
+"headerFooter.accessibility" = "Edit headers and footers";
+"headerFooter.help" = "Edit page headers and footers";
+"import.accessibility" = "Import document";
+"import.error.noFolder" = "No Prose folder found";
+"import.error.title" = "Import Failed";
+"import.help" = "Import Word or Markdown document";
+"manuscript.error.noBodyMatterFiles" = "No body matter files to submit";
+"manuscript.export.formatTitle" = "Export Format";
+"plotStructure.fiveAct" = "5-Act Structure";
+"plotStructure.freeform" = "Freeform";
+"plotStructure.monomyth" = "Hero's Journey";
+"plotStructure.threeAct" = "3-Act Structure";
+"poemSection.dedication" = "Dedication";
+"poemSection.dedication.help" = "Dedication text - excluded from analysis";
+"poemSection.epigraph" = "Epigraph";
+"poemSection.epigraph.help" = "Quotation or motto - excluded from analysis";
+"poemSection.poem" = "Poem";
+"poemSection.poem.help" = "Main poem body - included in metrics analysis";
+"poemSection.signature" = "Signature";
+"poemSection.signature.help" = "Author attribution - excluded from analysis";
+"poemSection.stanzaNumber" = "Stanza Number";
+"poemSection.stanzaNumber.help" = "Stanza numbering - excluded from analysis";
+"poemSection.title" = "Title";
+"poemSection.title.help" = "Poem title - excluded from analysis";
+"poetryValidator.slantRhyme" = "Slant rhyme detected";
+"print.error.cancelled" = "Printing was cancelled";
+"print.error.failed" = "Print failed: %@";
+"print.error.noContent" = "No content to print";
+"print.error.notAvailable" = "Printing is not available";
+"print.error.unknown" = "Unknown error";
+"reference.reference.title" = "Reference";
+"sceneList.headerFooter.accessibility" = "Edit headers and footers";
+"sceneList.import.accessibility" = "Import document";
+"sceneList.search.accessibility" = "Search scenes";
+"search.accessibility" = "Search files";
+"search.help" = "Search and replace across all files";
+"section.collapse.hint" = "Tap to collapse";
+"section.expand.hint" = "Tap to expand";
+"submissions.create" = "Create submission";
+"submissions.deleteCount" = "Delete count";
+"submissions.submit" = "Submit to publication";
+"toolbar.imageStyle" = "Image style";
+"toolbar.insertTab" = "Insert tab";
+"toolbar.notes" = "Notes";
+"toolbar.paragraphStyle" = "Paragraph style";
+"version.delete" = "Delete version";
+"version.duplicate" = "Duplicate version";
+"version.next" = "Next version";
+"version.previous" = "Previous version";
+"workflow.picker.footer.multiple" = "Change status for files";
+"workflow.picker.footer.single" = "Change status for file";
 
 /* Back Matter Headings */
 "backMatter.notes.heading" = "Notes";
@@ -2748,7 +2818,7 @@
 "containerAssignment.unassigned" = "Unassigned";
 
 // MARK: - Offline Purchase Warning
-"purchases.offline.banner" = "No internet — purchases can't be verified. Your content will unlock when you reconnect.";
+"purchases.offline.banner" = "Purchase verification is temporarily unavailable. Your content will unlock automatically when verification resumes.";
 
 // Container type names (singular)
 "poetry.collection" = "Collection";

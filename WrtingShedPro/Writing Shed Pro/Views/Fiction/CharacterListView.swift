@@ -124,7 +124,7 @@ struct CharacterListView: View {
                     }
                 } header: {
                     if let archetype = group.archetype {
-                        Text(NSLocalizedString("archetype.\(archetype.rawValue)", comment: "Archetype name"))
+                        Text(archetype.localizedName)
                     } else {
                         Text(NSLocalizedString("fiction.characters.unassigned", comment: "Unassigned"))
                     }
@@ -190,7 +190,7 @@ struct CharacterRowView: View {
                 HStack(spacing: 4) {
                     Image(systemName: archetypeIcon(for: archetype))
                         .font(.footnote)
-                    Text(NSLocalizedString("archetype.\(archetype.rawValue)", comment: "Archetype"))
+                    Text(archetype.localizedName)
                         .font(.footnote)
                 }
                 .foregroundColor(.blue)

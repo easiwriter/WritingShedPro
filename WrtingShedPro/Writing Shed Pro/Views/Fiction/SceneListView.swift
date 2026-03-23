@@ -271,75 +271,64 @@ struct SceneListView: View {
         guard chapter == nil && act == nil && book == nil else { return nil }
 
         if isVerseNovel {
-            let books = project.books ?? []
-            guard !books.isEmpty else { return nil }
-
-            let currentSceneIDs: Set<UUID> = Set(sortedScenes.map { $0.id })
-            var groups: [SceneChapterGroup] = []
-
-            let sortedBooks: [Book] = books.sorted { (b0: Book, b1: Book) -> Bool in
-                let order0: Int = b0.userOrder ?? Int.max
-                let order1: Int = b1.userOrder ?? Int.max
-                if order0 != order1 { return order0 < order1 }
-                return (b0.name ?? "").localizedCaseInsensitiveCompare(b1.name ?? "") == .orderedAscending
-            }
-
-            for b in sortedBooks {
-                let bookScenes: [StoryScene] = sortedScenes.filter { (scene: StoryScene) -> Bool in
-                    scene.book?.id == b.id && currentSceneIDs.contains(scene.id)
-                }
-                if !bookScenes.isEmpty {
-                    groups.append(SceneChapterGroup(
-                        id: b.id.uuidString,
-                        name: b.name ?? fictionClass.chapterSingularName,
-                        scenes: bookScenes
-                    ))
-                }
-            }
-
-            let assignedSceneIDs: Set<UUID> = Set(groups.flatMap { (g: SceneChapterGroup) in g.scenes.map { $0.id } })
-            let unassignedScenes: [StoryScene] = sortedScenes.filter { (scene: StoryScene) -> Bool in !assignedSceneIDs.contains(scene.id) }
-            if !unassignedScenes.isEmpty {
-                groups.append(SceneChapterGroup(
-                    id: "__unassigned__",
-                    name: NSLocalizedString("fiction.episodes.unassigned", comment: "Unassigned"),
-                    scenes: unassignedScenes
-                ))
-            }
-
-            return groups.isEmpty ? nil : groups
+            return verseNovelChapterGroups()
         }
 
         let chapters = project.chapters ?? []
         guard !chapters.isEmpty else { return nil }
         
-        let currentSceneIDs: Set<UUID> = Set(sortedScenes.map { $0.id })
-        var groups: [SceneChapterGroup] = []
+        let sortedChapters: [Chapter] = sortChapters(chapters)
+        let groups: [SceneChapterGroup] = buildChapterGroups(from: sortedChapters)
         
-        // Sort chapters by userOrder, then by name
-        let sortedChapters: [Chapter] = chapters.sorted { (ch0: Chapter, ch1: Chapter) -> Bool in
+        var finalGroups = groups
+        addUnassignedChapterScenes(to: &finalGroups)
+        
+        return finalGroups.isEmpty ? nil : finalGroups
+    }
+    
+    /// Helper: Sort chapters by userOrder then name
+    private func sortChapters(_ chapters: [Chapter]) -> [Chapter] {
+        chapters.sorted { ch0, ch1 in
             let order0: Int = ch0.userOrder ?? Int.max
             let order1: Int = ch1.userOrder ?? Int.max
             if order0 != order1 { return order0 < order1 }
             return (ch0.name ?? "").localizedCaseInsensitiveCompare(ch1.name ?? "") == .orderedAscending
         }
+    }
+    
+    /// Helper: Build groups for chapters with their scenes
+    private func buildChapterGroups(from chapters: [Chapter]) -> [SceneChapterGroup] {
+        let currentSceneIDs: Set<UUID> = Set(sortedScenes.map { $0.id })
+        var groups: [SceneChapterGroup] = []
         
-        for ch in sortedChapters {
-            let chapterScenes: [StoryScene] = sortedScenes.filter { (scene: StoryScene) -> Bool in
-                scene.chapter?.id == ch.id && currentSceneIDs.contains(scene.id)
-            }
+        for chapter in chapters {
+            let chapterScenes = getScenesForChapter(chapter, currentSceneIDs: currentSceneIDs)
             if !chapterScenes.isEmpty {
                 groups.append(SceneChapterGroup(
-                    id: ch.id.uuidString,
-                    name: ch.name ?? fictionClass.chapterSingularName,
+                    id: chapter.id.uuidString,
+                    name: chapter.name ?? fictionClass.chapterSingularName,
                     scenes: chapterScenes
                 ))
             }
         }
         
-        // Add unassigned scenes (those not belonging to any chapter)
-        let assignedSceneIDs: Set<UUID> = Set(groups.flatMap { (g: SceneChapterGroup) in g.scenes.map { $0.id } })
-        let unassignedScenes: [StoryScene] = sortedScenes.filter { (scene: StoryScene) -> Bool in !assignedSceneIDs.contains(scene.id) }
+        return groups
+    }
+    
+    /// Helper: Get scenes matching a specific chapter
+    private func getScenesForChapter(_ chapter: Chapter, currentSceneIDs: Set<UUID>) -> [StoryScene] {
+        sortedScenes.filter { scene in
+            scene.chapter?.id == chapter.id && currentSceneIDs.contains(scene.id)
+        }
+    }
+    
+    /// Helper: Add unassigned scenes to groups
+    private func addUnassignedChapterScenes(to groups: inout [SceneChapterGroup]) {
+        let assignedSceneIDs: Set<UUID> = Set(groups.flatMap { $0.scenes.map { $0.id } })
+        let unassignedScenes: [StoryScene] = sortedScenes.filter { scene in
+            !assignedSceneIDs.contains(scene.id)
+        }
+        
         if !unassignedScenes.isEmpty {
             let unassignedKey: String = isVerseNovel ? "fiction.episodes.unassigned" : "fiction.scenes.unassigned"
             groups.append(SceneChapterGroup(
@@ -348,8 +337,6 @@ struct SceneListView: View {
                 scenes: unassignedScenes
             ))
         }
-        
-        return groups.isEmpty ? nil : groups
     }
     
     /// Groups scenes by their parent act for disclosure section display (Drama projects)
@@ -362,21 +349,32 @@ struct SceneListView: View {
         let acts = project.acts ?? []
         guard !acts.isEmpty else { return nil }
         
-        let currentSceneIDs: Set<UUID> = Set(sortedScenes.map { $0.id })
-        var groups: [SceneActGroup] = []
+        let sortedActs: [Act] = sortActs(acts)
+        let groups: [SceneActGroup] = buildActGroups(from: sortedActs)
         
-        // Sort acts by userOrder, then by name
-        let sortedActs: [Act] = acts.sorted { (a0: Act, a1: Act) -> Bool in
+        var finalGroups = groups
+        addUnassignedActScenes(to: &finalGroups)
+        
+        return finalGroups.isEmpty ? nil : finalGroups
+    }
+    
+    /// Helper: Sort acts by userOrder then name
+    private func sortActs(_ acts: [Act]) -> [Act] {
+        acts.sorted { a0, a1 in
             let order0: Int = a0.userOrder ?? Int.max
             let order1: Int = a1.userOrder ?? Int.max
             if order0 != order1 { return order0 < order1 }
             return (a0.name ?? "").localizedCaseInsensitiveCompare(a1.name ?? "") == .orderedAscending
         }
+    }
+    
+    /// Helper: Build groups for acts with their scenes
+    private func buildActGroups(from acts: [Act]) -> [SceneActGroup] {
+        let currentSceneIDs: Set<UUID> = Set(sortedScenes.map { $0.id })
+        var groups: [SceneActGroup] = []
         
-        for a in sortedActs {
-            let actScenes: [StoryScene] = sortedScenes.filter { (scene: StoryScene) -> Bool in
-                scene.act?.id == a.id && currentSceneIDs.contains(scene.id)
-            }
+        for a in acts {
+            let actScenes = getScenesForAct(a, currentSceneIDs: currentSceneIDs)
             if !actScenes.isEmpty {
                 groups.append(SceneActGroup(
                     id: a.id.uuidString,
@@ -386,9 +384,23 @@ struct SceneListView: View {
             }
         }
         
-        // Add unassigned scenes (those not belonging to any act)
-        let assignedSceneIDs: Set<UUID> = Set(groups.flatMap { (g: SceneActGroup) in g.scenes.map { $0.id } })
-        let unassignedScenes: [StoryScene] = sortedScenes.filter { (scene: StoryScene) -> Bool in !assignedSceneIDs.contains(scene.id) }
+        return groups
+    }
+    
+    /// Helper: Get scenes matching a specific act
+    private func getScenesForAct(_ act: Act, currentSceneIDs: Set<UUID>) -> [StoryScene] {
+        sortedScenes.filter { scene in
+            scene.act?.id == act.id && currentSceneIDs.contains(scene.id)
+        }
+    }
+    
+    /// Helper: Add unassigned scenes to act groups
+    private func addUnassignedActScenes(to groups: inout [SceneActGroup]) {
+        let assignedSceneIDs: Set<UUID> = Set(groups.flatMap { $0.scenes.map { $0.id } })
+        let unassignedScenes: [StoryScene] = sortedScenes.filter { scene in
+            !assignedSceneIDs.contains(scene.id)
+        }
+        
         if !unassignedScenes.isEmpty {
             groups.append(SceneActGroup(
                 id: "__unassigned__",
@@ -396,8 +408,71 @@ struct SceneListView: View {
                 scenes: unassignedScenes
             ))
         }
+    }
+
+    private func verseNovelChapterGroups() -> [SceneChapterGroup]? {
+        let books = project.books ?? []
+        guard !books.isEmpty else { return nil }
+
+        let sortedBooks: [Book] = sortBooks(books)
+        let groups: [SceneChapterGroup] = buildVerseNovelGroups(from: sortedBooks)
         
-        return groups.isEmpty ? nil : groups
+        var finalGroups = groups
+        addUnassignedVerseNovelScenes(to: &finalGroups)
+        
+        return finalGroups.isEmpty ? nil : finalGroups
+    }
+    
+    /// Helper: Sort books by userOrder then name
+    private func sortBooks(_ books: [Book]) -> [Book] {
+        books.sorted { b0, b1 in
+            let order0: Int = b0.userOrder ?? Int.max
+            let order1: Int = b1.userOrder ?? Int.max
+            if order0 != order1 { return order0 < order1 }
+            return (b0.name ?? "").localizedCaseInsensitiveCompare(b1.name ?? "") == .orderedAscending
+        }
+    }
+    
+    /// Helper: Build groups for books with their scenes
+    private func buildVerseNovelGroups(from books: [Book]) -> [SceneChapterGroup] {
+        let currentSceneIDs: Set<UUID> = Set(sortedScenes.map { $0.id })
+        var groups: [SceneChapterGroup] = []
+        
+        for book in books {
+            let bookScenes = getScenesForBook(book, currentSceneIDs: currentSceneIDs)
+            if !bookScenes.isEmpty {
+                groups.append(SceneChapterGroup(
+                    id: book.id.uuidString,
+                    name: book.name ?? fictionClass.chapterSingularName,
+                    scenes: bookScenes
+                ))
+            }
+        }
+        
+        return groups
+    }
+    
+    /// Helper: Get scenes matching a specific book
+    private func getScenesForBook(_ book: Book, currentSceneIDs: Set<UUID>) -> [StoryScene] {
+        sortedScenes.filter { scene in
+            scene.book?.id == book.id && currentSceneIDs.contains(scene.id)
+        }
+    }
+    
+    /// Helper: Add unassigned scenes to verse novel groups
+    private func addUnassignedVerseNovelScenes(to groups: inout [SceneChapterGroup]) {
+        let assignedSceneIDs: Set<UUID> = Set(groups.flatMap { $0.scenes.map { $0.id } })
+        let unassignedScenes: [StoryScene] = sortedScenes.filter { scene in
+            !assignedSceneIDs.contains(scene.id)
+        }
+        
+        if !unassignedScenes.isEmpty {
+            groups.append(SceneChapterGroup(
+                id: "__unassigned__",
+                name: NSLocalizedString("fiction.episodes.unassigned", comment: "Unassigned"),
+                scenes: unassignedScenes
+            ))
+        }
     }
     
     // MARK: - Body
@@ -1518,6 +1593,11 @@ struct SceneListView: View {
             if let formattedData = currentVersion.formattedContent,
                let newVersion = newFile.currentVersion {
                 newVersion.formattedContent = formattedData
+            }
+
+            if let newVersion = newFile.currentVersion {
+                newVersion.comment = currentVersion.comment
+                newVersion.notes = currentVersion.notes
             }
             
             if let refMetadata = currentVersion.referenceMetadataData,

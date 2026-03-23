@@ -1300,6 +1300,11 @@ struct ProseListView: View {
                let newVersion = newFile.currentVersion {
                 newVersion.formattedContent = formattedData
             }
+
+            if let newVersion = newFile.currentVersion {
+                newVersion.comment = currentVersion.comment
+                newVersion.notes = currentVersion.notes
+            }
             
             if let refMetadata = currentVersion.referenceMetadataData,
                let newVersion = newFile.currentVersion {

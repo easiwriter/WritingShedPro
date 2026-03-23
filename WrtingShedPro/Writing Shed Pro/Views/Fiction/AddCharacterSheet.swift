@@ -65,7 +65,7 @@ struct AddCharacterSheet: View {
                             }
                         } label: {
                             HStack {
-                                Text(NSLocalizedString("archetype.\(archetype.rawValue)", comment: "Archetype name"))
+                                Text(archetype.localizedName)
                                     .foregroundColor(.primary)
                                 Spacer()
                                 if selectedArchetypes.contains(archetype) {
@@ -78,7 +78,7 @@ struct AddCharacterSheet: View {
                     
                     if !selectedArchetypes.isEmpty {
                         let sorted = selectedArchetypes.sorted { $0.rawValue < $1.rawValue }
-                        Text(sorted.map { NSLocalizedString("archetype.\($0.rawValue)", comment: "") }.joined(separator: ", "))
+                        Text(sorted.map { $0.localizedName }.joined(separator: ", "))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }

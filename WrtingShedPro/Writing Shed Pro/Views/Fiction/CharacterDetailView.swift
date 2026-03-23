@@ -109,9 +109,9 @@ struct CharacterDetailView: View {
             Section {
                 ForEach(character.archetypes, id: \.self) { archetype in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("archetype.\(archetype.rawValue)", comment: "Archetype"))
+                        Text(archetype.localizedName)
                             .font(.body)
-                        Text(NSLocalizedString("archetype.\(archetype.rawValue).description", comment: "Description"))
+                        Text(archetype.description)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -227,7 +227,7 @@ struct CharacterDetailView: View {
                     }
                 } label: {
                     HStack {
-                        Text(NSLocalizedString("archetype.\(archetype.rawValue)", comment: "Archetype"))
+                        Text(archetype.localizedName)
                             .foregroundColor(.primary)
                         Spacer()
                         if editArchetypes.contains(archetype) {
@@ -240,7 +240,7 @@ struct CharacterDetailView: View {
             
             if !editArchetypes.isEmpty {
                 let sorted = editArchetypes.sorted { $0.rawValue < $1.rawValue }
-                Text(sorted.map { NSLocalizedString("archetype.\($0.rawValue)", comment: "") }.joined(separator: ", "))
+                Text(sorted.map { $0.localizedName }.joined(separator: ", "))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

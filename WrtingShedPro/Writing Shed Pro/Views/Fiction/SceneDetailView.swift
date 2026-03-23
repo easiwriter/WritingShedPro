@@ -244,7 +244,7 @@ struct SceneDetailView: View {
                 Text(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
             }
             if let stage = element.monomythStage {
-                Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
+                Text(stage.localizedName)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -256,10 +256,10 @@ struct SceneDetailView: View {
         if let stage = scene.monomythStage {
             Section {
                 LabeledContent(NSLocalizedString("fiction.scene.monomythStage", comment: "Stage")) {
-                    Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
+                    Text(stage.localizedName)
                 }
 
-                Text(NSLocalizedString("monomyth.\(stage.rawValue).description", comment: "Description"))
+                Text(stage.description)
                     .font(.caption)
                     .foregroundColor(.secondary)
             } header: {

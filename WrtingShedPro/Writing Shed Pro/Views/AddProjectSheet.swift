@@ -34,7 +34,7 @@ struct AddProjectSheet: View {
                         }
                     Picker(NSLocalizedString("addProject.type", comment: "Field label for project type"), selection: $selectedType) {
                         ForEach(ProjectType.allCases, id: \.self) { type in
-                            Text(NSLocalizedString("projectType.\(type.rawValue)", comment: "Project type")).tag(type)
+                            Text(type.localizedName).tag(type)
                         }
                     }
                     .accessibilityLabel(NSLocalizedString("addProject.typeAccessibility", comment: "Accessibility label for project type picker"))
@@ -43,7 +43,7 @@ struct AddProjectSheet: View {
                     if selectedType == .fiction {
                         Picker(NSLocalizedString("fictionClass.label", comment: "Label for fiction class picker"), selection: $selectedFictionClass) {
                             ForEach(FictionClass.allCases, id: \.self) { fictionClass in
-                                Text(NSLocalizedString("fictionClass.\(fictionClass.rawValue)", comment: "Fiction class name")).tag(fictionClass)
+                                Text(fictionClass.localizedName).tag(fictionClass)
                             }
                         }
                         .accessibilityLabel(NSLocalizedString("fictionClass.accessibilityLabel", comment: "Accessibility label for fiction class picker"))
@@ -189,10 +189,10 @@ struct AddProjectSheet: View {
         )
         
         if let sheets = try? modelContext.fetch(descriptor) {
-            availableStyleSheets = sheets
+            availableStyleSheets = StyleSheetService.uniqueStyleSheets(from: sheets)
             
             // Select default stylesheet by default
-            selectedStyleSheet = sheets.first(where: { $0.isSystemStyleSheet })
+            selectedStyleSheet = availableStyleSheets.first(where: { $0.isSystemStyleSheet })
         }
     }
 }

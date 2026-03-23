@@ -63,11 +63,11 @@ struct CharacterQuickView: View {
                 .font(.headline)
                 .foregroundStyle(.secondary)
             
-            Text(NSLocalizedString("archetype.\(archetype.rawValue)", comment: "Archetype"))
+            Text(archetype.localizedName)
                 .font(.title3)
                 .fontWeight(.medium)
             
-            Text(NSLocalizedString("archetype.\(archetype.rawValue).description", comment: "Description"))
+            Text(archetype.description)
                 .font(.body)
                 .foregroundStyle(.secondary)
         }
