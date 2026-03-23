@@ -20,6 +20,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     // Store URL delivered at cold-launch so ContentView can consume it in onAppear/task.
     private(set) var pendingOpenURL: URL?
+    private var lastLoggedRemoteNotificationToken: String?
 
     func consumePendingOpenURL() -> URL? {
         defer { pendingOpenURL = nil }
@@ -56,6 +57,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+        guard token != lastLoggedRemoteNotificationToken else { return }
+        lastLoggedRemoteNotificationToken = token
         print("✅ [AppDelegate] Remote notification token: \(token.prefix(16))…")
     }
     
