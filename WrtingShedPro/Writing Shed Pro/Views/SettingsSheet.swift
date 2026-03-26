@@ -87,7 +87,7 @@ struct SettingsSheet: View {
                         isPresented = false
                         state.showSyncDiagnostics = true
                     } label: {
-                        Label("Sync Diagnostics (Release)", systemImage: "arrow.triangle.2.circlepath")
+                        Label("Sync Diagnostics", systemImage: "arrow.triangle.2.circlepath")
                     }
                     
                     Button {

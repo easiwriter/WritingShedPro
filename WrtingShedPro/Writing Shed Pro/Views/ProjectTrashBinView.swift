@@ -69,8 +69,7 @@ struct ProjectTrashBinView: View {
                 Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
                 Button(NSLocalizedString("projectTrash.putBack", comment: "Put Back")) {
                     for project in projectsToPutBack {
-                        project.isTrashed = false
-                        project.deletedDate = nil
+                        DeduplicationService.restoreProjectFamily(project, context: modelContext)
                     }
                     try? modelContext.save()
                     selectedProjectIDs.removeAll()
@@ -80,7 +79,7 @@ struct ProjectTrashBinView: View {
                 Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
                 Button(NSLocalizedString("projectTrash.deleteForever", comment: "Delete Forever"), role: .destructive) {
                     for project in projectsToDelete {
-                        modelContext.delete(project)
+                        DeduplicationService.permanentlyDeleteProjectFamily(project, context: modelContext)
                     }
                     try? modelContext.save()
                     selectedProjectIDs.removeAll()

@@ -46,24 +46,8 @@ struct ProjectDetailView: View {
         }
     }
     
-    private func validateAndUpdateName(_ newName: String) {
-        // Validate name
-        do {
-            try NameValidator.validateProjectName(newName)
-        } catch {
-            errorMessage = error.localizedDescription
-            showErrorAlert = true
-            return
-        }
-        
-        // Update name if valid
-        project.name = newName
-        project.modifiedDate = Date()
-    }
-    
     private func deleteProject() {
-        project.isTrashed = true
-        project.deletedDate = Date()
+        DeduplicationService.trashProjectFamily(project, context: modelContext, deletedAt: Date())
         try? modelContext.save()
         dismiss()
     }
@@ -90,6 +74,13 @@ struct ProjectInfoSheet: View {
     @State private var originalStyleSheet: StyleSheet?
     @State private var hasInitialized = false
     @State private var nameValidationError = ""
+
+    private var uniqueStyleSheets: [StyleSheet] {
+        StyleSheetService.uniqueStyleSheets(
+            from: allStyleSheets,
+            preferredSheetID: selectedStyleSheet?.id ?? project.styleSheet?.id
+        )
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -258,7 +249,7 @@ struct ProjectInfoSheet: View {
             Text(NSLocalizedString("projectDetail.stylesheet", comment: "Field label for stylesheet"))
             Spacer()
             Picker("projectDetail.stylesheet.picker", selection: $selectedStyleSheet) {
-                ForEach(allStyleSheets, id: \.id) { sheet in
+                ForEach(uniqueStyleSheets, id: \.id) { sheet in
                     HStack {
                         Text(sheet.name)
                         if sheet.isSystemStyleSheet {
@@ -345,11 +336,7 @@ struct ProjectInfoSheet: View {
             return
         }
         
-        let isDuplicate: Bool = allProjects.contains { (otherProject: Project) -> Bool in
-            guard otherProject.id != project.id else { return false }
-            let otherName: String = (otherProject.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            return otherName.lowercased() == trimmedName.lowercased()
-        }
+        let isDuplicate = DeduplicationService.hasProjectNameConflict(trimmedName, in: allProjects, excluding: project)
         
         if isDuplicate {
             nameValidationError = NSLocalizedString("validation.duplicateProjectName", comment: "Error when project name already exists")

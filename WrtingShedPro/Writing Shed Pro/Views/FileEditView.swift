@@ -26,6 +26,10 @@ struct FileEditView: View {
     @State private var saveDebounceTimer: Timer?  // Debounce saves to reduce I/O
     @State private var endnoteCleanupTimer: Timer?  // Debounce endnote cleanup
     @State private var validationBadgeTimer: Timer?  // Debounce poetry validation
+    /// True when the loaded content has U+FFFC placeholders but the corresponding
+    /// ImageAttachments are missing from formattedContent (CloudKit sync incomplete).
+    /// While set, saves are suppressed to avoid overwriting the phone's full content.
+    @State private var hasMissingAttachments = false
     @State private var presentDeleteAlert = false
     @State private var isPerformingUndoRedo = false
     @State private var refreshTrigger = UUID()
@@ -1412,9 +1416,9 @@ struct FileEditView: View {
     }
     
     /// Whether this file should use the poetry editor
-    /// True for Poetry project files OR files with a poetry form (e.g., Verse Novel episodes)
+    /// True for Poetry project files, files with a poetry form, or Verse Novel episodes
     private var isPoetryProject: Bool {
-        file.project?.type == .poetry || file.poetryFormId != nil
+        file.project?.type == .poetry || file.poetryFormId != nil || file.project?.fictionClass == .verseNovel
     }
     
     /// Whether this file belongs to a Drama project
@@ -1575,7 +1579,17 @@ struct FileEditView: View {
                 }
             }
         }
-        .sheet(isPresented: $showStylePicker) {
+        .sheet(isPresented: $showStylePicker, onDismiss: {
+            // Force the text view to re-render after the style picker sheet dismisses.
+            // reapplyAllStyles() may have run while the text view was behind the sheet,
+            // preventing setNeedsDisplay from triggering a visible redraw.
+            textViewCoordinator.modifyTypingAttributes { textView in
+                textView.textStorage.setAttributedString(attributedContent)
+                textView.layoutManager.invalidateLayout(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length), actualCharacterRange: nil)
+                textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                textView.setNeedsDisplay()
+            }
+        }) {
             StylePickerSheet(
                 currentStyle: $currentParagraphStyle,
                 onStyleSelected: { style in
@@ -2345,6 +2359,25 @@ struct FileEditView: View {
             previousContent = attributedContent.string
             previousAttributedContent = processedContent  // Cache for undo without expensive DB fetch
             
+            // Detect incomplete CloudKit sync: plain text has U+FFFC attachment
+            // placeholders but the decoded attributed content has no ImageAttachments.
+            // This happens when the phone's formattedContent (with base64 image data)
+            // hasn't been exported/imported yet. Suppress saves until sync delivers it
+            // or the user makes an intentional edit.
+            let placeholderCount = processedContent.string.filter { $0 == "\u{FFFC}" }.count
+            if placeholderCount > 0 {
+                var imageAttachmentCount = 0
+                processedContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: processedContent.length), options: []) { value, _, _ in
+                    if value is ImageAttachment { imageAttachmentCount += 1 }
+                }
+                if imageAttachmentCount < placeholderCount {
+                    hasMissingAttachments = true
+                    #if DEBUG
+                    print("⚠️ [FileEditView] Detected \(placeholderCount) U+FFFC placeholder(s) but only \(imageAttachmentCount) ImageAttachment(s) — suppressing saves until sync completes or user edits")
+                    #endif
+                }
+            }
+            
             // CRITICAL: Restore orphaned comment markers from database
             // Comments created before we added serialization support need to be re-inserted
             restoreOrphanedCommentMarkers()
@@ -2459,14 +2492,18 @@ struct FileEditView: View {
                 let isLegacyRTF = file.currentVersion?.formattedContent != nil && 
                                   !AttributedStringSerializer.isJSONFormat(file.currentVersion?.formattedContent)
                 
-                if !isLegacyRTF {
+                if !isLegacyRTF && !hasMissingAttachments {
                     #if DEBUG
                     print("📝 onAppear: Reapplying styles to pick up any changes")
                     #endif
                     reapplyAllStyles(registerUndo: false)  // Don't register undo for initial load
                 } else {
                     #if DEBUG
-                    print("📝 onAppear: Skipping style reapply for legacy RTF document (preserves direct formatting)")
+                    if hasMissingAttachments {
+                        print("📝 onAppear: Skipping style reapply — content has missing attachments (CloudKit sync incomplete)")
+                    } else {
+                        print("📝 onAppear: Skipping style reapply for legacy RTF document (preserves direct formatting)")
+                    }
                     #endif
                 }
                 
@@ -2844,6 +2881,16 @@ struct FileEditView: View {
             print("🔄 Skipping - performing undo/redo")
             #endif
             return
+        }
+        
+        // If the user is intentionally editing, clear the missing-attachment guard.
+        // An actual text change (not just style reapply) means the user is actively
+        // working in this file, so saving their edits is correct.
+        if hasMissingAttachments {
+            hasMissingAttachments = false
+            #if DEBUG
+            print("✅ [FileEditView] User edited content — clearing hasMissingAttachments, saves re-enabled")
+            #endif
         }
         
         // Skip during batch replace - undo will be handled manually
@@ -7729,6 +7776,16 @@ struct FileEditView: View {
     }
     
     private func saveChanges() {
+        // IMPORTANT: Do NOT save if formattedContent is incomplete from CloudKit sync.
+        // The decoded content is missing image attachments that exist on another device.
+        // Saving would overwrite the phone's complete formattedContent with a stripped version.
+        if hasMissingAttachments {
+            #if DEBUG
+            print("⚠️ [FileEditView] saveChanges skipped — hasMissingAttachments is true (CloudKit sync incomplete)")
+            #endif
+            return
+        }
+        
         // IMPORTANT: Do NOT save while previewing in alternate format!
         // The textView contains converted preview content, not the actual file content.
         // Saving now would corrupt the file by overwriting the original with preview content.

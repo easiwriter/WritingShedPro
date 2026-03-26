@@ -233,7 +233,12 @@ struct ContentView: View {
 
         let throttler = CloudKitSyncThrottler.shared
         let now = Date()
-        let lastEvent = throttler.lastSyncTime ?? .distantPast
+        guard let lastEvent = throttler.mostRecentActivityTime else {
+            #if DEBUG
+            print("⏳ [ContentView] Sync watchdog: no CloudKit activity recorded yet, skipping proactive sync actions")
+            #endif
+            return
+        }
         let secondsSinceEvent = now.timeIntervalSince(lastEvent)
 
         if throttler.hasActiveCloudKitEvent {
@@ -258,6 +263,15 @@ struct ContentView: View {
         }
 
         guard secondsSinceEvent >= 180 else {
+            // Export stall recovery: if the rate-limit has expired and export hasn't
+            // completed yet, a modelContext.save() nudges the mirroring delegate to
+            // re-check for pending changes and restart the export cycle.
+            if !throttler.exportCompleted && !throttler.isRateLimited && !throttler.exportInProgress && secondsSinceEvent >= 60 {
+                #if DEBUG
+                print("🔄 [ContentView] Sync watchdog: export not complete and rate-limit expired — nudging export via save()")
+                #endif
+                do { try modelContext.save() } catch { }
+            }
             #if DEBUG
             print("✅ [ContentView] Sync watchdog: recent CloudKit activity (\(Int(secondsSinceEvent))s ago), no action")
             #endif
@@ -290,45 +304,46 @@ struct ContentView: View {
         lastForegroundSyncDate = now
     }
 
-    /// Automatically normalize active project userOrder values when collisions are detected.
-    /// This runs only when CloudKit is idle and is rate-limited to avoid write churn.
+    /// Assign userOrder to projects that don't have one yet.
+    /// CRITICAL: Never overwrite existing userOrder values — they may have been
+    /// set by the user on another device and synced via CloudKit. Overwriting
+    /// causes a ping-pong effect where each device renumbers independently.
     private func autoNormalizeProjectOrderIfNeeded() {
         let throttler = CloudKitSyncThrottler.shared
         guard !throttler.hasActiveCloudKitEvent && !throttler.isSyncing else { return }
+        guard throttler.importCompleted else { return }
+        guard !throttler.isRateLimited else { return }
 
         let now = Date()
-        guard now.timeIntervalSince(lastAutoOrderNormalizationDate) > 300 else { return }
+        guard now.timeIntervalSince(lastAutoOrderNormalizationDate) > 600 else { return }
 
-        let activeProjects = ProjectSortService.sortProjects(
-            projects.filter { !$0.isTrashed },
-            by: .byUserOrder
-        )
+        let activeProjects = projects.filter { !$0.isTrashed }
         guard !activeProjects.isEmpty else { return }
 
-        var seenOrders = Set<Int>()
-        var hasCollisionOrMissingOrder = false
-        for project in activeProjects {
-            guard let order = project.userOrder else {
-                hasCollisionOrMissingOrder = true
-                break
-            }
-            if !seenOrders.insert(order).inserted {
-                hasCollisionOrMissingOrder = true
-                break
-            }
+        // Only touch projects that have nil userOrder — never overwrite synced values
+        let unordered = activeProjects.filter { $0.userOrder == nil }
+        guard !unordered.isEmpty else { return }
+
+        // Find the next available order slot (after all existing ordered projects)
+        let maxExisting = activeProjects.compactMap(\.userOrder).max() ?? -1
+        var nextOrder = maxExisting + 1
+        var changedCount = 0
+
+        // Sort unordered projects by creation date so they appear in a sensible order
+        let sortedUnordered = unordered.sorted {
+            ($0.creationDate ?? .distantPast) < ($1.creationDate ?? .distantPast)
         }
-
-        guard hasCollisionOrMissingOrder else { return }
-
-        for (index, project) in activeProjects.enumerated() {
-            project.userOrder = index
+        for project in sortedUnordered {
+            project.userOrder = nextOrder
+            nextOrder += 1
+            changedCount += 1
         }
 
         do {
             try modelContext.save()
             lastAutoOrderNormalizationDate = now
             #if DEBUG
-            print("✅ [ContentView] Auto-normalized userOrder for \(activeProjects.count) active projects")
+            print("✅ [ContentView] Assigned userOrder to \(changedCount) new project(s), starting at \(maxExisting + 1)")
             #endif
         } catch {
             #if DEBUG
@@ -377,6 +392,19 @@ struct ContentView: View {
     ///   a) the active project count differs, OR
     ///   b) any project's name in @Query doesn't match what's in the store.
     private func reconcileProjectListIfNeeded() {
+        // Only run zombie cleanup when exports can actually propagate — otherwise
+        // we generate local deletes that queue exports and deepen rate-limiting.
+        if !CloudKitSyncThrottler.shared.isRateLimited {
+            let zombies = DeduplicationService.deleteZombieProjects(context: modelContext)
+            if zombies > 0 {
+                #if DEBUG
+                print("🪦 [ContentView] Reconcile: removed \(zombies) zombie project(s)")
+                #endif
+                refreshTrigger.toggle()
+                return
+            }
+        }
+
         let freshContext = ModelContext(modelContext.container)
         let descriptor = FetchDescriptor<Project>()
         guard let allProjects = try? freshContext.fetch(descriptor) else { return }
@@ -505,41 +533,57 @@ struct ContentView: View {
             return
         }
         
+        // Use CKFetchDatabaseChangesOperation to discover which zones have
+        // pending changes, then fetch only those zones incrementally (without
+        // clearing the server change token). This avoids the -1017 "cannot
+        // parse response" failures that occur when a nil token forces a full
+        // zone download on large databases.
         let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
         let database = ckContainer.privateCloudDatabase
         
-        database.fetchAllRecordZones { zones, error in
-            guard let zones = zones, !zones.isEmpty else {
+        let dbChangesOp = CKFetchDatabaseChangesOperation(previousServerChangeToken: nil)
+        var changedZoneIDs: [CKRecordZone.ID] = []
+        
+        dbChangesOp.recordZoneWithIDChangedBlock = { zoneID in
+            changedZoneIDs.append(zoneID)
+        }
+        
+        dbChangesOp.fetchDatabaseChangesResultBlock = { result in
+            switch result {
+            case .failure(let err):
                 #if DEBUG
-                print("⚠️ [ContentView] forceCloudKitImport: no zones or error: \(error?.localizedDescription ?? "nil")")
+                print("⚠️ [ContentView] forceCloudKitImport: database changes fetch error: \(err.localizedDescription)")
                 #endif
                 return
+            case .success:
+                break
             }
             
+            // If no specific zones reported changes, fall back to the
+            // well-known CoreData CloudKit zone so we still nudge the daemon.
+            if changedZoneIDs.isEmpty {
+                let coreDataZoneID = CKRecordZone.ID(
+                    zoneName: "com.apple.coredata.cloudkit.zone",
+                    ownerName: CKCurrentUserDefaultName
+                )
+                changedZoneIDs = [coreDataZoneID]
+            }
+
             #if DEBUG
-            print("🔄 [ContentView] forceCloudKitImport: fetching changes from \(zones.count) zone(s)")
+            print("🔄 [ContentView] forceCloudKitImport: fetching changes from \(changedZoneIDs.count) zone(s)")
             #endif
-            
-            // Build per-zone configs — passing nil for the server change token
-            // forces a full fetch from the server which is exactly what we need
-            // to wake up the mirroring engine.
-            var configs = [CKRecordZone.ID: CKFetchRecordZoneChangesOperation.ZoneConfiguration]()
-            for zone in zones {
-                let config = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
-                config.previousServerChangeToken = nil   // full fetch
-                configs[zone.zoneID] = config
-            }
-            
-            let operation = CKFetchRecordZoneChangesOperation(
-                recordZoneIDs: zones.map(\.zoneID),
-                configurationsByRecordZoneID: configs
+
+            // Fetch zone changes WITHOUT clearing previousServerChangeToken.
+            // Omitting per-zone configs lets CloudKit use the container's own
+            // stored tokens for an incremental (not full) fetch.
+            let fetchOp = CKFetchRecordZoneChangesOperation(
+                recordZoneIDs: changedZoneIDs,
+                configurationsByRecordZoneID: nil
             )
-            
-            // We don't process results ourselves — NSPersistentCloudKitContainer will
-            // react to the daemon activity and import the records.
-            operation.fetchRecordZoneChangesResultBlock = { result in
+
+            fetchOp.fetchRecordZoneChangesResultBlock = { fetchResult in
                 #if DEBUG
-                switch result {
+                switch fetchResult {
                 case .success:
                     print("✅ [ContentView] forceCloudKitImport: zone fetch completed — daemon should trigger import")
                 case .failure(let err):
@@ -548,9 +592,12 @@ struct ContentView: View {
                 #endif
             }
             
-            operation.qualityOfService = .userInitiated
-            database.add(operation)
+            fetchOp.qualityOfService = .userInitiated
+            database.add(fetchOp)
         }
+        
+        dbChangesOp.qualityOfService = .userInitiated
+        database.add(dbChangesOp)
     }
 
     private func showSyncRecoveryBannerTemporarily() {
@@ -617,37 +664,58 @@ struct ContentView: View {
             // On first launch / fresh database, CloudKit fires rapid notifications
             // as it imports records. We must not mutate those records during import.
             var waitCycles = 0
-            let maxWait = 30  // Up to 30 seconds
+            // On a relaunch with existing data, the import end-event often arrives
+            // very late (or never) because there is nothing to import.  Use a short
+            // timeout so we don't block migrations for 30s on every relaunch.
+            let isFreshDatabase = projects.isEmpty
+            let maxWait = isFreshDatabase ? 30 : 5  // fresh install: 30s, relaunch: 5s
             
             // Give CloudKit a moment to START syncing before we check
             try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
             
-            // If sync is active, wait for it to settle
-            while throttler.isSyncing && waitCycles < maxWait {
+            // Wait for sync burst to settle AND for import to complete.
+            // isSyncing alone clears after 1.5s of quiet, but import may still
+            // be in progress between notification batches.
+            while (throttler.isSyncing || throttler.hasActiveCloudKitEvent) && waitCycles < maxWait {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)  // 1 second
                 waitCycles += 1
                 #if DEBUG
                 if waitCycles % 5 == 0 {
-                    print("⏳ [ContentView] Waiting for CloudKit sync to settle before migration... (\(waitCycles)s)")
+                    print("⏳ [ContentView] Waiting for CloudKit sync to settle before migration... (\(waitCycles)s, isSyncing=\(throttler.isSyncing), activeEvent=\(throttler.hasActiveCloudKitEvent), fresh=\(isFreshDatabase))")
                 }
                 #endif
             }
             
+            let importConfirmed = throttler.importCompleted && throttler.importSucceeded
+            
             #if DEBUG
             if waitCycles > 0 {
-                print("✅ [ContentView] CloudKit sync settled after \(waitCycles)s, running migrations")
+                print("✅ [ContentView] CloudKit sync settled after \(waitCycles)s, importConfirmed=\(importConfirmed), running migrations")
             } else {
-                print("✅ [ContentView] No active sync detected, running migrations immediately")
+                print("✅ [ContentView] No active sync detected, importConfirmed=\(importConfirmed), running migrations immediately")
             }
             #endif
             
-            // Now safe to run migrations
-            MigrationService.runMigrations(context: modelContext)
+            // Pass importConfirmed so migrations can skip destructive operations
+            // when CloudKit relationships may still be arriving.
+            MigrationService.runMigrations(context: modelContext, importConfirmed: importConfirmed)
 
             // IMPORTANT: Do not auto-delete "duplicate" projects on launch.
             // CloudKit may temporarily surface same-name records during staggered
             // relationship sync and automatic name-based deletion can remove valid
             // newly imported projects. Deduplication remains available from diagnostics.
+
+            // After import, delete any zombie projects that match tombstones
+            // (projects the user permanently deleted but CloudKit re-imported).
+            // Skip while rate-limited — deletes queue exports that deepen the backoff.
+            if importConfirmed && !throttler.isRateLimited {
+                let zombies = DeduplicationService.deleteZombieProjects(context: modelContext)
+                #if DEBUG
+                if zombies > 0 {
+                    print("🪦 [ContentView] Cleaned up \(zombies) zombie project(s) after import")
+                }
+                #endif
+            }
         }
     }
     
@@ -859,13 +927,14 @@ struct ContentView: View {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
 
             var waitCycles = 0
-            let maxWait = 30  // up to 30 seconds
+            let isFreshDatabase = projects.isEmpty
+            let maxWait = isFreshDatabase ? 30 : 5  // fresh install: 30s, relaunch: 5s
             while (throttler.hasActiveCloudKitEvent || throttler.isSyncing) && waitCycles < maxWait {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 waitCycles += 1
                 #if DEBUG
                 if waitCycles % 5 == 0 {
-                    print("⏳ [ContentView] Waiting for CloudKit to settle before stylesheet init... (\(waitCycles)s)")
+                    print("⏳ [ContentView] Waiting for CloudKit to settle before stylesheet init... (\(waitCycles)s, fresh=\(isFreshDatabase))")
                 }
                 #endif
             }
@@ -1029,6 +1098,12 @@ struct ContentView: View {
                     
                     // Perform import
                     let project = try jsonImporter.importFromJSON(fileURL: fileURL)
+                    
+                    // Clear any tombstone for this project name+type so zombie
+                    // cleanup doesn't immediately delete the freshly imported project.
+                    if let name = project.name {
+                        DeduplicationService.clearTombstone(name: name, typeRaw: project.typeRaw)
+                    }
                     
                     #if DEBUG
                     print("[ContentView] JSON import succeeded: \(project.name ?? "Untitled")")

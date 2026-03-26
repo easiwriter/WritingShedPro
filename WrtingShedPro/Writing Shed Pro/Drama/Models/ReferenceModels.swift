@@ -119,7 +119,7 @@ final class NoteEntry {
     var content: String = ""
     
     /// Formatted content as RTF data (optional)
-    var formattedContentData: Data?
+    @Attribute(.externalStorage) var formattedContentData: Data?
     
     /// Whether this is an endnote (superscript [n]) or general note ([Note n])
     var isEndnote: Bool = false

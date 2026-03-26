@@ -17,14 +17,14 @@ struct CopyToProjectPickerView: View {
     
     /// Filtered list: same type, not trashed, not the source project
     private var eligibleProjects: [Project] {
-        allProjects.filter { project in
+        DeduplicationService.presentedProjects(from: allProjects.filter { project in
             (
                 project.type == sourceProject.type ||
                 (isPoetryCompatible(sourceProject) && isPoetryCompatible(project))
             ) &&
             !project.isTrashed &&
             project.id != sourceProject.id
-        }
+        })
         .sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
     }
     

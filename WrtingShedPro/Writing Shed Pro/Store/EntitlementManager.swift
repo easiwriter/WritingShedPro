@@ -45,6 +45,8 @@ final class EntitlementManager {
     /// entitlements as soon as connectivity is restored.
     private let networkMonitor = NWPathMonitor()
     private let networkQueue = DispatchQueue(label: "com.writingshedpro.entitlement.network")
+    private var hasConfirmedNetworkPath = false
+    private var isNetworkReachable = true
     
     // MARK: - Initialization
     
@@ -60,7 +62,10 @@ final class EntitlementManager {
     
     /// Refresh entitlements from StoreKit
     func refreshEntitlements() async {
-        let wasOffline = !networkMonitor.currentPath.status.isReachable
+        // Avoid false offline warnings at startup: NWPathMonitor.currentPath can be
+        // stale/unspecified until the first async path callback arrives.
+        let hasConfirmedPath = hasConfirmedNetworkPath
+        let wasOffline = hasConfirmedPath ? !isNetworkReachable : false
         await purchaseManager.checkEntitlement()
         cachedEntitlements = purchaseManager.entitledProductIDs
         isLoaded = true
@@ -68,14 +73,14 @@ final class EntitlementManager {
         // Show the offline warning only if we got no entitlements AND we were
         // offline when we checked. If the user genuinely hasn't bought anything,
         // we don't show a false warning (the warning clears when we go online).
-        if wasOffline && cachedEntitlements.isEmpty {
+        if hasConfirmedPath && wasOffline && cachedEntitlements.isEmpty {
             showOfflinePurchaseWarning = true
         } else {
             showOfflinePurchaseWarning = false
         }
         
         #if DEBUG
-        print("📦 [EntitlementManager] Loaded entitlements: \(cachedEntitlements) (offline=\(wasOffline))")
+        print("📦 [EntitlementManager] Loaded entitlements: \(cachedEntitlements) (offline=\(wasOffline), pathConfirmed=\(hasConfirmedPath))")
         #endif
     }
 
@@ -84,9 +89,14 @@ final class EntitlementManager {
     private func startNetworkMonitoring() {
         networkMonitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
+            let reachable = path.status.isReachable
+            Task { @MainActor in
+                self.hasConfirmedNetworkPath = true
+                self.isNetworkReachable = reachable
+            }
             // If we just got connectivity and we're still showing the warning,
             // re-verify entitlements on the main actor so the UI updates.
-            if path.status.isReachable {
+            if reachable {
                 Task { @MainActor in
                     guard self.showOfflinePurchaseWarning else { return }
                     #if DEBUG

@@ -12,6 +12,7 @@ import Foundation
 import Combine
 import CoreData
 import Observation
+import CloudKit
 
 struct CloudKitEventLogEntry: Identifiable {
     let id = UUID()
@@ -58,12 +59,24 @@ final class CloudKitSyncThrottler {
     private(set) var importInProgress = false
     private(set) var importStartTime: Date?
 
+    /// Tracks whether an export event has completed successfully.
+    /// Remains false while rate-limited retries are ongoing.
+    private(set) var exportCompleted = false
+
+    /// Tracks whether the most recent export succeeded.
+    private(set) var exportSucceeded = false
+
     /// True while a CloudKit export event is currently in progress.
     private(set) var exportInProgress = false
     private(set) var exportStartTime: Date?
     
     /// Time of the last sync notification
     private(set) var lastSyncTime: Date?
+
+    /// Most recent observed CloudKit-related activity. This includes both
+    /// mirroring events and store-change notifications and is safer for watchdog
+    /// timing than `lastSyncTime` alone.
+    private(set) var lastObservedActivityTime: Date?
 
     /// Most recent CloudKit import/export/setup events for diagnostics UI.
     /// Bounded list to avoid unbounded memory growth.
@@ -106,6 +119,12 @@ final class CloudKitSyncThrottler {
     var hasActiveCloudKitEvent: Bool {
         clearStaleInProgressEventsIfNeeded()
         return importInProgress || exportInProgress
+    }
+
+    var mostRecentActivityTime: Date? {
+        [lastObservedActivityTime, lastSyncTime, importStartTime, exportStartTime]
+            .compactMap { $0 }
+            .max()
     }
 
     /// Maximum time we trust a single CloudKit event to remain "in-progress"
@@ -273,6 +292,7 @@ final class CloudKitSyncThrottler {
         syncEventCount += count
         totalSyncEventCount += count
         lastSyncTime = Date()
+        lastObservedActivityTime = lastSyncTime
         
         // Send a single burst event to the detector (represents the whole batch)
         syncEventSubject.send()
@@ -330,10 +350,13 @@ final class CloudKitSyncThrottler {
         exportStartTime = nil
         importCompleted = false
         importSucceeded = false
+        exportCompleted = false
+        exportSucceeded = false
         rateLimitedUntil = nil
         consecutiveImportNetworkFailures = 0
         manualKickPausedUntil = nil
         lastSyncTime = nil
+        lastObservedActivityTime = nil
         recentCloudKitEvents = []
     }
 
@@ -402,6 +425,21 @@ final class CloudKitSyncThrottler {
                             status: event.succeeded ? "success" : "failed",
                             message: event.error?.localizedDescription ?? ""
                         )
+                        // Clear transport-failure backoff on success
+                        if event.succeeded {
+                            self.clearImportTransportFailureBackoff()
+                        } else {
+                            // Detect transport failures for backoff
+                            let nsError = event.error as? NSError
+                            let errorDomain = nsError?.domain ?? ""
+                            let errorCode = nsError?.code ?? -1
+                            let underlying = nsError?.userInfo[NSUnderlyingErrorKey] as? NSError
+                            let isTransportFailure = (errorDomain == "CKErrorDomain" && errorCode == 4)
+                                || (underlying?.domain == NSURLErrorDomain && underlying?.code == -1017)
+                            if isTransportFailure {
+                                self.recordImportTransportFailure()
+                            }
+                        }
                         #if DEBUG
                         print("🔄 [CloudKitSyncThrottler] Import completed: succeeded=\(event.succeeded)")
                         #endif
@@ -419,12 +457,33 @@ final class CloudKitSyncThrottler {
                     } else {
                         self.exportInProgress = false
                         self.exportStartTime = nil
+                        if event.succeeded {
+                            self.exportCompleted = true
+                            self.exportSucceeded = true
+                        } else {
+                            self.exportSucceeded = false
+                        }
                         self.appendCloudKitEvent(
                             type: typeLabel,
                             phase: "ended",
                             status: event.succeeded ? "success" : "failed",
                             message: event.error?.localizedDescription ?? ""
                         )
+                        // Clear rate-limit on success; detect rate-limit on failure
+                        if event.succeeded {
+                            self.clearRateLimit()
+                        } else {
+                            let nsError = event.error as? NSError
+                            let errorDomain = nsError?.domain ?? ""
+                            let errorCode = nsError?.code ?? -1
+                            let isRateLimited = (errorDomain == "CKErrorDomain" && (errorCode == 6 || errorCode == 7))
+                            if isRateLimited {
+                                let retryAfter = (nsError?.userInfo["CKRetryAfter"] as? Double)
+                                    ?? (nsError?.userInfo["retryAfter"] as? Double)
+                                    ?? 30.0
+                                self.recordRateLimit(retryAfter: retryAfter)
+                            }
+                        }
                     }
                 default:
                     break
@@ -479,6 +538,41 @@ final class CloudKitSyncThrottler {
                 print("🔄 [CloudKitSyncThrottler] Mirroring reset (\(phase)). reason=\(reasonText)")
             }
             #endif
+
+            // On did-reset, kick a zone fetch after a delay to restart sync.
+            // NSPersistentCloudKitContainer may not automatically restart on
+            // Mac Catalyst after a token reset.
+            if phase == "did-reset" {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+                    guard let self else { return }
+                    guard !self.isRateLimited else { return }
+                    guard !self.isManualKickPaused else { return }
+                    guard !self.hasActiveCloudKitEvent else { return }
+                    
+                    let ck = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
+                    let db = ck.privateCloudDatabase
+                    let coreDataZoneID = CKRecordZone.ID(
+                        zoneName: "com.apple.coredata.cloudkit.zone",
+                        ownerName: CKCurrentUserDefaultName
+                    )
+                    let op = CKFetchRecordZoneChangesOperation(
+                        recordZoneIDs: [coreDataZoneID],
+                        configurationsByRecordZoneID: nil
+                    )
+                    op.fetchRecordZoneChangesResultBlock = { result in
+                        #if DEBUG
+                        switch result {
+                        case .success:
+                            print("✅ [CloudKitSyncThrottler] Post-reset zone fetch completed")
+                        case .failure(let err):
+                            print("⚠️ [CloudKitSyncThrottler] Post-reset zone fetch error: \(err.localizedDescription)")
+                        }
+                        #endif
+                    }
+                    op.qualityOfService = .userInitiated
+                    db.add(op)
+                }
+            }
         }
     }
 
@@ -521,8 +615,9 @@ final class CloudKitSyncThrottler {
         }
 
         if !cleared.isEmpty {
-            // Encourage watchdog to run a recovery kick immediately.
-            lastSyncTime = nil
+            // Record the timeout itself as recent activity so the watchdog doesn't
+            // interpret the session as idle since the distant past.
+            lastObservedActivityTime = now
             #if DEBUG
             print("⚠️ [CloudKitSyncThrottler] Cleared stale in-progress event(s): \(cleared.joined(separator: ", "))")
             #endif
@@ -530,6 +625,7 @@ final class CloudKitSyncThrottler {
     }
 
     private func appendCloudKitEvent(type: String, phase: String, status: String, message: String) {
+        lastObservedActivityTime = Date()
         recentCloudKitEvents.insert(
             CloudKitEventLogEntry(
                 timestamp: Date(),
@@ -547,6 +643,7 @@ final class CloudKitSyncThrottler {
     }
 
     private func markImportStarted(now: Date = Date()) {
+        lastObservedActivityTime = now
         if !importInProgress {
             importInProgress = true
             importStartTime = now
@@ -559,6 +656,7 @@ final class CloudKitSyncThrottler {
     }
 
     private func markExportStarted(now: Date = Date()) {
+        lastObservedActivityTime = now
         if !exportInProgress {
             exportInProgress = true
             exportStartTime = now

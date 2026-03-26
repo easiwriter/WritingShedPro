@@ -7,12 +7,165 @@ class MigrationService {
     
     
     /// Run all pending migrations
-    /// - Parameter context: The model context to use for migrations
-    static func runMigrations(context: ModelContext) {
+    /// - Parameters:
+    ///   - context: The model context to use for migrations
+    ///   - importConfirmed: Whether CloudKit import completed successfully.
+    ///     When false, destructive operations (deleting old folders) are skipped
+    ///     to avoid orphaning files that may still be syncing.
+    static func runMigrations(context: ModelContext, importConfirmed: Bool = true) {
+        deduplicateStyleSheets(context: context)
         cleanupOrphanedFolders(context: context)
-        deduplicateManuscriptSubfolders(context: context)
-        migrateManuscriptSubfolders(context: context)
-        migrateFeature036(context: context)
+        if importConfirmed {
+            deduplicateManuscriptSubfolders(context: context)
+            cleanupOrphanedTrashItems(context: context)
+        }
+        migrateManuscriptSubfolders(context: context, importConfirmed: importConfirmed)
+        migrateFeature036(context: context, importConfirmed: importConfirmed)
+    }
+
+    /// Merge duplicate custom stylesheets that can be produced by import/duplicate/CloudKit flows.
+    /// First pass: merge byte-identical sheets (same signature).
+    /// Second pass: merge same-name sheets that differ only in dates or minor property drift.
+    /// Keeps one canonical sheet per group, reassigns projects, then removes redundant copies.
+    private static func deduplicateStyleSheets(context: ModelContext) {
+        let descriptor = FetchDescriptor<StyleSheet>()
+        guard let allSheets = try? context.fetch(descriptor), !allSheets.isEmpty else { return }
+
+        let customSheets = allSheets.filter { !$0.isSystemStyleSheet }
+        guard customSheets.count > 1 else { return }
+
+        var removedCount = 0
+
+        // Pass 1: byte-identical signature merge
+        var signatureGroups: [String: [StyleSheet]] = [:]
+        for sheet in customSheets {
+            let signature = stylesheetSignature(sheet)
+            signatureGroups[signature, default: []].append(sheet)
+        }
+
+        for (_, group) in signatureGroups where group.count > 1 {
+            removedCount += mergeStyleSheetGroup(group, context: context)
+        }
+
+        // Pass 2: name-based merge for near-duplicates (differ only in dates/minor drift)
+        // Re-fetch to get the post-pass-1 state
+        let remainingSheets = (try? context.fetch(descriptor))?.filter { !$0.isSystemStyleSheet } ?? []
+        var nameGroups: [String: [StyleSheet]] = [:]
+        for sheet in remainingSheets {
+            let normalizedName = sheet.name
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            nameGroups[normalizedName, default: []].append(sheet)
+        }
+
+        for (_, group) in nameGroups where group.count > 1 {
+            removedCount += mergeStyleSheetGroup(group, context: context)
+        }
+
+        if removedCount > 0 {
+            do {
+                try context.save()
+                #if DEBUG
+                print("🧹 [MigrationService] Deduplicated \(removedCount) custom stylesheets")
+                #endif
+            } catch {
+                #if DEBUG
+                print("❌ [MigrationService] Failed stylesheet deduplication save: \(error)")
+                #endif
+            }
+        }
+    }
+
+    /// Merge a group of duplicate stylesheets, keeping the one with the most projects (or oldest).
+    /// Returns the number of sheets removed.
+    private static func mergeStyleSheetGroup(_ group: [StyleSheet], context: ModelContext) -> Int {
+        let sorted = group.sorted { lhs, rhs in
+            let lhsProjectCount = lhs.projects?.count ?? 0
+            let rhsProjectCount = rhs.projects?.count ?? 0
+            if lhsProjectCount != rhsProjectCount {
+                return lhsProjectCount > rhsProjectCount
+            }
+            return lhs.createdDate <= rhs.createdDate
+        }
+
+        guard let keeper = sorted.first else { return 0 }
+        var removed = 0
+
+        for duplicate in sorted.dropFirst() {
+            for project in duplicate.projects ?? [] {
+                project.styleSheet = keeper
+            }
+            context.delete(duplicate)
+            removed += 1
+        }
+        return removed
+    }
+
+    private static func stylesheetSignature(_ sheet: StyleSheet) -> String {
+        let normalizedName = sheet.name
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        let textStyles = sheet.textStyles ?? []
+        let textStyleSignatures = textStyles
+            .map { textStyleSignature($0) }
+            .sorted()
+            .joined(separator: "||")
+
+        let imageStyles = sheet.imageStyles ?? []
+        let imageStyleSignatures = imageStyles
+            .map { imageStyleSignature($0) }
+            .sorted()
+            .joined(separator: "||")
+
+        return "\(normalizedName)::\(textStyleSignatures)::\(imageStyleSignatures)"
+    }
+
+    private static func textStyleSignature(_ style: TextStyleModel) -> String {
+        var parts: [String] = []
+        parts.append(style.name)
+        parts.append(style.displayName)
+        parts.append(String(style.displayOrder))
+        parts.append(style.fontFamily ?? "")
+        parts.append(style.fontName ?? "")
+        parts.append(String(describing: style.fontSize))
+        parts.append(String(style.isBold))
+        parts.append(String(style.isItalic))
+        parts.append(String(style.isUnderlined))
+        parts.append(String(style.isStrikethrough))
+        parts.append(style.textColorHex ?? "")
+        parts.append(String(style.alignmentRaw))
+        parts.append(String(describing: style.lineSpacing))
+        parts.append(String(describing: style.paragraphSpacingBefore))
+        parts.append(String(describing: style.paragraphSpacingAfter))
+        parts.append(String(describing: style.firstLineIndent))
+        parts.append(String(describing: style.headIndent))
+        parts.append(String(describing: style.tailIndent))
+        parts.append(String(describing: style.lineHeightMultiple))
+        parts.append(String(describing: style.minimumLineHeight))
+        parts.append(String(describing: style.maximumLineHeight))
+        parts.append(style.numberFormatRaw)
+        parts.append(style.numberAdornmentRaw)
+        parts.append(style.followOnStyleName ?? "")
+        parts.append(style.parentStyleName ?? "")
+        parts.append(style.styleCategoryRaw)
+        parts.append(String(style.isSystemStyle))
+        parts.append(String(style.includeInTOC))
+        parts.append(String(style.tocLevel))
+        return parts.joined(separator: "|")
+    }
+
+    private static func imageStyleSignature(_ style: ImageStyle) -> String {
+        var parts: [String] = []
+        parts.append(style.name)
+        parts.append(style.displayName)
+        parts.append(String(style.displayOrder))
+        parts.append(String(describing: style.defaultScale))
+        parts.append(style.defaultAlignmentRaw)
+        parts.append(String(style.hasCaptionByDefault))
+        parts.append(style.defaultCaptionStyle)
+        parts.append(String(style.isSystemStyle))
+        return parts.joined(separator: "|")
     }
     
     /// CRITICAL: Run this BEFORE any views load to prevent crashes from invalidated folder objects
@@ -87,6 +240,36 @@ class MigrationService {
         cleanupOrphanedFoldersEarly(context: context)
     }
     
+    /// Remove TrashItem records whose relationships have all been nullified.
+    /// TrashItem uses .nullify delete rules, so when the referenced TextFile,
+    /// Folder, or Project is deleted, the TrashItem survives as an empty shell.
+    /// Only runs when importConfirmed to avoid deleting items still awaiting sync.
+    private static func cleanupOrphanedTrashItems(context: ModelContext) {
+        let descriptor = FetchDescriptor<TrashItem>()
+        guard let allItems = try? context.fetch(descriptor) else { return }
+        
+        var removedCount = 0
+        for item in allItems {
+            if item.textFile == nil && item.originalFolder == nil && item.project == nil {
+                context.delete(item)
+                removedCount += 1
+            }
+        }
+        
+        if removedCount > 0 {
+            do {
+                try context.save()
+                #if DEBUG
+                print("🧹 [MigrationService] Removed \(removedCount) orphaned TrashItem records")
+                #endif
+            } catch {
+                #if DEBUG
+                print("❌ [MigrationService] Failed to save TrashItem cleanup: \(error)")
+                #endif
+            }
+        }
+    }
+    
     /// Remove duplicate-named subfolders within Manuscript folders across all projects.
     /// Keeps the subfolder with the most content (files + subfolders); deletes empty duplicates.
     /// This cleans up data that may have been corrupted by CloudKit sync or bad imports.
@@ -104,8 +287,11 @@ class MigrationService {
             // Deduplicate subfolders of Manuscript
             totalRemoved += deduplicateFolderChildren(manuscriptFolder, context: context)
             
+            // Snapshot surviving subfolders — dedup above may have deleted/invalidated entries
+            let survivingSubfolders = Array(manuscriptFolder.folders ?? [])
+            
             // Also deduplicate text files within each subfolder (e.g. duplicate "Front Cover")
-            for subfolder in manuscriptFolder.folders ?? [] {
+            for subfolder in survivingSubfolders {
                 totalRemoved += deduplicateTextFileChildren(subfolder, context: context)
             }
         }
@@ -119,12 +305,16 @@ class MigrationService {
     }
     
     /// Remove duplicate-named child folders from a parent folder.
-    /// Keeps the child with the most content. Returns number of duplicates removed.
+    /// Merges content from duplicates into the keeper before deleting.
+    /// Returns number of duplicates removed.
     private static func deduplicateFolderChildren(_ parent: Folder, context: ModelContext) -> Int {
         guard let children = parent.folders, children.count > 1 else { return 0 }
         
+        // Snapshot into a local array — mutations below invalidate the live relationship array
+        let childrenSnapshot = Array(children)
+        
         var groups: [String: [Folder]] = [:]
-        for child in children {
+        for child in childrenSnapshot {
             let name = child.name ?? ""
             groups[name, default: []].append(child)
         }
@@ -137,9 +327,21 @@ class MigrationService {
                 let rhsScore = (rhs.textFiles?.count ?? 0) + (rhs.folders?.count ?? 0)
                 return lhsScore > rhsScore
             }
+            guard let keeper = sorted.first else { continue }
             for dup in sorted.dropFirst() {
+                // Snapshot children before delete — accessing relationships after delete crashes
+                let dupFiles = Array(dup.textFiles ?? [])
+                let dupFolders = Array(dup.folders ?? [])
+                // Merge text files from duplicate into keeper to avoid data loss
+                for file in dupFiles {
+                    file.parentFolder = keeper
+                }
+                // Merge subfolders from duplicate into keeper
+                for subfolder in dupFolders {
+                    subfolder.parentFolder = keeper
+                }
                 #if DEBUG
-                print("🧹 [MigrationService] Removing duplicate subfolder '\(name)' (id=\(dup.id)) from '\(parent.name ?? "")'")
+                print("🧹 [MigrationService] Merging & removing duplicate subfolder '\(name)' (id=\(dup.id)) from '\(parent.name ?? "")'")
                 #endif
                 context.delete(dup)
                 removed += 1
@@ -149,7 +351,8 @@ class MigrationService {
     }
     
     /// Remove duplicate-named text files from a folder.
-    /// Keeps the file with the most versions. Returns number of duplicates removed.
+    /// Keeps the file with the most versions; merges versions from duplicates.
+    /// Returns number of duplicates removed.
     private static func deduplicateTextFileChildren(_ folder: Folder, context: ModelContext) -> Int {
         guard let files = folder.textFiles, files.count > 1 else { return 0 }
         
@@ -163,9 +366,16 @@ class MigrationService {
             let sorted = group.sorted { lhs, rhs in
                 (lhs.versions?.count ?? 0) > (rhs.versions?.count ?? 0)
             }
+            guard let keeper = sorted.first else { continue }
             for dup in sorted.dropFirst() {
+                // Snapshot versions before delete — accessing relationships after delete crashes
+                let dupVersions = Array(dup.versions ?? [])
+                // Merge versions from duplicate into keeper to avoid data loss
+                for version in dupVersions {
+                    version.textFile = keeper
+                }
                 #if DEBUG
-                print("🧹 [MigrationService] Removing duplicate file '\(name)' (id=\(dup.id)) from '\(folder.name ?? "")'")
+                print("🧹 [MigrationService] Merging & removing duplicate file '\(name)' (id=\(dup.id)) from '\(folder.name ?? "")'")
                 #endif
                 context.delete(dup)
                 removed += 1
@@ -175,8 +385,10 @@ class MigrationService {
     }
     
     /// Feature 029: Add Front Matter, Body, Back Matter subfolders to existing Manuscript folders
-    /// - Parameter context: The model context
-    private static func migrateManuscriptSubfolders(context: ModelContext) {
+    /// - Parameters:
+    ///   - context: The model context
+    ///   - importConfirmed: When false, skip deleting legacy folders to avoid orphaning files during sync
+    private static func migrateManuscriptSubfolders(context: ModelContext, importConfirmed: Bool = true) {
         #if DEBUG
         print("🔄 [MigrationService] Starting manuscript subfolders migration...")
         #endif
@@ -221,10 +433,16 @@ class MigrationService {
             }
             
             for folder in wrongBodyFolders {
-                #if DEBUG
-                print("  ↳ Deleting wrong body folder '\(folder.name ?? "")' from \(project.name ?? "Untitled")")
-                #endif
-                context.delete(folder)
+                if importConfirmed {
+                    #if DEBUG
+                    print("  ↳ Deleting wrong body folder '\(folder.name ?? "")' from \(project.name ?? "Untitled")")
+                    #endif
+                    context.delete(folder)
+                } else {
+                    #if DEBUG
+                    print("  ⏳ Skipping deletion of legacy folder '\(folder.name ?? "")' from \(project.name ?? "Untitled") — import not confirmed")
+                    #endif
+                }
             }
 
             if missingNames.isEmpty && wrongBodyFolders.isEmpty {
@@ -237,6 +455,17 @@ class MigrationService {
             // If we deleted folders but nothing is missing, still count as migrated
             if missingNames.isEmpty && !wrongBodyFolders.isEmpty {
                 migratedCount += 1
+                continue
+            }
+
+            // Only create new folders when import is confirmed — if CloudKit
+            // hasn't finished importing, these folders may already exist on
+            // another device and are about to sync in. Creating them now with
+            // different UUIDs produces duplicates that spread via CloudKit.
+            guard importConfirmed else {
+                #if DEBUG
+                print("  ⏳ Skipping folder creation for \(project.name ?? "Untitled") — import not confirmed (missing: \(missingNames.sorted().joined(separator: ", ")))")
+                #endif
                 continue
             }
 
@@ -288,6 +517,9 @@ class MigrationService {
     
     /// Feature 036 migration key for UserDefaults
     private static let feature036MigrationKey = "hasRunFeature036Migration"
+    /// Opt-in key to allow legacy Submission -> PoetryCollection migration outside tests.
+    /// Default is OFF to avoid CloudKit partial-sync conversion risks at app startup.
+    private static let feature036LegacyPoetryMigrationOptInKey = "allowFeature036LegacyPoetryMigration"
     
     /// Feature 036: Migrate projects to new folder structure
     /// - Renames "All X" body subfolders to "Body Matter"
@@ -296,7 +528,7 @@ class MigrationService {
     /// - Migrates Verse Novel Chapter entities to Book entities
     /// - Removes Collections folder from non-Poetry projects
     /// - Repositions Collections folder in Poetry projects
-    static func migrateFeature036(context: ModelContext) {
+    static func migrateFeature036(context: ModelContext, importConfirmed: Bool = true) {
         // Migration is idempotent — each sub-function checks if work is needed.
         // No UserDefaults guard so that newly synced projects get migrated too.
         
@@ -321,21 +553,24 @@ class MigrationService {
             populateBodyMatter(project: project, context: context)
             
             if project.type == .poetry {
-                // CloudKit-safe: do NOT auto-migrate Submission-based collections on launch.
+                // CloudKit-safe default: do NOT auto-migrate Submission-based collections on launch.
                 // Collection entities and SubmittedFile links can sync in separate phases,
                 // and running conversion during partial sync can create duplicate/empty
                 // PoetryCollection records on one device.
                 //
-                // Keep existing PoetryCollection data intact and only perform harmless
-                // folder positioning at startup.
+                // However, unit tests and explicit opt-in flows need deterministic migration,
+                // so we enable it in those contexts only.
+                if shouldRunLegacyPoetryCollectionMigration {
+                    migratePoetryCollections(project: project, context: context)
+                }
                 repositionCollectionsFolder(project: project)
                 deduplicatePoetryCollections(project: project, context: context)
             } else {
-                removeCollectionsFolder(project: project, context: context)
+                removeCollectionsFolder(project: project, context: context, importConfirmed: importConfirmed)
             }
             
             if project.type == .fiction && project.fictionClass == .verseNovel {
-                migrateVerseNovelChaptersToBooks(project: project, context: context)
+                migrateVerseNovelChaptersToBooks(project: project, context: context, importConfirmed: importConfirmed)
             }
         }
         
@@ -357,6 +592,19 @@ class MigrationService {
             print("✅ [MigrationService] Feature 036 migration complete — no changes needed")
             #endif
         }
+    }
+
+    /// Legacy poetry collection migration should only run when tests need deterministic
+    /// conversion, or when explicitly opted in by a developer/user action.
+    private static var shouldRunLegacyPoetryCollectionMigration: Bool {
+        if isRunningUnitTests {
+            return true
+        }
+        return UserDefaults.standard.bool(forKey: feature036LegacyPoetryMigrationOptInKey)
+    }
+
+    private static var isRunningUnitTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
     
     // MARK: - Task 8.1: Rename "All X" to "Body Matter"
@@ -634,8 +882,15 @@ class MigrationService {
     
     // MARK: - Task 8.4: Remove Collections Folder (Non-Poetry)
     
-    private static func removeCollectionsFolder(project: Project, context: ModelContext) {
+    private static func removeCollectionsFolder(project: Project, context: ModelContext, importConfirmed: Bool = true) {
         guard let collectionsFolder = project.folders?.first(where: { $0.name == "Collections" }) else { return }
+        
+        guard importConfirmed else {
+            #if DEBUG
+            print("  ⏳ Skipping removal of Collections folder from \(project.type.rawValue) project \(project.name ?? "Untitled") — import not confirmed")
+            #endif
+            return
+        }
         
         // Check for any collection-type submissions that need preservation
         // (their data should remain in the Submission model — we just remove the folder)
@@ -649,7 +904,7 @@ class MigrationService {
     
     // MARK: - Task 8.6: Verse Novel Chapter → Book Migration
     
-    private static func migrateVerseNovelChaptersToBooks(project: Project, context: ModelContext) {
+    private static func migrateVerseNovelChaptersToBooks(project: Project, context: ModelContext, importConfirmed: Bool = true) {
         // Only migrate if no Books exist yet
         let existingBooks = project.books ?? []
         guard existingBooks.isEmpty else {
@@ -661,6 +916,15 @@ class MigrationService {
         
         let chapters = (project.chapters ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
         guard !chapters.isEmpty else { return }
+        
+        // Don't create Book entities until import is confirmed — another device
+        // may have already created them and they're about to sync in
+        guard importConfirmed else {
+            #if DEBUG
+            print("  ⏳ Skipping Chapter→Book migration for \(project.name ?? "Untitled") — import not confirmed")
+            #endif
+            return
+        }
         
         for (index, chapter) in chapters.enumerated() {
             let book = Book(

@@ -164,17 +164,6 @@ struct ActListView: View {
     
     @ViewBuilder
     private var bottomToolbarContent: some View {
-        // Edit button (only for single selection)
-        if selectedActs.count == 1 {
-            Button {
-                if let act = selectedActs.first {
-                    actToEdit = act
-                }
-            } label: {
-                Label(NSLocalizedString("button.edit", comment: "Edit"), systemImage: "pencil")
-            }
-        }
-        
         // Add to submission button
         Button {
             showSubmissionNamePrompt = true
@@ -201,7 +190,7 @@ struct ActListView: View {
     private var actList: some View {
         List(selection: $selectedActIDs) {
             ForEach(sortedActs) { act in
-                Group {
+                HStack {
                     if isEditMode {
                         ActRowView(act: act)
                     } else {
@@ -210,6 +199,19 @@ struct ActListView: View {
                         } label: {
                             ActRowView(act: act)
                         }
+                    }
+                    
+                    if !isEditMode {
+                        Button {
+                            actToEdit = act
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .imageScale(.large)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 // Enable drag-to-reorder without edit mode

@@ -518,6 +518,7 @@
 "projectItem.projectDetails" = "Show Project Details";
 "projectItem.exportProject" = "Export Project";
 "projectItem.duplicateProject" = "Duplicate Project";
+"projectItem.duplicate" = "Duplicate (sync artifact)";
 "projectItem.pageSetup" = "Page Setup";
 "projectItem.projectOptions" = "Project options";
 

@@ -110,6 +110,8 @@ struct AddProjectSheet: View {
     }
     
     private func addProject() {
+        let visibleProjects = DeduplicationService.presentedProjects(from: allProjects)
+
         // Validate project name
         do {
             try NameValidator.validateProjectName(projectName)
@@ -120,14 +122,14 @@ struct AddProjectSheet: View {
         }
         
         // Check uniqueness
-        if !UniquenessChecker.isProjectNameUnique(projectName, in: allProjects) {
+        if !UniquenessChecker.isProjectNameUnique(projectName, in: visibleProjects) {
             errorMessage = NSLocalizedString("addProject.duplicateName", comment: "Error when project name already exists")
             showErrorAlert = true
             return
         }
         
         // Check entitlement for free tier limits
-        let existingProjectsOfType = allProjects.filter { $0.type == selectedType }.count
+        let existingProjectsOfType = visibleProjects.filter { $0.type == selectedType }.count
         if !EntitlementManager.shared.canCreateProject(ofType: selectedType, existingCount: existingProjectsOfType) {
             upgradePromptReason = .projectLimit(projectType: selectedType)
             return
@@ -155,6 +157,9 @@ struct AddProjectSheet: View {
         newProject.styleSheet = selectedStyleSheet
         
         modelContext.insert(newProject)
+        
+        // Clear any tombstone for this name+type so the new project isn't treated as a zombie
+        DeduplicationService.clearTombstone(name: projectName, typeRaw: newProject.typeRaw)
         
         // Create default folder structure
         ProjectTemplateService.createDefaultFolders(for: newProject, in: modelContext)

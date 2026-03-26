@@ -606,7 +606,7 @@ struct FolderFilesView: View {
                 }
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.primary)
+            .foregroundStyle(file.workflowStatus.map { Color($0.color) } ?? .primary)
             
             // Ellipsis menu (only in normal mode)
             if !isEditMode {

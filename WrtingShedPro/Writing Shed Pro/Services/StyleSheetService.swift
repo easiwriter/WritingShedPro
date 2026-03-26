@@ -10,6 +10,36 @@ import SwiftData
 import UIKit
 
 struct StyleSheetService {
+
+    static func uniqueStyleSheets(from sheets: [StyleSheet], preferredSheetID: UUID? = nil) -> [StyleSheet] {
+        var grouped: [String: [StyleSheet]] = [:]
+
+        for sheet in sheets {
+            let normalizedName = sheet.name
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            grouped[normalizedName, default: []].append(sheet)
+        }
+
+        return grouped.values.compactMap { group in
+            if group.count == 1 {
+                return group.first
+            }
+
+            if let preferredSheetID,
+               let preferred = group.first(where: { $0.id == preferredSheetID }) {
+                return preferred
+            }
+
+            return group.sorted { lhs, rhs in
+                if lhs.isSystemStyleSheet != rhs.isSystemStyleSheet {
+                    return lhs.isSystemStyleSheet
+                }
+                return lhs.createdDate <= rhs.createdDate
+            }.first
+        }
+        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
     
     // MARK: - Default StyleSheet Creation
     

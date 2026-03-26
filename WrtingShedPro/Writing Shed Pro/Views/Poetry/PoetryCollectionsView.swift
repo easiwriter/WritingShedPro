@@ -165,17 +165,6 @@ struct PoetryCollectionsView: View {
     
     @ViewBuilder
     private var bottomToolbarContent: some View {
-        // Edit button (only for single selection)
-        if selectedCollections.count == 1 {
-            Button {
-                if let collection = selectedCollections.first {
-                    collectionToEdit = collection
-                }
-            } label: {
-                Label(NSLocalizedString("button.edit", comment: "Edit"), systemImage: "pencil")
-            }
-        }
-        
         // Add to submission button
         Button {
             showSubmissionNamePrompt = true
@@ -202,7 +191,7 @@ struct PoetryCollectionsView: View {
     private var collectionList: some View {
         List(selection: $selectedCollectionIDs) {
             ForEach(sortedCollections) { collection in
-                Group {
+                HStack {
                     if isEditMode {
                         CollectionRowView(collection: collection)
                     } else {
@@ -211,6 +200,19 @@ struct PoetryCollectionsView: View {
                         } label: {
                             CollectionRowView(collection: collection)
                         }
+                    }
+                    
+                    if !isEditMode {
+                        Button {
+                            collectionToEdit = collection
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .imageScale(.large)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .onDrag {

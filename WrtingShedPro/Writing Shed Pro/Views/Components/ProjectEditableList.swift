@@ -33,6 +33,10 @@ struct ProjectEditableList: View {
         sortedProjects.map { "\($0.id.uuidString):\($0.name ?? "")" }.joined(separator: "|")
     }
 
+    private var duplicateIDs: Set<UUID> {
+        DeduplicationService.duplicateProjectIDs(in: projects)
+    }
+
     private var exportPresentationBinding: Binding<Bool> {
         Binding(
             get: { exportData != nil },
@@ -139,7 +143,8 @@ struct ProjectEditableList: View {
                 },
                 onExportTapped: {
                     exportProject(project)
-                }
+                },
+                isDuplicate: duplicateIDs.contains(project.id)
             )
         }
         .buttonStyle(.plain)
@@ -250,11 +255,11 @@ struct ProjectEditableList: View {
     
     private func moveProjectsToTrash() {
         guard let offsets = projectsToDelete else { return }
+        let deletedAt = Date()
         for index in offsets {
             guard index < sortedProjects.count else { continue }
             let project = sortedProjects[index]
-            project.isTrashed = true
-            project.deletedDate = Date()
+            DeduplicationService.trashProjectFamily(project, context: modelContext, deletedAt: deletedAt)
         }
         try? modelContext.save()
         projectsToDelete = nil
@@ -266,7 +271,7 @@ struct ProjectEditableList: View {
         for index in offsets {
             guard index < sortedProjects.count else { continue }
             let project = sortedProjects[index]
-            modelContext.delete(project)
+            DeduplicationService.permanentlyDeleteProjectFamily(project, context: modelContext)
         }
         try? modelContext.save()
         projectsToDelete = nil

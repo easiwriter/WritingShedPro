@@ -454,17 +454,6 @@ struct PlotElementDetailView: View {
         plotElement.locations = Array(editLocations)
         plotElement.linkedScenes = Array(editLinkedScenes)
         
-        // Update inverse relationships for scenes
-        for scene in availableScenes {
-            var scenePlotElements = Set(scene.plotElements ?? [])
-            if editLinkedScenes.contains(scene) {
-                scenePlotElements.insert(plotElement)
-            } else {
-                scenePlotElements.remove(plotElement)
-            }
-            scene.plotElements = Array(scenePlotElements)
-        }
-        
         try? modelContext.save()
         isEditing = false
     }

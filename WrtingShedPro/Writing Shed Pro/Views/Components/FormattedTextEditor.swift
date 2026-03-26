@@ -1646,27 +1646,34 @@ struct FormattedTextEditor: UIViewRepresentable {
         }
         
         /// Sync typing attributes to match the paragraph style at the cursor position
-        /// This prevents text typed after special paragraphs (like after images) from inheriting
-        /// unwanted alignment or other paragraph properties
+        /// This preserves the alignment and other paragraph properties from the text at the cursor
         private func syncTypingAttributesForCursorPosition(_ textView: UITextView, at position: Int) {
             guard let attributedText = textView.attributedText, position >= 0, position <= attributedText.length else {
                 return
             }
             
-            // Always reset typing attributes to default paragraph style
-            // This ensures text typed at any position uses body text alignment
-            let defaultStyle = NSMutableParagraphStyle()
-            defaultStyle.alignment = .natural  // Reset to natural/left alignment
-            defaultStyle.lineHeightMultiple = 1.0
+            // Read the paragraph style from the text at the cursor position
+            let checkPos = max(0, min(position, attributedText.length - 1))
+            let paragraphStyle: NSParagraphStyle
+            if attributedText.length > 0,
+               let ps = attributedText.attribute(.paragraphStyle, at: checkPos, effectiveRange: nil) as? NSParagraphStyle {
+                paragraphStyle = ps
+            } else {
+                // Fallback for empty documents
+                let defaultStyle = NSMutableParagraphStyle()
+                defaultStyle.alignment = .natural
+                defaultStyle.lineHeightMultiple = 1.0
+                paragraphStyle = defaultStyle
+            }
             
-            // Get current typing attributes and update paragraph style
+            // Update typing attributes to match the paragraph style at cursor
             var typingAttrs = textView.typingAttributes
-            typingAttrs[.paragraphStyle] = defaultStyle
+            typingAttrs[.paragraphStyle] = paragraphStyle
             
             textView.typingAttributes = typingAttrs
             
             #if DEBUG
-            print("🎯 Synced typing attributes at position \(position): alignment=.natural")
+            print("🎯 Synced typing attributes at position \(position): alignment=\(paragraphStyle.alignment.rawValue)")
             #endif
         }
         

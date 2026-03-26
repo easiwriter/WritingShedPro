@@ -47,7 +47,9 @@ struct ContentViewBody: View {
     var body: some View {
         NavigationStack(path: $state.navigationPath) {
             VStack(spacing: 0) {
-                let activeProjects = projects.filter { !$0.isTrashed }
+                let activeProjects = DeduplicationService.presentedProjects(
+                    from: projects.filter { !$0.isTrashed }
+                )
                 
                 ProjectEditableList(
                     projects: activeProjects,
@@ -57,7 +59,6 @@ struct ContentViewBody: View {
                         set: { state.editMode = $0 ? .active : .inactive }
                     )
                 )
-                
                 // Only show Trash bin button if there are trashed projects
                 if !trashedProjects.isEmpty {
                     Button(action: { showProjectTrash = true }) {

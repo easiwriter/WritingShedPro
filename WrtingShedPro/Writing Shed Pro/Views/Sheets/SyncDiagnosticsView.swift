@@ -26,6 +26,9 @@ struct SyncDiagnosticsView: View {
     @State private var duplicateCount: Int = 0
     @State private var duplicateProjectCount: Int = 0
     @State private var projectOrderCollisionCount: Int = 0
+    @State private var orphanedFolderCount: Int = 0
+    @State private var orphanedFileCount: Int = 0
+    @State private var duplicateStyleSheetCount: Int = 0
     @State private var repairMessage: String = ""
     @State private var showRepairResult = false
     
@@ -53,6 +56,8 @@ struct SyncDiagnosticsView: View {
                 checkForDuplicateProjects()
                 checkProjectOrderHealth()
                 checkCloudKitSubscriptions()
+                checkForOrphans()
+                checkForDuplicateStyleSheets()
             }
             .alert("Repair Complete", isPresented: $showRepairResult) {
                 Button("OK") { }
@@ -121,6 +126,8 @@ struct SyncDiagnosticsView: View {
             LabeledContent("Export In Progress", value: syncThrottler.exportInProgress ? "Yes" : "No")
             LabeledContent("Import Completed", value: syncThrottler.importCompleted ? "Yes" : "No")
             LabeledContent("Import Succeeded", value: syncThrottler.importSucceeded ? "Yes" : "No")
+            LabeledContent("Export Completed", value: syncThrottler.exportCompleted ? "Yes" : "No")
+            LabeledContent("Export Succeeded", value: syncThrottler.exportSucceeded ? "Yes" : "No")
             LabeledContent("Rate Limited", value: syncThrottler.isRateLimited ? "Yes" : "No")
             LabeledContent("Manual Kick Paused", value: syncThrottler.isManualKickPaused ? "Yes" : "No")
             LabeledContent("Import Network Failures", value: "\(syncThrottler.consecutiveImportNetworkFailures)")
@@ -201,6 +208,8 @@ struct SyncDiagnosticsView: View {
         lines.append("exportInProgress: \(syncThrottler.exportInProgress)")
         lines.append("importCompleted: \(syncThrottler.importCompleted)")
         lines.append("importSucceeded: \(syncThrottler.importSucceeded)")
+        lines.append("exportCompleted: \(syncThrottler.exportCompleted)")
+        lines.append("exportSucceeded: \(syncThrottler.exportSucceeded)")
         lines.append("isRateLimited: \(syncThrottler.isRateLimited)")
         lines.append("isManualKickPaused: \(syncThrottler.isManualKickPaused)")
         lines.append("consecutiveImportNetworkFailures: \(syncThrottler.consecutiveImportNetworkFailures)")
@@ -359,6 +368,23 @@ struct SyncDiagnosticsView: View {
                 duplicateProjectsRepairRow
             }
 
+            orphanedFoldersStatusRow
+            orphanedFilesStatusRow
+
+            if orphanedFolderCount > 0 {
+                orphanedFoldersRepairRow
+            }
+
+            if orphanedFileCount > 0 {
+                orphanedFilesRepairRow
+            }
+
+            duplicateStyleSheetsStatusRow
+
+            if duplicateStyleSheetCount > 0 {
+                duplicateStyleSheetsRepairRow
+            }
+
             duplicateCheckRow
 
             if duplicateCount > 0 {
@@ -412,6 +438,84 @@ struct SyncDiagnosticsView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             normalizeProjectOrder()
+        }
+    }
+
+    private var orphanedFoldersStatusRow: some View {
+        HStack {
+            Text("Orphaned Folders")
+            Spacer()
+            Text("\(orphanedFolderCount) found")
+                .foregroundColor(orphanedFolderCount > 0 ? .orange : .secondary)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            checkForOrphans()
+        }
+    }
+
+    private var orphanedFilesStatusRow: some View {
+        HStack {
+            Text("Orphaned Files")
+            Spacer()
+            Text("\(orphanedFileCount) found")
+                .foregroundColor(orphanedFileCount > 0 ? .orange : .secondary)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            checkForOrphans()
+        }
+    }
+
+    private var orphanedFoldersRepairRow: some View {
+        HStack {
+            Image(systemName: "folder.badge.minus")
+            Text("Delete Orphaned Folders")
+            Spacer()
+        }
+        .foregroundColor(.red)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            deleteOrphanedFolders()
+        }
+    }
+
+    private var orphanedFilesRepairRow: some View {
+        HStack {
+            Image(systemName: "trash")
+            Text("Delete Orphaned Files")
+            Spacer()
+        }
+        .foregroundColor(.red)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            deleteOrphanedFiles()
+        }
+    }
+
+    private var duplicateStyleSheetsStatusRow: some View {
+        HStack {
+            Text("Duplicate StyleSheets")
+            Spacer()
+            Text("\(duplicateStyleSheetCount) found")
+                .foregroundColor(duplicateStyleSheetCount > 0 ? .orange : .secondary)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            checkForDuplicateStyleSheets()
+        }
+    }
+
+    private var duplicateStyleSheetsRepairRow: some View {
+        HStack {
+            Image(systemName: "paintbrush.pointed")
+            Text("Merge Duplicate StyleSheets")
+            Spacer()
+        }
+        .foregroundColor(.orange)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            mergeDuplicateStyleSheets()
         }
     }
 
@@ -512,6 +616,123 @@ struct SyncDiagnosticsView: View {
     /// Check for duplicate projects (same name + creation date)
     private func checkForDuplicateProjects() {
         duplicateProjectCount = DeduplicationService.countDuplicateProjects(context: modelContext)
+    }
+
+    /// Check for orphaned folders and files
+    private func checkForOrphans() {
+        orphanedFolderCount = allFolders.filter { folder in
+            folder.project == nil && folder.parentFolder == nil
+        }.count
+
+        orphanedFileCount = allTextFiles.filter { file in
+            file.parentFolder == nil
+        }.count
+    }
+
+    private func checkForDuplicateStyleSheets() {
+        let customSheets = stylesheets.filter { !$0.isSystemStyleSheet }
+        var nameGroups: [String: Int] = [:]
+        for sheet in customSheets {
+            let key = sheet.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            nameGroups[key, default: 0] += 1
+        }
+        duplicateStyleSheetCount = nameGroups.values.filter { $0 > 1 }.reduce(0) { $0 + ($1 - 1) }
+    }
+
+    private func mergeDuplicateStyleSheets() {
+        let customSheets = stylesheets.filter { !$0.isSystemStyleSheet }
+        var nameGroups: [String: [StyleSheet]] = [:]
+        for sheet in customSheets {
+            let key = sheet.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            nameGroups[key, default: []].append(sheet)
+        }
+
+        var mergedCount = 0
+        for (_, group) in nameGroups where group.count > 1 {
+            let sorted = group.sorted { lhs, rhs in
+                let lhsCount = lhs.projects?.count ?? 0
+                let rhsCount = rhs.projects?.count ?? 0
+                if lhsCount != rhsCount { return lhsCount > rhsCount }
+                return lhs.createdDate <= rhs.createdDate
+            }
+            guard let keeper = sorted.first else { continue }
+            for duplicate in sorted.dropFirst() {
+                for project in duplicate.projects ?? [] {
+                    project.styleSheet = keeper
+                }
+                modelContext.delete(duplicate)
+                mergedCount += 1
+            }
+        }
+
+        guard mergedCount > 0 else {
+            repairMessage = "No duplicate stylesheets found."
+            showRepairResult = true
+            return
+        }
+
+        do {
+            try modelContext.save()
+            repairMessage = "Merged \(mergedCount) duplicate stylesheet(s)."
+            duplicateStyleSheetCount = 0
+        } catch {
+            repairMessage = "Error merging stylesheets: \(error.localizedDescription)"
+        }
+        showRepairResult = true
+    }
+
+    /// Delete folders that have no project and no parent folder.
+    /// These are unreachable in the UI and represent sync remnants.
+    private func deleteOrphanedFolders() {
+        let orphans = allFolders.filter { folder in
+            folder.project == nil && folder.parentFolder == nil
+        }
+
+        guard !orphans.isEmpty else {
+            repairMessage = "No orphaned folders found."
+            showRepairResult = true
+            return
+        }
+
+        for folder in orphans {
+            modelContext.delete(folder)
+        }
+
+        do {
+            try modelContext.save()
+            repairMessage = "Deleted \(orphans.count) orphaned folder(s)."
+            orphanedFolderCount = 0
+        } catch {
+            repairMessage = "Error deleting orphaned folders: \(error.localizedDescription)"
+        }
+        showRepairResult = true
+    }
+
+    /// Delete files that have no parent folder.
+    /// These are unreachable in the UI and represent sync remnants.
+    private func deleteOrphanedFiles() {
+        let orphans = allTextFiles.filter { file in
+            file.parentFolder == nil
+        }
+
+        guard !orphans.isEmpty else {
+            repairMessage = "No orphaned files found."
+            showRepairResult = true
+            return
+        }
+
+        for file in orphans {
+            modelContext.delete(file)
+        }
+
+        do {
+            try modelContext.save()
+            repairMessage = "Deleted \(orphans.count) orphaned file(s)."
+            orphanedFileCount = 0
+        } catch {
+            repairMessage = "Error deleting orphaned files: \(error.localizedDescription)"
+        }
+        showRepairResult = true
     }
 
     /// Check whether the NSPersistentCloudKitContainer CKDatabaseSubscription exists.

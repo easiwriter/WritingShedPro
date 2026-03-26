@@ -580,81 +580,100 @@ class JSONImportService {
         
         // Import stylesheet (if present in WSP data)
         if let sheetData = data.stylesheet {
-            let sheet = StyleSheet(
-                name: sheetData.name,
-                isSystemStyleSheet: sheetData.isSystemStyleSheet
-            )
-            sheet.id = generateNewUUIDs ? UUID() : (UUID(uuidString: sheetData.id) ?? UUID())
-            sheet.createdDate = sheetData.createdDate
-            sheet.modifiedDate = sheetData.modifiedDate
-            modelContext.insert(sheet)
-            
-            var textStyles: [TextStyleModel] = []
-            for tsData in sheetData.textStyles {
-                let style = TextStyleModel(
-                    name: tsData.name,
-                    displayName: tsData.displayName,
-                    displayOrder: tsData.displayOrder,
-                    fontFamily: tsData.fontFamily,
-                    fontSize: tsData.fontSize,
-                    isBold: tsData.isBold,
-                    isItalic: tsData.isItalic,
-                    isUnderlined: tsData.isUnderlined,
-                    isStrikethrough: tsData.isStrikethrough,
-                    alignment: NSTextAlignment(rawValue: tsData.alignmentRaw) ?? .natural,
-                    lineSpacing: tsData.lineSpacing,
-                    paragraphSpacingBefore: tsData.paragraphSpacingBefore,
-                    paragraphSpacingAfter: tsData.paragraphSpacingAfter,
-                    firstLineIndent: tsData.firstLineIndent,
-                    headIndent: tsData.headIndent,
-                    tailIndent: tsData.tailIndent,
-                    lineHeightMultiple: tsData.lineHeightMultiple,
-                    minimumLineHeight: tsData.minimumLineHeight,
-                    maximumLineHeight: tsData.maximumLineHeight,
-                    numberFormat: NumberFormat(rawValue: tsData.numberFormatRaw) ?? .none,
-                    styleCategory: StyleCategory(rawValue: tsData.styleCategoryRaw) ?? .text,
-                    isSystemStyle: tsData.isSystemStyle
+            // Check if a stylesheet with the same name already exists to avoid duplicates
+            let existingSheet: StyleSheet? = {
+                let trimmedName = sheetData.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                let descriptor = FetchDescriptor<StyleSheet>(
+                    predicate: #Predicate<StyleSheet> { $0.name == trimmedName }
                 )
-                style.id = generateNewUUIDs ? UUID() : (UUID(uuidString: tsData.id) ?? UUID())
-                style.fontName = tsData.fontName
-                style.textColorHex = tsData.textColorHex
-                style.numberAdornmentRaw = tsData.numberAdornmentRaw
-                style.followOnStyleName = tsData.followOnStyleName
-                style.parentStyleName = tsData.parentStyleName
-                style.includeInTOC = tsData.includeInTOC
-                style.tocLevel = tsData.tocLevel
-                style.styleSheet = sheet
-                textStyles.append(style)
-                modelContext.insert(style)
-            }
-            sheet.textStyles = textStyles
-            
-            // Import image styles
-            if let imageStylesData = sheetData.imageStyles {
-                var imageStyles: [ImageStyle] = []
-                for isData in imageStylesData {
-                    let imageStyle = ImageStyle(
-                        name: isData.name,
-                        displayName: isData.displayName,
-                        displayOrder: isData.displayOrder,
-                        defaultScale: isData.defaultScale,
-                        defaultAlignment: ImageAttachment.ImageAlignment(rawValue: isData.defaultAlignmentRaw) ?? .center,
-                        hasCaptionByDefault: isData.hasCaptionByDefault,
-                        defaultCaptionStyle: isData.defaultCaptionStyle,
-                        isSystemStyle: isData.isSystemStyle
+                return try? modelContext.fetch(descriptor).first
+            }()
+
+            let sheet: StyleSheet
+            if let existingSheet {
+                // Reuse existing stylesheet instead of creating a duplicate
+                sheet = existingSheet
+                #if DEBUG
+                print("[JSONImport] Reusing existing stylesheet '\(existingSheet.name)' instead of creating duplicate")
+                #endif
+            } else {
+                sheet = StyleSheet(
+                    name: sheetData.name,
+                    isSystemStyleSheet: sheetData.isSystemStyleSheet
+                )
+                sheet.id = generateNewUUIDs ? UUID() : (UUID(uuidString: sheetData.id) ?? UUID())
+                sheet.createdDate = sheetData.createdDate
+                sheet.modifiedDate = sheetData.modifiedDate
+                modelContext.insert(sheet)
+
+                // Create text styles only for new sheets
+                var textStyles: [TextStyleModel] = []
+                for tsData in sheetData.textStyles {
+                    let style = TextStyleModel(
+                        name: tsData.name,
+                        displayName: tsData.displayName,
+                        displayOrder: tsData.displayOrder,
+                        fontFamily: tsData.fontFamily,
+                        fontSize: tsData.fontSize,
+                        isBold: tsData.isBold,
+                        isItalic: tsData.isItalic,
+                        isUnderlined: tsData.isUnderlined,
+                        isStrikethrough: tsData.isStrikethrough,
+                        alignment: NSTextAlignment(rawValue: tsData.alignmentRaw) ?? .natural,
+                        lineSpacing: tsData.lineSpacing,
+                        paragraphSpacingBefore: tsData.paragraphSpacingBefore,
+                        paragraphSpacingAfter: tsData.paragraphSpacingAfter,
+                        firstLineIndent: tsData.firstLineIndent,
+                        headIndent: tsData.headIndent,
+                        tailIndent: tsData.tailIndent,
+                        lineHeightMultiple: tsData.lineHeightMultiple,
+                        minimumLineHeight: tsData.minimumLineHeight,
+                        maximumLineHeight: tsData.maximumLineHeight,
+                        numberFormat: NumberFormat(rawValue: tsData.numberFormatRaw) ?? .none,
+                        styleCategory: StyleCategory(rawValue: tsData.styleCategoryRaw) ?? .text,
+                        isSystemStyle: tsData.isSystemStyle
                     )
-                    imageStyle.id = generateNewUUIDs ? UUID() : (UUID(uuidString: isData.id) ?? UUID())
-                    imageStyle.styleSheet = sheet
-                    imageStyles.append(imageStyle)
-                    modelContext.insert(imageStyle)
+                    style.id = generateNewUUIDs ? UUID() : (UUID(uuidString: tsData.id) ?? UUID())
+                    style.fontName = tsData.fontName
+                    style.textColorHex = tsData.textColorHex
+                    style.numberAdornmentRaw = tsData.numberAdornmentRaw
+                    style.followOnStyleName = tsData.followOnStyleName
+                    style.parentStyleName = tsData.parentStyleName
+                    style.includeInTOC = tsData.includeInTOC
+                    style.tocLevel = tsData.tocLevel
+                    style.styleSheet = sheet
+                    textStyles.append(style)
+                    modelContext.insert(style)
                 }
-                sheet.imageStyles = imageStyles
+                sheet.textStyles = textStyles
+
+                // Import image styles
+                if let imageStylesData = sheetData.imageStyles {
+                    var imageStyles: [ImageStyle] = []
+                    for isData in imageStylesData {
+                        let imageStyle = ImageStyle(
+                            name: isData.name,
+                            displayName: isData.displayName,
+                            displayOrder: isData.displayOrder,
+                            defaultScale: isData.defaultScale,
+                            defaultAlignment: ImageAttachment.ImageAlignment(rawValue: isData.defaultAlignmentRaw) ?? .center,
+                            hasCaptionByDefault: isData.hasCaptionByDefault,
+                            defaultCaptionStyle: isData.defaultCaptionStyle,
+                            isSystemStyle: isData.isSystemStyle
+                        )
+                        imageStyle.id = generateNewUUIDs ? UUID() : (UUID(uuidString: isData.id) ?? UUID())
+                        imageStyle.styleSheet = sheet
+                        imageStyles.append(imageStyle)
+                        modelContext.insert(imageStyle)
+                    }
+                    sheet.imageStyles = imageStyles
+                }
             }
             
             project.styleSheet = sheet
             
             #if DEBUG
-            print("[JSONImport] Imported stylesheet '\(sheet.name)' with \(textStyles.count) text styles")
+            print("[JSONImport] \(existingSheet != nil ? "Reused" : "Imported") stylesheet '\(sheet.name)' with \(sheet.textStyles?.count ?? 0) text styles")
             #endif
         }
         

@@ -77,7 +77,15 @@ struct Write_App: App {
             ScenePlotElementLink.self,
             SceneCharacterLink.self,
             CharacterPlotElementLink.self,
-            LocationPlotElementLink.self
+            LocationPlotElementLink.self,
+            // Reference & metadata models (explicit registration for CloudKit schema deployment)
+            NoteEntry.self,
+            GlossaryEntry.self,
+            ReferenceEntry.self,
+            CitationEntry.self,
+            IndexEntry.self,
+            ContributorEntry.self,
+            ImageStyle.self
         ])
         
         #if DEBUG
@@ -119,16 +127,17 @@ struct Write_App: App {
             #if DEBUG
             print("✅ [Write_App] Main context ready")
             
-            // ── Force CloudKit schema registration for join models ──
-            // The mirroring engine never created record types for the fiction join
-            // tables because they had no data.  The standalone Core Data
-            // initializeCloudKitSchema() times out on Catalyst (no APNs for a
-            // second container).
+            // ── CloudKit schema registration for join models ──
+            // DISABLED: The join table record types (CD_SceneChapterLink, etc.)
+            // have already been deployed to CloudKit production. The previous
+            // approach of creating seed CKRecords directly in the zone on every
+            // launch was actively breaking sync: the malformed records (missing
+            // CD_entityName and other CoreData metadata) were fetched by the
+            // mirroring engine's import, causing -1017 "cannot parse response"
+            // errors in an infinite retry loop.
             //
-            // Direct approach: create CKRecords of each missing type directly
-            // via the CloudKit API.  In the DEVELOPMENT environment, CloudKit
-            // auto-creates record types when records are saved to a zone.
-            Write_App.createMissingCloudKitRecordTypes()
+            // If new join models are added in the future, use CloudKit Console
+            // or a one-shot migration script instead of on-launch seed records.
             #endif
             
             // Monitor CloudKit sync errors at the transaction level
@@ -142,9 +151,10 @@ struct Write_App: App {
             print("✅ [Write_App] CloudKitSyncThrottler initialized")
             #endif
             
-            // Monitor CloudKit sync events for diagnostics and auto-retry
-            // Keep event monitoring read-only for stability: we log and update throttler
-            // state, but do not perform automatic local mutations to force retries.
+            // Monitor CloudKit sync events — logging only.
+            // State mutation (rate-limit, transport-failure, import/export tracking)
+            // is handled by CloudKitSyncThrottler's own event observer to avoid
+            // duplicate notification handling.
             
             NotificationCenter.default.addObserver(
                 forName: NSPersistentCloudKitContainer.eventChangedNotification,
@@ -162,18 +172,15 @@ struct Write_App: App {
                 @unknown default: typeStr = "unknown(\(event.type.rawValue))"
                 }
                 
-                let endDateStr = event.endDate?.description ?? "in-progress"
-                let startDateStr = event.startDate.description
-                
                 if event.endDate == nil {
                     #if DEBUG
-                    print("⏳ [CloudKit Sync] STARTED: type=\(typeStr) at=\(startDateStr)")
+                    print("⏳ [CloudKit Sync] STARTED: type=\(typeStr) at=\(event.startDate.description)")
                     #endif
                 } else if !event.succeeded {
                     let nsError = event.error as? NSError
-                    let errorMsg = nsError?.localizedDescription ?? "no error description"
                     let errorDomain = nsError?.domain ?? "unknown"
                     let errorCode = nsError?.code ?? -1
+                    let errorMsg = nsError?.localizedDescription ?? "no error description"
                     let msg = "❌ [CloudKit Sync] FAILED: type=\(typeStr) domain=\(errorDomain) code=\(errorCode) error=\(errorMsg)"
                     Write_App.logToFile(msg)
                     #if DEBUG
@@ -182,124 +189,25 @@ struct Write_App: App {
                         print("   Underlying: domain=\(underlying.domain) code=\(underlying.code) \(underlying.localizedDescription)")
                     }
                     #endif
-
-                    if event.type == .import {
-                        let underlying = nsError?.userInfo[NSUnderlyingErrorKey] as? NSError
-                        let isTransportFailure = (errorDomain == "CKErrorDomain" && errorCode == 4)
-                            || (underlying?.domain == NSURLErrorDomain && underlying?.code == -1017)
-                        if isTransportFailure {
-                            CloudKitSyncThrottler.shared.recordImportTransportFailure()
-                            #if DEBUG
-                            print("⏳ [CloudKit Sync] Import transport failure detected — pausing manual CloudKit kicks")
-                            #endif
-                        }
-                    }
-                    
-                    // CKError code 6 = serviceUnavailable, code 7 = requestRateLimited.
-                    // The container's internal retry handles these with proper backoff.
-                    // Record rate-limit state so voluntary operations back off.
-                    if event.type == .export {
-                        let isRateLimited = (errorDomain == "CKErrorDomain" && (errorCode == 6 || errorCode == 7))
-
-                        if isRateLimited {
-                            // Extract server-provided retry-after hint from CKError userInfo
-                            let retryAfter = (nsError?.userInfo["CKRetryAfter"] as? Double)
-                                ?? (nsError?.userInfo["retryAfter"] as? Double)
-                                ?? 30.0
-                            #if DEBUG
-                            print("⏳ [CloudKit Sync] Rate limited. Server says retry after \(retryAfter)s.")
-                            #endif
-                            Write_App.logToFile("⏳ Rate limited, backoff \(retryAfter)s")
-                            
-                            // Tell the throttler so ALL our voluntary sync operations back off
-                            CloudKitSyncThrottler.shared.recordRateLimit(retryAfter: retryAfter)
-                        } else {
-                            #if DEBUG
-                            print("⚠️ [CloudKit Sync] Export failed (non-rate-limit). Relying on container's internal retry.")
-                            #endif
-                            Write_App.logToFile("⚠️ Export failed (non-rate-limit) — relying on internal retry")
-                        }
-                    }
                 } else {
                     #if DEBUG
-                    print("☁️ [CloudKit Sync] OK: type=\(typeStr) endDate=\(endDateStr)")
+                    print("☁️ [CloudKit Sync] OK: type=\(typeStr) endDate=\(event.endDate?.description ?? "")")
                     #endif
-                    if event.type == .export {
-                        CloudKitSyncThrottler.shared.clearRateLimit()
-                    }
-                    if event.type == .import {
-                        CloudKitSyncThrottler.shared.clearImportTransportFailureBackoff()
-                    }
                 }
             }
             
             Write_App.logToFile("✅ CloudKit event monitoring active")
             
-            // Handle CloudKit token reset (happens after schema deployment or token expiry).
-            // The mirroring delegate resets internal state but may not automatically restart
-            // the sync, especially on Mac Catalyst. We force a zone fetch after a delay to
-            // ensure recovery.
+            // Post-reset zone fetch is handled by CloudKitSyncThrottler's
+            // mirroring-reset observer, so no separate observer needed here.
+            // We only log the reset event for the persistent file log.
             NotificationCenter.default.addObserver(
                 forName: NSNotification.Name("NSCloudKitMirroringDelegateDidResetSyncNotificationName"),
                 object: nil,
                 queue: nil
             ) { notification in
                 let reason = String(describing: notification.userInfo?["NSCloudKitMirroringDelegateResetReasonKey"] ?? "unknown")
-                let msg = "🔄 [CloudKit Sync] Mirroring delegate RESET — reason: \(reason). Will kick zone fetch in 5s."
-                Write_App.logToFile(msg)
-                #if DEBUG
-                print(msg)
-                #endif
-                
-                // Give the mirroring delegate a moment to clear internal state,
-                // then trigger a zone fetch to kick-start import from scratch.
-                // Skip if we're currently rate-limited — the container will retry on its own.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-                    guard !CloudKitSyncThrottler.shared.isRateLimited else {
-                        #if DEBUG
-                        print("⏳ [CloudKit Sync] Post-reset zone fetch skipped — rate-limited")
-                        #endif
-                        return
-                    }
-                    guard !CloudKitSyncThrottler.shared.isManualKickPaused else {
-                        #if DEBUG
-                        print("⏳ [CloudKit Sync] Post-reset zone fetch skipped — manual kick backoff active")
-                        #endif
-                        return
-                    }
-                    let ck = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
-                    let db = ck.privateCloudDatabase
-                    db.fetchAllRecordZones { zones, error in
-                        guard let zones = zones, !zones.isEmpty else {
-                            #if DEBUG
-                            print("⚠️ [CloudKit Sync] Post-reset zone fetch failed: \(error?.localizedDescription ?? "no zones")")
-                            #endif
-                            return
-                        }
-                        var configs = [CKRecordZone.ID: CKFetchRecordZoneChangesOperation.ZoneConfiguration]()
-                        for zone in zones {
-                            let config = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
-                            config.previousServerChangeToken = nil
-                            configs[zone.zoneID] = config
-                        }
-                        let op = CKFetchRecordZoneChangesOperation(
-                            recordZoneIDs: zones.map(\.zoneID),
-                            configurationsByRecordZoneID: configs
-                        )
-                        op.fetchRecordZoneChangesResultBlock = { result in
-                            #if DEBUG
-                            switch result {
-                            case .success:
-                                print("✅ [CloudKit Sync] Post-reset zone fetch completed — import should follow")
-                            case .failure(let err):
-                                print("⚠️ [CloudKit Sync] Post-reset zone fetch error: \(err.localizedDescription)")
-                            }
-                            #endif
-                        }
-                        op.qualityOfService = .userInitiated
-                        db.add(op)
-                    }
-                }
+                Write_App.logToFile("🔄 [CloudKit Sync] Mirroring delegate RESET — reason: \(reason)")
             }
             
             Write_App.logToFile("✅ CloudKit reset notification handler active")
@@ -524,14 +432,13 @@ struct Write_App: App {
         }
         .modelContainer(sharedModelContainer)
         .commands {
-            // Replace the system "File > Open..." (Cmd+O) command so it uses our
-            // existing .fileImporter mechanism instead of going through
-            // NSDocumentController, which silently does nothing for non-document apps.
-            CommandGroup(replacing: .openItem) {
+            // Add app-specific import command in the File menu. Use Cmd+Shift+O
+            // to avoid conflicting with the system Open... (Cmd+O).
+            CommandGroup(after: .newItem) {
                 Button("Open WSP File...") {
                     NotificationCenter.default.post(name: .writingShedProShowImportPicker, object: nil)
                 }
-                .keyboardShortcut("o", modifiers: .command)
+                .keyboardShortcut("o", modifiers: [.command, .shift])
             }
         }
     }

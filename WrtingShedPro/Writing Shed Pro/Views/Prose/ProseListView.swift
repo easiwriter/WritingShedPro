@@ -1537,19 +1537,9 @@ private struct FileRowView: View {
             HStack {
                 Text(file.name.isEmpty ? NSLocalizedString("prose.untitled", comment: "Untitled") : file.name)
                     .font(.body)
+                    .foregroundColor(file.workflowStatus.map { Color($0.color) } ?? .primary)
                 
                 Spacer()
-                
-                // Workflow status indicator
-                if let status = file.workflowStatus {
-                    Text(status.localizedName)
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color(status.color).opacity(0.2))
-                        .foregroundColor(Color(status.color))
-                        .clipShape(Capsule())
-                }
             }
             
             // Section assignment

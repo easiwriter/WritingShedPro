@@ -340,13 +340,6 @@ struct AddPlotElementSheet: View {
         element.locations = Array(selectedLocations)
         element.linkedScenes = Array(selectedScenes)
         
-        // Update inverse relationships for selected scenes
-        for scene in selectedScenes {
-            var scenePlotElements = scene.plotElements ?? []
-            scenePlotElements.append(element)
-            scene.plotElements = scenePlotElements
-        }
-        
         modelContext.insert(element)
         
         // Create scene/episode if name provided
@@ -380,9 +373,8 @@ struct AddPlotElementSheet: View {
             scene.characters = Array(selectedCharacters)
             // Set first location if any selected
             scene.location = selectedLocations.first
-            // Link scene to plot element (set both sides of relationship)
+            // Link scene to plot element
             scene.plotElements = [element]
-            element.linkedScenes = [scene]
             
             // Create TextFile for scene/episode content
             let textFile: TextFile

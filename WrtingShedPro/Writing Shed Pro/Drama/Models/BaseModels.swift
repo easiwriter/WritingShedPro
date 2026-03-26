@@ -494,7 +494,7 @@ final class Version {
     
     // MARK: - Text Formatting (Phase 005)
     /// Formatted content stored as RTF data
-    var formattedContent: Data?
+    @Attribute(.externalStorage) var formattedContent: Data?
     
     // MARK: - Feature 029: Reference Metadata
     /// Reference metadata for back matter entries (notes, glossary, citations, index)
@@ -760,8 +760,8 @@ final class TextFile {
     var workflowStatusRaw: String?
     
     // Undo/Redo support (for TextFileUndoManager)
-    var undoStackData: Data?
-    var redoStackData: Data?
+    @Attribute(.externalStorage) var undoStackData: Data?
+    @Attribute(.externalStorage) var redoStackData: Data?
     var undoStackMaxSize: Int = 100
     var lastUndoSaveDate: Date?
     
@@ -815,7 +815,7 @@ final class TextFile {
     // Cover files display only an image and do not contribute to page count
     var isCoverFile: Bool = false
     // Image data for cover files (JPEG/PNG compressed)
-    var coverImageData: Data?
+    @Attribute(.externalStorage) var coverImageData: Data?
     
     // Content type: richText (default) or markdown
     var contentTypeRaw: String = "richText"

@@ -2,8 +2,7 @@ import Foundation
 
 struct UniquenessChecker {
     static func isProjectNameUnique(_ name: String, in projects: [Project]) -> Bool {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !projects.contains { ($0.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(trimmedName) == .orderedSame }
+        !DeduplicationService.hasProjectNameConflict(name, in: projects)
     }
     
     /// Check if folder name is unique within its parent context

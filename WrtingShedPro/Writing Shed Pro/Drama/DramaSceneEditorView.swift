@@ -525,26 +525,30 @@ struct DramaSceneEditorView: View {
         ScrollView([.horizontal, .vertical]) {
             VStack(spacing: 20) {
                 ForEach(Array(printPreviewPages.enumerated()), id: \.offset) { index, pageContent in
-                    VStack(alignment: .leading) {
-                        AttributedTextView(attributedText: pageContent)
-                            .padding(72)  // Standard 1" margins
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    }
-                    .frame(width: 612, height: 792)  // US Letter size in points
-                    .background(Color.white)
-                    .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-                    .overlay(alignment: .bottomTrailing) {
-                        Text("\(index + 1)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .padding(.trailing, 20)
-                            .padding(.bottom, 14)
-                    }
+                    printPreviewPage(pageContent, pageNumber: index + 1)
                 }
             }
             .padding()
         }
         .background(Color.gray.opacity(0.3))
+    }
+
+    private func printPreviewPage(_ pageContent: NSAttributedString, pageNumber: Int) -> some View {
+        VStack(alignment: .leading) {
+            AttributedTextView(attributedText: pageContent)
+                .padding(72)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+        .frame(width: 612, height: 792)
+        .background(Color.white)
+        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+        .overlay(alignment: .bottomTrailing) {
+            Text("\(pageNumber)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.trailing, 20)
+                .padding(.bottom, 14)
+        }
     }
     
     // MARK: - Validation Errors Sheet

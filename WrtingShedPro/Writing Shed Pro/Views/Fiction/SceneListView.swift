@@ -93,8 +93,7 @@ struct SceneListView: View {
     @State private var footerInsertTarget: HeaderFooterField = .left
     @State private var showHeaderFooterWarning = false
     
-    /// Scene details state
-    @State private var showSceneDetails = false
+    /// Scene details state — uses sheet(item:) to avoid timing issues/blank sheets
     @State private var sceneForDetails: StoryScene?
     
     /// Export state
@@ -119,6 +118,9 @@ struct SceneListView: View {
     @State private var showSubmissionCreated = false
     @State private var createdSubmissionName: String = ""
     @State private var showDuplicateSubmission = false
+    
+    /// Poetry form change state (verse novel episodes)
+    @State private var sceneForFormChange: TextFile?
     
     /// Chapter grouping: tracks which chapter sections are expanded
     @State private var chapterExpandedSections: Set<String> = []
@@ -554,14 +556,12 @@ struct SceneListView: View {
         .sheet(isPresented: $showAddScene) {
             AddSceneSheet(project: project, chapter: chapter, act: act, book: book)
         }
-        .sheet(isPresented: $showSceneDetails) {
-            if let scene = sceneForDetails {
-                SceneDetailView(scene: scene, project: project, onExport: { textFile in
-                    showSceneDetails = false
-                    filesToExport = [textFile]
-                    showExportMenu = true
-                })
-            }
+        .sheet(item: $sceneForDetails) { scene in
+            SceneDetailView(scene: scene, project: project, onExport: { textFile in
+                sceneForDetails = nil
+                filesToExport = [textFile]
+                showExportMenu = true
+            })
         }
         .sheet(isPresented: $showSearchView) {
             // Multi-file search across all scene files
@@ -747,6 +747,9 @@ struct SceneListView: View {
         }
         .sheet(item: $containerAssignmentItem) { item in
             containerAssignmentContent(for: item.scenes)
+        }
+        .sheet(item: $sceneForFormChange) { file in
+            PoetryFormPickerSheet(file: file)
         }
         .onAppear {
             initializeHeaderFooterFields()
@@ -1242,6 +1245,9 @@ struct SceneListView: View {
                 navigateToScene = scene
             }
         }
+        .contextMenu {
+            sceneContextMenuItems(for: scene)
+        }
     }
     
     // MARK: - Scene Options Button
@@ -1251,7 +1257,6 @@ struct SceneListView: View {
     private func sceneOptionsMenu(for scene: StoryScene) -> some View {
         Button {
             sceneForDetails = scene
-            showSceneDetails = true
         } label: {
             Image(systemName: "ellipsis.circle")
                 .imageScale(.large)
@@ -1261,6 +1266,48 @@ struct SceneListView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(NSLocalizedString("fileList.options", comment: "File options"))
+    }
+    
+    // MARK: - Scene Context Menu
+    
+    @ViewBuilder
+    private func sceneContextMenuItems(for scene: StoryScene) -> some View {
+        #if targetEnvironment(macCatalyst)
+        Button {
+            navigateToScene = scene
+        } label: {
+            Label("fileList.contextMenu.open", systemImage: "doc")
+        }
+        
+        if isVerseNovel, let textFile = scene.textFile {
+            Divider()
+            
+            Button {
+                sceneForFormChange = textFile
+            } label: {
+                Label("fileList.contextMenu.changeForm", systemImage: "text.book.closed")
+            }
+        }
+        
+        Divider()
+        
+        Button {
+            sceneForDetails = scene
+        } label: {
+            Label(NSLocalizedString("fiction.sceneDetails.title", comment: "Scene Details"), systemImage: "info.circle")
+        }
+        
+        Divider()
+        
+        Button(role: .destructive) {
+            scenesToDelete = [scene]
+            showDeleteConfirmation = true
+        } label: {
+            Label("fileList.contextMenu.delete", systemImage: "trash")
+        }
+        #else
+        EmptyView()
+        #endif
     }
     
     // MARK: - Empty State
@@ -1973,6 +2020,7 @@ struct SceneRowView: View {
                 Text(scene.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
                     .font(.body)
                     .fontWeight(.semibold)
+                    .foregroundColor(scene.textFile?.workflowStatus.map { Color($0.color) } ?? .primary)
             }
             
             // Summary preview

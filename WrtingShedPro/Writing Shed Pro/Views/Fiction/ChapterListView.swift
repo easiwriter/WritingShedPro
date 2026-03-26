@@ -376,21 +376,6 @@ struct ChapterListView: View {
     
     @ViewBuilder
     private var bottomToolbarContent: some View {
-        // Edit button (only for single selection)
-        if selectedContainerCount == 1 {
-            Button {
-                if isVerseNovel {
-                    if let book = selectedBooks.first {
-                        bookToEdit = book
-                    }
-                } else if let chapter = selectedChapters.first {
-                    chapterToEdit = chapter
-                }
-            } label: {
-                Label(NSLocalizedString("button.edit", comment: "Edit"), systemImage: "pencil")
-            }
-        }
-        
         // Add to submission button
         Button {
             showSubmissionNamePrompt = true
@@ -418,7 +403,7 @@ struct ChapterListView: View {
         List(selection: $selectedChapterIDs) {
             if isVerseNovel {
                 ForEach(sortedBooks) { book in
-                    Group {
+                    HStack {
                         if isEditMode {
                             BookRowView(book: book, fictionClass: fictionClass)
                         } else {
@@ -428,6 +413,19 @@ struct ChapterListView: View {
                                 BookRowView(book: book, fictionClass: fictionClass)
                             }
                         }
+                        
+                        if !isEditMode {
+                            Button {
+                                bookToEdit = book
+                            } label: {
+                                Image(systemName: "ellipsis.circle")
+                                    .imageScale(.large)
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                     .onDrag {
                         return NSItemProvider(object: book.id.uuidString as NSString)
@@ -436,7 +434,7 @@ struct ChapterListView: View {
                 .onMove(perform: moveContainers)
             } else {
                 ForEach(sortedChapters) { chapter in
-                    Group {
+                    HStack {
                         if isEditMode {
                             ChapterRowView(chapter: chapter, fictionClass: fictionClass)
                         } else {
@@ -445,6 +443,19 @@ struct ChapterListView: View {
                             } label: {
                                 ChapterRowView(chapter: chapter, fictionClass: fictionClass)
                             }
+                        }
+                        
+                        if !isEditMode {
+                            Button {
+                                chapterToEdit = chapter
+                            } label: {
+                                Image(systemName: "ellipsis.circle")
+                                    .imageScale(.large)
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .onDrag {

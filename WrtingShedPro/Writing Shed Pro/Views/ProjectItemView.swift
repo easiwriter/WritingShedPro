@@ -9,9 +9,40 @@ struct ProjectItemView: View {
     var onPoetrySettingsTapped: (() -> Void)? = nil
     var onDuplicateTapped: (() -> Void)? = nil
     var onExportTapped: (() -> Void)? = nil
+    var isDuplicate: Bool = false
     
     @Environment(\.modelContext) var modelContext
     @Query(sort: \StyleSheet.name) private var allStyleSheets: [StyleSheet]
+
+    private var uniqueStyleSheetsForMenu: [StyleSheet] {
+        var grouped: [String: [StyleSheet]] = [:]
+
+        for sheet in allStyleSheets {
+            let normalized = sheet.name
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            grouped[normalized, default: []].append(sheet)
+        }
+
+        return grouped.values.compactMap { group in
+            if group.count == 1 {
+                return group.first
+            }
+
+            if let current = project.styleSheet,
+               let match = group.first(where: { $0.id == current.id }) {
+                return match
+            }
+
+            return group.sorted { lhs, rhs in
+                if lhs.isSystemStyleSheet != rhs.isSystemStyleSheet {
+                    return lhs.isSystemStyleSheet
+                }
+                return lhs.createdDate <= rhs.createdDate
+            }.first
+        }
+        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
     
     /// Returns the display name for the project type, showing specific fiction class for fiction projects
     private var projectTypeDisplayName: String {
@@ -28,10 +59,19 @@ struct ProjectItemView: View {
     
     var body: some View {
         HStack {
-            Image(systemName: "archivebox")
-                .imageScale(.large)
-                .foregroundStyle(.blue)
-                .accessibilityHidden(true)
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "archivebox")
+                    .imageScale(.large)
+                    .foregroundStyle(.blue)
+                    .accessibilityHidden(true)
+                if isDuplicate {
+                    Image(systemName: "2.square.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.orange)
+                        .offset(x: 4, y: -4)
+                        .accessibilityLabel(NSLocalizedString("projectItem.duplicate", comment: "Duplicate project indicator"))
+                }
+            }
             
             VStack(alignment: .leading, spacing: 0) {
                 Text(project.name ?? NSLocalizedString("projectItem.untitledProject", comment: "Untitled project"))
@@ -103,7 +143,7 @@ struct ProjectItemView: View {
     @ViewBuilder
     private var stylesheetSubmenu: some View {
         Menu {
-            ForEach(allStyleSheets, id: \.id) { (sheet: StyleSheet) in
+            ForEach(uniqueStyleSheetsForMenu, id: \.id) { (sheet: StyleSheet) in
                 Button {
                     project.styleSheet = sheet
                     NotificationCenter.default.post(

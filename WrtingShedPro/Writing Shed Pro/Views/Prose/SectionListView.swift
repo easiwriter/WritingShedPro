@@ -166,17 +166,6 @@ struct SectionListView: View {
     
     @ViewBuilder
     private var bottomToolbarContent: some View {
-        // Edit button (only for single selection)
-        if selectedSections.count == 1 {
-            Button {
-                if let section = selectedSections.first {
-                    sectionToEdit = section
-                }
-            } label: {
-                Label(NSLocalizedString("button.edit", comment: "Edit"), systemImage: "pencil")
-            }
-        }
-        
         // Add to submission button
         Button {
             showSubmissionNamePrompt = true
@@ -203,7 +192,7 @@ struct SectionListView: View {
     private var sectionList: some View {
         List(selection: $selectedSectionIDs) {
             ForEach(sortedSections) { section in
-                Group {
+                HStack {
                     if isEditMode {
                         SectionRowView(section: section)
                     } else {
@@ -212,6 +201,19 @@ struct SectionListView: View {
                         } label: {
                             SectionRowView(section: section)
                         }
+                    }
+                    
+                    if !isEditMode {
+                        Button {
+                            sectionToEdit = section
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .imageScale(.large)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 // Enable drag-to-reorder without edit mode
