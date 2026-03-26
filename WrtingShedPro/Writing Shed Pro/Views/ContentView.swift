@@ -263,12 +263,14 @@ struct ContentView: View {
         }
 
         guard secondsSinceEvent >= 180 else {
-            // Export stall recovery: if the rate-limit has expired and export hasn't
-            // completed yet, a modelContext.save() nudges the mirroring delegate to
-            // re-check for pending changes and restart the export cycle.
-            if !throttler.exportCompleted && !throttler.isRateLimited && !throttler.exportInProgress && secondsSinceEvent >= 60 {
+            // Export stall recovery: if the rate-limit has expired and no sync
+            // activity for 60s, a modelContext.save() nudges the mirroring delegate
+            // to re-check for pending changes and restart the export cycle.
+            // We no longer gate on exportCompleted because it stays true from
+            // earlier exports and won't catch newly-imported local data.
+            if !throttler.isRateLimited && !throttler.exportInProgress && secondsSinceEvent >= 60 {
                 #if DEBUG
-                print("🔄 [ContentView] Sync watchdog: export not complete and rate-limit expired — nudging export via save()")
+                print("🔄 [ContentView] Sync watchdog: nudging export via save() (idle \(Int(secondsSinceEvent))s)")
                 #endif
                 do { try modelContext.save() } catch { }
             }
@@ -298,8 +300,13 @@ struct ContentView: View {
         }
 
         #if DEBUG
-        print("🔄 [ContentView] Sync watchdog: idle \(Int(secondsSinceEvent))s — forcing import (bypassPause=\(bypassPause))")
+        print("🔄 [ContentView] Sync watchdog: idle \(Int(secondsSinceEvent))s — forcing import + export nudge (bypassPause=\(bypassPause))")
         #endif
+        // Nudge both directions: zone fetch for missed imports AND save() to
+        // wake the mirroring delegate for pending exports. Without the save(),
+        // locally-imported projects (e.g. .wsp import) can stall for 20+ minutes
+        // because the mirroring delegate never notices the new records.
+        do { try modelContext.save() } catch { }
         forceCloudKitImport(bypassManualKickPause: bypassPause)
         lastForegroundSyncDate = now
     }
