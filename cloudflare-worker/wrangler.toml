@@ -1,0 +1,11 @@
+name = "wsp-support"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# The LLM_API_KEY and SYSTEM_PROMPT are stored as secrets:
+#   npx wrangler secret put LLM_API_KEY
+#   npx wrangler secret put SYSTEM_PROMPT
+#
+# Or SYSTEM_PROMPT can be set as a plain-text variable here if preferred:
+# [vars]
+# SYSTEM_PROMPT = "..."

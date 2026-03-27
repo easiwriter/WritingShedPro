@@ -49,6 +49,9 @@ struct CollectionDetailView: View {
     @State private var copyResultMessage = ""
     @State private var copyResultIsError = false
     
+    // Edit Dates state
+    @State private var showEditDates = false
+    
     // Edit mode state
     @State private var editMode: EditMode = .inactive
     @State private var selectedFileIDs: Set<UUID> = []
@@ -179,6 +182,10 @@ struct CollectionDetailView: View {
                 Label("Add Files", systemImage: "plus")
             }
 
+            Button(action: { showEditDates = true }) {
+                Label(NSLocalizedString("submissions.editDates", comment: "Edit Dates"), systemImage: "calendar.badge.clock")
+            }
+
             if !submittedFiles.isEmpty {
                 Divider()
 
@@ -221,6 +228,9 @@ struct CollectionDetailView: View {
         }
         .sheet(isPresented: $showSubmissionPicker) {
             submissionPickerSheetContent
+        }
+        .sheet(isPresented: $showEditDates) {
+            EditSubmissionDatesView(submission: submission)
         }
         .onAppear {
             prefetchSubmittedFiles()

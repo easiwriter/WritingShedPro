@@ -34,6 +34,9 @@ struct SubmissionsView: View {
     @State private var showNewSubmissionSheet = false
     @State private var newSubmissionName = ""
     
+    // State for editing dates
+    @State private var editingSubmissionDates: Submission?
+    
     // Query all Submissions for this project where publication is not nil
     @Query private var allSubmissions: [Submission]
     
@@ -195,6 +198,9 @@ struct SubmissionsView: View {
             .disabled(newSubmissionName.trimmingCharacters(in: .whitespaces).isEmpty)
             Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
         }
+        .sheet(item: $editingSubmissionDates) { submission in
+            EditSubmissionDatesView(submission: submission)
+        }
     }
     
     // MARK: - Create Empty Submission
@@ -317,6 +323,22 @@ struct SubmissionsView: View {
                 }
                 .padding(.vertical, 4)
             }
+            
+            // Edit Dates ellipsis menu
+            Menu {
+                Button {
+                    editingSubmissionDates = submission
+                } label: {
+                    Label(NSLocalizedString("submissions.editDates", comment: "Edit Dates"), systemImage: "calendar.badge.clock")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .imageScale(.large)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
             
             // Show submissions button if collection has publication submissions
             CollectionSubmissionsButton(collection: submission)

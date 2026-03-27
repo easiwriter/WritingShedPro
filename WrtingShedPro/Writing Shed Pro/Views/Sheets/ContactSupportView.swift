@@ -4,6 +4,7 @@
 //
 //  Contact support form — bug reports & suggestions
 //  Feature 019: Settings Menu
+//  Feature 037: AI User Support — sends query to support service first
 //
 
 import SwiftUI
@@ -49,6 +50,7 @@ struct ContactSupportView: View {
     enum ReportType: String, CaseIterable, Identifiable {
         case bug = "Bug Report"
         case suggestion = "Suggestion"
+        case question = "Question"
         var id: String { rawValue }
     }
 
@@ -63,17 +65,20 @@ struct ContactSupportView: View {
     @State private var showRobotAlert = false
     @State private var showValidationAlert = false
     @State private var validationMessage = ""
+    @State private var showSupportResponse = false
 
     // Robot-check: simple arithmetic challenge
     @State private var challengeA: Int = Int.random(in: 2...9)
     @State private var challengeB: Int = Int.random(in: 2...9)
     @State private var challengeAnswer: String = ""
 
+    @State private var supportService = SupportService()
+
     private let supportEmail = "easiwriter@writing-shed.com"
 
     var body: some View {
         let clipboardString: String = "\(mailSubject)\n\n\(mailBody)"
-        let unavailableMessage: String = "Mail is not configured on this device. You can copy the message and email it to \(supportEmail) manually."
+        let unavailableMessage: String = NSLocalizedString("support.mail.unavailable", comment: "")
         
         NavigationStack {
             Form {
@@ -82,14 +87,15 @@ struct ContactSupportView: View {
                 detailsSection
                 stepsSection
                 deviceInfoSection
+                privacyNoticeSection
                 robotCheckSection
                 sendButtonSection
             }
-            .navigationTitle("Contact Support")
+            .navigationTitle(NSLocalizedString("support.title", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(NSLocalizedString("common.cancel", comment: "")) { dismiss() }
                 }
             }
             .sheet(isPresented: $showMailCompose) {
@@ -100,28 +106,57 @@ struct ContactSupportView: View {
                     onDismiss: { dismiss() }
                 )
             }
-            .alert("Cannot Send Email", isPresented: $showMailUnavailable) {
-                Button("Copy to Clipboard") {
+            .sheet(isPresented: $showSupportResponse) {
+                if let response = supportService.response {
+                    SupportResponseView(
+                        responseText: response,
+                        onDismiss: { dismiss() },
+                        onAskDeveloper: {
+                            showSupportResponse = false
+                            openEmailFlow()
+                        }
+                    )
+                }
+            }
+            .alert(NSLocalizedString("support.mail.unavailableTitle", comment: ""),
+                   isPresented: $showMailUnavailable) {
+                Button(NSLocalizedString("support.mail.copyToClipboard", comment: "")) {
                     UIPasteboard.general.string = clipboardString
                 }
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(unavailableMessage)
             }
-            .alert("Robot Check Failed", isPresented: $showRobotAlert) {
+            .alert(NSLocalizedString("support.robotCheck.failedTitle", comment: ""),
+                   isPresented: $showRobotAlert) {
                 Button("OK", role: .cancel) {
-                    // Generate a new challenge
                     challengeA = Int.random(in: 2...9)
                     challengeB = Int.random(in: 2...9)
                     challengeAnswer = ""
                 }
             } message: {
-                Text("Please answer the arithmetic question correctly to verify you are not a robot.")
+                Text(NSLocalizedString("support.robotCheck.failedMessage", comment: ""))
             }
-            .alert("Missing Information", isPresented: $showValidationAlert) {
+            .alert(NSLocalizedString("support.validation.missingTitle", comment: ""),
+                   isPresented: $showValidationAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(validationMessage)
+            }
+            .alert(NSLocalizedString("support.error.title", comment: ""),
+                   isPresented: .init(
+                       get: { supportService.errorMessage != nil },
+                       set: { if !$0 { supportService.errorMessage = nil } }
+                   )) {
+                Button(NSLocalizedString("support.error.emailInstead", comment: "")) {
+                    supportService.errorMessage = nil
+                    openEmailFlow()
+                }
+                Button("OK", role: .cancel) {
+                    supportService.errorMessage = nil
+                }
+            } message: {
+                Text(supportService.errorMessage ?? "")
             }
         }
     }
@@ -137,15 +172,15 @@ struct ContactSupportView: View {
             }
             .pickerStyle(.segmented)
         } header: {
-            Text("What would you like to send?")
+            Text(NSLocalizedString("support.section.type", comment: ""))
         }
     }
 
     private var subjectSection: some View {
         Section {
-            TextField("Brief summary", text: $subject)
+            TextField(NSLocalizedString("support.subject.placeholder", comment: ""), text: $subject)
         } header: {
-            Text("Subject")
+            Text(NSLocalizedString("support.section.subject", comment: ""))
         }
     }
 
@@ -154,7 +189,14 @@ struct ContactSupportView: View {
             TextEditor(text: $details)
                 .frame(minHeight: 120)
         } header: {
-            Text(reportType == .bug ? "Describe the problem" : "Your suggestion")
+            switch reportType {
+            case .bug:
+                Text(NSLocalizedString("support.details.bugHeader", comment: ""))
+            case .suggestion:
+                Text(NSLocalizedString("support.details.suggestionHeader", comment: ""))
+            case .question:
+                Text(NSLocalizedString("support.details.questionHeader", comment: ""))
+            }
         }
     }
 
@@ -165,7 +207,7 @@ struct ContactSupportView: View {
                 TextEditor(text: $stepsToReproduce)
                     .frame(minHeight: 80)
             } header: {
-                Text("Steps to reproduce (optional)")
+                Text(NSLocalizedString("support.steps.header", comment: ""))
             }
         }
     }
@@ -173,7 +215,7 @@ struct ContactSupportView: View {
     private var deviceInfoSection: some View {
         Section {
             HStack {
-                Text("Device")
+                Text(NSLocalizedString("support.device.label", comment: ""))
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text(deviceInfo)
@@ -181,31 +223,46 @@ struct ContactSupportView: View {
                     .multilineTextAlignment(.trailing)
             }
             HStack {
-                Text("App Version")
+                Text(NSLocalizedString("support.appVersion.label", comment: ""))
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text(appVersion)
                     .foregroundStyle(.secondary)
             }
         } header: {
-            Text("System Information")
+            Text(NSLocalizedString("support.section.systemInfo", comment: ""))
         } footer: {
-            Text("This information is included automatically to help us diagnose issues.")
+            Text(NSLocalizedString("support.systemInfo.footer", comment: ""))
+        }
+    }
+
+    private var privacyNoticeSection: some View {
+        Section {
+            Label {
+                Text(NSLocalizedString("support.privacy.notice", comment: ""))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } icon: {
+                Image(systemName: "lock.shield")
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
     private var robotCheckSection: some View {
         Section {
             HStack {
-                Text("What is \(challengeA) + \(challengeB)?")
+                Text(String(format: NSLocalizedString("support.robotCheck.question", comment: ""),
+                            challengeA, challengeB))
                 Spacer()
-                TextField("Answer", text: $challengeAnswer)
+                TextField(NSLocalizedString("support.robotCheck.answer", comment: ""),
+                          text: $challengeAnswer)
                     .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
                     .frame(width: 60)
             }
         } header: {
-            Text("Verify you are not a robot")
+            Text(NSLocalizedString("support.section.robotCheck", comment: ""))
         }
     }
 
@@ -216,37 +273,62 @@ struct ContactSupportView: View {
             } label: {
                 HStack {
                     Spacer()
-                    Label("Send", systemImage: "paperplane.fill")
-                        .font(.headline)
+                    if supportService.isLoading {
+                        ProgressView()
+                            .padding(.trailing, 8)
+                        Text(NSLocalizedString("support.sending", comment: ""))
+                            .font(.headline)
+                    } else {
+                        Label(NSLocalizedString("support.send", comment: ""),
+                              systemImage: "paperplane.fill")
+                            .font(.headline)
+                    }
                     Spacer()
                 }
             }
             .disabled(subject.trimmingCharacters(in: .whitespaces).isEmpty ||
-                      details.trimmingCharacters(in: .whitespaces).isEmpty)
+                      details.trimmingCharacters(in: .whitespaces).isEmpty ||
+                      supportService.isLoading)
         }
     }
 
     // MARK: - Actions
 
     private func attemptSend() {
-        // Validate required fields
         let trimmedSubject = subject.trimmingCharacters(in: .whitespaces)
         let trimmedDetails = details.trimmingCharacters(in: .whitespaces)
 
         if trimmedSubject.isEmpty || trimmedDetails.isEmpty {
-            validationMessage = "Please fill in both the subject and the description."
+            validationMessage = NSLocalizedString("support.validation.missingMessage", comment: "")
             showValidationAlert = true
             return
         }
 
-        // Verify robot check
         guard let answer = Int(challengeAnswer.trimmingCharacters(in: .whitespaces)),
               answer == challengeA + challengeB else {
             showRobotAlert = true
             return
         }
 
-        // Send
+        // Submit to support service
+        Task {
+            await supportService.submitQuery(
+                reportType: reportType.rawValue,
+                subject: trimmedSubject,
+                details: trimmedDetails,
+                stepsToReproduce: stepsToReproduce,
+                deviceInfo: deviceInfo,
+                appVersion: appVersion
+            )
+
+            if supportService.response != nil {
+                showSupportResponse = true
+            }
+            // If errorMessage is set, the alert binding handles it automatically
+        }
+    }
+
+    private func openEmailFlow() {
         if MFMailComposeViewController.canSendMail() {
             showMailCompose = true
         } else {
@@ -257,13 +339,18 @@ struct ContactSupportView: View {
     // MARK: - Mail Content
 
     private var mailSubject: String {
-        let prefix = reportType == .bug ? "[Bug]" : "[Suggestion]"
+        let prefix: String
+        switch reportType {
+        case .bug: prefix = "[Bug]"
+        case .suggestion: prefix = "[Suggestion]"
+        case .question: prefix = "[Question]"
+        }
         return "\(prefix) \(subject)"
     }
 
     private var mailBody: String {
         var body = """
-        \(reportType == .bug ? "Bug Report" : "Suggestion")
+        \(reportType.rawValue)
         ============================
 
         \(details)

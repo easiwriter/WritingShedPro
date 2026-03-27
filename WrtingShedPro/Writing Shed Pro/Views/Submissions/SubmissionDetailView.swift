@@ -37,6 +37,9 @@ struct SubmissionDetailView: View {
     @State private var showCopyResult = false
     @State private var copyResultMessage = ""
     @State private var copyResultIsError = false
+    
+    // Edit Dates state
+    @State private var showEditDates = false
 
     private var submissionFiles: [SubmittedFile] {
         submission.submittedFiles ?? []
@@ -89,6 +92,9 @@ struct SubmissionDetailView: View {
         }
         .sheet(isPresented: $showCopyToProject) {
             copyToProjectSheet
+        }
+        .sheet(isPresented: $showEditDates) {
+            EditSubmissionDatesView(submission: submission)
         }
         .alert(
             copyResultIsError
@@ -266,6 +272,12 @@ struct SubmissionDetailView: View {
 
     private var actionsMenu: some View {
         Menu {
+            Button(action: { showEditDates = true }) {
+                Label(NSLocalizedString("submissions.editDates", comment: "Edit Dates"), systemImage: "calendar.badge.clock")
+            }
+            
+            Divider()
+            
             Button(action: { prepareExport() }) {
                 Label(NSLocalizedString("button.export", comment: "Export"), systemImage: "square.and.arrow.up")
             }

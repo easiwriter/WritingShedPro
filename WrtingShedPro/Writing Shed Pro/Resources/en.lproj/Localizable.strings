@@ -1156,6 +1156,18 @@
 "submissions.returnedOn.label" = "Response Received";
 "submissions.saveResponse" = "Save Response Date";
 
+/* Edit Submission Dates */
+"submissions.editDates" = "Edit Dates";
+"submissions.editDates.title" = "Edit Dates";
+"submissions.editDates.submitted.header" = "Submitted Date";
+"submissions.editDates.expectedDate" = "Date";
+"submissions.editDates.expectedResponse.header" = "Expected Response";
+"submissions.editDates.returnedDate" = "Date";
+"submissions.editDates.responseReceived.header" = "Response Received";
+"submissions.editDates.reminder" = "Reminder";
+"submissions.editDates.reminderDate" = "Date & Time";
+"submissions.editDates.reminder.header" = "Reminder";
+
 /* Collection Submissions */
 "collections.submissions.title" = "Submissions";
 "collections.submissions.empty.title" = "No Submissions";
@@ -2826,3 +2838,37 @@
 "fiction.chapter" = "Chapter";
 "fiction.story" = "Story";
 "fiction.book" = "Book";
+
+// MARK: - Contact Support (Feature 037)
+"support.title" = "Contact Support";
+"support.section.type" = "What would you like to send?";
+"support.section.subject" = "Subject";
+"support.subject.placeholder" = "Brief summary";
+"support.details.bugHeader" = "Describe the problem";
+"support.details.suggestionHeader" = "Your suggestion";
+"support.details.questionHeader" = "Your question";
+"support.steps.header" = "Steps to reproduce (optional)";
+"support.section.systemInfo" = "System Information";
+"support.device.label" = "Device";
+"support.appVersion.label" = "App Version";
+"support.systemInfo.footer" = "This information is included automatically to help us diagnose issues.";
+"support.privacy.notice" = "Your query will be reviewed and a response provided. No personal data is stored.";
+"support.section.robotCheck" = "Verify you are not a robot";
+"support.robotCheck.question" = "What is %d + %d?";
+"support.robotCheck.answer" = "Answer";
+"support.robotCheck.failedTitle" = "Robot Check Failed";
+"support.robotCheck.failedMessage" = "Please answer the arithmetic question correctly to verify you are not a robot.";
+"support.send" = "Send";
+"support.sending" = "Sending…";
+"support.validation.missingTitle" = "Missing Information";
+"support.validation.missingMessage" = "Please fill in both the subject and the description.";
+"support.mail.unavailableTitle" = "Cannot Send Email";
+"support.mail.unavailable" = "Mail is not configured on this device. You can copy the message and email it to easiwriter@writing-shed.com manually.";
+"support.mail.copyToClipboard" = "Copy to Clipboard";
+"support.error.title" = "Support Unavailable";
+"support.error.unavailable" = "The support service is temporarily unavailable. You can email the developer instead.";
+"support.error.rateLimit" = "Too many requests. Please try again later or email the developer.";
+"support.error.emailInstead" = "Email Developer";
+"support.response.title" = "Support Response";
+"support.response.thisHelped" = "This Helped";
+"support.response.askDeveloper" = "Ask Developer";
