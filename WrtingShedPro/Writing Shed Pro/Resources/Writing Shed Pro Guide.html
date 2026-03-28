@@ -131,6 +131,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <ul>
 <li><a href="#91-export-options">Export Options</a></li>
 <li><a href="#92-pdf-export">PDF Export</a></li>
+<li><a href="#93b-epub-export">EPUB Export</a></li>
 <li><a href="#93-rtf-export">RTF Export</a></li>
 <li><a href="#94-printing">Printing</a></li>
 <li><a href="#95-submission-tracking">Submission Tracking</a></li>
@@ -7489,6 +7490,11 @@ Hi.
 <td>All formatting, pagination, footnotes</td>
 </tr>
 <tr>
+<td><strong>EPUB</strong></td>
+<td>E-readers, digital distribution</td>
+<td>Text, formatting, images, page breaks, cover</td>
+</tr>
+<tr>
 <td><strong>RTF</strong></td>
 <td>Editor collaboration</td>
 <td>Most formatting, editable</td>
@@ -7782,12 +7788,14 @@ Hi.
 <h3 id="file-wont-open-elsewhere">File Won't Open Elsewhere</h3>
 <ul>
 <li>PDF should open anywhere</li>
+<li>EPUB opens in Apple Books, Kindle, and most e-readers</li>
 <li>RTF may need Word-compatible app</li>
 <li>Check file isn't corrupted</li>
 </ul>
 <h2 id="see-also">See Also</h2>
 <ul>
 <li><a href="#92-pdf-export">PDF Export</a></li>
+<li><a href="#93b-epub-export">EPUB Export</a></li>
 <li><a href="#93-rtf-export">RTF Export</a></li>
 <li><a href="#96-markdown-import-export">Markdown Import and Export</a></li>
 <li><a href="#94-printing">Printing</a></li>
@@ -7962,6 +7970,154 @@ Hi.
 <li><a href="#91-export-options">Export Options</a></li>
 <li><a href="#103-page-setup">Page Setup</a></li>
 <li><a href="#94-printing">Printing</a></li>
+</ul>
+
+<p class="back-to-top"><a href="#contents">↑ Back to Contents</a></p>
+<hr>
+
+<a id="93b-epub-export"></a>
+
+<h1 id="epub-export">EPUB Export</h1>
+<p>EPUB is a widely supported eBook format that works with Apple Books, Kindle (via conversion), Kobo, and most other e-readers. Use EPUB when you want to distribute your work digitally or read it on an e-reader.</p>
+
+<h2 id="why-epub">Why EPUB?</h2>
+<h3 id="epub-advantages">Advantages</h3>
+<ul>
+<li><strong>Reflowable</strong>: Text adapts to the reader's screen size and font preferences</li>
+<li><strong>Widely supported</strong>: Opens in Apple Books, Calibre, and most e-reader apps</li>
+<li><strong>Cover image</strong>: Includes your project's cover art if set</li>
+<li><strong>Lightweight</strong>: Compact file size for sharing and distribution</li>
+</ul>
+<h3 id="when-to-use-epub">When to Use EPUB</h3>
+<ul>
+<li>Creating eBooks for personal reading or distribution</li>
+<li>Sharing poetry collections or novels for on-screen reading</li>
+<li>Preparing manuscripts for digital publication</li>
+<li>When readers prefer reflowable text over fixed-layout PDF</li>
+</ul>
+
+<h2 id="exporting-to-epub">Exporting to EPUB</h2>
+<p>EPUB export is available from the <strong>Manuscript</strong> view as a full-project export.</p>
+<h3 id="epub-manuscript-export">Manuscript Export</h3>
+<ol>
+<li>Open your project</li>
+<li>Navigate to the <strong>Manuscript</strong> view</li>
+<li>Tap the <strong>Export</strong> button</li>
+<li>Select <strong>EPUB (eBook)</strong> from the format picker</li>
+<li>Choose where to save or how to share the file</li>
+</ol>
+<p>The exported file is named <code>ProjectName.epub</code>.</p>
+
+<h2 id="epub-whats-included">What's Included</h2>
+<p>The EPUB contains your assembled manuscript — the same content you see in the Manuscript view:</p>
+<ul>
+<li><strong>Front matter</strong> (title page, copyright, etc.)</li>
+<li><strong>Body content</strong> (all included files, assembled by project type)</li>
+<li><strong>Back matter</strong> (endnotes, glossary, bibliography, index)</li>
+</ul>
+
+<h3 id="epub-whats-preserved">What's Preserved</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Preserved</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Text content</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Bold, italic, underline, strikethrough</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Images</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Page breaks</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Cover image</td>
+<td>✅ (if set in project settings)</td>
+</tr>
+<tr>
+<td>Author metadata</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Poetry line breaks and stanza spacing</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Footnotes</td>
+<td>✅</td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="epub-differences-from-pdf">Differences from PDF</h3>
+<p>Unlike PDF, EPUB is a <strong>reflowable</strong> format. This means:</p>
+<ul>
+<li>Page numbers, margins, and headers/footers from your page setup are <strong>not</strong> included — the reader app controls layout</li>
+<li>Fonts may differ depending on the reader's settings</li>
+<li>Text reflows to fit the screen, so line breaks in prose will change (poetry line breaks are preserved)</li>
+</ul>
+
+<h2 id="epub-cover-images">Cover Images</h2>
+<p>If your project has a cover image set, it is automatically included in the EPUB as the book cover. This appears in the reader's library view and as the opening page.</p>
+<p>To set a cover image:</p>
+<ol>
+<li>Open <strong>Project Settings</strong> (⚙️)</li>
+<li>Tap <strong>Cover Image</strong></li>
+<li>Select an image from your photo library</li>
+</ol>
+
+<h2 id="epub-poetry">Poetry in EPUB</h2>
+<p>Poetry projects receive special treatment in EPUB export:</p>
+<ul>
+<li>Line breaks are preserved exactly as written</li>
+<li>Stanza breaks are maintained</li>
+<li>Indentation is carried through</li>
+<li>Each poem starts on a new page</li>
+</ul>
+<p>This ensures your poems read correctly on any e-reader.</p>
+
+<h2 id="epub-reading">Reading Your EPUB</h2>
+<h3 id="epub-apple">On Apple Devices</h3>
+<p>Open the EPUB file directly — it opens in Apple Books automatically.</p>
+<h3 id="epub-kindle">On Kindle</h3>
+<p>Amazon Kindle does not read EPUB directly. Use Calibre (free, desktop) to convert EPUB to MOBI or AZW3 format, or send the EPUB to your Kindle via Amazon's Send to Kindle service which now accepts EPUB files.</p>
+<h3 id="epub-other">On Other Devices</h3>
+<p>Most e-reader apps (Kobo, Google Play Books, etc.) support EPUB natively.</p>
+
+<h2 id="epub-troubleshooting">Troubleshooting</h2>
+<h3 id="epub-wont-open">EPUB Won't Open</h3>
+<ul>
+<li>Ensure you're using an app that supports EPUB format</li>
+<li>Try opening in Apple Books or Calibre to verify the file</li>
+</ul>
+<h3 id="epub-formatting-different">Formatting Looks Different from PDF</h3>
+<ul>
+<li>This is expected — EPUB is reflowable, so the reader controls layout</li>
+<li>If you need exact page layout, use <a href="#92-pdf-export">PDF Export</a> instead</li>
+</ul>
+<h3 id="epub-cover-not-showing">Cover Image Not Showing</h3>
+<ul>
+<li>Check that a cover image is set in Project Settings</li>
+<li>Some reader apps may not display covers for sideloaded EPUBs</li>
+</ul>
+
+<h2 id="epub-see-also">See Also</h2>
+<ul>
+<li><a href="#91-export-options">Export Options</a></li>
+<li><a href="#92-pdf-export">PDF Export</a></li>
+<li><a href="#93-rtf-export">RTF Export</a></li>
+<li><a href="#36-manuscript-structure">Manuscript Structure</a></li>
 </ul>
 
 <p class="back-to-top"><a href="#contents">↑ Back to Contents</a></p>

@@ -13,11 +13,17 @@ struct SupportResponseView: View {
     let onDismiss: () -> Void
     let onAskDeveloper: () -> Void
 
+    private var formattedResponse: AttributedString {
+        (try? AttributedString(markdown: responseText,
+                               options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+        ?? AttributedString(responseText)
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 ScrollView {
-                    Text(responseText)
+                    Text(formattedResponse)
                         .padding()
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)

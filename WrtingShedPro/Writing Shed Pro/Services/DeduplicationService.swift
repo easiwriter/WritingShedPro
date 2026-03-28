@@ -79,13 +79,6 @@ class DeduplicationService {
         let tombstones = loadTombstones()
         guard !tombstones.isEmpty else { return 0 }
 
-        #if DEBUG
-        print("🪦 [DeduplicationService] Active tombstones (\(tombstones.count)):")
-        for t in tombstones {
-            print("   - '\(t.normalizedName)' type=\(t.typeRaw ?? "nil") deleted=\(t.deletedAt)")
-        }
-        #endif
-
         let descriptor = FetchDescriptor<Project>()
         guard let allProjects = try? context.fetch(descriptor) else { return 0 }
 
@@ -108,6 +101,10 @@ class DeduplicationService {
             try? context.save()
             #if DEBUG
             print("🪦 [DeduplicationService] Removed \(deletedCount) zombie project(s)")
+            #endif
+        } else {
+            #if DEBUG
+            print("🪦 [DeduplicationService] \(tombstones.count) active tombstone(s), no zombies found")
             #endif
         }
 
