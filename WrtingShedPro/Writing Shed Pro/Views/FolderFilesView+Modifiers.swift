@@ -107,18 +107,19 @@ extension FolderFilesView {
                 Button("OK", role: .cancel) {}
             } message: { Text(importErrorMessage) }
 
-            .alert(NSLocalizedString("submissions.name.title", comment: "Name Submission"), isPresented: $showSubmissionNamePrompt) {
-                TextField(NSLocalizedString("submissions.name.placeholder", comment: "Name"), text: $newSubmissionName)
-                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                    newSubmissionName = ""
+            .sheet(isPresented: $showSubmissionNamePrompt) {
+                if let project = folder.project {
+                    SubmissionNameSheet(
+                        project: project,
+                        filesToSubmit: filesToSubmit,
+                        onCreateNew: { name in
+                            createSubmissionFromFiles(name: name)
+                        },
+                        onSelectExisting: { submission in
+                            addFilesToExistingSubmission(submission)
+                        }
+                    )
                 }
-                Button(NSLocalizedString("button.create", comment: "Create")) {
-                    createSubmissionFromFiles(name: newSubmissionName)
-                    newSubmissionName = ""
-                }
-                .disabled(newSubmissionName.trimmingCharacters(in: .whitespaces).isEmpty)
-            } message: {
-                Text(NSLocalizedString("submissions.name.message", comment: "Enter a name"))
             }
             .alert(NSLocalizedString("submissions.created.title", comment: "Submission Created"), isPresented: $showSubmissionCreated) {
                 Button(NSLocalizedString("button.ok", comment: "OK")) { }

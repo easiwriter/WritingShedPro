@@ -1103,20 +1103,16 @@ struct AddFilesToCollectionSheet: View {
     }
     
     private func loadAvailableFiles() {
-        // Get the Ready folder from the project
         guard let project = submission.project else {
             availableFiles = []
             return
         }
         
-        let readyFolder = project.folders?.first { $0.name == "Ready" }
-        guard let readyFolder = readyFolder else {
-            availableFiles = []
-            return
+        // Gather files with "Ready" workflow status from all content folders
+        let contentFolders = (project.folders ?? []).filter { FolderCapabilityService.isContentFolder($0) }
+        let readyFiles = contentFolders.flatMap { folder in
+            (folder.textFiles ?? []).filter { $0.workflowStatus == .ready }
         }
-        
-        // Get all text files in Ready folder
-        let readyFiles = readyFolder.textFiles ?? []
         
         // Filter out files already in this collection
         let alreadyAdded = Set((submission.submittedFiles ?? []).compactMap { $0.textFile?.id })

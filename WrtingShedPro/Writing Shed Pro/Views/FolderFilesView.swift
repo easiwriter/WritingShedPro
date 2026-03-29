@@ -35,6 +35,7 @@ struct FolderFilesView: View {
     @State var showSubmissionCreated = false
     @State var createdSubmissionName: String = ""
     @State var showDuplicateSubmission = false
+    @State var filesToSubmit: [TextFile] = []
     
     // State for rename
     @State var showRenamePicker = false
@@ -280,7 +281,8 @@ struct FolderFilesView: View {
     // MARK: - Computed Properties for Callbacks
     
     private var fileListOnSubmit: (([TextFile]) -> Void)? {
-        supportsSubmissions ? { _ in
+        supportsSubmissions ? { files in
+            filesToSubmit = files
             showSubmissionNamePrompt = true
         } : nil
     }
@@ -860,7 +862,7 @@ struct FolderFilesView: View {
         submission.isCollection = false
         modelContext.insert(submission)
         
-        for file in selectedFiles {
+        for file in filesToSubmit {
             let submittedFile = SubmittedFile(
                 submission: submission,
                 textFile: file,
@@ -874,6 +876,27 @@ struct FolderFilesView: View {
         
         try? modelContext.save()
         createdSubmissionName = trimmedName
+        showSubmissionCreated = true
+    }
+    
+    func addFilesToExistingSubmission(_ submission: Submission) {
+        guard let project = folder.project else { return }
+        let existingFileIDs = Set((submission.submittedFiles ?? []).compactMap { $0.textFile?.id })
+        
+        for file in filesToSubmit where !existingFileIDs.contains(file.id) {
+            let submittedFile = SubmittedFile(
+                submission: submission,
+                textFile: file,
+                version: file.currentVersion,
+                status: .pending,
+                statusDate: Date(),
+                project: project
+            )
+            modelContext.insert(submittedFile)
+        }
+        
+        try? modelContext.save()
+        createdSubmissionName = submission.name ?? ""
         showSubmissionCreated = true
     }
     
