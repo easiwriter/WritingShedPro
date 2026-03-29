@@ -81,9 +81,21 @@ class Submission {
     }
     
     var overallStatus: OverallStatus {
-        if acceptedCount == fileCount { return .allAccepted }
-        if rejectedCount == fileCount { return .allRejected }
-        if acceptedCount > 0 { return .partiallyAccepted }
+        let files = submittedFiles ?? []
+        guard !files.isEmpty else { return .pending }
+        var accepted = 0
+        var rejected = 0
+        for f in files {
+            switch f.status {
+            case .accepted: accepted += 1
+            case .rejected: rejected += 1
+            default: break
+            }
+        }
+        let total = files.count
+        if accepted == total { return .allAccepted }
+        if rejected == total { return .allRejected }
+        if accepted > 0 { return .partiallyAccepted }
         return .pending
     }
     

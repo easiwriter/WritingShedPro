@@ -68,6 +68,35 @@ struct SubmissionsView: View {
         }
     }
     
+    /// Precomputed publication submission counts per submission ID.
+    /// Avoids O(N²) @Query in each CollectionSubmissionsButton row.
+    private var publicationSubmissionCounts: [UUID: Int] {
+        // Build a map of fileID → set of non-collection submission IDs that contain it
+        var fileToSubmissionIDs: [UUID: Set<UUID>] = [:]
+        for sub in allSubmissions where !sub.isCollection && sub.publication != nil {
+            for sf in sub.submittedFiles ?? [] {
+                if let fid = sf.textFile?.id {
+                    fileToSubmissionIDs[fid, default: []].insert(sub.id)
+                }
+            }
+        }
+        
+        // For each submission in our list, count how many publication submissions share files
+        var counts: [UUID: Int] = [:]
+        for sub in sortedSubmissions {
+            let fileIDs = Set((sub.submittedFiles ?? []).compactMap { $0.textFile?.id })
+            var matchedIDs = Set<UUID>()
+            for fid in fileIDs {
+                if let sids = fileToSubmissionIDs[fid] {
+                    matchedIDs.formUnion(sids)
+                }
+            }
+            matchedIDs.remove(sub.id) // Exclude self
+            counts[sub.id] = matchedIDs.count
+        }
+        return counts
+    }
+    
     var body: some View {
         Group {
             if !sortedSubmissions.isEmpty {
@@ -79,6 +108,11 @@ struct SubmissionsView: View {
                     }
                 }
                 .listStyle(.plain)
+                .navigationDestination(for: UUID.self) { submissionID in
+                    if let submission = sortedSubmissions.first(where: { $0.id == submissionID }) {
+                        CollectionDetailView(submission: submission)
+                    }
+                }
                 .environment(\.editMode, $editMode)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -309,7 +343,7 @@ struct SubmissionsView: View {
     @ViewBuilder
     private func submissionRow(for submission: Submission) -> some View {
         HStack {
-            NavigationLink(destination: CollectionDetailView(submission: submission)) {
+            NavigationLink(value: submission.id) {
                 VStack(alignment: .leading, spacing: 4) {
                     // Submission name
                     Text(submission.name ?? "Untitled Submission")
@@ -341,7 +375,7 @@ struct SubmissionsView: View {
             .buttonStyle(.plain)
             
             // Show submissions button if collection has publication submissions
-            CollectionSubmissionsButton(collection: submission)
+            CollectionSubmissionsButton(collection: submission, submissionCount: publicationSubmissionCounts[submission.id] ?? 0)
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {

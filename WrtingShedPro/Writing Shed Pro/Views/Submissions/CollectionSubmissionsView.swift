@@ -149,42 +149,13 @@ private struct PublicationSubmissionRow: View {
 // MARK: - Collection Submissions Button
 
 /// Button that shows submission icon and opens submission history for a collection
-/// Only displayed if the collection's files have been submitted to publications
+/// Only displayed if the collection's files have been submitted to publications.
+/// Accepts a precomputed count to avoid per-row @Query overhead.
 struct CollectionSubmissionsButton: View {
     @State private var showSubmissions = false
     
     let collection: Submission
-    
-    // Query all submissions to find publication submissions containing these files
-    @Query private var allSubmissions: [Submission]
-    
-    // Get the file IDs in this collection
-    private var collectionFileIDs: Set<UUID> {
-        Set(collection.submittedFiles?.compactMap { $0.textFile?.id } ?? [])
-    }
-    
-    // Count publication submissions that contain files from this collection
-    // Excludes the current submission itself to avoid self-referencing duplicates
-    private var submissionCount: Int {
-        let selfID = collection.id
-        return allSubmissions
-            .filter { submission in
-                // Exclude the current submission
-                guard submission.id != selfID else { return false }
-                
-                // Must be a publication submission, not a collection
-                guard !submission.isCollection && submission.publication != nil else { return false }
-                
-                // Check if any files in this submission are also in our collection
-                guard let submittedFiles = submission.submittedFiles else { return false }
-                
-                return submittedFiles.contains { submittedFile in
-                    guard let fileID = submittedFile.textFile?.id else { return false }
-                    return collectionFileIDs.contains(fileID)
-                }
-            }
-            .count
-    }
+    let submissionCount: Int
     
     var body: some View {
         // Only show button if collection has publication submissions
