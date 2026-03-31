@@ -95,33 +95,20 @@ struct ContentView: View {
         }
         .id(refreshTrigger)
         .task {
-            // On Mac Catalyst the process is never suspended, so start the timer
-            // unconditionally at launch and keep it running even when the window
-            // is in the background. On iOS we only run it while active.
-            #if targetEnvironment(macCatalyst)
-            syncOnForegroundResume()
-            startPeriodicSyncTimer()
-            #else
-            if scenePhase == .active {
-                syncOnForegroundResume()
-                startPeriodicSyncTimer()
-            }
-            #endif
-            await monitorSyncAndRefreshIfNeeded()
+            // DISABLED: All proactive sync interventions removed.
+            // SwiftData + CloudKit handles sync automatically via
+            // NSPersistentCloudKitContainer's mirroring delegate.
+            // The watchdog, forced imports, and polling were causing
+            // export retry storms that triggered sustained rate-limiting.
+            //
+            // Keeping: passive CloudKitSyncThrottler observation,
+            // UI reconciliation on remote-change notifications.
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             if newPhase == .active && oldPhase != .active {
-                syncOnForegroundResume()
-                #if !targetEnvironment(macCatalyst)
-                // On Mac Catalyst the timer is already running continuously.
-                startPeriodicSyncTimer()
-                #endif
-            } else if newPhase != .active && oldPhase == .active {
-                #if !targetEnvironment(macCatalyst)
-                // On iOS, stop the timer when suspended to avoid waking the process.
-                // On Mac Catalyst, keep it running — the process stays alive.
-                stopPeriodicSyncTimer()
-                #endif
+                // Just reconcile the UI on foreground resume — don't
+                // force any CloudKit operations.
+                scheduleRemoteReconcile(reason: "foreground-resume")
             }
         }
         .onReceive(
@@ -300,13 +287,16 @@ struct ContentView: View {
         }
 
         #if DEBUG
-        print("🔄 [ContentView] Sync watchdog: idle \(Int(secondsSinceEvent))s — forcing import + export nudge (bypassPause=\(bypassPause))")
+        print("🔄 [ContentView] Sync watchdog: idle \(Int(secondsSinceEvent))s — forcing import + export nudge (bypassPause=\(bypassPause), rateLimited=\(throttler.isRateLimited))")
         #endif
         // Nudge both directions: zone fetch for missed imports AND save() to
         // wake the mirroring delegate for pending exports. Without the save(),
         // locally-imported projects (e.g. .wsp import) can stall for 20+ minutes
         // because the mirroring delegate never notices the new records.
-        do { try modelContext.save() } catch { }
+        // Skip the export nudge while rate-limited to avoid feeding the retry storm.
+        if !throttler.isRateLimited {
+            do { try modelContext.save() } catch { }
+        }
         forceCloudKitImport(bypassManualKickPause: bypassPause)
         lastForegroundSyncDate = now
     }
@@ -378,12 +368,15 @@ struct ContentView: View {
     }
 
     /// Manual sync trigger exposed from Settings.
-    /// Uses the same CloudKit zone-fetch nudge as foreground resume.
+    /// Only reconciles the UI — does not force CloudKit operations.
+    /// SwiftData's mirroring delegate handles actual sync.
     private func syncNowFromSettings() {
         #if DEBUG
         print("🔄 [ContentView] Sync Now requested from Settings")
         #endif
-        forceCloudKitImport()
+        // Reset any accumulated backoff so the mirroring delegate can
+        // retry naturally without the throttler blocking UI updates.
+        CloudKitSyncThrottler.shared.resetBackoffState()
         scheduleRemoteReconcile(reason: "sync-now")
     }
 

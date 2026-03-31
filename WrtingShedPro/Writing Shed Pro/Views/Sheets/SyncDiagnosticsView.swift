@@ -17,6 +17,7 @@ struct SyncDiagnosticsView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var stylesheets: [StyleSheet]
     @Query private var projects: [Project]
+    @Query private var publications: [Publication]
     @Query private var allFolders: [Folder]
     @Query private var allTextFiles: [TextFile]
     @State private var syncThrottler = CloudKitSyncThrottler.shared
@@ -129,6 +130,7 @@ struct SyncDiagnosticsView: View {
             LabeledContent("Export Completed", value: syncThrottler.exportCompleted ? "Yes" : "No")
             LabeledContent("Export Succeeded", value: syncThrottler.exportSucceeded ? "Yes" : "No")
             LabeledContent("Rate Limited", value: syncThrottler.isRateLimited ? "Yes" : "No")
+            LabeledContent("Export Rate-Limit Streak", value: "\(syncThrottler.consecutiveExportRateLimits)")
             LabeledContent("Manual Kick Paused", value: syncThrottler.isManualKickPaused ? "Yes" : "No")
             LabeledContent("Import Network Failures", value: "\(syncThrottler.consecutiveImportNetworkFailures)")
             LabeledContent("CK Subscription", value: subscriptionStatus)
@@ -211,6 +213,7 @@ struct SyncDiagnosticsView: View {
         lines.append("exportCompleted: \(syncThrottler.exportCompleted)")
         lines.append("exportSucceeded: \(syncThrottler.exportSucceeded)")
         lines.append("isRateLimited: \(syncThrottler.isRateLimited)")
+        lines.append("consecutiveExportRateLimits: \(syncThrottler.consecutiveExportRateLimits)")
         lines.append("isManualKickPaused: \(syncThrottler.isManualKickPaused)")
         lines.append("consecutiveImportNetworkFailures: \(syncThrottler.consecutiveImportNetworkFailures)")
         lines.append("lastRemoteEvent: \(syncThrottler.lastSyncTime?.formatted(date: .omitted, time: .standard) ?? "nil")")
@@ -235,6 +238,8 @@ struct SyncDiagnosticsView: View {
 
         lines.append("")
         lines.append(contentsOf: projectInventoryLines())
+        lines.append("")
+        lines.append(contentsOf: publicationInventoryLines())
 
         return lines.joined(separator: "\n")
     }
@@ -304,6 +309,62 @@ struct SyncDiagnosticsView: View {
         return "- name=\(project.name ?? "Untitled") | id=\(project.id.uuidString) | type=\(project.type.rawValue) | trashed=\(project.isTrashed) | userOrder=\(project.userOrder.map(String.init) ?? "nil") | created=\(created) | modified=\(modified) | deleted=\(deleted) | folders=\(folderCount)"
     }
 
+    private func publicationInventoryLines() -> [String] {
+        let formatter = ISO8601DateFormatter()
+        var lines: [String] = []
+        lines.append("Publication Inventory")
+
+        let queryPublications = sortedPublicationsForInventory(publications)
+        lines.append("Source: @Query (main context cache)")
+        for publication in queryPublications {
+            lines.append(publicationInventoryLine(publication, formatter: formatter))
+        }
+
+        lines.append("")
+        lines.append("Source: Fresh ModelContext (store snapshot)")
+        let freshContext = ModelContext(modelContext.container)
+        let descriptor = FetchDescriptor<Publication>()
+        let storePublications = sortedPublicationsForInventory((try? freshContext.fetch(descriptor)) ?? [])
+        for publication in storePublications {
+            lines.append(publicationInventoryLine(publication, formatter: formatter))
+        }
+
+        let queryNameByID = Dictionary(uniqueKeysWithValues: queryPublications.map { ($0.id, $0.name) })
+        let storeNameByID = Dictionary(uniqueKeysWithValues: storePublications.map { ($0.id, $0.name) })
+        let allIDs = Set(queryNameByID.keys).union(storeNameByID.keys)
+        let nameMismatches = allIDs.filter { queryNameByID[$0] != storeNameByID[$0] }.sorted { $0.uuidString < $1.uuidString }
+
+        lines.append("")
+        lines.append("Publication Inventory Comparison")
+        lines.append("- @Query count=\(queryPublications.count) | Store count=\(storePublications.count)")
+        lines.append("- Name mismatches by id=\(nameMismatches.count)")
+        for id in nameMismatches {
+            lines.append("  - id=\(id.uuidString) | @Query='\(queryNameByID[id] ?? "")' | Store='\(storeNameByID[id] ?? "")'")
+        }
+
+        return lines
+    }
+
+    private func sortedPublicationsForInventory(_ inputPublications: [Publication]) -> [Publication] {
+        inputPublications.sorted { lhs, rhs in
+            let lhsCreated = lhs.createdDate
+            let rhsCreated = rhs.createdDate
+            if lhsCreated != rhsCreated {
+                return lhsCreated < rhsCreated
+            }
+            return lhs.name < rhs.name
+        }
+    }
+
+    private func publicationInventoryLine(_ publication: Publication, formatter: ISO8601DateFormatter) -> String {
+        let created = formatter.string(from: publication.createdDate)
+        let modified = formatter.string(from: publication.modifiedDate)
+        let projectID = publication.project?.id.uuidString ?? "nil"
+        let projectName = publication.project?.name ?? "nil"
+        let submissionCount = publication.submissions?.count ?? 0
+        return "- name=\(publication.name) | id=\(publication.id.uuidString) | type=\(publication.type?.rawValue ?? "nil") | project=\(projectName) | projectID=\(projectID) | created=\(created) | modified=\(modified) | submissions=\(submissionCount)"
+    }
+
     private func copyProjectInventory() {
         let snapshot = projectInventoryLines().joined(separator: "\n")
 
@@ -332,6 +393,7 @@ struct SyncDiagnosticsView: View {
         Section("Local Data") {
             LabeledContent("StyleSheets", value: "\(stylesheets.count)")
             LabeledContent("Projects", value: "\(projects.count)")
+            LabeledContent("Publications", value: "\(publications.count)")
             LabeledContent("Folders", value: "\(allFolders.count)")
             LabeledContent("Text Files", value: "\(allTextFiles.count)")
 

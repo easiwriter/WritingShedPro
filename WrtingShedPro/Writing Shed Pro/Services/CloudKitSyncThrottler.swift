@@ -90,6 +90,11 @@ final class CloudKitSyncThrottler {
     /// Set from the CKError retry-after hint when we detect rate limiting.
     private(set) var rateLimitedUntil: Date?
 
+    /// Consecutive CloudKit export rate-limit failures (error 6 or 7). Used to
+    /// apply exponential backoff so the watchdog doesn't pile on nudges while
+    /// CloudKit is still rejecting exports.
+    private(set) var consecutiveExportRateLimits = 0
+
     /// Consecutive CloudKit import transport failures (for example CKErrorDomain=4,
     /// NSURLErrorDomain=-1017). While this is non-zero we apply exponential backoff
     /// to all voluntary manual sync kicks.
@@ -134,23 +139,32 @@ final class CloudKitSyncThrottler {
     
     /// Record that CloudKit returned a rate-limit or service-unavailable error.
     /// `retryAfterSeconds` comes from the CKError userInfo.
+    /// Applies exponential backoff on repeated failures: server retryAfter,
+    /// then 60s, 120s, 240s ... capped at 15 minutes.
     func recordRateLimit(retryAfter retryAfterSeconds: Double) {
-        let until = Date().addingTimeInterval(retryAfterSeconds + 5.0) // +5s buffer
         DispatchQueue.main.async { [weak self] in
-            self?.rateLimitedUntil = until
+            guard let self else { return }
+            self.consecutiveExportRateLimits += 1
+            let exponent = max(0, self.consecutiveExportRateLimits - 1)
+            let exponentialPause = min(retryAfterSeconds * pow(2.0, Double(exponent)), 900.0)
+            let pause = max(retryAfterSeconds + 5.0, exponentialPause)
+            let until = Date().addingTimeInterval(pause)
+            self.rateLimitedUntil = until
             #if DEBUG
-            print("⏳ [CloudKitSyncThrottler] Rate-limited until \(until) (backoff \(Int(retryAfterSeconds))s + 5s buffer)")
+            print("⏳ [CloudKitSyncThrottler] Rate-limited until \(until) (backoff \(Int(pause))s, consecutive=\(self.consecutiveExportRateLimits))")
             #endif
         }
     }
     
     /// Clear the rate-limit flag (called after a successful sync event)
     func clearRateLimit() {
-        if rateLimitedUntil != nil {
+        if rateLimitedUntil != nil || consecutiveExportRateLimits > 0 {
             DispatchQueue.main.async { [weak self] in
-                self?.rateLimitedUntil = nil
+                guard let self else { return }
+                self.rateLimitedUntil = nil
+                self.consecutiveExportRateLimits = 0
                 #if DEBUG
-                print("✅ [CloudKitSyncThrottler] Rate-limit cleared")
+                print("✅ [CloudKitSyncThrottler] Rate-limit cleared (was consecutive=\(self.consecutiveExportRateLimits))")
                 #endif
             }
         }
@@ -353,6 +367,7 @@ final class CloudKitSyncThrottler {
         exportCompleted = false
         exportSucceeded = false
         rateLimitedUntil = nil
+        consecutiveExportRateLimits = 0
         consecutiveImportNetworkFailures = 0
         manualKickPausedUntil = nil
         lastSyncTime = nil
@@ -370,6 +385,7 @@ final class CloudKitSyncThrottler {
     func resetBackoffState() {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
+            self.consecutiveExportRateLimits = 0
             self.consecutiveImportNetworkFailures = 0
             self.manualKickPausedUntil = nil
             self.rateLimitedUntil = nil
