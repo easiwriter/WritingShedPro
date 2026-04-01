@@ -17,6 +17,7 @@ struct UpgradePromptView: View {
     
     /// State for showing the store
     @State private var showStore = false
+    @State private var highlightedStoreProduct: WSPProduct?
     
     var body: some View {
         VStack(spacing: 20) {
@@ -53,6 +54,7 @@ struct UpgradePromptView: View {
             // Buttons
             VStack(spacing: 12) {
                 Button {
+                    highlightedStoreProduct = reason.requiredProduct
                     showStore = true
                 } label: {
                     Text("View \(reason.requiredProduct.displayName)")
@@ -68,13 +70,14 @@ struct UpgradePromptView: View {
                 // (Bundle not worth showing if they already bought individual modules)
                 if reason.requiredProduct != .allInBundle && !EntitlementManager.shared.hasAnyPurchase {
                     Button {
+                        highlightedStoreProduct = .allInBundle
                         showStore = true
                     } label: {
                         HStack {
                             Text("Or get the")
                             Text("All-In Bundle")
                                 .fontWeight(.semibold)
-                            Text("- Save 30%")
+                            Text("- Save 27%")
                                 .foregroundColor(.green)
                         }
                         .font(.subheadline)
@@ -92,7 +95,10 @@ struct UpgradePromptView: View {
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
         .fullScreenCover(isPresented: $showStore) {
-            StoreView(highlightedProduct: reason.requiredProduct)
+            StoreView(
+                highlightedProduct: highlightedStoreProduct,
+                autoPurchaseProduct: highlightedStoreProduct == .allInBundle ? .allInBundle : nil
+            )
         }
         .onChange(of: showStore) { _, isShowing in
             // When store closes, check if user now has the entitlement

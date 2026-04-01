@@ -97,83 +97,81 @@ struct SubmissionsView: View {
         return counts
     }
     
+    @ViewBuilder
+    private var submissionListView: some View {
+        List(selection: $selectedSubmissionIDs) {
+            ForEach(sortedSubmissions) { submission in
+                submissionRow(for: submission)
+                    .tag(submission.id)
+            }
+        }
+        .listStyle(.plain)
+        .navigationDestination(for: UUID.self) { submissionID in
+            if let submission = sortedSubmissions.first(where: { $0.id == submissionID }) {
+                CollectionDetailView(submission: submission)
+            }
+        }
+        .environment(\.editMode, $editMode)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                HStack {
+                    Button {
+                        withAnimation {
+                            if editMode == .active {
+                                editMode = .inactive
+                                selectedSubmissionIDs.removeAll()
+                            } else {
+                                editMode = .active
+                            }
+                        }
+                    } label: {
+                        Text(editMode == .active ? "Done" : "Edit")
+                    }
+
+                    Menu {
+                        Picker("Sort by", selection: $sortOrder) {
+                            ForEach(SubmissionSortOrder.allCases, id: \.self) { order in
+                                Text(order.displayName).tag(order)
+                            }
+                        }
+                    } label: {
+                        Label("Sort", systemImage: "arrow.up.arrow.down")
+                    }
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if editMode == .active && !selectedSubmissionIDs.isEmpty {
+                HStack {
+                    Button {
+                        showPublicationPicker = true
+                    } label: {
+                        Image(systemName: "book.badge.plus")
+                    }
+                    .accessibilityLabel(NSLocalizedString("submissions.submit", comment: "Submit to publication"))
+
+                    Spacer()
+
+                    Button(role: .destructive) {
+                        let selected = sortedSubmissions.filter { selectedSubmissionIDs.contains($0.id) }
+                        submissionsToDelete = selected
+                        showDeleteConfirmation = true
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .accessibilityLabel(String(format: NSLocalizedString("submissions.deleteCount", comment: "Delete count"), selectedSubmissionIDs.count))
+                }
+                .padding()
+                .background(.bar)
+            }
+        }
+    }
+
     var body: some View {
         Group {
             if !sortedSubmissions.isEmpty {
-                // Show list of submissions
-                List(selection: $selectedSubmissionIDs) {
-                    ForEach(sortedSubmissions) { submission in
-                        submissionRow(for: submission)
-                            .tag(submission.id)
-                    }
-                }
-                .listStyle(.plain)
-                .navigationDestination(for: UUID.self) { submissionID in
-                    if let submission = sortedSubmissions.first(where: { $0.id == submissionID }) {
-                        CollectionDetailView(submission: submission)
-                    }
-                }
-                .environment(\.editMode, $editMode)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        HStack {
-                            // Edit button
-                            Button {
-                                withAnimation {
-                                    if editMode == .active {
-                                        editMode = .inactive
-                                        selectedSubmissionIDs.removeAll()
-                                    } else {
-                                        editMode = .active
-                                    }
-                                }
-                            } label: {
-                                Text(editMode == .active ? "Done" : "Edit")
-                            }
-                            
-                            // Sort menu
-                            Menu {
-                                Picker("Sort by", selection: $sortOrder) {
-                                    ForEach(SubmissionSortOrder.allCases, id: \.self) { order in
-                                        Text(order.displayName).tag(order)
-                                    }
-                                }
-                            } label: {
-                                Label("Sort", systemImage: "arrow.up.arrow.down")
-                            }
-                        }
-                    }
-                }
-                // Bottom toolbar when in edit mode with selections
-                .safeAreaInset(edge: .bottom) {
-                    if editMode == .active && !selectedSubmissionIDs.isEmpty {
-                        HStack {
-                            // Submit to publication button
-                            Button {
-                                showPublicationPicker = true
-                            } label: {
-                                Image(systemName: "book.badge.plus")
-                            }
-                            .accessibilityLabel(NSLocalizedString("submissions.submit", comment: "Submit to publication"))
-                            
-                            Spacer()
-                            
-                            // Trash button
-                            Button(role: .destructive) {
-                                let selected = sortedSubmissions.filter { selectedSubmissionIDs.contains($0.id) }
-                                submissionsToDelete = selected
-                                showDeleteConfirmation = true
-                            } label: {
-                                Image(systemName: "trash")
-                            }
-                            .accessibilityLabel(String(format: NSLocalizedString("submissions.deleteCount", comment: "Delete count"), selectedSubmissionIDs.count))
-                        }
-                        .padding()
-                        .background(.bar)
-                    }
-                }
+                submissionListView
             } else {
-                // Show empty state
                 emptyStateView
             }
         }

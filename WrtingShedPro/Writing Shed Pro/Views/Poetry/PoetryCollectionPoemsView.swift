@@ -40,6 +40,9 @@ struct PoetryCollectionPoemsView: View {
     @State private var showExportImageWarning = false
     @State private var pendingExportAction: (() -> Void)?
     
+    // IAP gating
+    @State private var upgradePromptReason: UpgradePromptReason?
+    
     // MARK: - Computed
     
     private var sortedFiles: [TextFile] {
@@ -187,6 +190,7 @@ struct PoetryCollectionPoemsView: View {
         } message: {
             Text(printErrorMessage)
         }
+        .upgradePrompt(reason: $upgradePromptReason)
     }
     
     // MARK: - Bottom Toolbar
@@ -355,6 +359,12 @@ struct PoetryCollectionPoemsView: View {
     private func exportCollectionPoems(format: ExportFormat) {
         self.exportFormat = format
         
+        // Check entitlement for export
+        if !EntitlementManager.shared.canExport(projectType: project.type) {
+            upgradePromptReason = .exportBlocked(projectType: project.type)
+            return
+        }
+        
         let files = sortedFiles
         guard !files.isEmpty else { return }
         
@@ -482,6 +492,12 @@ struct PoetryCollectionPoemsView: View {
     // MARK: - Printing
     
     private func printCollection() {
+        // Check entitlement for printing
+        if !EntitlementManager.shared.canPrint(projectType: project.type) {
+            upgradePromptReason = .printBlocked(projectType: project.type)
+            return
+        }
+        
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first,
               let viewController = window.rootViewController else {

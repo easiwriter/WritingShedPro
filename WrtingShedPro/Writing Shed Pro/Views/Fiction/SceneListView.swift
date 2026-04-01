@@ -106,6 +106,9 @@ struct SceneListView: View {
     @State private var showExportImageWarning = false
     @State private var pendingExportAction: (() -> Void)?
     
+    /// IAP gating
+    @State private var upgradePromptReason: UpgradePromptReason?
+    
     /// Copy to Project state
     @State private var showCopyToProject = false
     @State private var showCopyResult = false
@@ -751,6 +754,7 @@ struct SceneListView: View {
         .sheet(item: $sceneForFormChange) { file in
             PoetryFormPickerSheet(file: file)
         }
+        .upgradePrompt(reason: $upgradePromptReason)
         .onAppear {
             initializeHeaderFooterFields()
             
@@ -1348,14 +1352,8 @@ struct SceneListView: View {
     private func createSubmissionFromScenes(name: String) {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty else { return }
-        
-        // Check for duplicate
-        let projectID = project.id
-        var descriptor = FetchDescriptor<Submission>(predicate: #Predicate<Submission> { sub in
-            sub.name == trimmedName && sub.project?.id == projectID && sub.isCollection == false
-        })
-        descriptor.fetchLimit = 1
-        if let count = try? modelContext.fetchCount(descriptor), count > 0 {
+
+        if UniquenessChecker.hasDuplicateSubmissionNamed(trimmedName, in: project) {
             createdSubmissionName = trimmedName
             showDuplicateSubmission = true
             return
@@ -1442,6 +1440,12 @@ struct SceneListView: View {
     private func exportFiles(_ files: [TextFile], format: ExportFormat) {
         self.exportFormat = format
         guard !files.isEmpty else { return }
+        
+        // Check entitlement for export
+        if !EntitlementManager.shared.canExport(projectType: project.type) {
+            upgradePromptReason = .exportBlocked(projectType: project.type)
+            return
+        }
         
         var attributedStrings: [NSAttributedString] = []
         
@@ -1714,6 +1718,13 @@ struct SceneListView: View {
     private func printSelectedScenes() {
         let files = selectedScenes.compactMap { $0.textFile }
         guard !files.isEmpty else { return }
+        
+        // Check entitlement for printing
+        if !EntitlementManager.shared.canPrint(projectType: project.type) {
+            upgradePromptReason = .printBlocked(projectType: project.type)
+            return
+        }
+        
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first,
               let viewController = window.rootViewController else { return }

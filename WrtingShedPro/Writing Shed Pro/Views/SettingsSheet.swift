@@ -109,6 +109,36 @@ struct SettingsSheet: View {
                         Label("Rate This App", systemImage: "star.fill")
                     }
                 }
+
+#if DEBUG || targetEnvironment(simulator)
+                // MARK: - Debug Section
+                Section("Debug") {
+                    Toggle(isOn: Binding(
+                        get: {
+                            EntitlementManager.shared.isPaywallCaptureModeEnabled
+                        },
+                        set: { isEnabled in
+                            Task {
+                                await EntitlementManager.shared.setPaywallCaptureModeEnabled(isEnabled)
+                            }
+                        }
+                    )) {
+                        Label("Force Paywall Capture Mode", systemImage: "camera.aperture")
+                    }
+
+                    Button {
+                        Task {
+                            await EntitlementManager.shared.resetPaywallCaptureState()
+                        }
+                    } label: {
+                        Label("Reset Paywall Capture State", systemImage: "arrow.counterclockwise")
+                    }
+
+                    Text("When enabled, the app ignores existing purchases so creating a second project/file shows the upgrade paywall for screenshots.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+#endif
             }
             .scrollIndicatorsFlash(onAppear: true)
             .navigationTitle("Settings")

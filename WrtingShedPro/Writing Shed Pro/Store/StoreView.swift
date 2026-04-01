@@ -23,6 +23,9 @@ struct StoreView: View {
     
     /// Optional: highlight a specific product (from upgrade prompt)
     var highlightedProduct: WSPProduct?
+
+    /// Optional: automatically trigger the StoreKit payment sheet for this product once loaded
+    var autoPurchaseProduct: WSPProduct? = nil
     
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -106,12 +109,13 @@ struct StoreView: View {
                 Text("Your purchases have been restored successfully.")
             }
             .onAppear {
-                // If a specific product is highlighted, switch to individual tab
-                if highlightedProduct != nil {
-                    selectedTab = .individual
+                // Route initial tab based on the highlighted product from upgrade prompts.
+                if let highlightedProduct {
+                    selectedTab = highlightedProduct == .allInBundle ? .bundle : .individual
                 }
+
                 // If user has purchased any individual module, default to individual tab
-                // (bundle is no longer a good deal for them)
+                // (bundle is no longer a good deal for them).
                 if EntitlementManager.shared.hasAnyIndividualModulePurchase {
                     selectedTab = .individual
                 }
@@ -198,7 +202,7 @@ struct StoreView: View {
                     HStack {
                         Image(systemName: "gift.fill")
                             .foregroundColor(.purple)
-                        Text("Save 25% with the All-In Bundle")
+                        Text("Save 27% with the All-In Bundle")
                             .font(.subheadline)
                             .fontWeight(.medium)
                         Image(systemName: "arrow.right.circle")
@@ -356,6 +360,12 @@ struct StoreView: View {
                 print("📦 Loaded \(products.count) products: \(products.map { $0.id })")
                 #endif
             }
+
+            // Auto-trigger the payment sheet if requested (e.g. bundle CTA in upgrade prompt)
+            if let target = autoPurchaseProduct,
+               let storeProduct = products.first(where: { $0.id == target.rawValue }) {
+                await purchase(storeProduct)
+            }
         } catch {
             await MainActor.run {
                 isLoading = false
@@ -507,7 +517,7 @@ struct BundleCardView: View {
         VStack(spacing: 16) {
             // Best Value badge
             if !isPurchased {
-                Text("BEST VALUE – SAVE 25%")
+                Text("BEST VALUE – SAVE 27%")
                     .font(.caption)
                     .fontWeight(.bold)
                     .foregroundColor(.white)

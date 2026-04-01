@@ -38,6 +38,8 @@ struct SyncDiagnosticsView: View {
     @State private var lastForceSyncRequestDate: Date?
     @State private var forceSyncRequestToken = UUID()
     @State private var subscriptionStatus: String = "Checking…"
+    @State private var showResetSyncConfirmation = false
+    @State private var syncResetScheduled = false
     
     var body: some View {
         NavigationStack {
@@ -120,6 +122,7 @@ struct SyncDiagnosticsView: View {
                 .padding(.vertical, 2)
             }
             // ───────────────────────────────────────────────────────────────────
+            let _ = syncThrottler.hasActiveCloudKitEvent
             LabeledContent("isSyncing", value: syncThrottler.isSyncing ? "Yes" : "No")
             LabeledContent("Remote Events (Total)", value: "\(syncThrottler.totalSyncEventCount)")
             LabeledContent("Current Burst Count", value: "\(syncThrottler.syncEventCount)")
@@ -133,6 +136,11 @@ struct SyncDiagnosticsView: View {
             LabeledContent("Export Rate-Limit Streak", value: "\(syncThrottler.consecutiveExportRateLimits)")
             LabeledContent("Manual Kick Paused", value: syncThrottler.isManualKickPaused ? "Yes" : "No")
             LabeledContent("Import Network Failures", value: "\(syncThrottler.consecutiveImportNetworkFailures)")
+            LabeledContent("Import Failures (total)", value: "\(syncThrottler.consecutiveImportFailures)")
+            if syncThrottler.autoResetScheduled {
+                LabeledContent("Auto-Reset", value: "Scheduled (relaunch to apply)")
+                    .foregroundStyle(.orange)
+            }
             LabeledContent("CK Subscription", value: subscriptionStatus)
 
             if let lastSync = syncThrottler.lastSyncTime {
@@ -199,6 +207,7 @@ struct SyncDiagnosticsView: View {
     }
 
     private func diagnosticsSnapshotText() -> String {
+        _ = syncThrottler.hasActiveCloudKitEvent
         let now = Date()
         var lines: [String] = []
         lines.append("CloudKit Diagnostics Snapshot")
@@ -216,6 +225,8 @@ struct SyncDiagnosticsView: View {
         lines.append("consecutiveExportRateLimits: \(syncThrottler.consecutiveExportRateLimits)")
         lines.append("isManualKickPaused: \(syncThrottler.isManualKickPaused)")
         lines.append("consecutiveImportNetworkFailures: \(syncThrottler.consecutiveImportNetworkFailures)")
+        lines.append("consecutiveImportFailures: \(syncThrottler.consecutiveImportFailures)")
+        lines.append("autoResetScheduled: \(syncThrottler.autoResetScheduled)")
         lines.append("lastRemoteEvent: \(syncThrottler.lastSyncTime?.formatted(date: .omitted, time: .standard) ?? "nil")")
             if let importStart = syncThrottler.importStartTime {
                 lines.append("importAgeSeconds: \(Int(Date().timeIntervalSince(importStart)))")
@@ -653,6 +664,27 @@ struct SyncDiagnosticsView: View {
                 }
                 .foregroundStyle(.orange)
             }
+            
+            if syncResetScheduled || syncThrottler.autoResetScheduled {
+                Text("Sync reset scheduled — quit and relaunch the app to complete.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Button("Reset Sync Database") {
+                    showResetSyncConfirmation = true
+                }
+                .foregroundStyle(.red)
+            }
+        }
+        .alert("Reset Sync Database?", isPresented: $showResetSyncConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Reset", role: .destructive) {
+                UserDefaults.standard.set(true, forKey: "resetSyncOnNextLaunch")
+                syncResetScheduled = true
+            }
+        } message: {
+            Text("This deletes the local database and performs a full re-import from CloudKit on next launch. No cloud data is lost. Quit and relaunch the app after confirming.")
         }
 
         #if DEBUG

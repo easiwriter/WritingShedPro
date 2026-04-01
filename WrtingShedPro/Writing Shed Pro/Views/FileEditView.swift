@@ -100,6 +100,9 @@ struct FileEditView: View {
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
     
+    // IAP gating
+    @State private var upgradePromptReason: UpgradePromptReason?
+    
     // Feature 021: Smart Poetry Creation
     @State private var showPoetryFormReference = false
     @State private var showPoetryMetrics = false
@@ -1667,6 +1670,7 @@ struct FileEditView: View {
                 insertNewFootnote: insertNewFootnote,
                 showCommentsList: { showCommentsList = true }
             ))
+            .upgradePrompt(reason: $upgradePromptReason)
             .onDisappear {
                 // Unregister stylesheet from provider
                 StyleSheetProvider.shared.unregister(fileID: file.id)
@@ -5776,6 +5780,13 @@ struct FileEditView: View {
         #if DEBUG
         print("🖨️ Print button tapped")
         #endif
+        
+        // Check entitlement for printing
+        if let projectType = file.project?.type,
+           !EntitlementManager.shared.canPrint(projectType: projectType) {
+            upgradePromptReason = .printBlocked(projectType: projectType)
+            return
+        }
         
         // Save any pending changes before printing
         saveChanges()

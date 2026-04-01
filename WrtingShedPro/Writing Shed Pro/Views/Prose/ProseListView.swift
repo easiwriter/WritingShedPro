@@ -100,6 +100,9 @@ struct ProseListView: View {
     @State private var createdSubmissionName: String = ""
     @State private var showDuplicateSubmission = false
     
+    /// IAP gating
+    @State private var upgradePromptReason: UpgradePromptReason?
+    
     /// Header/Footer editor state
     @State private var showHeaderFooterEditor = false
     @State private var showHeaderFooterWarning = false
@@ -383,6 +386,7 @@ struct ProseListView: View {
                     selectedFileIDs.removeAll()
                 }
             }
+            .upgradePrompt(reason: $upgradePromptReason)
     }
     
     // MARK: - Main Content
@@ -970,14 +974,8 @@ struct ProseListView: View {
     private func createSubmissionFromFiles(name: String) {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty else { return }
-        
-        // Check for duplicate submission name in this project
-        let projectID = project.id
-        var duplicateCheck = FetchDescriptor<Submission>(predicate: #Predicate<Submission> { submission in
-            submission.name == trimmedName && submission.project?.id == projectID && submission.isCollection == false
-        })
-        duplicateCheck.fetchLimit = 1
-        if let count = try? modelContext.fetchCount(duplicateCheck), count > 0 {
+
+        if UniquenessChecker.hasDuplicateSubmissionNamed(trimmedName, in: project) {
             createdSubmissionName = trimmedName
             showDuplicateSubmission = true
             return
@@ -1016,6 +1014,13 @@ struct ProseListView: View {
     
     private func printSelectedFiles() {
         guard !selectedFiles.isEmpty else { return }
+        
+        // Check entitlement for printing
+        if !EntitlementManager.shared.canPrint(projectType: project.type) {
+            upgradePromptReason = .printBlocked(projectType: project.type)
+            return
+        }
+        
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first,
               let viewController = window.rootViewController else { return }
@@ -1072,6 +1077,12 @@ struct ProseListView: View {
     private func exportFiles(_ files: [TextFile], format: ExportFormat) {
         self.exportFormat = format
         guard !files.isEmpty else { return }
+        
+        // Check entitlement for export
+        if !EntitlementManager.shared.canExport(projectType: project.type) {
+            upgradePromptReason = .exportBlocked(projectType: project.type)
+            return
+        }
         
         var attributedStrings: [NSAttributedString] = []
         

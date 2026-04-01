@@ -195,6 +195,7 @@ struct AddSubmissionView: View {
         // Copy expected response time from publication
         submission.typicalResponseDays = publication.typicalResponseDays
         
+        project.modifiedDate = Date()
         modelContext.insert(submission)
         
         // Create submitted file records for each selected file

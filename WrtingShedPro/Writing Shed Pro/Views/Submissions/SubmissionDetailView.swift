@@ -32,6 +32,9 @@ struct SubmissionDetailView: View {
     @State private var showExportImageWarning = false
     @State private var pendingExportAction: (() -> Void)?
     
+    // IAP gating
+    @State private var upgradePromptReason: UpgradePromptReason?
+    
     // Copy to Project state
     @State private var showCopyToProject = false
     @State private var showCopyResult = false
@@ -121,6 +124,7 @@ struct SubmissionDetailView: View {
         } message: {
             Text(NSLocalizedString("submissions.delete.message", comment: "Delete message"))
         }
+        .upgradePrompt(reason: $upgradePromptReason)
     }
 
     private var baseSubmissionView: some View {
@@ -338,6 +342,14 @@ struct SubmissionDetailView: View {
         print("🖨️ Print Submission button tapped")
         #endif
         
+        // Check entitlement for printing
+        if let project = submission.project {
+            if !EntitlementManager.shared.canPrint(projectType: project.type) {
+                upgradePromptReason = .printBlocked(projectType: project.type)
+                return
+            }
+        }
+        
         // Get the view controller to present from
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first,
@@ -419,6 +431,14 @@ struct SubmissionDetailView: View {
     
     private func exportSubmissionFiles(format: ExportFormat) {
         self.exportFormat = format
+        
+        // Check entitlement for export
+        if let project = submission.project {
+            if !EntitlementManager.shared.canExport(projectType: project.type) {
+                upgradePromptReason = .exportBlocked(projectType: project.type)
+                return
+            }
+        }
         
         let files = (submission.submittedFiles ?? [])
             .compactMap { $0.version ?? $0.textFile?.currentVersion }

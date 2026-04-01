@@ -844,11 +844,13 @@ struct FolderFilesView: View {
         
         // Check for duplicate submission name in this project
         let projectID = project.id
-        var duplicateCheck = FetchDescriptor<Submission>(predicate: #Predicate<Submission> { submission in
+        let duplicatePredicate: Predicate<Submission> = #Predicate { submission in
             submission.name == trimmedName && submission.project?.id == projectID && submission.isCollection == false
-        })
+        }
+        var duplicateCheck = FetchDescriptor<Submission>(predicate: duplicatePredicate)
         duplicateCheck.fetchLimit = 1
-        if let count = try? modelContext.fetchCount(duplicateCheck), count > 0 {
+        let duplicateCount: Int = (try? modelContext.fetchCount(duplicateCheck)) ?? 0
+        if duplicateCount > 0 {
             createdSubmissionName = trimmedName
             showDuplicateSubmission = true
             return
@@ -902,6 +904,13 @@ struct FolderFilesView: View {
     
     private func printSelectedFiles() {
         guard !selectedFiles.isEmpty, let project = folder.project else { return }
+        
+        // Check entitlement for printing
+        if !EntitlementManager.shared.canPrint(projectType: project.type) {
+            upgradePromptReason = .printBlocked(projectType: project.type)
+            return
+        }
+        
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first,
               let viewController = window.rootViewController else { return }
@@ -916,6 +925,13 @@ struct FolderFilesView: View {
     
     private func handlePrint(_ files: [TextFile]) {
         guard !files.isEmpty, let project = folder.project else { return }
+        
+        // Check entitlement for printing
+        if !EntitlementManager.shared.canPrint(projectType: project.type) {
+            upgradePromptReason = .printBlocked(projectType: project.type)
+            return
+        }
+        
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first,
               let viewController = window.rootViewController else { return }

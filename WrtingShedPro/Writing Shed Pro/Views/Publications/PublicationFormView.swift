@@ -249,6 +249,7 @@ struct PublicationFormView: View {
             publication.typicalResponseDays = hasResponseTime ? typicalResponseDays : nil
             publication.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
             publication.modifiedDate = Date()
+            project.modifiedDate = Date()
             
             // Handle reminder
             scheduleOrCancelReminder(for: publication)
@@ -263,6 +264,7 @@ struct PublicationFormView: View {
                 project: project
             )
             newPublication.typicalResponseDays = hasResponseTime ? typicalResponseDays : nil
+            project.modifiedDate = Date()
             modelContext.insert(newPublication)
             
             // Handle reminder for new publication

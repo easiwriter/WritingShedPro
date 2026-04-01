@@ -35,6 +35,7 @@ struct AddSceneSheet: View {
     @State private var selectedPoetryForm: PoetryForm?
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    @State private var upgradePromptReason: UpgradePromptReason?
     
     // MARK: - Computed
     
@@ -249,6 +250,7 @@ struct AddSceneSheet: View {
             } message: {
                 Text(errorMessage)
             }
+            .upgradePrompt(reason: $upgradePromptReason)
         }
         .navigationViewStyle(.stack)
     }
@@ -271,6 +273,13 @@ struct AddSceneSheet: View {
                 ? NSLocalizedString("fiction.episode.error.titleRequired", comment: "Title required")
                 : NSLocalizedString("fiction.scene.error.titleRequired", comment: "Title required")
             showErrorAlert = true
+            return
+        }
+        
+        // Check entitlement for free tier file limits
+        let existingSceneCount = (project.scenes ?? []).filter { !$0.isTrashed }.count
+        if !EntitlementManager.shared.canCreateFile(forProjectType: project.type, existingCount: existingSceneCount) {
+            upgradePromptReason = .fileLimit(projectType: project.type)
             return
         }
         

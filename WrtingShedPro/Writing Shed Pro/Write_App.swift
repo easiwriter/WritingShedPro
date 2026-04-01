@@ -34,6 +34,28 @@ struct Write_App: App {
         print("📱 [Write_App] registerForRemoteNotifications called BEFORE container init")
         #endif
         
+        // ── Reset Sync Database (user-triggered from Diagnostics) ──
+        // If the user requested a sync reset, delete the local store before
+        // NSPersistentCloudKitContainer is created.  On relaunch it will do
+        // a full zone import with a fresh server change token.
+        if UserDefaults.standard.bool(forKey: "resetSyncOnNextLaunch") {
+            UserDefaults.standard.removeObject(forKey: "resetSyncOnNextLaunch")
+            let storeURL = URL.documentsDirectory.appending(path: "writingshed.sqlite")
+            let fm = FileManager.default
+            for suffix in ["", "-wal", "-shm"] {
+                let url = storeURL.deletingLastPathComponent().appending(path: "writingshed.sqlite\(suffix)")
+                try? fm.removeItem(at: url)
+            }
+            // Also remove CloudKit metadata caches alongside the store
+            let ckAssets = storeURL.deletingLastPathComponent().appending(path: "writingshed.sqlite.ckAssets")
+            if fm.fileExists(atPath: ckAssets.path) {
+                try? fm.removeItem(at: ckAssets)
+            }
+            #if DEBUG
+            print("🔄 [Write_App] Sync database reset — deleted store files for fresh CloudKit import")
+            #endif
+        }
+        
         let schema = Schema([
             Project.self,
             Folder.self,

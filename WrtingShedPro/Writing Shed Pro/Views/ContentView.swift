@@ -170,32 +170,24 @@ struct ContentView: View {
     
     // MARK: - Foreground Resume Sync
     
-    /// When the app returns to the foreground, force a CloudKit zone fetch.
-    /// NSPersistentCloudKitContainer relies on silent push notifications to trigger imports,
-    /// but these pushes are unreliable on Mac Catalyst and can be delayed/dropped on iPad
-    /// when the app was suspended. This ensures we always pick up remote changes.
+    /// When the app returns to the foreground, just resume passive observation.
+    /// CloudKit recovery is left to NSPersistentCloudKitContainer.
     private func syncOnForegroundResume() {
-        // Debounce: don't re-sync if we already did within the last 60 seconds
         let now = Date()
         guard now.timeIntervalSince(lastForegroundSyncDate) > 60 else {
             #if DEBUG
-            print("🔄 [ContentView] Foreground sync skipped — last sync was \(Int(now.timeIntervalSince(lastForegroundSyncDate)))s ago")
+            print("🔄 [ContentView] Foreground resume ignored — last observation was \(Int(now.timeIntervalSince(lastForegroundSyncDate)))s ago")
             #endif
             return
         }
         lastForegroundSyncDate = now
-        
+
         #if DEBUG
-        print("🔄 [ContentView] App became active — forcing CloudKit zone fetch for missed changes")
+        print("🔄 [ContentView] App became active — resuming passive CloudKit observation")
         #endif
-        forceCloudKitImport()
     }
     
-    /// Start an adaptive periodic sync watchdog while app is foregrounded.
-    ///
-    /// We intentionally run this frequently (every 60s), but only trigger expensive
-    /// operations when CloudKit has been idle for a while. This gives us fast recovery
-    /// when silent pushes are missed (common on Catalyst), without hammering CloudKit.
+    /// Start a periodic passive sync watchdog while app is foregrounded.
     private func startPeriodicSyncTimer() {
         stopPeriodicSyncTimer()  // cancel any existing timer
         periodicSyncTask = Task { @MainActor in
@@ -213,8 +205,8 @@ struct ContentView: View {
         periodicSyncTask = nil
     }
 
-    /// Conservative periodic CloudKit maintenance.
-    /// Forces a zone fetch only after extended idle time and never mutates local data.
+    /// Passive periodic CloudKit maintenance.
+    /// This performs only local reconciliation and diagnostics-safe self-healing.
     private func performPeriodicSyncWatchdogTick() {
         reconcileProjectListIfNeeded()
 
@@ -222,50 +214,29 @@ struct ContentView: View {
         let now = Date()
         guard let lastEvent = throttler.mostRecentActivityTime else {
             #if DEBUG
-            print("⏳ [ContentView] Sync watchdog: no CloudKit activity recorded yet, skipping proactive sync actions")
+            print("⏳ [ContentView] Sync watchdog: no CloudKit activity recorded yet")
             #endif
             return
         }
         let secondsSinceEvent = now.timeIntervalSince(lastEvent)
 
         if throttler.hasActiveCloudKitEvent {
-            // Recovery path: if CloudKit reports an active event but we have seen no
-            // remote-change activity for several minutes, proactively nudge the daemon.
-            // This avoids requiring user edits (rename/touch) to wake stalled propagation.
-            // After 600s, bypass the manual-kick-pause so a persistent backoff can't block
-            // recovery when CloudKit was offline temporarily at an earlier point this session.
-            let bypassPause = secondsSinceEvent >= 600
-            if secondsSinceEvent >= 180 && !throttler.isRateLimited && (!throttler.isManualKickPaused || bypassPause) {
+            if secondsSinceEvent >= 180 {
                 showSyncRecoveryBannerTemporarily()
                 #if DEBUG
-                print("⚠️ [ContentView] Sync watchdog: CloudKit event appears idle for \(Int(secondsSinceEvent))s — issuing guarded recovery nudge (bypassPause=\(bypassPause))")
+                print("⚠️ [ContentView] Sync watchdog: CloudKit event appears idle for \(Int(secondsSinceEvent))s — observing only, no manual kick")
                 #endif
-                forceCloudKitImport(allowDuringActiveEvent: true, bypassManualKickPause: bypassPause)
-                lastForegroundSyncDate = now
             }
             #if DEBUG
-            print("⏳ [ContentView] Sync watchdog: CloudKit event in progress, skipping proactive sync actions")
+            print("⏳ [ContentView] Sync watchdog: CloudKit event in progress")
             #endif
             return
         }
 
         guard secondsSinceEvent >= 180 else {
-            // Export stall recovery: if the rate-limit has expired and no sync
-            // activity for 60s, a modelContext.save() nudges the mirroring delegate
-            // to re-check for pending changes and restart the export cycle.
-            // We no longer gate on exportCompleted because it stays true from
-            // earlier exports and won't catch newly-imported local data.
-            if !throttler.isRateLimited && !throttler.exportInProgress && secondsSinceEvent >= 60 {
-                #if DEBUG
-                print("🔄 [ContentView] Sync watchdog: nudging export via save() (idle \(Int(secondsSinceEvent))s)")
-                #endif
-                do { try modelContext.save() } catch { }
-            }
             #if DEBUG
             print("✅ [ContentView] Sync watchdog: recent CloudKit activity (\(Int(secondsSinceEvent))s ago), no action")
             #endif
-            // If CloudKit isn't actively processing right now, still allow a conservative
-            // order self-heal to run. This fixes userOrder collisions after conflict-heavy sync.
             if !throttler.hasActiveCloudKitEvent && !throttler.isSyncing {
                 autoNormalizeProjectOrderIfNeeded()
             }
@@ -274,31 +245,9 @@ struct ContentView: View {
 
         autoNormalizeProjectOrderIfNeeded()
 
-        // After 600s of idle, override any manual-kick-pause backoff. A prior transport
-        // failure that triggered the pause has long since resolved (or won't resolve at all),
-        // and leaving sync blocked indefinitely is worse than one extra CloudKit request.
-        let bypassPause = secondsSinceEvent >= 600
-        if throttler.isManualKickPaused && !bypassPause {
-            showSyncRecoveryBannerTemporarily()
-            #if DEBUG
-            print("⚠️ [ContentView] Sync watchdog: idle \(Int(secondsSinceEvent))s but manual kick paused — will retry after 600s")
-            #endif
-            return
-        }
-
         #if DEBUG
-        print("🔄 [ContentView] Sync watchdog: idle \(Int(secondsSinceEvent))s — forcing import + export nudge (bypassPause=\(bypassPause), rateLimited=\(throttler.isRateLimited))")
+        print("🔄 [ContentView] Sync watchdog: idle \(Int(secondsSinceEvent))s — passive observation only")
         #endif
-        // Nudge both directions: zone fetch for missed imports AND save() to
-        // wake the mirroring delegate for pending exports. Without the save(),
-        // locally-imported projects (e.g. .wsp import) can stall for 20+ minutes
-        // because the mirroring delegate never notices the new records.
-        // Skip the export nudge while rate-limited to avoid feeding the retry storm.
-        if !throttler.isRateLimited {
-            do { try modelContext.save() } catch { }
-        }
-        forceCloudKitImport(bypassManualKickPause: bypassPause)
-        lastForegroundSyncDate = now
     }
 
     /// Assign userOrder to projects that don't have one yet.
@@ -440,28 +389,15 @@ struct ContentView: View {
     
     /// On fresh install, @Query may not update after CloudKit bulk import.
     /// Poll periodically and force a view refresh if data exists but @Query is empty.
-    /// If no data arrives, repeatedly nudge CloudKit since Mac Catalyst often
-    /// fails to receive push notifications that drive the import engine.
     private func monitorSyncAndRefreshIfNeeded() async {
         // Only needed on fresh install (no projects yet)
         guard projects.isEmpty else { return }
-        
+
         // Simple strategy: poll every 10s for up to 5 minutes.
-        // Re-kick CloudKit every 60s to keep the daemon awake.
         // The ONLY exit conditions are:
         //   a) Projects appear in the database → success, refresh view.
         //   b) 5 minutes elapse with no projects → show recovery alert.
-        // We do NOT try to detect "stall" based on sync events — CloudKit can
-        // go long stretches between notification bursts and importCompleted
-        // fires after the first batch, not the last.
-        
-        // Initial kick: give APNs 2s to deliver token, then force a zone fetch
-        try? await Task.sleep(nanoseconds: 2_000_000_000)
-        
-        #if DEBUG
-        print("🔄 [ContentView] Initial kick — forcing CloudKit zone fetch…")
-        #endif
-        forceCloudKitImport()
+        // We intentionally avoid app-driven CloudKit nudges here.
         
         let totalChecks = 30               // 30 × 10s = 5 minutes
         let reKickInterval = 6             // legacy debug cadence for status logging
@@ -501,105 +437,6 @@ struct ContentView: View {
         #endif
     }
     
-    /// Forcibly wake up the CloudKit daemon by fetching record zone changes.
-    /// On Mac Catalyst the silent-push path is unreliable even after registering
-    /// for remote notifications, so this acts as a belt-and-suspenders fallback
-    /// that causes NSPersistentCloudKitContainer to notice outstanding changes.
-    ///
-    /// **Rate-limit aware**: Skips the operation if CloudKit recently returned
-    /// a rate-limit or service-unavailable error, to avoid piling on requests
-    /// and making the throttling worse.
-    private func forceCloudKitImport(allowDuringActiveEvent: Bool = false, bypassManualKickPause: Bool = false) {
-        guard allowDuringActiveEvent || !CloudKitSyncThrottler.shared.hasActiveCloudKitEvent else {
-            #if DEBUG
-            print("⏳ [ContentView] forceCloudKitImport skipped — CloudKit event in progress")
-            #endif
-            return
-        }
-        if !bypassManualKickPause {
-            guard !CloudKitSyncThrottler.shared.isManualKickPaused else {
-                #if DEBUG
-                print("⏳ [ContentView] forceCloudKitImport skipped — manual kick backoff active")
-                #endif
-                return
-            }
-        }
-        // Don't fire if we're currently rate-limited — let the container's
-        // internal retry handle it with proper server-provided backoff.
-        guard !CloudKitSyncThrottler.shared.isRateLimited else {
-            #if DEBUG
-            print("⏳ [ContentView] forceCloudKitImport skipped — rate-limited until \(CloudKitSyncThrottler.shared.rateLimitedUntil?.description ?? "?")")
-            #endif
-            return
-        }
-        
-        // Use CKFetchDatabaseChangesOperation to discover which zones have
-        // pending changes, then fetch only those zones incrementally (without
-        // clearing the server change token). This avoids the -1017 "cannot
-        // parse response" failures that occur when a nil token forces a full
-        // zone download on large databases.
-        let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
-        let database = ckContainer.privateCloudDatabase
-        
-        let dbChangesOp = CKFetchDatabaseChangesOperation(previousServerChangeToken: nil)
-        var changedZoneIDs: [CKRecordZone.ID] = []
-        
-        dbChangesOp.recordZoneWithIDChangedBlock = { zoneID in
-            changedZoneIDs.append(zoneID)
-        }
-        
-        dbChangesOp.fetchDatabaseChangesResultBlock = { result in
-            switch result {
-            case .failure(let err):
-                #if DEBUG
-                print("⚠️ [ContentView] forceCloudKitImport: database changes fetch error: \(err.localizedDescription)")
-                #endif
-                return
-            case .success:
-                break
-            }
-            
-            // If no specific zones reported changes, fall back to the
-            // well-known CoreData CloudKit zone so we still nudge the daemon.
-            if changedZoneIDs.isEmpty {
-                let coreDataZoneID = CKRecordZone.ID(
-                    zoneName: "com.apple.coredata.cloudkit.zone",
-                    ownerName: CKCurrentUserDefaultName
-                )
-                changedZoneIDs = [coreDataZoneID]
-            }
-
-            #if DEBUG
-            print("🔄 [ContentView] forceCloudKitImport: fetching changes from \(changedZoneIDs.count) zone(s)")
-            #endif
-
-            // Fetch zone changes WITHOUT clearing previousServerChangeToken.
-            // Omitting per-zone configs lets CloudKit use the container's own
-            // stored tokens for an incremental (not full) fetch.
-            let fetchOp = CKFetchRecordZoneChangesOperation(
-                recordZoneIDs: changedZoneIDs,
-                configurationsByRecordZoneID: nil
-            )
-
-            fetchOp.fetchRecordZoneChangesResultBlock = { fetchResult in
-                #if DEBUG
-                switch fetchResult {
-                case .success:
-                    print("✅ [ContentView] forceCloudKitImport: zone fetch completed — daemon should trigger import")
-                case .failure(let err):
-                    print("⚠️ [ContentView] forceCloudKitImport: zone fetch error: \(err.localizedDescription)")
-                }
-                #endif
-            }
-            
-            fetchOp.qualityOfService = .userInitiated
-            database.add(fetchOp)
-        }
-        
-        dbChangesOp.qualityOfService = .userInitiated
-        database.add(dbChangesOp)
-    }
-
     private func showSyncRecoveryBannerTemporarily() {
         syncRecoveryBannerTask?.cancel()
         withAnimation {

@@ -47,10 +47,30 @@ final class EntitlementManager {
     private let networkQueue = DispatchQueue(label: "com.writingshedpro.entitlement.network")
     private var hasConfirmedNetworkPath = false
     private var isNetworkReachable = true
+
+#if DEBUG
+    private static let paywallCaptureModeKey = "debug.paywallCaptureMode"
+#endif
     
     // MARK: - Initialization
     
     private init() {}
+
+#if DEBUG
+    var isPaywallCaptureModeEnabled: Bool {
+        UserDefaults.standard.bool(forKey: Self.paywallCaptureModeKey)
+    }
+
+    func setPaywallCaptureModeEnabled(_ enabled: Bool) async {
+        UserDefaults.standard.set(enabled, forKey: Self.paywallCaptureModeKey)
+        await refreshEntitlements()
+    }
+
+    func resetPaywallCaptureState() async {
+        UserDefaults.standard.removeObject(forKey: Self.paywallCaptureModeKey)
+        await refreshEntitlements()
+    }
+#endif
     
     // MARK: - Setup
     
@@ -113,6 +133,11 @@ final class EntitlementManager {
     
     /// Check if a specific product is purchased
     func isModulePurchased(_ product: WSPProduct) -> Bool {
+#if DEBUG
+        if isPaywallCaptureModeEnabled {
+            return false
+        }
+#endif
         // Bundle unlocks everything
         if purchaseManager.isEntitled(to: WSPProduct.allInBundle.rawValue) {
             return true
@@ -128,12 +153,22 @@ final class EntitlementManager {
     
     /// Check if user has any purchases
     var hasAnyPurchase: Bool {
-        !purchaseManager.entitledProductIDs.isEmpty
+#if DEBUG
+        if isPaywallCaptureModeEnabled {
+            return false
+        }
+#endif
+        return !purchaseManager.entitledProductIDs.isEmpty
     }
     
     /// Check if user has purchased the full bundle
     var hasBundle: Bool {
-        purchaseManager.isEntitled(to: WSPProduct.allInBundle.rawValue)
+#if DEBUG
+        if isPaywallCaptureModeEnabled {
+            return false
+        }
+#endif
+        return purchaseManager.isEntitled(to: WSPProduct.allInBundle.rawValue)
     }
     
     /// Check if user has purchased at least one individual module (not via bundle)

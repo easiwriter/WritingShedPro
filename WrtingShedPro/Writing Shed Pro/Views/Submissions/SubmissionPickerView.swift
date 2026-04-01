@@ -425,6 +425,7 @@ struct NewPublicationForSubmissionView: View {
             type: selectedType,
             project: project
         )
+        project.modifiedDate = Date()
         modelContext.insert(publication)
         
         // Notify parent to create submission

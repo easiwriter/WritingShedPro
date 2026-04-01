@@ -38,6 +38,9 @@ struct ProseFilesView: View {
     @State private var showExportImageWarning = false
     @State private var pendingExportAction: (() -> Void)?
     
+    /// IAP gating
+    @State private var upgradePromptReason: UpgradePromptReason?
+    
     /// Copy to Project state
     @State private var showCopyToProject = false
     @State private var showCopyResult = false
@@ -215,6 +218,7 @@ struct ProseFilesView: View {
         } message: {
             Text(copyResultMessage)
         }
+        .upgradePrompt(reason: $upgradePromptReason)
     }
     
     // MARK: - Bottom Toolbar
@@ -344,6 +348,12 @@ struct ProseFilesView: View {
     private func exportFiles(_ files: [TextFile], format: ExportFormat) {
         self.exportFormat = format
         guard !files.isEmpty else { return }
+        
+        // Check entitlement for export
+        if !EntitlementManager.shared.canExport(projectType: project.type) {
+            upgradePromptReason = .exportBlocked(projectType: project.type)
+            return
+        }
         
         var attributedStrings: [NSAttributedString] = []
         

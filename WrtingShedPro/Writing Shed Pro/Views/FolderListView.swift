@@ -28,6 +28,9 @@ struct FolderListView: View {
     @State private var pendingExportFormat: ExportFormat? = nil
     @State private var showMatterStylePicker = false
     
+    // IAP gating
+    @State private var upgradePromptReason: UpgradePromptReason?
+    
     // Manuscript submit state
     @State private var showSubmissionNamePrompt = false
     @State private var newSubmissionName: String = ""
@@ -388,7 +391,11 @@ struct FolderListView: View {
                         .disabled(isExporting)
                         
                         Button {
-                            showExportFormatPicker = true
+                            if !EntitlementManager.shared.canExport(projectType: project.type) {
+                                upgradePromptReason = .exportBlocked(projectType: project.type)
+                            } else {
+                                showExportFormatPicker = true
+                            }
                         } label: {
                             Label(NSLocalizedString("manuscript.export", comment: "Export"), systemImage: "square.and.arrow.up")
                         }
@@ -542,6 +549,7 @@ struct FolderListView: View {
         } message: {
             Text(String(format: NSLocalizedString("submissions.duplicate.message", comment: "Duplicate message"), createdSubmissionName))
         }
+        .upgradePrompt(reason: $upgradePromptReason)
     }
     
     // MARK: - Manuscript Export/Preview Helpers
@@ -626,11 +634,13 @@ struct FolderListView: View {
         
         // Check for duplicate submission name in this project
         let projectID = project.id
-        var duplicateCheck = FetchDescriptor<Submission>(predicate: #Predicate<Submission> { submission in
+        let duplicatePredicate: Predicate<Submission> = #Predicate { submission in
             submission.name == trimmedName && submission.project?.id == projectID && submission.isCollection == false
-        })
+        }
+        var duplicateCheck = FetchDescriptor<Submission>(predicate: duplicatePredicate)
         duplicateCheck.fetchLimit = 1
-        if let count = try? modelContext.fetchCount(duplicateCheck), count > 0 {
+        let duplicateCount: Int = (try? modelContext.fetchCount(duplicateCheck)) ?? 0
+        if duplicateCount > 0 {
             createdSubmissionName = trimmedName
             showDuplicateSubmission = true
             return
@@ -903,6 +913,12 @@ struct FolderListView: View {
     
     /// Print the full manuscript via the system print dialog
     private func printManuscript() {
+        // Check entitlement for printing
+        if !EntitlementManager.shared.canPrint(projectType: project.type) {
+            upgradePromptReason = .printBlocked(projectType: project.type)
+            return
+        }
+        
         isExporting = true
         
         Task {

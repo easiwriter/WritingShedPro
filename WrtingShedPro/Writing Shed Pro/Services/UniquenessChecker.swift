@@ -4,6 +4,16 @@ struct UniquenessChecker {
     static func isProjectNameUnique(_ name: String, in projects: [Project]) -> Bool {
         !DeduplicationService.hasProjectNameConflict(name, in: projects)
     }
+
+    static func hasDuplicateSubmissionNamed(_ name: String, in project: Project) -> Bool {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let submissions = project.submissions ?? []
+
+        return submissions.contains { submission in
+            guard submission.isCollection == false else { return false }
+            return (submission.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines) == trimmedName
+        }
+    }
     
     /// Check if folder name is unique within its parent context
     /// - For root-level folders (parentFolder == nil): checks uniqueness within project

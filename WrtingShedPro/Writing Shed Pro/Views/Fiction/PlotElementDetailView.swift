@@ -480,6 +480,7 @@ struct CreateSceneForPlotElementSheet: View {
     @State private var summary: String = ""
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    @State private var upgradePromptReason: UpgradePromptReason?
     
     private var isVerseNovel: Bool {
         project.fictionClass == .verseNovel
@@ -575,6 +576,13 @@ struct CreateSceneForPlotElementSheet: View {
                 ? NSLocalizedString("fiction.episode.error.titleRequired", comment: "Title required")
                 : NSLocalizedString("fiction.scene.error.titleRequired", comment: "Title required")
             showErrorAlert = true
+            return
+        }
+        
+        // Check entitlement for free tier file limits
+        let existingSceneCount = (project.scenes ?? []).filter { !$0.isTrashed }.count
+        if !EntitlementManager.shared.canCreateFile(forProjectType: project.type, existingCount: existingSceneCount) {
+            upgradePromptReason = .fileLimit(projectType: project.type)
             return
         }
         

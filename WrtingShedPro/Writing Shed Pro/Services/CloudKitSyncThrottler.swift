@@ -100,6 +100,18 @@ final class CloudKitSyncThrottler {
     /// to all voluntary manual sync kicks.
     private(set) var consecutiveImportNetworkFailures = 0
 
+    /// Consecutive CloudKit import failures of any kind. When this reaches
+    /// `maxConsecutiveImportFailuresBeforeReset`, the throttler automatically
+    /// schedules a database reset on next launch so that a fresh zone import
+    /// can recover records whose change tokens were advanced past.
+    private(set) var consecutiveImportFailures = 0
+
+    /// After this many consecutive import failures, auto-schedule a database reset.
+    private let maxConsecutiveImportFailuresBeforeReset = 3
+
+    /// True when an automatic sync reset has been scheduled for next launch.
+    private(set) var autoResetScheduled = false
+
     /// When non-nil, manual sync kicks (zone fetch/nudge) should be paused until this date
     /// to avoid request storms while CloudKit is retrying failed imports.
     private(set) var manualKickPausedUntil: Date?
@@ -135,7 +147,8 @@ final class CloudKitSyncThrottler {
     /// Maximum time we trust a single CloudKit event to remain "in-progress"
     /// without receiving an ending event. If this is exceeded, we treat it as
     /// stale and unblock watchdog recovery nudges.
-    private let maxInProgressEventAge: TimeInterval = 120
+    /// Increased to 300s to allow large zone imports to complete without premature clearing.
+    private let maxInProgressEventAge: TimeInterval = 300
     
     /// Record that CloudKit returned a rate-limit or service-unavailable error.
     /// `retryAfterSeconds` comes from the CKError userInfo.
@@ -204,6 +217,37 @@ final class CloudKitSyncThrottler {
             }
             #endif
         }
+    }
+
+    /// When consecutive import failures exceed the threshold, automatically
+    /// schedule a database reset on next launch so the app re-imports the
+    /// full CloudKit zone from scratch (fresh server change token).
+    private func scheduleAutoResetIfNeeded() {
+        guard consecutiveImportFailures >= maxConsecutiveImportFailuresBeforeReset else { return }
+        guard !autoResetScheduled else { return }
+        
+        UserDefaults.standard.set(true, forKey: "resetSyncOnNextLaunch")
+        autoResetScheduled = true
+        appendCloudKitEvent(
+            type: "recovery",
+            phase: "scheduled",
+            status: "auto-reset",
+            message: "Database reset scheduled after \(consecutiveImportFailures) consecutive import failures. Quit and relaunch to apply."
+        )
+        #if DEBUG
+        print("🔄 [CloudKitSyncThrottler] Auto-scheduled database reset after \(consecutiveImportFailures) consecutive import failures")
+        #endif
+    }
+
+    /// Clears the auto-reset flag without performing the reset.
+    /// Called when a successful import proves recovery is no longer needed.
+    func cancelAutoResetIfScheduled() {
+        guard autoResetScheduled else { return }
+        UserDefaults.standard.removeObject(forKey: "resetSyncOnNextLaunch")
+        autoResetScheduled = false
+        #if DEBUG
+        print("✅ [CloudKitSyncThrottler] Auto-reset cancelled — import succeeded")
+        #endif
     }
     
     /// Duration to wait after last sync event before clearing isSyncing
@@ -435,16 +479,24 @@ final class CloudKitSyncThrottler {
                         self.importStartTime = nil
                         self.importCompleted = true
                         self.importSucceeded = event.succeeded
+                        let errorMessage = self.detailedErrorMessage(event.error)
                         self.appendCloudKitEvent(
                             type: typeLabel,
                             phase: "ended",
                             status: event.succeeded ? "success" : "failed",
-                            message: event.error?.localizedDescription ?? ""
+                            message: errorMessage
                         )
                         // Clear transport-failure backoff on success
                         if event.succeeded {
                             self.clearImportTransportFailureBackoff()
+                            self.consecutiveImportFailures = 0
+                            self.cancelAutoResetIfScheduled()
                         } else {
+                            self.consecutiveImportFailures += 1
+                            #if DEBUG
+                            print("⚠️ [CloudKitSyncThrottler] Import failure #\(self.consecutiveImportFailures) — \(self.detailedErrorMessage(event.error))")
+                            #endif
+                            self.scheduleAutoResetIfNeeded()
                             // Detect transport failures for backoff
                             let nsError = event.error as? NSError
                             let errorDomain = nsError?.domain ?? ""
@@ -479,11 +531,12 @@ final class CloudKitSyncThrottler {
                         } else {
                             self.exportSucceeded = false
                         }
+                        let errorMessage = self.detailedErrorMessage(event.error)
                         self.appendCloudKitEvent(
                             type: typeLabel,
                             phase: "ended",
                             status: event.succeeded ? "success" : "failed",
-                            message: event.error?.localizedDescription ?? ""
+                            message: errorMessage
                         )
                         // Clear rate-limit on success; detect rate-limit on failure
                         if event.succeeded {
@@ -554,41 +607,6 @@ final class CloudKitSyncThrottler {
                 print("🔄 [CloudKitSyncThrottler] Mirroring reset (\(phase)). reason=\(reasonText)")
             }
             #endif
-
-            // On did-reset, kick a zone fetch after a delay to restart sync.
-            // NSPersistentCloudKitContainer may not automatically restart on
-            // Mac Catalyst after a token reset.
-            if phase == "did-reset" {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
-                    guard let self else { return }
-                    guard !self.isRateLimited else { return }
-                    guard !self.isManualKickPaused else { return }
-                    guard !self.hasActiveCloudKitEvent else { return }
-                    
-                    let ck = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
-                    let db = ck.privateCloudDatabase
-                    let coreDataZoneID = CKRecordZone.ID(
-                        zoneName: "com.apple.coredata.cloudkit.zone",
-                        ownerName: CKCurrentUserDefaultName
-                    )
-                    let op = CKFetchRecordZoneChangesOperation(
-                        recordZoneIDs: [coreDataZoneID],
-                        configurationsByRecordZoneID: nil
-                    )
-                    op.fetchRecordZoneChangesResultBlock = { result in
-                        #if DEBUG
-                        switch result {
-                        case .success:
-                            print("✅ [CloudKitSyncThrottler] Post-reset zone fetch completed")
-                        case .failure(let err):
-                            print("⚠️ [CloudKitSyncThrottler] Post-reset zone fetch error: \(err.localizedDescription)")
-                        }
-                        #endif
-                    }
-                    op.qualityOfService = .userInitiated
-                    db.add(op)
-                }
-            }
         }
     }
 
@@ -607,12 +625,14 @@ final class CloudKitSyncThrottler {
             importStartTime = nil
             importCompleted = true
             importSucceeded = false
+            consecutiveImportFailures += 1
             appendCloudKitEvent(
                 type: "import",
                 phase: "timeout",
                 status: "stale-cleared",
-                message: "No end event after \(Int(maxInProgressEventAge))s"
+                message: "No end event after \(Int(maxInProgressEventAge))s — consecutiveImportFailures=\(consecutiveImportFailures)"
             )
+            scheduleAutoResetIfNeeded()
             cleared.append("import")
         }
 
@@ -658,8 +678,39 @@ final class CloudKitSyncThrottler {
         }
     }
 
+    private func detailedErrorMessage(_ error: Error?) -> String {
+        guard let nsError = error as NSError? else { return "" }
+
+        var details: [String] = []
+        details.append("\(nsError.domain) code=\(nsError.code)")
+
+        if !nsError.localizedDescription.isEmpty {
+            details.append(nsError.localizedDescription)
+        }
+
+        if let partialByItem = nsError.userInfo[CKPartialErrorsByItemIDKey] as? [AnyHashable: NSError],
+           !partialByItem.isEmpty {
+            details.append("partialErrors=\(partialByItem.count)")
+            if let first = partialByItem.first {
+                details.append("firstItem=\(first.key)")
+                details.append("firstError=\(first.value.domain):\(first.value.code)")
+            }
+        }
+
+        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
+            details.append("underlying=\(underlying.domain):\(underlying.code)")
+            if !underlying.localizedDescription.isEmpty {
+                details.append(underlying.localizedDescription)
+            }
+        }
+
+        return details.joined(separator: " | ")
+    }
+
     private func markImportStarted(now: Date = Date()) {
         lastObservedActivityTime = now
+        importCompleted = false
+        importSucceeded = false
         if !importInProgress {
             importInProgress = true
             importStartTime = now
@@ -673,6 +724,8 @@ final class CloudKitSyncThrottler {
 
     private func markExportStarted(now: Date = Date()) {
         lastObservedActivityTime = now
+        exportCompleted = false
+        exportSucceeded = false
         if !exportInProgress {
             exportInProgress = true
             exportStartTime = now
