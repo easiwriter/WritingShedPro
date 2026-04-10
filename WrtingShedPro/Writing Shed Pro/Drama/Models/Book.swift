@@ -40,6 +40,7 @@ final class Book {
             sceneLinks = []
             for scene in newValue ?? [] {
                 let link = SceneBookLink(scene: scene, book: self)
+                modelContext?.insert(link)
                 if sceneLinks == nil { sceneLinks = [] }
                 sceneLinks?.append(link)
             }

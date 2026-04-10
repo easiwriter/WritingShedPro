@@ -399,6 +399,7 @@ final class StoryScene {
             chapterLinks = []
             for chapter in newValue ?? [] {
                 let link = SceneChapterLink(scene: self, chapter: chapter)
+                modelContext?.insert(link)
                 if chapterLinks == nil { chapterLinks = [] }
                 chapterLinks?.append(link)
             }
@@ -412,6 +413,7 @@ final class StoryScene {
             actLinks = []
             for act in newValue ?? [] {
                 let link = SceneActLink(scene: self, act: act)
+                modelContext?.insert(link)
                 if actLinks == nil { actLinks = [] }
                 actLinks?.append(link)
             }
@@ -425,6 +427,7 @@ final class StoryScene {
             bookLinks = []
             for book in newValue ?? [] {
                 let link = SceneBookLink(scene: self, book: book)
+                modelContext?.insert(link)
                 if bookLinks == nil { bookLinks = [] }
                 bookLinks?.append(link)
             }
@@ -438,6 +441,7 @@ final class StoryScene {
             plotElementLinks = []
             for element in newValue ?? [] {
                 let link = ScenePlotElementLink(scene: self, plotElement: element)
+                modelContext?.insert(link)
                 if plotElementLinks == nil { plotElementLinks = [] }
                 plotElementLinks?.append(link)
             }
@@ -451,6 +455,7 @@ final class StoryScene {
             characterLinks = []
             for character in newValue ?? [] {
                 let link = SceneCharacterLink(scene: self, character: character)
+                modelContext?.insert(link)
                 if characterLinks == nil { characterLinks = [] }
                 characterLinks?.append(link)
             }
@@ -534,6 +539,7 @@ final class Chapter {
             sceneLinks = []
             for scene in newValue ?? [] {
                 let link = SceneChapterLink(scene: scene, chapter: self)
+                modelContext?.insert(link)
                 if sceneLinks == nil { sceneLinks = [] }
                 sceneLinks?.append(link)
             }
@@ -576,6 +582,7 @@ final class Act {
             sceneLinks = []
             for scene in newValue ?? [] {
                 let link = SceneActLink(scene: scene, act: self)
+                modelContext?.insert(link)
                 if sceneLinks == nil { sceneLinks = [] }
                 sceneLinks?.append(link)
             }
@@ -618,6 +625,7 @@ final class ProseSection {
             textFileLinks = []
             for file in newValue ?? [] {
                 let link = TextFileSectionLink(textFile: file, section: self)
+                modelContext?.insert(link)
                 if textFileLinks == nil { textFileLinks = [] }
                 textFileLinks?.append(link)
             }
@@ -668,6 +676,7 @@ final class Character {
             sceneLinks = []
             for scene in newValue ?? [] {
                 let link = SceneCharacterLink(scene: scene, character: self)
+                modelContext?.insert(link)
                 if sceneLinks == nil { sceneLinks = [] }
                 sceneLinks?.append(link)
             }
@@ -682,6 +691,7 @@ final class Character {
             plotElementLinks = []
             for element in newValue ?? [] {
                 let link = CharacterPlotElementLink(character: self, plotElement: element)
+                modelContext?.insert(link)
                 if plotElementLinks == nil { plotElementLinks = [] }
                 plotElementLinks?.append(link)
             }
@@ -756,6 +766,7 @@ final class Location {
             plotElementLinks = []
             for element in newValue ?? [] {
                 let link = LocationPlotElementLink(location: self, plotElement: element)
+                modelContext?.insert(link)
                 if plotElementLinks == nil { plotElementLinks = [] }
                 plotElementLinks?.append(link)
             }
@@ -827,6 +838,7 @@ final class PlotElement {
             sceneLinks = []
             for scene in newValue ?? [] {
                 let link = ScenePlotElementLink(scene: scene, plotElement: self)
+                modelContext?.insert(link)
                 if sceneLinks == nil { sceneLinks = [] }
                 sceneLinks?.append(link)
             }
@@ -841,6 +853,7 @@ final class PlotElement {
             characterLinks = []
             for character in newValue ?? [] {
                 let link = CharacterPlotElementLink(character: character, plotElement: self)
+                modelContext?.insert(link)
                 if characterLinks == nil { characterLinks = [] }
                 characterLinks?.append(link)
             }
@@ -855,6 +868,7 @@ final class PlotElement {
             locationLinks = []
             for location in newValue ?? [] {
                 let link = LocationPlotElementLink(location: location, plotElement: self)
+                modelContext?.insert(link)
                 if locationLinks == nil { locationLinks = [] }
                 locationLinks?.append(link)
             }

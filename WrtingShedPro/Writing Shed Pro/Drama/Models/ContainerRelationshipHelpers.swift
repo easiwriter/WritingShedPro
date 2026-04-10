@@ -25,6 +25,7 @@ extension TextFile {
     func addToPoetryCollection(_ collection: PoetryCollection) {
         guard !isInPoetryCollection(collection) else { return }
         let link = TextFileCollectionLink(textFile: self, poetryCollection: collection)
+        modelContext?.insert(link)
         if poetryCollectionLinks == nil { poetryCollectionLinks = [] }
         poetryCollectionLinks?.append(link)
     }
@@ -66,6 +67,7 @@ extension TextFile {
     func addToSection(_ section: ProseSection) {
         guard !isInSection(section) else { return }
         let link = TextFileSectionLink(textFile: self, section: section)
+        modelContext?.insert(link)
         if sectionLinks == nil { sectionLinks = [] }
         sectionLinks?.append(link)
     }
@@ -112,6 +114,7 @@ extension StoryScene {
     func addToChapter(_ chapter: Chapter) {
         guard !isInChapter(chapter) else { return }
         let link = SceneChapterLink(scene: self, chapter: chapter)
+        modelContext?.insert(link)
         if chapterLinks == nil { chapterLinks = [] }
         chapterLinks?.append(link)
     }
@@ -153,6 +156,7 @@ extension StoryScene {
     func addToAct(_ act: Act) {
         guard !isInAct(act) else { return }
         let link = SceneActLink(scene: self, act: act)
+        modelContext?.insert(link)
         if actLinks == nil { actLinks = [] }
         actLinks?.append(link)
     }
@@ -194,6 +198,7 @@ extension StoryScene {
     func addToBook(_ book: Book) {
         guard !isInBook(book) else { return }
         let link = SceneBookLink(scene: self, book: book)
+        modelContext?.insert(link)
         if bookLinks == nil { bookLinks = [] }
         bookLinks?.append(link)
     }

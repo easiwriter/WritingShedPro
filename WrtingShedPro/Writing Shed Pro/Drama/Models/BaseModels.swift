@@ -868,6 +868,7 @@ final class TextFile {
             sectionLinks = []
             for section in newValue ?? [] {
                 let link = TextFileSectionLink(textFile: self, section: section)
+                modelContext?.insert(link)
                 if sectionLinks == nil { sectionLinks = [] }
                 sectionLinks?.append(link)
             }
@@ -882,6 +883,7 @@ final class TextFile {
             poetryCollectionLinks = []
             for collection in newValue ?? [] {
                 let link = TextFileCollectionLink(textFile: self, poetryCollection: collection)
+                modelContext?.insert(link)
                 if poetryCollectionLinks == nil { poetryCollectionLinks = [] }
                 poetryCollectionLinks?.append(link)
             }

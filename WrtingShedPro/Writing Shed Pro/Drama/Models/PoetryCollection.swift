@@ -40,6 +40,7 @@ final class PoetryCollection {
             textFileLinks = []
             for file in newValue ?? [] {
                 let link = TextFileCollectionLink(textFile: file, poetryCollection: self)
+                modelContext?.insert(link)
                 if textFileLinks == nil { textFileLinks = [] }
                 textFileLinks?.append(link)
             }
