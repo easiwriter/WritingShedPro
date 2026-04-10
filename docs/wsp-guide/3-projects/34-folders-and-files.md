@@ -135,6 +135,33 @@ Items are restored to their original location.
 
 **Warning**: Emptying Trash permanently deletes all items. This cannot be undone.
 
+## Copy to Project
+
+Copy files from one project to another without removing them from the original.
+
+### How to Copy Files
+
+1. Open the folder containing the files you want to copy
+2. Tap **Edit** to enter selection mode
+3. Select one or more files
+4. Tap **Copy to Project** (doc-on-doc icon) in the toolbar
+5. Choose the destination project from the picker
+6. Tap **Copy**
+
+### How It Works
+
+- Files are copied to the matching folder in the destination project (e.g., Poems → Poems)
+- The original files remain untouched in the source project
+- File content, formatting, and metadata are all copied
+- If no matching folder exists in the destination, the copy is skipped and an error message is shown
+
+### When to Use Copy to Project
+
+- Moving poems between collections in different projects
+- Sharing scenes across fiction projects
+- Building an anthology from multiple source projects
+- Creating a submission project with work from several projects
+
 ## File Details
 
 View information about a file:

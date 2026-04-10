@@ -18,6 +18,50 @@ Drama mode understands script writing needs:
 4. Optionally select a story structure
 5. Tap **Create**
 
+## Story Structures
+
+Drama projects support the same story structures as Fiction:
+
+### Freeform
+
+No predefined stages—organize your plot however you like.
+
+### Three-Act Structure
+
+Classic narrative structure:
+
+1. **Act 1 - Setup**: Introduce world and characters, inciting incident
+2. **Act 2 - Confrontation**: Rising action, complications
+3. **Act 3 - Resolution**: Climax and conclusion
+
+### The Monomyth (Hero's Journey)
+
+Christopher Vogler's 12-stage adaptation of the Hero's Journey from *The Writer's Journey*:
+
+1. Ordinary World
+2. Call to Adventure
+3. Refusal of the Call
+4. Meeting the Mentor
+5. Crossing the Threshold
+6. Tests, Allies, Enemies
+7. Approach to the Inmost Cave
+8. Ordeal
+9. Reward
+10. The Road Back
+11. Resurrection
+12. Return with the Elixir
+
+You can change the structure at any time in Project Settings.
+
+### Using Structures in Drama
+
+Plot elements in your drama project can be linked to structure stages:
+
+- Create plot elements for key story beats
+- Assign each to a monomyth stage or three-act stage
+- Connect plot elements to scenes
+- Use the structure to track your script's arc
+
 ## Drama Project Structure
 
 ```

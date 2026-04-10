@@ -131,7 +131,6 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <ul>
 <li><a href="#91-export-options">Export Options</a></li>
 <li><a href="#92-pdf-export">PDF Export</a></li>
-<li><a href="#93b-epub-export">EPUB Export</a></li>
 <li><a href="#93-rtf-export">RTF Export</a></li>
 <li><a href="#94-printing">Printing</a></li>
 <li><a href="#95-submission-tracking">Submission Tracking</a></li>
@@ -1082,7 +1081,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <h3 id="sync-diagnostics">Sync Diagnostics</h3>
 <p>View the status of iCloud sync and troubleshoot any issues. This shows details about your sync container, pending operations, and recent sync activity. See <a href="#24-icloud-sync">iCloud Sync</a> for more about sync.</p>
 <h3 id="contact-support">Contact Support</h3>
-<p>Send a message to the Writing Shed Pro support team. Your request will be answered immediately with helpful guidance. If the response doesn't resolve your issue, you can optionally send an email directly to the developer. Your app version and device information are included automatically.</p>
+<p>Send a message to the Writing Shed Pro support team. This opens a pre-filled email with your app version and device information included, helping us assist you more quickly.</p>
 <h3 id="rate-this-app">Rate This App</h3>
 <p>If you're enjoying Writing Shed Pro, tapping this opens the App Store rating dialog so you can leave a review. Your feedback helps other writers discover the app.</p>
 <h2 id="see-also">See Also</h2>
@@ -1724,6 +1723,31 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <li>Confirm</li>
 </ol>
 <p><strong>Warning</strong>: Emptying Trash permanently deletes all items. This cannot be undone.</p>
+<h2 id="copy-to-project">Copy to Project</h2>
+<p>Copy files from one project to another without removing them from the original.</p>
+<h3 id="how-to-copy-files">How to Copy Files</h3>
+<ol>
+<li>Open the folder containing the files you want to copy</li>
+<li>Tap <strong>Edit</strong> to enter selection mode</li>
+<li>Select one or more files</li>
+<li>Tap <strong>Copy to Project</strong> (doc-on-doc icon) in the toolbar</li>
+<li>Choose the destination project from the picker</li>
+<li>Tap <strong>Copy</strong></li>
+</ol>
+<h3 id="how-it-works">How It Works</h3>
+<ul>
+<li>Files are copied to the matching folder in the destination project (e.g., Poems → Poems)</li>
+<li>The original files remain untouched in the source project</li>
+<li>File content, formatting, and metadata are all copied</li>
+<li>If no matching folder exists in the destination, the copy is skipped and an error message is shown</li>
+</ul>
+<h3 id="when-to-use-copy-to-project">When to Use Copy to Project</h3>
+<ul>
+<li>Moving poems between collections in different projects</li>
+<li>Sharing scenes across fiction projects</li>
+<li>Building an anthology from multiple source projects</li>
+<li>Creating a submission project with work from several projects</li>
+</ul>
 <h2 id="file-details">File Details</h2>
 <p>View information about a file:</p>
 <ol>
@@ -6467,6 +6491,42 @@ Line 14 (G)    That then I scorn to change my state with kings
 <li>Optionally select a story structure</li>
 <li>Tap <strong>Create</strong></li>
 </ol>
+<h2 id="story-structures">Story Structures</h2>
+<p>Drama projects support the same story structures as Fiction:</p>
+<h3 id="freeform">Freeform</h3>
+<p>No predefined stages—organize your plot however you like.</p>
+<h3 id="three-act-structure">Three-Act Structure</h3>
+<p>Classic narrative structure:</p>
+<ol>
+<li><strong>Act 1 - Setup</strong>: Introduce world and characters, inciting incident</li>
+<li><strong>Act 2 - Confrontation</strong>: Rising action, complications</li>
+<li><strong>Act 3 - Resolution</strong>: Climax and conclusion</li>
+</ol>
+<h3 id="the-monomyth-heros-journey">The Monomyth (Hero's Journey)</h3>
+<p>Christopher Vogler's 12-stage adaptation of the Hero's Journey from <em>The Writer's Journey</em>:</p>
+<ol>
+<li>Ordinary World</li>
+<li>Call to Adventure</li>
+<li>Refusal of the Call</li>
+<li>Meeting the Mentor</li>
+<li>Crossing the Threshold</li>
+<li>Tests, Allies, Enemies</li>
+<li>Approach to the Inmost Cave</li>
+<li>Ordeal</li>
+<li>Reward</li>
+<li>The Road Back</li>
+<li>Resurrection</li>
+<li>Return with the Elixir</li>
+</ol>
+<p>You can change the structure at any time in Project Settings.</p>
+<h3 id="using-structures-in-drama">Using Structures in Drama</h3>
+<p>Plot elements in your drama project can be linked to structure stages:</p>
+<ul>
+<li>Create plot elements for key story beats</li>
+<li>Assign each to a monomyth stage or three-act stage</li>
+<li>Connect plot elements to scenes</li>
+<li>Use the structure to track your script's arc</li>
+</ul>
 <h2 id="drama-project-structure">Drama Project Structure</h2>
 <pre><code>Project
 ├── Manuscript (Front Matter, Body Matter, Back Matter)
@@ -7490,11 +7550,6 @@ Hi.
 <td>All formatting, pagination, footnotes</td>
 </tr>
 <tr>
-<td><strong>EPUB</strong></td>
-<td>E-readers, digital distribution</td>
-<td>Text, formatting, images, page breaks, cover</td>
-</tr>
-<tr>
 <td><strong>RTF</strong></td>
 <td>Editor collaboration</td>
 <td>Most formatting, editable</td>
@@ -7788,14 +7843,12 @@ Hi.
 <h3 id="file-wont-open-elsewhere">File Won't Open Elsewhere</h3>
 <ul>
 <li>PDF should open anywhere</li>
-<li>EPUB opens in Apple Books, Kindle, and most e-readers</li>
 <li>RTF may need Word-compatible app</li>
 <li>Check file isn't corrupted</li>
 </ul>
 <h2 id="see-also">See Also</h2>
 <ul>
 <li><a href="#92-pdf-export">PDF Export</a></li>
-<li><a href="#93b-epub-export">EPUB Export</a></li>
 <li><a href="#93-rtf-export">RTF Export</a></li>
 <li><a href="#96-markdown-import-export">Markdown Import and Export</a></li>
 <li><a href="#94-printing">Printing</a></li>
@@ -7970,154 +8023,6 @@ Hi.
 <li><a href="#91-export-options">Export Options</a></li>
 <li><a href="#103-page-setup">Page Setup</a></li>
 <li><a href="#94-printing">Printing</a></li>
-</ul>
-
-<p class="back-to-top"><a href="#contents">↑ Back to Contents</a></p>
-<hr>
-
-<a id="93b-epub-export"></a>
-
-<h1 id="epub-export">EPUB Export</h1>
-<p>EPUB is a widely supported eBook format that works with Apple Books, Kindle (via conversion), Kobo, and most other e-readers. Use EPUB when you want to distribute your work digitally or read it on an e-reader.</p>
-
-<h2 id="why-epub">Why EPUB?</h2>
-<h3 id="epub-advantages">Advantages</h3>
-<ul>
-<li><strong>Reflowable</strong>: Text adapts to the reader's screen size and font preferences</li>
-<li><strong>Widely supported</strong>: Opens in Apple Books, Calibre, and most e-reader apps</li>
-<li><strong>Cover image</strong>: Includes your project's cover art if set</li>
-<li><strong>Lightweight</strong>: Compact file size for sharing and distribution</li>
-</ul>
-<h3 id="when-to-use-epub">When to Use EPUB</h3>
-<ul>
-<li>Creating eBooks for personal reading or distribution</li>
-<li>Sharing poetry collections or novels for on-screen reading</li>
-<li>Preparing manuscripts for digital publication</li>
-<li>When readers prefer reflowable text over fixed-layout PDF</li>
-</ul>
-
-<h2 id="exporting-to-epub">Exporting to EPUB</h2>
-<p>EPUB export is available from the <strong>Manuscript</strong> view as a full-project export.</p>
-<h3 id="epub-manuscript-export">Manuscript Export</h3>
-<ol>
-<li>Open your project</li>
-<li>Navigate to the <strong>Manuscript</strong> view</li>
-<li>Tap the <strong>Export</strong> button</li>
-<li>Select <strong>EPUB (eBook)</strong> from the format picker</li>
-<li>Choose where to save or how to share the file</li>
-</ol>
-<p>The exported file is named <code>ProjectName.epub</code>.</p>
-
-<h2 id="epub-whats-included">What's Included</h2>
-<p>The EPUB contains your assembled manuscript — the same content you see in the Manuscript view:</p>
-<ul>
-<li><strong>Front matter</strong> (title page, copyright, etc.)</li>
-<li><strong>Body content</strong> (all included files, assembled by project type)</li>
-<li><strong>Back matter</strong> (endnotes, glossary, bibliography, index)</li>
-</ul>
-
-<h3 id="epub-whats-preserved">What's Preserved</h3>
-<table>
-<thead>
-<tr>
-<th>Feature</th>
-<th>Preserved</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Text content</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Bold, italic, underline, strikethrough</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Images</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Page breaks</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Cover image</td>
-<td>✅ (if set in project settings)</td>
-</tr>
-<tr>
-<td>Author metadata</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Poetry line breaks and stanza spacing</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Footnotes</td>
-<td>✅</td>
-</tr>
-</tbody>
-</table>
-
-<h3 id="epub-differences-from-pdf">Differences from PDF</h3>
-<p>Unlike PDF, EPUB is a <strong>reflowable</strong> format. This means:</p>
-<ul>
-<li>Page numbers, margins, and headers/footers from your page setup are <strong>not</strong> included — the reader app controls layout</li>
-<li>Fonts may differ depending on the reader's settings</li>
-<li>Text reflows to fit the screen, so line breaks in prose will change (poetry line breaks are preserved)</li>
-</ul>
-
-<h2 id="epub-cover-images">Cover Images</h2>
-<p>If your project has a cover image set, it is automatically included in the EPUB as the book cover. This appears in the reader's library view and as the opening page.</p>
-<p>To set a cover image:</p>
-<ol>
-<li>Open <strong>Project Settings</strong> (⚙️)</li>
-<li>Tap <strong>Cover Image</strong></li>
-<li>Select an image from your photo library</li>
-</ol>
-
-<h2 id="epub-poetry">Poetry in EPUB</h2>
-<p>Poetry projects receive special treatment in EPUB export:</p>
-<ul>
-<li>Line breaks are preserved exactly as written</li>
-<li>Stanza breaks are maintained</li>
-<li>Indentation is carried through</li>
-<li>Each poem starts on a new page</li>
-</ul>
-<p>This ensures your poems read correctly on any e-reader.</p>
-
-<h2 id="epub-reading">Reading Your EPUB</h2>
-<h3 id="epub-apple">On Apple Devices</h3>
-<p>Open the EPUB file directly — it opens in Apple Books automatically.</p>
-<h3 id="epub-kindle">On Kindle</h3>
-<p>Amazon Kindle does not read EPUB directly. Use Calibre (free, desktop) to convert EPUB to MOBI or AZW3 format, or send the EPUB to your Kindle via Amazon's Send to Kindle service which now accepts EPUB files.</p>
-<h3 id="epub-other">On Other Devices</h3>
-<p>Most e-reader apps (Kobo, Google Play Books, etc.) support EPUB natively.</p>
-
-<h2 id="epub-troubleshooting">Troubleshooting</h2>
-<h3 id="epub-wont-open">EPUB Won't Open</h3>
-<ul>
-<li>Ensure you're using an app that supports EPUB format</li>
-<li>Try opening in Apple Books or Calibre to verify the file</li>
-</ul>
-<h3 id="epub-formatting-different">Formatting Looks Different from PDF</h3>
-<ul>
-<li>This is expected — EPUB is reflowable, so the reader controls layout</li>
-<li>If you need exact page layout, use <a href="#92-pdf-export">PDF Export</a> instead</li>
-</ul>
-<h3 id="epub-cover-not-showing">Cover Image Not Showing</h3>
-<ul>
-<li>Check that a cover image is set in Project Settings</li>
-<li>Some reader apps may not display covers for sideloaded EPUBs</li>
-</ul>
-
-<h2 id="epub-see-also">See Also</h2>
-<ul>
-<li><a href="#91-export-options">Export Options</a></li>
-<li><a href="#92-pdf-export">PDF Export</a></li>
-<li><a href="#93-rtf-export">RTF Export</a></li>
-<li><a href="#36-manuscript-structure">Manuscript Structure</a></li>
 </ul>
 
 <p class="back-to-top"><a href="#contents">↑ Back to Contents</a></p>
@@ -11944,16 +11849,41 @@ DAVID (CONT'D)
 <li>Open Writing Shed Pro</li>
 <li>Go to <strong>Settings</strong></li>
 <li>Tap <strong>Support</strong> or <strong>Contact Us</strong></li>
-<li>Choose whether you're reporting a bug, making a suggestion, or asking a question</li>
-<li>Fill out the form with your details</li>
-<li>Tap <strong>Send</strong></li>
+<li>Fill out the form</li>
+<li>Submit</li>
 </ol>
-<p>Your request will be answered immediately. Your device and app information is included automatically to help diagnose any issues.</p>
-<p>If the response doesn't fully resolve your issue, you can optionally tap <strong>Ask Developer</strong> to send an email directly to the developer for further assistance.</p>
+<p>This method automatically includes your device and app information.</p>
+<h3 id="email">Email</h3>
+<p>Send an email to:
+<strong>support@writingshedpro.com</strong></p>
+<p>Include:
+- Subject: Brief description of issue
+- Body: Details, steps to reproduce
+- Attachments: Screenshots if helpful</p>
+<h3 id="website">Website</h3>
+<p>Visit our support page:
+<strong>www.writingshedpro.com/support</strong></p>
+<p>You'll find:
+- FAQ and documentation
+- Known issues
+- Contact form
+- Status updates</p>
+<h2 id="what-happens-next">What Happens Next</h2>
+<h3 id="response-time">Response Time</h3>
+<p>We aim to respond within 24-48 hours on business days.</p>
+<h3 id="our-process">Our Process</h3>
+<ol>
+<li>We receive your message</li>
+<li>We investigate the issue</li>
+<li>We respond with help or follow-up questions</li>
+<li>We work with you until resolved</li>
+</ol>
+<h3 id="complex-issues">Complex Issues</h3>
+<p>Some issues require additional investigation. We'll keep you updated on progress.</p>
 <h2 id="feature-requests">Feature Requests</h2>
 <p>Have an idea to improve Writing Shed Pro?</p>
 <h3 id="submitting-ideas">Submitting Ideas</h3>
-<p>Use the Contact Support form in Settings and choose <strong>Suggestion</strong> as the report type.</p>
+<p>Use the same contact methods above with "Feature Request" in the subject.</p>
 <p>Tell us:
 - What feature you'd like
 - How you'd use it
@@ -12002,7 +11932,10 @@ DAVID (CONT'D)
 <li>Contact us immediately—we may be able to help</li>
 </ol>
 <h3 id="time-sensitive-issues">Time-Sensitive Issues</h3>
-<p>If you have a deadline, use the Contact Support form and mention the time constraint. If the immediate response isn't sufficient, tap <strong>Ask Developer</strong> and mention "URGENT" so we can prioritize accordingly.</p>
+<p>If you have a deadline:
+- Mark your email "URGENT" in the subject
+- Explain the time constraint
+- We'll prioritize accordingly</p>
 <h2 id="thank-you">Thank You</h2>
 <p>Your feedback makes Writing Shed Pro better. Whether it's a bug report, feature request, or question, we appreciate you taking the time to reach out.</p>
 <h2 id="see-also">See Also</h2>
