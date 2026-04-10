@@ -23,7 +23,7 @@ Proxies user support queries from Writing Shed Pro to the OpenAI API.
 
 4. Deploy:
    ```bash
-   npx wrangler deploy
+   npm run deploy
    ```
    This prints the Worker URL (e.g. `https://wsp-support.<your-subdomain>.workers.dev`).
 
@@ -44,10 +44,18 @@ curl -X POST http://localhost:8787 \
 
 ## Updating the Knowledge Base
 
-Edit the `SYSTEM_PROMPT` in `src/index.js` (the KNOWN ISSUES section), then redeploy:
-```bash
-npx wrangler deploy
-```
+The system prompt is auto-generated from `docs/SUPPORT_KNOWLEDGE_BASE.md`.
+To update:
+
+1. Edit `docs/SUPPORT_KNOWLEDGE_BASE.md` (the canonical source of truth).
+2. Deploy (the build step runs automatically):
+   ```bash
+   npm run deploy
+   ```
+
+The `build-prompt.py` script strips markdown formatting, prepends the agent
+rules, and writes `src/system-prompt.txt`. The worker imports this file at
+deploy time. **Do not edit `src/system-prompt.txt` by hand.**
 No app update required — changes take effect immediately.
 
 ## Rate Limiting
