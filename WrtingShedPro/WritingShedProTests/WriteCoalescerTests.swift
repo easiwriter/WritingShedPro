@@ -11,9 +11,9 @@ final class WriteCoalescerTests: XCTestCase {
     override func setUp() {
         super.setUp()
         // Use a minimal in-memory container for coalescer tests.
-        // We only need the context — no specific models are required.
+        let schema = Schema([Project.self, Folder.self, TextFile.self, Version.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        container = try! ModelContainer(for: Schema([]), configurations: [config])
+        container = try! ModelContainer(for: schema, configurations: [config])
         context = container.mainContext
     }
 
