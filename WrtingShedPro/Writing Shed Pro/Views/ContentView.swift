@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var refreshTrigger = false
     @Environment(\.modelContext) var modelContext
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(WriteCoalescer.self) private var writeCoalescer
     
     /// Timestamp of the last foreground sync nudge, used to debounce rapid transitions
     @State private var lastForegroundSyncDate: Date = .distantPast
@@ -109,6 +110,9 @@ struct ContentView: View {
                 // Just reconcile the UI on foreground resume — don't
                 // force any CloudKit operations.
                 scheduleRemoteReconcile(reason: "foreground-resume")
+            }
+            if newPhase == .background {
+                writeCoalescer.flush()
             }
         }
         .onReceive(

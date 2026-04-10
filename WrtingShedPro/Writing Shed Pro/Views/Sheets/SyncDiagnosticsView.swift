@@ -227,6 +227,7 @@ struct SyncDiagnosticsView: View {
         lines.append("consecutiveImportNetworkFailures: \(syncThrottler.consecutiveImportNetworkFailures)")
         lines.append("consecutiveImportFailures: \(syncThrottler.consecutiveImportFailures)")
         lines.append("autoResetScheduled: \(syncThrottler.autoResetScheduled)")
+        lines.append("isPostReset: \(syncThrottler.isPostReset)")
         lines.append("lastRemoteEvent: \(syncThrottler.lastSyncTime?.formatted(date: .omitted, time: .standard) ?? "nil")")
             if let importStart = syncThrottler.importStartTime {
                 lines.append("importAgeSeconds: \(Int(Date().timeIntervalSince(importStart)))")

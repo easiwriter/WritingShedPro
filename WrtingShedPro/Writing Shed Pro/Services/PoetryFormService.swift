@@ -198,20 +198,13 @@ final class PoetryFormService {
         model.isCustom = true
         context.insert(model)
         
-        do {
-            try context.save()
-            clearCache()
-            
-            #if DEBUG
-            print("[PoetryFormService] ✅ Saved custom form: \(form.name)")
-            #endif
-            return true
-        } catch {
-            #if DEBUG
-            print("[PoetryFormService] ❌ Failed to save custom form: \(error)")
-            #endif
-            return false
-        }
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+        clearCache()
+        
+        #if DEBUG
+        print("[PoetryFormService] \u{2705} Saved custom form: \(form.name)")
+        #endif
+        return true
     }
     
     /// Update an existing custom form in the database
@@ -259,7 +252,7 @@ final class PoetryFormService {
             existingModel.templateContent = form.templateContent
             existingModel.modifiedDate = Date()
             
-            try context.save()
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
             clearCache()
             
             #if DEBUG
@@ -308,7 +301,7 @@ final class PoetryFormService {
             }
             
             context.delete(existingModel)
-            try context.save()
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
             clearCache()
             
             #if DEBUG
@@ -357,7 +350,7 @@ final class PoetryFormService {
                 file.poetryFormId = PoetryForm.freeVerseId
                 file.poetryFormName = "Free Verse"
             }
-            try context.save()
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
             
             #if DEBUG
             print("[PoetryFormService] ✅ Reassigned \(files.count) files to Free Verse")

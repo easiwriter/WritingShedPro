@@ -39,7 +39,7 @@ class FileMoveService {
         file.parentFolder = destination
         file.modifiedDate = Date()
         
-        try modelContext.save()
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
     }
     
     /// Moves multiple files to a destination folder
@@ -59,7 +59,7 @@ class FileMoveService {
             file.modifiedDate = Date()
         }
         
-        try modelContext.save()
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
     }
     
     // MARK: - Folder Move Operations
@@ -93,7 +93,7 @@ class FileMoveService {
         // Perform the move
         folder.parentFolder = destination
         
-        try modelContext.save()
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
     }
     
     /// Checks if potentialDescendant is a descendant of ancestor
@@ -149,7 +149,7 @@ class FileMoveService {
         file.parentFolder = nil
         file.modifiedDate = Date()
         
-        try modelContext.save()
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
     }
     
     /// Deletes multiple files by moving them to Trash
@@ -181,7 +181,7 @@ class FileMoveService {
             file.modifiedDate = Date()
         }
         
-        try modelContext.save()
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
     }
     
     /// Permanently deletes multiple files without moving to Trash
@@ -195,7 +195,7 @@ class FileMoveService {
             modelContext.delete(file)
         }
         
-        try modelContext.save()
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
     }
     
     /// Cleans up index entry references when a file is deleted
@@ -278,7 +278,7 @@ class FileMoveService {
             file.parentFolder = originalFolder
             file.modifiedDate = Date()
             modelContext.delete(trashItem)
-            try modelContext.save()
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
             return (true, originalFolder)
         } else {
             // Original folder deleted - restore to Draft as fallback
@@ -291,7 +291,7 @@ class FileMoveService {
             file.parentFolder = draftFolder
             file.modifiedDate = Date()
             modelContext.delete(trashItem)
-            try modelContext.save()
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
             return (false, draftFolder)
         }
     }

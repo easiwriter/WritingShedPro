@@ -60,23 +60,17 @@ final class FootnoteManager: ObservableObject {
         )
         
         context.insert(footnote)
+        WriteCoalescer.shared?.requestSave()
         
-        do {
-            try context.save()
-            // Renumber all footnotes after insertion
-            renumberFootnotes(forVersion: version, context: context)
-            
-            // Post notification so views can update footnote attachment numbers
-            NotificationCenter.default.post(
-                name: .footnoteNumbersDidChange,
-                object: nil,
-                userInfo: ["versionID": version.id.uuidString]
-            )
-        } catch {
-            #if DEBUG
-            print("❌ Failed to save footnote: \(error)")
-            #endif
-        }
+        // Renumber all footnotes after insertion
+        renumberFootnotes(forVersion: version, context: context)
+        
+        // Post notification so views can update footnote attachment numbers
+        NotificationCenter.default.post(
+            name: .footnoteNumbersDidChange,
+            object: nil,
+            userInfo: ["versionID": version.id.uuidString]
+        )
         
         return footnote
     }
@@ -118,14 +112,7 @@ final class FootnoteManager: ObservableObject {
     ///   - context: SwiftData model context
     func updateFootnoteText(_ footnote: FootnoteModel, newText: String, context: ModelContext) {
         footnote.updateText(newText)
-        
-        do {
-            try context.save()
-        } catch {
-            #if DEBUG
-            print("❌ Failed to update footnote text: \(error)")
-            #endif
-        }
+        WriteCoalescer.shared?.requestSave()
     }
     
     /// Delete a footnote permanently
@@ -142,18 +129,11 @@ final class FootnoteManager: ObservableObject {
         
         footnote.prepareForPermanentDeletion()
         context.delete(footnote)
+        WriteCoalescer.shared?.requestSave()
         
-        do {
-            try context.save()
-            #if DEBUG
-            print("✅ Footnote permanently deleted")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ Failed to delete footnote: \(error)")
-            #endif
-            return
-        }
+        #if DEBUG
+        print("✅ Footnote permanently deleted")
+        #endif
         
         // Renumber remaining footnotes
         renumberFootnotes(forVersion: version, context: context)
@@ -208,13 +188,7 @@ final class FootnoteManager: ObservableObject {
             }
         }
         
-        do {
-            try context.save()
-        } catch {
-            #if DEBUG
-            print("❌ Failed to save renumbered footnotes: \(error)")
-            #endif
-        }
+        WriteCoalescer.shared?.requestSave()
     }
     
     // MARK: - Position Management
@@ -241,15 +215,9 @@ final class FootnoteManager: ObservableObject {
             }
         }
         
-        do {
-            try context.save()
-            // Renumber in case order changed
-            renumberFootnotes(forVersion: version, context: context)
-        } catch {
-            #if DEBUG
-            print("❌ Failed to update footnote positions: \(error)")
-            #endif
-        }
+        WriteCoalescer.shared?.requestSave()
+        // Renumber in case order changed
+        renumberFootnotes(forVersion: version, context: context)
     }
     
     // MARK: - Query Methods

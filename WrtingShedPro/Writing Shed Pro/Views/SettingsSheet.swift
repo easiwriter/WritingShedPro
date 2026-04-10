@@ -76,6 +76,8 @@ struct SettingsSheet: View {
                 
                 // MARK: - Support Section
                 Section {
+                    SyncStatusView()
+
                     Button {
                         isPresented = false
                         onSyncNow()

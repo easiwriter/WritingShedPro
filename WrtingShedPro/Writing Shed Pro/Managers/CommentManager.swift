@@ -48,14 +48,7 @@ final class CommentManager: ObservableObject {
         )
         
         context.insert(comment)
-        
-        do {
-            try context.save()
-        } catch {
-            #if DEBUG
-            print("❌ Failed to save comment: \(error)")
-            #endif
-        }
+        WriteCoalescer.shared?.requestSave()
         
         return comment
     }
@@ -97,14 +90,7 @@ final class CommentManager: ObservableObject {
     ///   - context: SwiftData model context
     func updateCommentText(_ comment: CommentModel, newText: String, context: ModelContext) {
         comment.updateText(newText)
-        
-        do {
-            try context.save()
-        } catch {
-            #if DEBUG
-            print("❌ Failed to update comment text: \(error)")
-            #endif
-        }
+        WriteCoalescer.shared?.requestSave()
     }
     
     /// Delete a comment
@@ -113,14 +99,7 @@ final class CommentManager: ObservableObject {
     ///   - context: SwiftData model context
     func deleteComment(_ comment: CommentModel, context: ModelContext) {
         context.delete(comment)
-        
-        do {
-            try context.save()
-        } catch {
-            #if DEBUG
-            print("❌ Failed to delete comment: \(error)")
-            #endif
-        }
+        WriteCoalescer.shared?.requestSave()
     }
     
     /// Resolve a comment
@@ -129,14 +108,7 @@ final class CommentManager: ObservableObject {
     ///   - context: SwiftData model context
     func resolveComment(_ comment: CommentModel, context: ModelContext) {
         comment.resolve()
-        
-        do {
-            try context.save()
-        } catch {
-            #if DEBUG
-            print("❌ Failed to resolve comment: \(error)")
-            #endif
-        }
+        WriteCoalescer.shared?.requestSave()
     }
     
     /// Reopen a resolved comment
@@ -145,14 +117,7 @@ final class CommentManager: ObservableObject {
     ///   - context: SwiftData model context
     func reopenComment(_ comment: CommentModel, context: ModelContext) {
         comment.reopen()
-        
-        do {
-            try context.save()
-        } catch {
-            #if DEBUG
-            print("❌ Failed to reopen comment: \(error)")
-            #endif
-        }
+        WriteCoalescer.shared?.requestSave()
     }
     
     // MARK: - Position Management
@@ -179,13 +144,7 @@ final class CommentManager: ObservableObject {
             }
         }
         
-        do {
-            try context.save()
-        } catch {
-            #if DEBUG
-            print("❌ Failed to update comment positions: \(error)")
-            #endif
-        }
+        WriteCoalescer.shared?.requestSave()
     }
     
     // MARK: - Query Methods

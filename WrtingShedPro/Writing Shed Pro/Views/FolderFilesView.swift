@@ -865,10 +865,11 @@ struct FolderFilesView: View {
         modelContext.insert(submission)
         
         for file in filesToSubmit {
+            let currentVersion = file.currentVersion
             let submittedFile = SubmittedFile(
                 submission: submission,
                 textFile: file,
-                version: file.currentVersion,
+                version: currentVersion,
                 status: .pending,
                 statusDate: Date(),
                 project: project
@@ -886,10 +887,11 @@ struct FolderFilesView: View {
         let existingFileIDs = Set((submission.submittedFiles ?? []).compactMap { $0.textFile?.id })
         
         for file in filesToSubmit where !existingFileIDs.contains(file.id) {
+            let currentVersion = file.currentVersion
             let submittedFile = SubmittedFile(
                 submission: submission,
                 textFile: file,
-                version: file.currentVersion,
+                version: currentVersion,
                 status: .pending,
                 statusDate: Date(),
                 project: project

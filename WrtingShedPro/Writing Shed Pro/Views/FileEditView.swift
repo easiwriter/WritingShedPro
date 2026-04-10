@@ -1684,6 +1684,9 @@ struct FileEditView: View {
                 
                 saveChanges()
                 saveUndoState()
+                
+                // Flush any coalesced saves so changes persist before navigation.
+                WriteCoalescer.shared?.flush()
             }
             .onAppear {
                 setupOnAppear()
@@ -3276,14 +3279,7 @@ struct FileEditView: View {
             previousContent = updatedText.string
             file.modifiedDate = Date()
             
-            // Save context
-            do {
-                try modelContext.save()
-            } catch {
-                #if DEBUG
-                print("❌ Error saving context: \(error)")
-                #endif
-            }
+            WriteCoalescer.shared?.requestSave()
             
             // Update attributedContent LAST, after flag is set
             // This ensures the observer sees isPerformingUndoRedo = true
@@ -3571,7 +3567,7 @@ struct FileEditView: View {
         }
         
         // Save changes to the database
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave()
     }
 
     private func cleanupOrphanedEndnoteReferences() {
@@ -3625,7 +3621,7 @@ struct FileEditView: View {
         
         // Save if any entries were removed
         if !entriesToRemove.isEmpty {
-            try? modelContext.save()
+            WriteCoalescer.shared?.requestSave()
         }
     }
     
@@ -3736,7 +3732,7 @@ struct FileEditView: View {
             }
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave()
         
         #if DEBUG
         print("✅ Back matter settings synced")
@@ -3952,17 +3948,7 @@ struct FileEditView: View {
         print("🗑️ File deleted from context")
         #endif
         
-        // Save and update back matter
-        do {
-            try modelContext.save()
-            #if DEBUG
-            print("✅ Context saved successfully")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ Error saving context: \(error)")
-            #endif
-        }
+        WriteCoalescer.shared?.requestSave()
         
         updateBackMatterFiles()
         
@@ -4633,16 +4619,7 @@ struct FileEditView: View {
             currentVersion.referenceMetadataData = referenceMetadata.encode()
         }
 
-        do {
-            try modelContext.save()
-            #if DEBUG
-            print("💾 Database and version content saved")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ Error saving: \(error)")
-            #endif
-        }
+        WriteCoalescer.shared?.requestSave()
     }
     
     // MARK: - Glossary (Feature 029)
@@ -5369,7 +5346,7 @@ struct FileEditView: View {
                 backMatterFile.currentVersion?.attributedContent = generatedContent
             }
             
-            try? modelContext.save()
+            WriteCoalescer.shared?.requestSave()
         }
     }
     
@@ -5409,7 +5386,7 @@ struct FileEditView: View {
                 backMatterFile.currentVersion?.attributedContent = generatedContent
             }
             
-            try? modelContext.save()
+            WriteCoalescer.shared?.requestSave()
         }
     }
     
@@ -5453,7 +5430,7 @@ struct FileEditView: View {
     
     private func updateComment(_ comment: CommentModel, newText: String) {
         comment.updateText(newText)
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave()
         #if DEBUG
         print("💬 Comment updated: \(newText)")
         #endif
@@ -5564,7 +5541,7 @@ struct FileEditView: View {
         // Update SwiftUI state
         attributedContent = updatedContent
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave()
         saveChanges()
         #if DEBUG
         print("💬 Comment resolved state saved: \(comment.isResolved)")
@@ -6013,13 +5990,7 @@ struct FileEditView: View {
         // which drops BIU changes on reopen.
         saveDebounceTimer?.invalidate()
         file.currentVersion?.attributedContent = newAttributedContent
-        do {
-            try modelContext.save()
-        } catch {
-            #if DEBUG
-            print("Error saving formatting change: \(error)")
-            #endif
-        }
+        WriteCoalescer.shared?.requestSave()
         
         #if DEBUG
         print("🎨 Formatting command added to undo stack")
@@ -7896,16 +7867,7 @@ struct FileEditView: View {
         
         file.modifiedDate = Date()
         
-        do {
-            try modelContext.save()
-            #if DEBUG
-            print("💾 Saved attributed content on file close")
-            #endif
-        } catch {
-            #if DEBUG
-            print("Error saving context: \(error)")
-            #endif
-        }
+        WriteCoalescer.shared?.requestSave()
     }
     
     /// FEATURE 029: Extract all reference attachments and create metadata
@@ -8058,16 +8020,7 @@ struct FileEditView: View {
         file.currentVersion?.attributedContent = mutableContent
         file.modifiedDate = Date()
         
-        do {
-            try modelContext.save()
-            #if DEBUG
-            print("✅ Image updated and saved")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ Error saving image update: \(error)")
-            #endif
-        }
+        WriteCoalescer.shared?.requestSave()
         
         // Create undo/redo command to restore image properties
         let command = ImageUpdateCommand(

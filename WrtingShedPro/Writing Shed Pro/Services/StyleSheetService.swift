@@ -280,16 +280,7 @@ struct StyleSheetService {
             #if DEBUG
             print("✅ Fixed \(fixedCount) style categories, deleted \(deletedCount) obsolete styles, added \(addedCount) missing styles - saving...")
             #endif
-            do {
-                try context.save()
-                #if DEBUG
-                print("✅ Changes saved successfully")
-                #endif
-            } catch {
-                #if DEBUG
-                print("❌ Error saving changes: \(error)")
-                #endif
-            }
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
         } else {
             #if DEBUG
             print("✅ All style categories are correct, no obsolete styles found, no missing styles")
@@ -339,7 +330,7 @@ struct StyleSheetService {
             for i in 1..<existingSystemSheets.count {
                 context.delete(existingSystemSheets[i])
             }
-            try? context.save()
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
         }
         
         // If we have an existing system stylesheet, check if it has image styles
@@ -365,13 +356,9 @@ struct StyleSheetService {
                 }
                 
                 do {
-                    try context.save()
+                    Task { @MainActor in WriteCoalescer.shared?.requestSave() }
                     #if DEBUG
                     print("✅ Added default image style to existing stylesheet")
-                    #endif
-                } catch {
-                    #if DEBUG
-                    print("❌ Error saving image style: \(error)")
                     #endif
                 }
             } else {
@@ -405,16 +392,10 @@ struct StyleSheetService {
         }
         
         // Save context
-        do {
-            try context.save()
-            #if DEBUG
-            print("📐 Default stylesheet created successfully with \(defaultSheet.textStyles?.count ?? 0) text styles and \(defaultSheet.imageStyles?.count ?? 0) image styles")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ Error saving default stylesheet: \(error)")
-            #endif
-        }
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+        #if DEBUG
+        print("📐 Default stylesheet created successfully with \(defaultSheet.textStyles?.count ?? 0) text styles and \(defaultSheet.imageStyles?.count ?? 0) image styles")
+        #endif
     }
     
     // MARK: - Style Migration
@@ -458,7 +439,7 @@ struct StyleSheetService {
         }
         
         if updated {
-            try? context.save()
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
             #if DEBUG
             print("[StyleSheet Migration] TOC settings migration complete")
             #endif
@@ -498,7 +479,7 @@ struct StyleSheetService {
         }
         
         if updated {
-            try? context.save()
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
             #if DEBUG
             print("[StyleSheet Migration] Heading bold migration complete")
             #endif
@@ -602,13 +583,7 @@ struct StyleSheetService {
         }
 
         if updatedFilesCount > 0 {
-            do {
-                try context.save()
-            } catch {
-                #if DEBUG
-                print("❌ reapplyUpdatedStyle save failed: \(error)")
-                #endif
-            }
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
         }
 
         return updatedFilesCount
@@ -906,7 +881,7 @@ struct StyleSheetService {
         
         // Delete the style
         context.delete(style)
-        try context.save()
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
     }
     
     /// Replace all occurrences of one style with another in the project

@@ -126,16 +126,7 @@ final class ReferenceDeleteCommand: UndoableCommand {
             break
         }
         
-        do {
-            try context.save()
-            #if DEBUG
-            print("💾 ReferenceDeleteCommand.execute: Saved model context")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ ReferenceDeleteCommand.execute: Error saving: \(error)")
-            #endif
-        }
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
     }
     
     func undo() {
@@ -192,16 +183,7 @@ final class ReferenceDeleteCommand: UndoableCommand {
             break
         }
         
-        do {
-            try context.save()
-            #if DEBUG
-            print("💾 ReferenceDeleteCommand.undo: Saved model context")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ ReferenceDeleteCommand.undo: Error saving: \(error)")
-            #endif
-        }
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
         
         // Post notification so FileEditView can update back matter
         #if DEBUG

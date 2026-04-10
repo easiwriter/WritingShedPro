@@ -655,10 +655,11 @@ struct FolderListView: View {
         modelContext.insert(submission)
         
         for file in manuscriptFilesToSubmit {
+            let currentVersion = file.currentVersion
             let submittedFile = SubmittedFile(
                 submission: submission,
                 textFile: file,
-                version: file.currentVersion,
+                version: currentVersion,
                 status: .pending,
                 statusDate: Date(),
                 project: project

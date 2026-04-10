@@ -69,6 +69,11 @@ final class CloudKitSyncThrottler {
     /// True while a CloudKit export event is currently in progress.
     private(set) var exportInProgress = false
     private(set) var exportStartTime: Date?
+
+    /// Timestamp of the last successful CloudKit export. Used by
+    /// SyncHealthMonitor to detect stalls (gap between local changes and
+    /// successful exports).
+    private(set) var lastSuccessfulExportTime: Date?
     
     /// Time of the last sync notification
     private(set) var lastSyncTime: Date?
@@ -89,6 +94,9 @@ final class CloudKitSyncThrottler {
     /// zone fetch or nudge operations until this date has passed.
     /// Set from the CKError retry-after hint when we detect rate limiting.
     private(set) var rateLimitedUntil: Date?
+
+    /// Optional health monitor — notified on export success for stall detection.
+    var syncHealthMonitor: SyncHealthMonitor?
 
     /// Consecutive CloudKit export rate-limit failures (error 6 or 7). Used to
     /// apply exponential backoff so the watchdog doesn't pile on nudges while
@@ -147,8 +155,15 @@ final class CloudKitSyncThrottler {
     /// Maximum time we trust a single CloudKit event to remain "in-progress"
     /// without receiving an ending event. If this is exceeded, we treat it as
     /// stale and unblock watchdog recovery nudges.
-    /// Increased to 300s to allow large zone imports to complete without premature clearing.
     private let maxInProgressEventAge: TimeInterval = 300
+
+    /// Longer timeout after a sync database reset, since full zone re-imports
+    /// can take 15-30 minutes for large databases.
+    private let maxInProgressEventAgeAfterReset: TimeInterval = 900
+
+    /// Set to true after a mirroring reset; cleared after the first successful import.
+    /// While true, the stale-timeout uses `maxInProgressEventAgeAfterReset`.
+    private(set) var isPostReset: Bool = false
     
     /// Record that CloudKit returned a rate-limit or service-unavailable error.
     /// `retryAfterSeconds` comes from the CKError userInfo.
@@ -222,7 +237,7 @@ final class CloudKitSyncThrottler {
     /// When consecutive import failures exceed the threshold, automatically
     /// schedule a database reset on next launch so the app re-imports the
     /// full CloudKit zone from scratch (fresh server change token).
-    private func scheduleAutoResetIfNeeded() {
+    func scheduleAutoResetIfNeeded() {
         guard consecutiveImportFailures >= maxConsecutiveImportFailuresBeforeReset else { return }
         guard !autoResetScheduled else { return }
         
@@ -410,12 +425,14 @@ final class CloudKitSyncThrottler {
         importSucceeded = false
         exportCompleted = false
         exportSucceeded = false
+        lastSuccessfulExportTime = nil
         rateLimitedUntil = nil
         consecutiveExportRateLimits = 0
         consecutiveImportNetworkFailures = 0
         manualKickPausedUntil = nil
         lastSyncTime = nil
         lastObservedActivityTime = nil
+        isPostReset = false
         recentCloudKitEvents = []
     }
 
@@ -491,6 +508,12 @@ final class CloudKitSyncThrottler {
                             self.clearImportTransportFailureBackoff()
                             self.consecutiveImportFailures = 0
                             self.cancelAutoResetIfScheduled()
+                            if self.isPostReset {
+                                self.isPostReset = false
+                                #if DEBUG
+                                print("✅ [CloudKitSyncThrottler] Post-reset import succeeded, resuming normal stale timeout")
+                                #endif
+                            }
                         } else {
                             self.consecutiveImportFailures += 1
                             #if DEBUG
@@ -528,6 +551,8 @@ final class CloudKitSyncThrottler {
                         if event.succeeded {
                             self.exportCompleted = true
                             self.exportSucceeded = true
+                            self.lastSuccessfulExportTime = Date()
+                            self.syncHealthMonitor?.recordExportSuccess()
                         } else {
                             self.exportSucceeded = false
                         }
@@ -592,6 +617,7 @@ final class CloudKitSyncThrottler {
             self.exportInProgress = false
             self.importStartTime = nil
             self.exportStartTime = nil
+            self.isPostReset = true
 
             self.appendCloudKitEvent(
                 type: "mirroring",
@@ -617,10 +643,11 @@ final class CloudKitSyncThrottler {
 
         let now = Date()
         var cleared: [String] = []
+        let staleAge = isPostReset ? maxInProgressEventAgeAfterReset : maxInProgressEventAge
 
         if importInProgress,
            let started = importStartTime,
-           now.timeIntervalSince(started) > maxInProgressEventAge {
+           now.timeIntervalSince(started) > staleAge {
             importInProgress = false
             importStartTime = nil
             importCompleted = true
@@ -630,7 +657,7 @@ final class CloudKitSyncThrottler {
                 type: "import",
                 phase: "timeout",
                 status: "stale-cleared",
-                message: "No end event after \(Int(maxInProgressEventAge))s — consecutiveImportFailures=\(consecutiveImportFailures)"
+                message: "No end event after \(Int(staleAge))s — consecutiveImportFailures=\(consecutiveImportFailures)"
             )
             scheduleAutoResetIfNeeded()
             cleared.append("import")
@@ -638,14 +665,14 @@ final class CloudKitSyncThrottler {
 
         if exportInProgress,
            let started = exportStartTime,
-           now.timeIntervalSince(started) > maxInProgressEventAge {
+           now.timeIntervalSince(started) > staleAge {
             exportInProgress = false
             exportStartTime = nil
             appendCloudKitEvent(
                 type: "export",
                 phase: "timeout",
                 status: "stale-cleared",
-                message: "No end event after \(Int(maxInProgressEventAge))s"
+                message: "No end event after \(Int(staleAge))s"
             )
             cleared.append("export")
         }

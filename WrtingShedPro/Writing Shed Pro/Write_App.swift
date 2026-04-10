@@ -14,6 +14,8 @@ import os
 @main
 struct Write_App: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @State private var writeCoalescer: WriteCoalescer
+    @State private var syncHealthMonitor: SyncHealthMonitor
     
     var sharedModelContainer: ModelContainer = {
         // CRITICAL: Register for remote notifications BEFORE creating the container.
@@ -115,6 +117,9 @@ struct Write_App: App {
         #endif
         
         let storeURL = URL.documentsDirectory.appending(path: "writingshed.sqlite")
+        // Note: NSPersistentHistoryTrackingKey is automatically enabled by
+        // NSPersistentCloudKitContainer (used under the hood when cloudKitDatabase: .automatic).
+        // No explicit opt-in is needed.
         let modelConfiguration = ModelConfiguration(
             "WritingShedProConfiguration",
             schema: schema,
@@ -400,6 +405,15 @@ struct Write_App: App {
     }()
 
     init() {
+        let coalescer = WriteCoalescer(modelContext: sharedModelContainer.mainContext)
+        WriteCoalescer.shared = coalescer
+        _writeCoalescer = State(initialValue: coalescer)
+
+        let monitor = SyncHealthMonitor(throttler: CloudKitSyncThrottler.shared)
+        coalescer.syncHealthMonitor = monitor
+        CloudKitSyncThrottler.shared.syncHealthMonitor = monitor
+        _syncHealthMonitor = State(initialValue: monitor)
+        
         // Log CloudKit configuration for debugging
         #if DEBUG
         print("========================================")
@@ -438,6 +452,8 @@ struct Write_App: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(writeCoalescer)
+                .environment(syncHealthMonitor)
                 .task {
                     // Configure PoetryFormService with model context for database access
                     PoetryFormService.shared.configureWithContext(sharedModelContainer.mainContext)

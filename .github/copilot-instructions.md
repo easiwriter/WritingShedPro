@@ -4,6 +4,8 @@ Auto-generated from all feature plans. Last updated: 2025-10-20
 
 ## Active Technologies
 - (001-project-management-ios-macos)
+- Swift 5.0, targeting iOS 18.5+ / macOS 14.0+ + SwiftUI, SwiftData, CloudKit, Combine, NSPersistentCloudKitContainer (038-cloudkit-rate-limiting)
+- SwiftData with CloudKit backend (SQLite at `URL.documentsDirectory/writingshed.sqlite`, container `iCloud.com.appworks.writingshedpro`) (038-cloudkit-rate-limiting)
 
 ## Project Structure
 ```
@@ -78,6 +80,7 @@ if folder.project == nil && folder.parentFolder == nil {
 ```
 
 ## Recent Changes
+- 038-cloudkit-rate-limiting: Added Swift 5.0, targeting iOS 18.5+ / macOS 14.0+ + SwiftUI, SwiftData, CloudKit, Combine, NSPersistentCloudKitContainer
 - 001-project-management-ios-macos: Added
 - 014-comments: SwiftData/CloudKit requirements documented
 
