@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "2A6ECDD0-F7D9-4A7A-AE0D-592FA568F290",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Writing Shed Pro.xcodeproj",
+        "identifier" : "D741DF7C2EA76295003629E8",
+        "name" : "Writing Shed ProTests"
+      }
+    }
+  ],
+  "version" : 1
+}
