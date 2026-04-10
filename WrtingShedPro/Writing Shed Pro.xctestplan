@@ -1,0 +1,30 @@
+{
+  "configurations" : [
+    {
+      "id" : "7161AA8E-CBF0-402F-B2F5-504CB7361226",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Writing Shed Pro.xcodeproj",
+      "identifier" : "D741DF6B2EA76292003629E8",
+      "name" : "Writing Shed Pro"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:Writing Shed Pro.xcodeproj",
+        "identifier" : "D741DF7C2EA76295003629E8",
+        "name" : "Writing Shed ProTests"
+      }
+    }
+  ],
+  "version" : 1
+}
