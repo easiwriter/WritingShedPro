@@ -2369,20 +2369,25 @@ struct FileEditView: View {
             previousAttributedContent = processedContent  // Cache for undo without expensive DB fetch
             
             // Detect incomplete CloudKit sync: plain text has U+FFFC attachment
-            // placeholders but the decoded attributed content has no ImageAttachments.
+            // placeholders but the decoded attributed content has no recognized attachments.
             // This happens when the phone's formattedContent (with base64 image data)
             // hasn't been exported/imported yet. Suppress saves until sync delivers it
             // or the user makes an intentional edit.
+            // CRITICAL: Count ALL recognized attachment types, not just images.
+            // U+FFFC is used by ImageAttachment, CommentAttachment, FootnoteAttachment,
+            // and ReferenceAttachment. Only unrecognized placeholders indicate sync issues.
             let placeholderCount = processedContent.string.filter { $0 == "\u{FFFC}" }.count
             if placeholderCount > 0 {
-                var imageAttachmentCount = 0
+                var recognizedAttachmentCount = 0
                 processedContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: processedContent.length), options: []) { value, _, _ in
-                    if value is ImageAttachment { imageAttachmentCount += 1 }
+                    if value is ImageAttachment || value is CommentAttachment || value is FootnoteAttachment || value is ReferenceAttachment {
+                        recognizedAttachmentCount += 1
+                    }
                 }
-                if imageAttachmentCount < placeholderCount {
+                if recognizedAttachmentCount < placeholderCount {
                     hasMissingAttachments = true
                     #if DEBUG
-                    print("⚠️ [FileEditView] Detected \(placeholderCount) U+FFFC placeholder(s) but only \(imageAttachmentCount) ImageAttachment(s) — suppressing saves until sync completes or user edits")
+                    print("⚠️ [FileEditView] Detected \(placeholderCount) U+FFFC placeholder(s) but only \(recognizedAttachmentCount) recognized attachment(s) — suppressing saves until sync completes or user edits")
                     #endif
                 }
             }
@@ -3211,8 +3216,16 @@ struct FileEditView: View {
                 #if DEBUG
                 print("💬 Comment inserted: \(comment.text)")
                 #endif
+                // Cancel any pending debounce timer to prevent it from overwriting
+                // our save with stale pre-comment content
+                saveDebounceTimer?.invalidate()
+                saveDebounceTimer = nil
+                
                 // Update the attributed content binding
-                attributedContent = textView.attributedText ?? NSAttributedString()
+                let updatedContent = textView.attributedText ?? NSAttributedString()
+                attributedContent = updatedContent
+                previousContent = updatedContent.string
+                previousAttributedContent = updatedContent
                 saveChanges()
             }
         }
@@ -3258,8 +3271,15 @@ struct FileEditView: View {
                 // Update the text view with renumbered footnotes
                 textView.textStorage.setAttributedString(updatedContent)
                 
+                // Cancel any pending debounce timer to prevent it from overwriting
+                // our save with stale pre-footnote content
+                saveDebounceTimer?.invalidate()
+                saveDebounceTimer = nil
+                
                 // Update the attributed content binding
                 attributedContent = updatedContent
+                previousContent = updatedContent.string
+                previousAttributedContent = updatedContent
                 saveChanges()
             }
         }
@@ -5698,16 +5718,40 @@ struct FileEditView: View {
     
     /// Reconcile footnote attachment numbers and marker style in the text with the authoritative
     /// database models and the project's stylesheet.
+    /// Also removes orphaned FootnoteModel records whose markers no longer exist in the text.
     private func reconcileFootnoteNumbers() {
         guard let currentVersion = file.currentVersion else { return }
         
         let markerStyle = file.project?.styleSheet?.footnoteMarkerStyle ?? .numeric
         
-        // First, renumber models so the database is authoritative
+        // Collect all footnote attachment IDs currently present in the text
+        var attachmentIDsInText = Set<UUID>()
+        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        
+        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, _, _ in
+            if let attachment = value as? FootnoteAttachment {
+                attachmentIDsInText.insert(attachment.footnoteID)
+            }
+        }
+        
+        // Delete orphaned footnote models whose markers are no longer in the text
+        if let allFootnotes = currentVersion.footnotes {
+            let orphans = allFootnotes.filter { !attachmentIDsInText.contains($0.attachmentID) }
+            for orphan in orphans {
+                #if DEBUG
+                print("🗑️ Removing orphaned footnote model: \(orphan.attachmentID.uuidString.prefix(8)) (no marker in text)")
+                #endif
+                modelContext.delete(orphan)
+            }
+            if !orphans.isEmpty {
+                WriteCoalescer.shared?.requestSave()
+            }
+        }
+        
+        // Renumber remaining models so the database is authoritative
         FootnoteManager.shared.renumberFootnotes(forVersion: currentVersion, context: modelContext)
         
-        // Then sync text attachment numbers and marker style with the database
-        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        // Sync text attachment numbers and marker style with the database
         var needsUpdate = false
         
         mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in

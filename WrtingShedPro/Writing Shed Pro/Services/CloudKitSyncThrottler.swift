@@ -117,6 +117,11 @@ final class CloudKitSyncThrottler {
     /// After this many consecutive import failures, auto-schedule a database reset.
     private let maxConsecutiveImportFailuresBeforeReset = 3
 
+    /// After this many consecutive export rate-limit failures, auto-schedule a
+    /// database reset. The export death spiral has no built-in backoff in
+    /// NSPersistentCloudKitContainer, so a reset is the only way to break the cycle.
+    private let maxConsecutiveExportRateLimitsBeforeReset = 50
+
     /// True when an automatic sync reset has been scheduled for next launch.
     private(set) var autoResetScheduled = false
 
@@ -181,6 +186,21 @@ final class CloudKitSyncThrottler {
             #if DEBUG
             print("⏳ [CloudKitSyncThrottler] Rate-limited until \(until) (backoff \(Int(pause))s, consecutive=\(self.consecutiveExportRateLimits))")
             #endif
+
+            // Auto-schedule database reset if export rate-limits persist
+            if self.consecutiveExportRateLimits >= self.maxConsecutiveExportRateLimitsBeforeReset && !self.autoResetScheduled {
+                UserDefaults.standard.set(true, forKey: "resetSyncOnNextLaunch")
+                self.autoResetScheduled = true
+                self.appendCloudKitEvent(
+                    type: "recovery",
+                    phase: "scheduled",
+                    status: "auto-reset",
+                    message: "Database reset scheduled after \(self.consecutiveExportRateLimits) consecutive export rate-limits. Quit and relaunch to apply."
+                )
+                #if DEBUG
+                print("🔄 [CloudKitSyncThrottler] Auto-scheduled database reset after \(self.consecutiveExportRateLimits) consecutive export rate-limits")
+                #endif
+            }
         }
     }
     

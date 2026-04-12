@@ -1074,11 +1074,11 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             guard let attachment = value as? NSTextAttachment else { return }
             
             if let footnoteAttachment = attachment as? FootnoteAttachment {
-                // Replace footnote marker with superscript number
+                // Replace footnote marker with superscript text using the correct marker style
                 // CRITICAL: Use the same vertical offset as FootnoteAttachment (superscriptOffset = 2)
                 // to ensure line heights match pagination calculation. A higher baselineOffset
                 // would increase line height and cause text to overflow to the next page.
-                let numberString = "\(footnoteAttachment.number)"
+                let numberString = footnoteAttachment.displayString
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: UIFont.systemFont(ofSize: 11, weight: .medium),
                     .foregroundColor: UIColor.label,  // Use label color (black in light mode, white in dark)

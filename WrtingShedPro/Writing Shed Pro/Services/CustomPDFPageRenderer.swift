@@ -514,9 +514,9 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             guard let attachment = value as? NSTextAttachment else { return }
             
             if let footnoteAttachment = attachment as? FootnoteAttachment {
-                // Replace footnote marker with superscript number
+                // Replace footnote marker with superscript text using the correct marker style
                 // Use baselineOffset: 2 to match FootnoteAttachment.superscriptOffset for consistent line height
-                let numberString = "\(footnoteAttachment.number)"
+                let numberString = footnoteAttachment.displayString
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: UIFont.systemFont(ofSize: 11, weight: .medium),
                     .foregroundColor: UIColor.systemBlue,
