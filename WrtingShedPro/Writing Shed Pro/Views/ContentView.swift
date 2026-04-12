@@ -39,6 +39,7 @@ struct ContentView: View {
     @State private var syncRecoveryBannerTask: Task<Void, Never>?
 
     @State private var offlinePurchaseBannerDismissed = false
+    @State private var showExportDeathSpiralAlert = false
     
     var body: some View {
         ContentViewBody(
@@ -163,6 +164,29 @@ struct ContentView: View {
             print("[ContentView] task: consuming pending open URL: \(url.lastPathComponent)")
             #endif
             handleOpenedFileURL(url)
+        }
+        // Monitor for export death spiral — prompt user instead of auto-resetting
+        .onReceive(
+            Timer.publish(every: 10, on: .main, in: .common).autoconnect()
+        ) { _ in
+            if CloudKitSyncThrottler.shared.exportDeathSpiralDetected && !showExportDeathSpiralAlert {
+                showExportDeathSpiralAlert = true
+            }
+        }
+        .alert(
+            NSLocalizedString("sync.deathSpiral.title", comment: "iCloud Sync Problem"),
+            isPresented: $showExportDeathSpiralAlert
+        ) {
+            Button(NSLocalizedString("sync.deathSpiral.reset", comment: "Reset & Relaunch"), role: .destructive) {
+                CloudKitSyncThrottler.shared.scheduleManualReset()
+                // Force-quit so the reset runs on next launch
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    exit(0)
+                }
+            }
+            Button(NSLocalizedString("common.cancel", comment: "Cancel"), role: .cancel) { }
+        } message: {
+            Text(NSLocalizedString("sync.deathSpiral.message", comment: "Export sync is stuck in a retry loop. Resetting the sync database will fix this, but all data will temporarily disappear while it re-downloads from iCloud. Your data is safe in iCloud."))
         }
     }
 
