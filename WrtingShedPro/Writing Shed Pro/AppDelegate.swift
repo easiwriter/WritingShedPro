@@ -83,15 +83,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             return
         }
         
-        // Remove all standard menus
-        builder.remove(menu: .file)
-        builder.remove(menu: .edit)
-        builder.remove(menu: .view)
-        builder.remove(menu: .window)
-        builder.remove(menu: .help)
-        builder.remove(menu: .format)
-        
         // Add Format menu with indent commands for Tab/Shift+Tab handling
+        // (Uses UIKit selectors, so must be done here rather than SwiftUI .commands)
         let increaseIndentCommand = UIKeyCommand(
             title: NSLocalizedString("formattingToolbar.increaseIndent", comment: "Increase Indent"),
             action: #selector(CustomTextViewActions.increaseIndent(_:)),
@@ -118,7 +111,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             children: [indentMenu]
         )
         
-        builder.insertSibling(formatMenu, afterMenu: .application)
+        builder.insertSibling(formatMenu, afterMenu: .edit)
         
         super.buildMenu(with: builder)
     }

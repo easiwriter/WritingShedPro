@@ -42,3 +42,5 @@ fastlane/test_output/
 # Coverage
 coverage/
 cloudflare-worker/node_modules/
+*.xcappdata
+*.xcappdata/

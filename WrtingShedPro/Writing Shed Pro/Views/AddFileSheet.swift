@@ -109,7 +109,9 @@ struct AddFileSheet: View {
             } message: {
                 Text(errorMessage)
             }
-            .upgradePrompt(reason: $upgradePromptReason)
+            .upgradePrompt(reason: $upgradePromptReason) {
+                self.addFile()
+            }
         }
         .navigationViewStyle(.stack)
     }

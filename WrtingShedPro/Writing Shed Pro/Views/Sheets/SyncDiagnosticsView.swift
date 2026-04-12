@@ -40,6 +40,8 @@ struct SyncDiagnosticsView: View {
     @State private var subscriptionStatus: String = "Checking…"
     @State private var showResetSyncConfirmation = false
     @State private var syncResetScheduled = false
+    @State private var showDeleteZoneConfirmation = false
+    @State private var zoneDeleteStatus: String = ""
     
     var body: some View {
         NavigationStack {
@@ -687,11 +689,31 @@ struct SyncDiagnosticsView: View {
         } message: {
             Text("This deletes the local database and performs a full re-import from CloudKit on next launch. No cloud data is lost. Quit and relaunch the app after confirming.")
         }
+        .alert("Delete CloudKit Zone?", isPresented: $showDeleteZoneConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete Zone", role: .destructive) {
+                deleteCloudKitZone()
+            }
+        } message: {
+            Text("This permanently deletes ALL data in the CloudKit zone. Other devices will lose their synced data. Only this device's local database is preserved. Make sure you have a backup before proceeding.")
+        }
 
         #if DEBUG
         Section("Debug Actions") {
             Button("Force Save Context") {
                 saveContextAndShowStatus()
+            }
+
+            Button("Delete CloudKit Zone") {
+                showDeleteZoneConfirmation = true
+            }
+            .foregroundStyle(.red)
+
+            if !zoneDeleteStatus.isEmpty {
+                Text(zoneDeleteStatus)
+                    .font(.caption)
+                    .foregroundStyle(zoneDeleteStatus.hasPrefix("✅") ? .green : .orange)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         #endif
@@ -707,7 +729,28 @@ struct SyncDiagnosticsView: View {
             showRepairResult = true
         }
     }
-    
+
+    private func deleteCloudKitZone() {
+        zoneDeleteStatus = "Deleting zone…"
+        let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
+        let database = ckContainer.privateCloudDatabase
+        let zoneID = CKRecordZone.ID(zoneName: "com.apple.coredata.cloudkit.zone", ownerName: CKCurrentUserDefaultName)
+
+        let operation = CKModifyRecordZonesOperation(recordZonesToSave: nil, recordZoneIDsToDelete: [zoneID])
+        operation.modifyRecordZonesResultBlock = { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    zoneDeleteStatus = "✅ CloudKit zone deleted. Other devices should reset their local DB and re-sync."
+                case .failure(let error):
+                    zoneDeleteStatus = "❌ Zone delete failed: \(error.localizedDescription)"
+                }
+            }
+        }
+        operation.qualityOfService = .userInitiated
+        database.add(operation)
+    }
+
     /// Check for duplicate projects (same name + creation date)
     private func checkForDuplicateProjects() {
         duplicateProjectCount = DeduplicationService.countDuplicateProjects(context: modelContext)

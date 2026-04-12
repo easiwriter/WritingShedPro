@@ -21,6 +21,9 @@ struct FootnotesListView: View {
     
     let version: Version
     
+    /// The footnote marker style from the project's stylesheet
+    var markerStyle: FootnoteMarkerStyle = .numeric
+    
     /// Callback when user wants to jump to a footnote in the text
     var onJumpToFootnote: ((FootnoteModel) -> Void)?
     
@@ -139,7 +142,7 @@ struct FootnotesListView: View {
                         Circle()
                             .fill(Color.blue.opacity(0.1))
                             .frame(width: 28, height: 28)
-                        Text("\(footnote.number)")
+                        Text(markerStyle.displayString(for: footnote.number))
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.blue)
                     }
@@ -186,7 +189,7 @@ struct FootnotesListView: View {
                     Circle()
                         .fill(Color.blue.opacity(0.1))
                         .frame(width: 32, height: 32)
-                    Text("\(footnote.number)")
+                    Text(markerStyle.displayString(for: footnote.number))
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.blue)
                 }

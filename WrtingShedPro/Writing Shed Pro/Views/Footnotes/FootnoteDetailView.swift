@@ -21,6 +21,9 @@ struct FootnoteDetailView: View {
     /// The footnote being displayed/edited
     let footnote: FootnoteModel
     
+    /// Marker style for footnote display
+    var markerStyle: FootnoteMarkerStyle = .numeric
+    
     /// Callback when footnote is updated
     var onUpdate: (() -> Void)?
     
@@ -41,11 +44,13 @@ struct FootnoteDetailView: View {
     
     init(
         footnote: FootnoteModel,
+        markerStyle: FootnoteMarkerStyle = .numeric,
         onUpdate: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
         onClose: (() -> Void)? = nil
     ) {
         self.footnote = footnote
+        self.markerStyle = markerStyle
         self.onUpdate = onUpdate
         self.onDelete = onDelete
         self.onClose = onClose
@@ -64,7 +69,7 @@ struct FootnoteDetailView: View {
                         .fill(Color.blue.opacity(0.1))
                         .frame(width: 36, height: 36)
 
-                    Text("\(footnote.number)")
+                    Text(markerStyle.displayString(for: footnote.number))
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.blue)
                 }

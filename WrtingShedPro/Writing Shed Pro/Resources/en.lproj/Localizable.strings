@@ -1403,6 +1403,11 @@
 "textStyleEditor.numberedListLevel2Info" = "Second-level numbered list (a, b, c...)";
 "textStyleEditor.numberedListLevel3Info" = "Third-level numbered list (i, ii, iii...)";
 "textStyleEditor.footnoteFormat" = "Footnote Format";
+
+// MARK: - Footnote Marker Styles
+"footnoteMarkerStyle.numeric" = "Numeric";
+"footnoteMarkerStyle.typographic" = "Typographic";
+
 "textStyleEditor.bulletCharacter" = "Bullet Character";
 "textStyleEditor.adornment" = "Adornment";
 "textStyleEditor.parentStyle" = "Parent Style";
@@ -1579,6 +1584,7 @@
 "styleSheetDetail.textStyles" = "TEXT STYLES";
 "styleSheetDetail.listStyles" = "LIST STYLES";
 "styleSheetDetail.footnoteStyles" = "FOOTNOTE STYLES";
+"styleSheetDetail.footnoteMarkerStyle" = "Marker Style";
 "styleSheetDetail.imageStyles" = "IMAGE STYLES";
 "styleSheetDetail.noImageStyles" = "No image styles";
 "styleSheetDetail.newStyle" = "New Style";
@@ -2880,3 +2886,6 @@
 "sync.status.stalled" = "Sync delayed";
 "sync.status.recovering" = "Restoring sync…";
 "sync.status.lastSynced" = "Last synced %@";
+
+// MARK: - Menu Bar
+"menu.help.userGuide" = "Writing Shed Pro User Guide";

@@ -52,6 +52,13 @@ struct StyleSheetDetailView: View {
         }
         .navigationTitle(styleSheet.name)
         .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: styleSheet.footnoteMarkerStyleRaw) { _, _ in
+            NotificationCenter.default.post(
+                name: NSNotification.Name("StyleSheetModified"),
+                object: nil,
+                userInfo: ["stylesheetID": styleSheet.id]
+            )
+        }
         .toolbar {
             if !styleSheet.isSystemStyleSheet {
                 ToolbarItem(placement: .primaryAction) {
@@ -143,11 +150,26 @@ struct StyleSheetDetailView: View {
     private var footnoteStylesSection: some View {
         if !footnoteStyles.isEmpty {
             Section(NSLocalizedString("styleSheetDetail.footnoteStyles", comment: "Footnote styles section")) {
+                // Footnote marker style picker
+                Picker(NSLocalizedString("styleSheetDetail.footnoteMarkerStyle", comment: "Footnote marker style"), selection: $styleSheet.footnoteMarkerStyleRaw) {
+                    ForEach(FootnoteMarkerStyle.allCases, id: \.rawValue) { style in
+                        Text(style.localizedName).tag(style.rawValue)
+                    }
+                }
+                
                 ForEach(footnoteStyles, id: \.id) { (style: TextStyleModel) in
                     NavigationLink {
                         TextStyleEditorView(style: style, isNewStyle: false)
                     } label: {
                         StyleListRow(style: style)
+                    }
+                }
+            }
+        } else {
+            Section(NSLocalizedString("styleSheetDetail.footnoteStyles", comment: "Footnote styles section")) {
+                Picker(NSLocalizedString("styleSheetDetail.footnoteMarkerStyle", comment: "Footnote marker style"), selection: $styleSheet.footnoteMarkerStyleRaw) {
+                    ForEach(FootnoteMarkerStyle.allCases, id: \.rawValue) { style in
+                        Text(style.localizedName).tag(style.rawValue)
                     }
                 }
             }

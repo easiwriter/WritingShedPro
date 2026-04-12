@@ -250,7 +250,9 @@ struct AddSceneSheet: View {
             } message: {
                 Text(errorMessage)
             }
-            .upgradePrompt(reason: $upgradePromptReason)
+            .upgradePrompt(reason: $upgradePromptReason) {
+                self.addScene()
+            }
         }
         .navigationViewStyle(.stack)
     }

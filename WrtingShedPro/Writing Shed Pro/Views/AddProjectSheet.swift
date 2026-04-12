@@ -104,7 +104,9 @@ struct AddProjectSheet: View {
             } message: {
                 Text(errorMessage)
             }
-            .upgradePrompt(reason: $upgradePromptReason)
+            .upgradePrompt(reason: $upgradePromptReason) {
+                self.addProject()
+            }
         }
         .navigationViewStyle(.stack)
     }

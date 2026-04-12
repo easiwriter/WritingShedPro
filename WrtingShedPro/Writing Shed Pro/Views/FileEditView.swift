@@ -2120,6 +2120,7 @@ struct FileEditView: View {
                 if let currentVersion = file.currentVersion {
                     FootnotesListView(
                         version: currentVersion,
+                        markerStyle: file.project?.styleSheet?.footnoteMarkerStyle ?? .numeric,
                         onJumpToFootnote: { footnote in
                             jumpToFootnote(footnote)
                         },
@@ -2141,6 +2142,7 @@ struct FileEditView: View {
                 NavigationView {
                     FootnoteDetailView(
                         footnote: footnote,
+                        markerStyle: file.project?.styleSheet?.footnoteMarkerStyle ?? .numeric,
                         onUpdate: {
                             // Footnote text was updated - no need to save, already saved in FootnoteManager
                             // Just refresh the view
@@ -2388,6 +2390,10 @@ struct FileEditView: View {
             // CRITICAL: Restore orphaned comment markers from database
             // Comments created before we added serialization support need to be re-inserted
             restoreOrphanedCommentMarkers()
+            
+            // Reconcile footnote attachment numbers with database
+            // Ensures text attachment numbers match the authoritative model numbers
+            reconcileFootnoteNumbers()
             
             // FEATURE 029: Restore ReferenceAttachment instances from metadata
             // Since RTF format doesn't preserve custom attachment subclasses,
@@ -2725,6 +2731,9 @@ struct FileEditView: View {
             #endif
         }
         
+        // Update footnote marker style (numeric/typographic) from stylesheet
+        reconcileFootnoteNumbers()
+        
         // Regenerate back matter files with updated styles
         updateBackMatterFiles()
         
@@ -2782,6 +2791,7 @@ struct FileEditView: View {
     private func updateFootnoteAttachmentNumbers() {
         guard file.currentVersion != nil else { return }
         
+        let markerStyle = file.project?.styleSheet?.footnoteMarkerStyle ?? .numeric
         let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
         var needsUpdate = false
         
@@ -2797,6 +2807,10 @@ struct FileEditView: View {
                     print("🔢 Updating attachment \(attachment.footnoteID) from \(attachment.number) to \(footnote.number)")
                     #endif
                     attachment.number = footnote.number
+                    needsUpdate = true
+                }
+                if attachment.markerStyle != markerStyle {
+                    attachment.markerStyle = markerStyle
                     needsUpdate = true
                 }
             } else {
@@ -3219,11 +3233,13 @@ struct FileEditView: View {
         
         // Insert footnote at cursor position
         if let textView = textViewCoordinator.textView {
+            let markerStyle = file.project?.styleSheet?.footnoteMarkerStyle ?? .numeric
             let footnote = FootnoteInsertionHelper.insertFootnoteAtCursor(
                 in: textView,
                 footnoteText: newFootnoteText,
                 version: currentVersion,
-                context: modelContext
+                context: modelContext,
+                markerStyle: markerStyle
             )
             
             if let footnote = footnote {
@@ -3235,7 +3251,8 @@ struct FileEditView: View {
                 let updatedContent = FootnoteInsertionHelper.updateAllFootnoteNumbers(
                     in: textView.attributedText ?? NSAttributedString(),
                     forVersion: currentVersion,
-                    context: modelContext
+                    context: modelContext,
+                    markerStyle: file.project?.styleSheet?.footnoteMarkerStyle ?? .numeric
                 )
                 
                 // Update the text view with renumbered footnotes
@@ -5677,6 +5694,42 @@ struct FileEditView: View {
         
         // Save the restored markers
         saveChanges()
+    }
+    
+    /// Reconcile footnote attachment numbers and marker style in the text with the authoritative
+    /// database models and the project's stylesheet.
+    private func reconcileFootnoteNumbers() {
+        guard let currentVersion = file.currentVersion else { return }
+        
+        let markerStyle = file.project?.styleSheet?.footnoteMarkerStyle ?? .numeric
+        
+        // First, renumber models so the database is authoritative
+        FootnoteManager.shared.renumberFootnotes(forVersion: currentVersion, context: modelContext)
+        
+        // Then sync text attachment numbers and marker style with the database
+        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        var needsUpdate = false
+        
+        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
+            guard let attachment = value as? FootnoteAttachment else { return }
+            if let footnote = FootnoteManager.shared.getFootnoteByAttachment(attachmentID: attachment.footnoteID, context: modelContext) {
+                if attachment.number != footnote.number {
+                    attachment.number = footnote.number
+                    needsUpdate = true
+                }
+            }
+            if attachment.markerStyle != markerStyle {
+                attachment.markerStyle = markerStyle
+                needsUpdate = true
+            }
+        }
+        
+        if needsUpdate {
+            attributedContent = mutableContent
+            #if DEBUG
+            print("📝🔢 Reconciled footnote numbers/marker style on load")
+            #endif
+        }
     }
     
     // MARK: - Undo/Redo

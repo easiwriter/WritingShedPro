@@ -30,6 +30,21 @@ final class FootnoteAttachment: NSTextAttachment {
         }
     }
     
+    /// The marker style (numeric or typographic). Changing this clears the cached image.
+    var markerStyle: FootnoteMarkerStyle = .numeric {
+        didSet {
+            if markerStyle != oldValue {
+                self.image = nil
+                self.contents = nil
+            }
+        }
+    }
+    
+    /// The display string for the current number and marker style
+    var displayString: String {
+        markerStyle.displayString(for: number)
+    }
+    
     /// Base font size for calculating superscript size
     private static let baseFontSize: CGFloat = 17
     
@@ -64,6 +79,11 @@ final class FootnoteAttachment: NSTextAttachment {
         self.footnoteID = footnoteID
         self.number = coder.decodeInteger(forKey: "number")
         
+        if let styleRaw = coder.decodeObject(forKey: "markerStyle") as? String,
+           let style = FootnoteMarkerStyle(rawValue: styleRaw) {
+            self.markerStyle = style
+        }
+        
         #if DEBUG
         print("✅ FootnoteAttachment decoded: id=\(footnoteID), number=\(number)")
         #endif
@@ -75,6 +95,7 @@ final class FootnoteAttachment: NSTextAttachment {
         super.encode(with: coder)
         coder.encode(footnoteID.uuidString, forKey: "footnoteID")
         coder.encode(number, forKey: "number")
+        coder.encode(markerStyle.rawValue, forKey: "markerStyle")
         
         #if DEBUG
         print("💾 FootnoteAttachment encoding: id=\(footnoteID), number=\(number)")
@@ -105,8 +126,8 @@ final class FootnoteAttachment: NSTextAttachment {
         print("📝🎨 FootnoteAttachment.image() generating - footnoteID: \(footnoteID), number: \(number)")
         #endif
         
-        // Create attributed string for the number
-        let numberString = "\(number)"
+        // Create attributed string for the marker
+        let numberString = displayString
         
         // Use a darker blue color for better visibility
         let footnoteColor = UIColor.systemBlue.withAlphaComponent(1.0).darker(by: 0.3) ?? UIColor(red: 0.0, green: 0.3, blue: 0.8, alpha: 1.0)
@@ -196,8 +217,8 @@ final class FootnoteAttachment: NSTextAttachment {
             font = UIFont.systemFont(ofSize: Self.baseFontSize)
         }
         
-        // Calculate size for the number
-        let numberString = "\(number)"
+        // Calculate size for the marker string
+        let numberString = displayString
         let attributes: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: Self.superscriptFontSize, weight: .medium)
         ]
@@ -224,7 +245,7 @@ final class FootnoteAttachment: NSTextAttachment {
     
     /// Default bounds when text container information is unavailable
     private func defaultBounds() -> CGRect {
-        let numberString = "\(number)"
+        let numberString = displayString
         let attributes: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: Self.superscriptFontSize, weight: .medium)
         ]

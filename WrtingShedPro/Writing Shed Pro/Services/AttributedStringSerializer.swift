@@ -46,6 +46,7 @@ struct AttributeValues: Codable {
     var isFootnoteAttachment: Bool?
     var footnoteID: String?
     var footnoteNumber: Int?
+    var footnoteMarkerStyle: String?
     
     // Reference attachment properties (Feature 029)
     var isReferenceAttachment: Bool?
@@ -424,6 +425,7 @@ struct AttributedStringSerializer {
                             attributes.isFootnoteAttachment = true
                             attributes.footnoteID = footnoteAttachment.footnoteID.uuidString
                             attributes.footnoteNumber = footnoteAttachment.number
+                            attributes.footnoteMarkerStyle = footnoteAttachment.markerStyle.rawValue
                         } else if let referenceAttachment = value as? ReferenceAttachment {
                             // Feature 029: Reference attachments
                             attributes.isReferenceAttachment = true
@@ -754,6 +756,10 @@ struct AttributedStringSerializer {
                     
                     // Create FootnoteAttachment
                     let attachment = FootnoteAttachment(footnoteID: footnoteID, number: footnoteNumber)
+                    if let styleRaw = jsonAttributes.footnoteMarkerStyle,
+                       let style = FootnoteMarkerStyle(rawValue: styleRaw) {
+                        attachment.markerStyle = style
+                    }
                     attributes[.attachment] = attachment
                 }
                 

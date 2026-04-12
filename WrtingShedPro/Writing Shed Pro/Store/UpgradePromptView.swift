@@ -14,6 +14,7 @@ import StoreKitManager
 struct UpgradePromptView: View {
     let reason: UpgradePromptReason
     @Binding var isPresented: Bool
+    var onPurchaseCompleted: (() -> Void)?
     
     /// State for showing the store
     @State private var showStore = false
@@ -101,15 +102,15 @@ struct UpgradePromptView: View {
             )
         }
         .onChange(of: showStore) { _, isShowing in
-            // When store closes, check if user now has the entitlement
+            // When store closes, refresh entitlements and check if purchase succeeded
             if !isShowing {
-                // Give a moment for entitlements to refresh
                 Task {
-                    try? await Task.sleep(for: .milliseconds(500))
+                    await EntitlementManager.shared.refreshEntitlements()
                     await MainActor.run {
                         if EntitlementManager.shared.isProjectTypeUnlocked(reason.projectType) {
-                            // User purchased! Dismiss the upgrade prompt
+                            // User purchased! Dismiss the upgrade prompt and notify caller
                             isPresented = false
+                            onPurchaseCompleted?()
                         }
                     }
                 }
@@ -171,14 +172,15 @@ struct UpgradePromptView: View {
 @available(macCatalyst 15, macOS 14.4, iOS 17.4, *)
 extension View {
     /// Shows an upgrade prompt alert when a free tier limit is hit
-    func upgradePrompt(reason: Binding<UpgradePromptReason?>) -> some View {
+    func upgradePrompt(reason: Binding<UpgradePromptReason?>, onPurchaseCompleted: (() -> Void)? = nil) -> some View {
         self.sheet(item: reason) { promptReason in
             UpgradePromptView(
                 reason: promptReason,
                 isPresented: Binding(
                     get: { reason.wrappedValue != nil },
                     set: { if !$0 { reason.wrappedValue = nil } }
-                )
+                ),
+                onPurchaseCompleted: onPurchaseCompleted
             )
         }
     }

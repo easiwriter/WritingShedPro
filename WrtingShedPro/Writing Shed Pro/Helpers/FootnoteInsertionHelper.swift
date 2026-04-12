@@ -29,20 +29,16 @@ struct FootnoteInsertionHelper {
         at position: Int,
         footnoteText: String,
         version: Version,
-        context: ModelContext
+        context: ModelContext,
+        markerStyle: FootnoteMarkerStyle = .numeric
     ) -> (NSAttributedString, FootnoteModel) {
         let mutableText = NSMutableAttributedString(attributedString: attributedText)
         
-        // Calculate the footnote number
-        let number = FootnoteManager.shared.calculateFootnoteNumber(
-            forVersion: version,
-            at: position,
-            context: context
-        )
-        
-        // Create the footnote attachment
+        // Create the footnote attachment with a placeholder number;
+        // the authoritative number comes from createFootnote after renumbering.
         let attachmentID = UUID()
-        let attachment = FootnoteAttachment(footnoteID: attachmentID, number: number)
+        let attachment = FootnoteAttachment(footnoteID: attachmentID, number: 1)
+        attachment.markerStyle = markerStyle
         
         // Create attributed string with the attachment
         let attachmentString = NSAttributedString(attachment: attachment)
@@ -51,7 +47,7 @@ struct FootnoteInsertionHelper {
         let safePosition = min(max(0, position), mutableText.length)
         mutableText.insert(attachmentString, at: safePosition)
         
-        // Create the footnote model in the database
+        // Create the footnote model in the database (calculates and renumbers)
         let footnote = FootnoteManager.shared.createFootnote(
             version: version,
             characterPosition: safePosition,
@@ -59,6 +55,9 @@ struct FootnoteInsertionHelper {
             text: footnoteText,
             context: context
         )
+        
+        // Update the attachment to match the authoritative model number
+        attachment.number = footnote.number
         
         return (mutableText, footnote)
     }
@@ -76,22 +75,18 @@ struct FootnoteInsertionHelper {
         in textView: UITextView,
         footnoteText: String,
         version: Version,
-        context: ModelContext
+        context: ModelContext,
+        markerStyle: FootnoteMarkerStyle = .numeric
     ) -> FootnoteModel? {
         let textStorage = textView.textStorage
         
         let insertPosition = textView.selectedRange.location
         
-        // Calculate the footnote number
-        let number = FootnoteManager.shared.calculateFootnoteNumber(
-            forVersion: version,
-            at: insertPosition,
-            context: context
-        )
-        
-        // Create the footnote attachment
+        // Create the footnote attachment with a placeholder number;
+        // the authoritative number comes from createFootnote after renumbering.
         let attachmentID = UUID()
-        let attachment = FootnoteAttachment(footnoteID: attachmentID, number: number)
+        let attachment = FootnoteAttachment(footnoteID: attachmentID, number: 1)
+        attachment.markerStyle = markerStyle
         
         // Create attributed string with the attachment
         let attachmentString = NSAttributedString(attachment: attachment)
@@ -102,7 +97,7 @@ struct FootnoteInsertionHelper {
         // Place cursor after the footnote marker
         textView.selectedRange = NSRange(location: insertPosition + 1, length: 0)
         
-        // Create the footnote model in the database
+        // Create the footnote model in the database (calculates and renumbers)
         let footnote = FootnoteManager.shared.createFootnote(
             version: version,
             characterPosition: insertPosition,
@@ -110,6 +105,9 @@ struct FootnoteInsertionHelper {
             text: footnoteText,
             context: context
         )
+        
+        // Update the attachment to match the authoritative model number
+        attachment.number = footnote.number
         
         return footnote
     }
@@ -158,7 +156,8 @@ struct FootnoteInsertionHelper {
     static func updateAllFootnoteNumbers(
         in attributedText: NSAttributedString,
         forVersion version: Version,
-        context: ModelContext
+        context: ModelContext,
+        markerStyle: FootnoteMarkerStyle = .numeric
     ) -> NSAttributedString {
         let mutableText = NSMutableAttributedString(attributedString: attributedText)
         
@@ -167,12 +166,20 @@ struct FootnoteInsertionHelper {
         
         // Update each footnote attachment
         for footnote in footnotes {
-            if let (attachment, range) = mutableText.footnoteAttachment(withID: footnote.id) {
+            if let (attachment, range) = mutableText.footnoteAttachment(withID: footnote.attachmentID) {
+                var needsReplace = false
                 // Check if number needs updating
                 if attachment.number != footnote.number {
-                    // Update the attachment
                     attachment.number = footnote.number
-                    
+                    needsReplace = true
+                }
+                // Check if marker style needs updating
+                if attachment.markerStyle != markerStyle {
+                    attachment.markerStyle = markerStyle
+                    needsReplace = true
+                }
+                
+                if needsReplace {
                     // Create new attachment string
                     let newAttachmentString = NSAttributedString(attachment: attachment)
                     
@@ -180,7 +187,7 @@ struct FootnoteInsertionHelper {
                     mutableText.replaceCharacters(in: range, with: newAttachmentString)
                     
                     #if DEBUG
-                    print("📝🔄 Updated footnote \(footnote.id) to number \(footnote.number) at position \(range.location)")
+                    print("📝🔄 Updated footnote \(footnote.id) to number \(footnote.number) (\(markerStyle.rawValue)) at position \(range.location)")
                     #endif
                 }
             }

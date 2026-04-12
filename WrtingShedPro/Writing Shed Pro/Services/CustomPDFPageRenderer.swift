@@ -592,6 +592,7 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         let stylesheet = project.styleSheet
         let footnoteStyleName = UIFont.TextStyle.footnote.rawValue
         let footnoteStyle = stylesheet?.textStyles?.first { $0.name == footnoteStyleName }
+        let markerStyle = stylesheet?.footnoteMarkerStyle ?? .numeric
         
         let fontSize: CGFloat = footnoteStyle?.fontSize ?? 10
         let isBold = footnoteStyle?.isBold ?? false
@@ -655,7 +656,7 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         ]
         
         for footnote in footnotes {
-            let numberStr = "\(footnote.number)" as NSString
+            let numberStr = markerStyle.displayString(for: footnote.number) as NSString
             let numberSize = numberStr.size(withAttributes: numberAttributes)
             
             // Draw the superscript number (baseline offset via y adjustment)

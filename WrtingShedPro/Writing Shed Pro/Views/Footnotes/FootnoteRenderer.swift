@@ -36,6 +36,11 @@ struct FootnoteRenderer<F: FootnoteRenderable & Identifiable>: View {
         return stylesheet?.textStyles?.first { $0.name == styleName }
     }
     
+    // Footnote marker style from stylesheet (numeric or typographic)
+    private var markerStyle: FootnoteMarkerStyle {
+        stylesheet?.footnoteMarkerStyle ?? .numeric
+    }
+    
     // Font size for footnotes (from stylesheet or default 10pt)
     private var footnoteFontSize: CGFloat {
         footnoteStyle?.fontSize ?? 10
@@ -84,8 +89,8 @@ struct FootnoteRenderer<F: FootnoteRenderable & Identifiable>: View {
     @ViewBuilder
     private func footnoteEntry(_ footnote: F) -> some View {
         HStack(alignment: .top, spacing: 6) {
-            // Superscript number (slightly smaller than body text)
-            Text("\(footnote.number)")
+            // Superscript marker (slightly smaller than body text)
+            Text(markerStyle.displayString(for: footnote.number))
                 .font(.system(size: footnoteFontSize * 0.9))
                 .baselineOffset(4)
                 .foregroundStyle(footnoteStyle?.textColor.map { Color($0) } ?? .primary)

@@ -24,14 +24,14 @@ Four project types. **Cannot be changed after creation** — user must copy cont
 | **Prose** | Essays, articles, general writing | Sections for grouping files |
 | **Poetry** | Poems, verse | Syllable counting, rhyme detection, stress analysis, 30+ form templates, verse highlighting, collections |
 | **Fiction** | Novel, Short Fiction, Verse Novel | Chapters/Books/Stories, Scenes/Episodes, Plot Elements, Characters, Locations, Story Structures |
-| **Drama** | Screenplays, stage plays | DML (Drama Markup Language), Film/Stage format toggle, Acts/Scenes |
+| **Drama** | Screenplays, stage plays | DML (Drama Markup Language), Film/Stage format toggle, Acts/Scenes, Story Structures |
 
 ### Fiction Sub-types
 - **Novel**: Chapters → Scenes
 - **Short Fiction**: Stories → Scenes
 - **Verse Novel**: Books → Episodes (uses poetry editor)
 
-### Story Structures (Fiction)
+### Story Structures (Fiction & Drama)
 - **Freeform**: No predefined stages
 - **Three-Act Structure**: Setup, Confrontation, Resolution
 - **Monomyth (Vogler)**: 12 stages (Ordinary World, Call to Adventure, etc.)
@@ -234,6 +234,11 @@ Plain text markup that renders as formatted screenplay or stage play.
 ### Acts
 - Group scenes into acts
 - Scenes viewed grouped by act in the Scenes list
+
+### Story Structures in Drama
+- Drama projects support the same story structures as Fiction: Freeform, Three-Act, and Monomyth (Vogler)
+- Choose a story structure in Project Settings
+- Use plot elements to track story beats across scenes
 
 ### Common DML Mistakes
 - Character names must be ALL CAPS
@@ -648,6 +653,8 @@ Access: Main screen → Settings (gear icon)
 
 ### Projects
 - **Change project type?** No. Copy content to new project of different type.
+- **Copy files between projects?** Yes. Long-press (or right-click) a file and choose "Copy to Project". Copies to another project of the same type. Content, formatting, status, and metadata are preserved.
+- **Move files between projects?** No direct move, but copy to the other project then delete the original.
 - **Draft/Ready/Trash?** Draft = WIP, Ready = finished, Trash = deleted (recoverable).
 - **Share a project?** Export files as PDF/RTF and share via share sheet.
 
@@ -669,6 +676,7 @@ Access: Main screen → Settings (gear icon)
 
 ### Drama
 - **DML?** Drama Markup Language — simple plain text markup that auto-formats as screenplay/stage play.
+- **Story structures in Drama?** Yes. Drama supports Freeform, Three-Act, and Monomyth (Vogler) — the same structures available in Fiction.
 - **Final Draft export?** Currently PDF and RTF. Industry-specific formats may come later.
 - **Film or Stage?** Choose based on target production. Preview both from same source.
 

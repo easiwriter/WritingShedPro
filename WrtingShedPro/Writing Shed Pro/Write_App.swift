@@ -409,7 +409,7 @@ struct Write_App: App {
         WriteCoalescer.shared = coalescer
         _writeCoalescer = State(initialValue: coalescer)
 
-        let monitor = SyncHealthMonitor(throttler: CloudKitSyncThrottler.shared)
+        let monitor = SyncHealthMonitor(throttler: CloudKitSyncThrottler.shared, modelContainer: sharedModelContainer)
         coalescer.syncHealthMonitor = monitor
         CloudKitSyncThrottler.shared.syncHealthMonitor = monitor
         _syncHealthMonitor = State(initialValue: monitor)
@@ -470,13 +470,28 @@ struct Write_App: App {
         }
         .modelContainer(sharedModelContainer)
         .commands {
-            // Add app-specific import command in the File menu. Use Cmd+Shift+O
-            // to avoid conflicting with the system Open... (Cmd+O).
+            // Remove menus we don't need
+            CommandGroup(replacing: .newItem) { }
+            CommandGroup(replacing: .sidebar) { }
+            
+            // Add Open WSP File to File menu
             CommandGroup(after: .newItem) {
                 Button("Open WSP File...") {
                     NotificationCenter.default.post(name: .writingShedProShowImportPicker, object: nil)
                 }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
+            }
+            
+            // Replace default Help content with our User Guide
+            CommandGroup(replacing: .help) {
+                Button(NSLocalizedString("menu.help.userGuide", comment: "User Guide")) {
+                    NotificationCenter.default.post(
+                        name: GuideNavigationService.openGuideSectionNotification,
+                        object: nil,
+                        userInfo: nil
+                    )
+                }
+                .keyboardShortcut("?", modifiers: .command)
             }
         }
     }

@@ -24,6 +24,9 @@ final class StyleSheet {
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     
+    /// Raw storage for FootnoteMarkerStyle (numeric or typographic)
+    var footnoteMarkerStyleRaw: String = FootnoteMarkerStyle.numeric.rawValue
+    
     @Relationship(deleteRule: .cascade, inverse: \TextStyleModel.styleSheet)
     var textStyles: [TextStyleModel]?
     
@@ -41,6 +44,12 @@ final class StyleSheet {
         self.isSystemStyleSheet = isSystemStyleSheet
         self.textStyles = []
         self.imageStyles = []
+    }
+    
+    /// The footnote marker style (numeric or typographic)
+    var footnoteMarkerStyle: FootnoteMarkerStyle {
+        get { FootnoteMarkerStyle(rawValue: footnoteMarkerStyleRaw) ?? .numeric }
+        set { footnoteMarkerStyleRaw = newValue.rawValue }
     }
     
     /// Get a text style by name

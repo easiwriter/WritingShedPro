@@ -155,11 +155,11 @@ final class CloudKitSyncThrottler {
     /// Maximum time we trust a single CloudKit event to remain "in-progress"
     /// without receiving an ending event. If this is exceeded, we treat it as
     /// stale and unblock watchdog recovery nudges.
-    private let maxInProgressEventAge: TimeInterval = 300
+    private let maxInProgressEventAge: TimeInterval = 600
 
     /// Longer timeout after a sync database reset, since full zone re-imports
     /// can take 15-30 minutes for large databases.
-    private let maxInProgressEventAgeAfterReset: TimeInterval = 900
+    private let maxInProgressEventAgeAfterReset: TimeInterval = 1800
 
     /// Set to true after a mirroring reset; cleared after the first successful import.
     /// While true, the stale-timeout uses `maxInProgressEventAgeAfterReset`.
