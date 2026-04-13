@@ -117,18 +117,8 @@ final class CloudKitSyncThrottler {
     /// After this many consecutive import failures, auto-schedule a database reset.
     private let maxConsecutiveImportFailuresBeforeReset = 3
 
-    /// After this many consecutive export rate-limit failures, flag the death
-    /// spiral so the UI can prompt the user to reset. The export death spiral has
-    /// no built-in backoff in NSPersistentCloudKitContainer.
-    private let maxConsecutiveExportRateLimitsBeforeReset = 50
-
     /// True when an automatic sync reset has been scheduled for next launch.
     private(set) var autoResetScheduled = false
-
-    /// True when the export death spiral has been detected (≥ threshold consecutive
-    /// rate-limits). The UI should show a prominent alert asking the user to reset.
-    /// Reset via `scheduleManualReset()` or the Sync Diagnostics panel.
-    private(set) var exportDeathSpiralDetected = false
 
     /// When non-nil, manual sync kicks (zone fetch/nudge) should be paused until this date
     /// to avoid request storms while CloudKit is retrying failed imports.
@@ -191,24 +181,6 @@ final class CloudKitSyncThrottler {
             #if DEBUG
             print("⏳ [CloudKitSyncThrottler] Rate-limited until \(until) (backoff \(Int(pause))s, consecutive=\(self.consecutiveExportRateLimits))")
             #endif
-
-            // Flag that an export death spiral has been detected so the UI
-            // can prompt the user.  We do NOT auto-schedule a database reset
-            // because that silently deletes the local store on next launch,
-            // causing all projects to temporarily disappear while CloudKit
-            // re-imports — unacceptable in production.
-            if self.consecutiveExportRateLimits >= self.maxConsecutiveExportRateLimitsBeforeReset && !self.exportDeathSpiralDetected {
-                self.exportDeathSpiralDetected = true
-                self.appendCloudKitEvent(
-                    type: "recovery",
-                    phase: "detected",
-                    status: "death-spiral",
-                    message: "Export death spiral detected after \(self.consecutiveExportRateLimits) consecutive rate-limits. User action required."
-                )
-                #if DEBUG
-                print("⚠️ [CloudKitSyncThrottler] Export death spiral detected after \(self.consecutiveExportRateLimits) consecutive export rate-limits — awaiting user action")
-                #endif
-            }
         }
     }
     
@@ -219,7 +191,6 @@ final class CloudKitSyncThrottler {
                 guard let self else { return }
                 self.rateLimitedUntil = nil
                 self.consecutiveExportRateLimits = 0
-                self.exportDeathSpiralDetected = false
                 #if DEBUG
                 print("✅ [CloudKitSyncThrottler] Rate-limit cleared (was consecutive=\(self.consecutiveExportRateLimits))")
                 #endif
@@ -294,22 +265,6 @@ final class CloudKitSyncThrottler {
         #endif
     }
 
-    /// Schedule a sync database reset on next launch (user-confirmed action).
-    /// The caller is responsible for terminating the app afterwards so the
-    /// reset runs before NSPersistentCloudKitContainer is created.
-    func scheduleManualReset() {
-        UserDefaults.standard.set(true, forKey: "resetSyncOnNextLaunch")
-        autoResetScheduled = true
-        appendCloudKitEvent(
-            type: "recovery",
-            phase: "scheduled",
-            status: "manual-reset",
-            message: "User-confirmed database reset scheduled. App will reset on next launch."
-        )
-        #if DEBUG
-        print("🔄 [CloudKitSyncThrottler] User-confirmed database reset scheduled")
-        #endif
-    }
     
     /// Duration to wait after last sync event before clearing isSyncing
     /// This gives time for all related changes to propagate

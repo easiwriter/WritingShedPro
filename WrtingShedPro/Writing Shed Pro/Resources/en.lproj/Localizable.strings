@@ -10,9 +10,6 @@
 
 /* Sync Recovery */
 "sync.recovery.banner" = "Sync looks delayed — retrying iCloud sync…";
-"sync.deathSpiral.title" = "iCloud Sync Problem";
-"sync.deathSpiral.message" = "iCloud sync is stuck in a retry loop and cannot recover on its own. Resetting the sync database will fix this — your data will temporarily disappear while it re-downloads from iCloud. Your data is safe in iCloud and no content will be lost.";
-"sync.deathSpiral.reset" = "Reset & Relaunch";
 /* Localization strings for Write! app */
 
 /* Project types */
