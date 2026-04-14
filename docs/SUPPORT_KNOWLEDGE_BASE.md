@@ -333,6 +333,20 @@ Page Break, Section Mark, Double Space, None
 - **Spacing**: Line spacing, space before/after paragraph
 - **Numbering**: Auto-numbering with format options (decimal, Roman, letter), adornments, parent styles for hierarchy
 - **Custom styles**: Create via + button; can base on existing styles (inheritance)
+
+### Automatic Heading Numbering
+- Any heading or custom style can have automatic numbering enabled via the Stylesheet Editor
+- Numbers are rendered dynamically — they are NOT stored in the document text
+- Numbers appear in the editor, pagination preview, and PDF export
+- **To enable**: Open Stylesheet Editor → select a style → enable Numbering → choose format and adornment
+- **Number formats**: Decimal (1, 2, 3), Lowercase Roman (i, ii, iii), Uppercase Roman (I, II, III), Lowercase Letter (a, b, c), Uppercase Letter (A, B, C)
+- **Adornments**: Plain (1), Period (1.), Parentheses ((1)), Right Paren (1)), Dash Before (-1), Dash After (1-), Dash Both (-1-)
+- **Hierarchical numbering**: Set a parent style in the Stylesheet Editor to create compound numbers like 1.1, 1.2, 1.a, 1.b
+  - Example: Heading 2 with Heading 1 as parent → numbers display as 1.1, 1.2, 2.1, etc.
+  - Child counters reset automatically when the parent number changes
+- Numbers increment automatically across files in manuscript preview and PDF export
+- Reordering content automatically renumbers headings — no manual updating needed
+- Numbered and bullet lists also use the numbering system (toolbar buttons for list styles)
 - **Delete**: Cannot delete built-in styles; text using deleted style reverts to Body
 - **Reset**: Reset individual styles to defaults
 - Stylesheet travels with project (exports include style definitions)
