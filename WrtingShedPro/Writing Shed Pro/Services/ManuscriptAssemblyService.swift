@@ -693,6 +693,13 @@ final class ManuscriptAssemblyService {
                 
                 // Add section break between files (not before first)
                 if !isFirstFile {
+                    // Ensure the previous file's content ends with a newline so that paragraphs
+                    // are properly delimited. Without this, the last line of one file merges with
+                    // the first line of the next file into a single paragraph, corrupting style
+                    // attributes (e.g. numbered heading indents get skipped).
+                    if !assembled.string.hasSuffix("\n") && assembled.length > 0 {
+                        assembled.append(NSAttributedString(string: "\n"))
+                    }
                     let breakAttr = sectionBreak(for: settings)
                     // Avoid double form feeds if content already ends with one
                     if breakAttr.string == "\u{000C}" && assembled.string.hasSuffix("\u{000C}") {

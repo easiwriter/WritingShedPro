@@ -30,6 +30,11 @@ class NumberingLayoutManager: NSLayoutManager {
     /// Whether to draw invisible characters (spaces, tabs, paragraph marks, page breaks)
     var showInvisibles: Bool = false
     
+    /// Initial counter state for cross-page numbering continuity.
+    /// Set by VirtualPageScrollView to continue numbering from previous pages.
+    var initialStyleCounters: [String: Int] = [:]
+    var initialLastNumberForStyle: [String: Int] = [:]
+    
     /// Width reserved for right-margin line numbers in poetry mode
     private let poetryLineNumberWidth: CGFloat = 40
     
@@ -116,6 +121,125 @@ class NumberingLayoutManager: NSLayoutManager {
         return parentMap
     }
     
+    /// Compute the paragraph numbering counter state by scanning a text storage
+    /// from position 0 up to (but not including) the given character offset.
+    /// Used by VirtualPageScrollView and CustomPDFPageRenderer to continue
+    /// numbering across pages.
+    /// - Returns: Tuple of (styleCounters, lastNumberForStyle) to pass as initial state.
+    static func computeCounterState(
+        upTo characterOffset: Int,
+        in textStorage: NSTextStorage,
+        styleSheet: StyleSheet
+    ) -> (styleCounters: [String: Int], lastNumberForStyle: [String: Int]) {
+        guard characterOffset > 0, textStorage.length > 0 else {
+            return ([:], [:])
+        }
+        
+        // Build parent map
+        var parentMap: [String: String] = [:]
+        if let styles = styleSheet.textStyles {
+            for style in styles {
+                if let parentName = style.parentStyleName, !parentName.isEmpty {
+                    parentMap[style.name] = parentName
+                }
+            }
+        }
+        
+        var styleCounters: [String: Int] = [:]
+        var lastNumberForStyle: [String: Int] = [:]
+        
+        let text = textStorage.string as NSString
+        let scanRange = NSRange(location: 0, length: min(characterOffset, textStorage.length))
+        
+        text.enumerateSubstrings(in: scanRange, options: .byParagraphs) { _, paragraphRange, _, _ in
+            guard paragraphRange.location < textStorage.length else { return }
+            let attrLocation = min(paragraphRange.location, textStorage.length - 1)
+            guard attrLocation >= 0 else { return }
+            
+            let attrs = textStorage.attributes(at: attrLocation, effectiveRange: nil)
+            guard let styleName = attrs[.textStyle] as? String,
+                  let style = styleSheet.style(named: styleName),
+                  style.numberFormat != .none else { return }
+            
+            // Handle parent reset
+            if let parentName = parentMap[styleName] {
+                let currentParentNumber = lastNumberForStyle[parentName] ?? 0
+                let trackedParentNumber = lastNumberForStyle["\(styleName)_parentNum"] ?? 0
+                if currentParentNumber != trackedParentNumber {
+                    styleCounters[styleName] = 0
+                    lastNumberForStyle["\(styleName)_parentNum"] = currentParentNumber
+                }
+            }
+            
+            let counter = (styleCounters[styleName] ?? 0) + 1
+            styleCounters[styleName] = counter
+            lastNumberForStyle[styleName] = counter
+        }
+        
+        return (styleCounters, lastNumberForStyle)
+    }
+    
+    /// Ensure paragraphs with numbered non-list styles have sufficient firstLineHeadIndent
+    /// so the drawn number (at style.firstLineIndent) doesn't overlap the text.
+    /// Call AFTER removePlatformScaling so fonts in the text are at print size.
+    static func ensureNumberIndents(in textStorage: NSMutableAttributedString, styleSheet: StyleSheet?) {
+        guard let styleSheet = styleSheet, textStorage.length > 0 else {
+            return
+        }
+        
+        // Build parent map for ancestor depth calculation
+        var parentMap: [String: String] = [:]
+        if let styles = styleSheet.textStyles {
+            for style in styles {
+                if let parentName = style.parentStyleName, !parentName.isEmpty {
+                    parentMap[style.name] = parentName
+                }
+            }
+        }
+        
+        let text = textStorage.string as NSString
+        let length = textStorage.length
+        var scanLocation = 0
+        
+        while scanLocation < length {
+            let paragraphRange = text.paragraphRange(for: NSRange(location: scanLocation, length: 0))
+            defer { scanLocation = NSMaxRange(paragraphRange) }
+            
+            let attrLocation = min(paragraphRange.location, length - 1)
+            let attrs = textStorage.attributes(at: attrLocation, effectiveRange: nil)
+            let styleName = attrs[.textStyle] as? String
+            let style = styleName.flatMap { styleSheet.style(named: $0) }
+            
+            guard let styleName = styleName,
+                  let style = style,
+                  style.numberFormat != .none,
+                  style.styleCategory != .list else { continue }
+            
+            // Calculate ancestor depth for multi-level numbering width
+            var ancestorDepth = 0
+            var current = parentMap[styleName]
+            while let name = current {
+                ancestorDepth += 1
+                current = parentMap[name]
+            }
+            
+            // Use the actual font from the text (already descaled if removePlatformScaling ran)
+            let font = attrs[.font] as? UIFont ?? style.generateFont(applyPlatformScaling: false)
+            let numberWidth = style.numberFormat.estimatedWidth(for: font, adornment: style.numberAdornment, ancestorDepth: ancestorDepth)
+            
+            // Number draws at style.firstLineIndent; text must start after numberWidth
+            let requiredIndent = style.firstLineIndent + numberWidth
+            let existingPS = attrs[.paragraphStyle] as? NSParagraphStyle
+            let currentIndent = existingPS?.firstLineHeadIndent ?? 0
+            
+            if currentIndent < requiredIndent {
+                let mutablePS = (existingPS?.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
+                mutablePS.firstLineHeadIndent = requiredIndent
+                textStorage.addAttribute(.paragraphStyle, value: mutablePS, range: paragraphRange)
+            }
+        }
+    }
+    
     /// Calculate and draw paragraph numbers for numbered styles
     /// For poetry projects, also draws line numbers on the right margin
     override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
@@ -145,10 +269,10 @@ class NumberingLayoutManager: NSLayoutManager {
         let parentStyleMap = buildParentStyleMap(from: styleSheet)
         
         // Track paragraph counters for each style
-        var styleCounters: [String: Int] = [:]
+        var styleCounters: [String: Int] = initialStyleCounters
         
         // Track the last number used for each style (for parent number prefixes)
-        var lastNumberForStyle: [String: Int] = [:]
+        var lastNumberForStyle: [String: Int] = initialLastNumberForStyle
         
         // For empty files with numbering enabled, show the first number
         if textStorage.length == 0 {
@@ -466,21 +590,30 @@ class NumberingLayoutManager: NSLayoutManager {
         let numberString = formattedNumber as NSString
         let numberSize = numberString.size(withAttributes: numberAttributes)
         
+        // Extract paragraph style measurements for diagnostics
+        let paragraphStyle = paragraphAttributes[.paragraphStyle] as? NSParagraphStyle
+        let actualFirstLineIndent = paragraphStyle?.firstLineHeadIndent ?? 0
+        let actualHeadIndent = paragraphStyle?.headIndent ?? 0
+        
         // For list styles, draw the number just before where the text starts (at headIndent)
-        // For other numbered styles, draw at the start of the line
+        // For other numbered styles (headings), draw at the style's base firstLineIndent.
+        // generateAttributes() sets firstLineHeadIndent = firstLineIndent + numberWidth,
+        // so lineFragmentRect.origin.x includes the numberWidth offset. We draw at the
+        // base indent (before that offset) so the number sits to the left of the text.
         let numberX: CGFloat
         if style.styleCategory == .list {
             // List items: number goes just before headIndent position
-            // Add a small gap between number and text
             let gap: CGFloat = 4.0
             numberX = origin.x + style.headIndent - numberSize.width - gap
         } else {
-            // Non-list numbered paragraphs: number at the start of the line
-            numberX = origin.x + lineFragmentRect.origin.x
+            // Non-list numbered paragraphs (headings): draw at the style's base firstLineIndent.
+            // The text starts at firstLineIndent + numberWidth (set by generateAttributes/ensureNumberIndents),
+            // so the number sits flush left at the margin where the heading would normally start.
+            numberX = origin.x + style.firstLineIndent
         }
         
-        // Calculate baseline-aligned Y position
-        let baselineY = origin.y + lineFragmentRect.height - paragraphFont.descender - numberSize.height + paragraphFont.descender
+        // Calculate baseline-aligned Y position: vertically center number in line fragment
+        let baselineY = origin.y + lineFragmentRect.origin.y + (lineFragmentRect.height - numberSize.height) / 2
         
         // Draw number left-aligned at the calculated position
         let numberRect = CGRect(

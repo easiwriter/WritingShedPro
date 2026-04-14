@@ -19,7 +19,6 @@ struct TOCSettingsView: View {
     // Local state for editing (copied from file on appear)
     @State private var title: String = "Contents"
     @State private var separator: String = "."
-    @State private var indentPoints: CGFloat = 20
     @State private var showPageNumbers: Bool = true
     @State private var useDotLeaders: Bool = true
     @State private var pageNumberPosition: CGFloat = 480
@@ -102,23 +101,6 @@ struct TOCSettingsView: View {
                     Text(NSLocalizedString("toc.settings.formattingSection", comment: "Formatting"))
                 }
                 
-                // Indentation Section
-                Section {
-                    Stepper(value: $indentPoints, in: 0...60, step: 5) {
-                        HStack {
-                            Text(NSLocalizedString("toc.settings.indent", comment: "Indent per level"))
-                            Spacer()
-                            Text("\(Int(indentPoints)) pt")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .accessibilityLabel(NSLocalizedString("toc.settings.indent.accessibility", comment: "Indent amount per TOC level"))
-                } header: {
-                    Text(NSLocalizedString("toc.settings.indentSection", comment: "Indentation"))
-                } footer: {
-                    Text(NSLocalizedString("toc.settings.indentFooter", comment: "Indent amount for each heading level in points"))
-                }
-                
                 // Preview Section
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
@@ -184,7 +166,6 @@ struct TOCSettingsView: View {
             }
             Spacer()
         }
-        .padding(.leading, CGFloat(level) * indentPoints)
     }
     
     // MARK: - Settings Management
@@ -193,7 +174,6 @@ struct TOCSettingsView: View {
         let settings = file.tocSettings
         title = settings.title
         separator = settings.separator
-        indentPoints = settings.indentPoints
         showPageNumbers = settings.showPageNumbers
         useDotLeaders = settings.useDotLeaders
         pageNumberPosition = settings.pageNumberPosition
@@ -225,7 +205,6 @@ struct TOCSettingsView: View {
         var settings = TOCSettings()
         settings.title = title
         settings.separator = separator
-        settings.indentPoints = indentPoints
         settings.showPageNumbers = showPageNumbers
         settings.useDotLeaders = useDotLeaders
         settings.pageNumberPosition = pageNumberPosition

@@ -21,9 +21,11 @@ struct TOCEntry: Identifiable {
     let globalCharacterPosition: Int  // Position in assembled manuscript (for page calculation)
     /// Whether this entry's page number should be displayed as a lowercase roman numeral (front matter)
     var isRomanNumeral: Bool
+    /// The style name that produced this entry (for numbering lookup)
+    let styleName: String?
     
     /// Create entry with just source file position (page number calculated later)
-    init(headingText: String, indentLevel: Int, sourceFile: TextFile, characterPosition: Int, globalCharacterPosition: Int = 0, isRomanNumeral: Bool = false) {
+    init(headingText: String, indentLevel: Int, sourceFile: TextFile, characterPosition: Int, globalCharacterPosition: Int = 0, isRomanNumeral: Bool = false, styleName: String? = nil) {
         self.headingText = headingText
         self.pageNumber = 0
         self.indentLevel = indentLevel
@@ -31,6 +33,7 @@ struct TOCEntry: Identifiable {
         self.characterPosition = characterPosition
         self.globalCharacterPosition = globalCharacterPosition
         self.isRomanNumeral = isRomanNumeral
+        self.styleName = styleName
     }
     
     /// The page number formatted for display (roman numeral for front matter, arabic for body)
@@ -181,6 +184,56 @@ final class TOCGenerationService {
         #if DEBUG
         print("[TOCGeneration] Generated \(entries.count) TOC entries total")
         #endif
+        
+        // Prepend paragraph numbers to heading text for numbered styles
+        if let styleSheet = project.styleSheet {
+            var styleCounters: [String: Int] = [:]
+            var lastNumberForStyle: [String: Int] = [:]
+            
+            // Build parent map
+            var parentMap: [String: String] = [:]
+            if let styles = styleSheet.textStyles {
+                for style in styles {
+                    if let parentName = style.parentStyleName, !parentName.isEmpty {
+                        parentMap[style.name] = parentName
+                    }
+                }
+            }
+            
+            entries = entries.map { entry in
+                guard let sName = entry.styleName,
+                      let style = styleSheet.style(named: sName),
+                      style.numberFormat != .none else {
+                    return entry
+                }
+                
+                // Handle parent reset
+                if let parentName = parentMap[sName] {
+                    let currentParentNumber = lastNumberForStyle[parentName] ?? 0
+                    let trackedParentNumber = lastNumberForStyle["\(sName)_parentNum"] ?? 0
+                    if currentParentNumber != trackedParentNumber {
+                        styleCounters[sName] = 0
+                        lastNumberForStyle["\(sName)_parentNum"] = currentParentNumber
+                    }
+                }
+                
+                let counter = (styleCounters[sName] ?? 0) + 1
+                styleCounters[sName] = counter
+                lastNumberForStyle[sName] = counter
+                
+                let level = sName.contains("level-3") ? 2 : (sName.contains("level-2") ? 1 : 0)
+                let formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment, level: level)
+                let numberedText = formattedNumber + " " + entry.headingText
+                
+                return TOCEntry(headingText: numberedText,
+                                indentLevel: entry.indentLevel,
+                                sourceFile: entry.sourceFile,
+                                characterPosition: entry.characterPosition,
+                                globalCharacterPosition: entry.globalCharacterPosition,
+                                isRomanNumeral: entry.isRomanNumeral,
+                                styleName: entry.styleName)
+            }
+        }
         
         return entries
     }
@@ -616,7 +669,8 @@ final class TOCGenerationService {
                         headingText: headingText,
                         indentLevel: tocInfo.level,
                         sourceFile: file,
-                        characterPosition: substringRange.location
+                        characterPosition: substringRange.location,
+                        styleName: styleName
                     )
                     entries.append(entry)
                 }
@@ -789,13 +843,8 @@ final class TOCGenerationService {
             .foregroundColor: UIColor.label
         ]
         
-        // Calculate indent
-        let indent = CGFloat(entry.indentLevel) * settings.indentPoints
-        
-        // Paragraph style with indent
+        // Paragraph style (no indentation — all entries at same level)
         let para = NSMutableParagraphStyle()
-        para.firstLineHeadIndent = indent
-        para.headIndent = indent
         para.paragraphSpacing = 4
         textAttrs[.paragraphStyle] = para
         
@@ -870,22 +919,14 @@ final class TOCGenerationService {
                 // Get original attributes
                 var attrs = content.attributes(at: substringRange.location, effectiveRange: nil)
                 
-                // Get indent from existing paragraph style
                 let existingPara = attrs[.paragraphStyle] as? NSParagraphStyle
-                let indent = existingPara?.firstLineHeadIndent ?? 0
                 
-                // Tab stop location is from the LEFT EDGE of the container, not from the indent.
-                // Place it at contentWidth so ALL page numbers align at the same right-edge
-                // position regardless of indent level.
+                // Tab stop at right edge of content area
                 let tabPosition = contentWidth
+                let textSpace = tabPosition
                 
-                // The actual space for heading + dots is from indent to the tab stop.
-                let textSpace = tabPosition - indent
-                
-                // Create paragraph style with right-aligned tab stop
+                // Create paragraph style with right-aligned tab stop (no indentation)
                 let para = NSMutableParagraphStyle()
-                para.firstLineHeadIndent = indent
-                para.headIndent = indent
                 para.paragraphSpacing = existingPara?.paragraphSpacing ?? 4
                 let tabStop = NSTextTab(textAlignment: .right, location: tabPosition, options: [:])
                 para.tabStops = [tabStop]

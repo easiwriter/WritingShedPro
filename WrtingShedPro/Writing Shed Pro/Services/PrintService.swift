@@ -911,6 +911,7 @@ class PrintService {
         // Create text storage from content
         let textStorage = NSTextStorage(attributedString: content)
         FootnoteAttachment.reconcileMarkerStyles(in: textStorage, stylesheet: project.styleSheet)
+        NumberingLayoutManager.ensureNumberIndents(in: textStorage, styleSheet: project.styleSheet)
         
         // Create layout manager using our pagination system
         let layoutManager = PaginatedTextLayoutManager(
@@ -1017,8 +1018,11 @@ class PrintService {
             #if DEBUG
             print("   ⚡ Using FAST PATH (form-feed split, no footnotes)")
             #endif
+            // Ensure numbered heading paragraphs have firstLineHeadIndent for number space
+            let adjustedContent = NSMutableAttributedString(attributedString: content)
+            NumberingLayoutManager.ensureNumberIndents(in: adjustedContent, styleSheet: project.styleSheet)
             return createPDFWithFormFeedSplit(
-                from: content,
+                from: adjustedContent,
                 pageSetup: pageSetup,
                 title: title,
                 project: project,
@@ -1043,6 +1047,7 @@ class PrintService {
         // STANDARD PATH: Full layout calculation for footnote-aware rendering
         let textStorage = NSTextStorage(attributedString: content)
         FootnoteAttachment.reconcileMarkerStyles(in: textStorage, stylesheet: project.styleSheet)
+        NumberingLayoutManager.ensureNumberIndents(in: textStorage, styleSheet: project.styleSheet)
         let layoutManager = PaginatedTextLayoutManager(
             textStorage: textStorage,
             pageSetup: pageSetup
@@ -1283,6 +1288,10 @@ class PrintService {
         var frontMatterPageCounter = 0
         var bodyPageCounter = 0
         
+        // Track running paragraph numbering counters across pages
+        var fastPathStyleCounters: [String: Int] = [:]
+        var fastPathLastNumberForStyle: [String: Int] = [:]
+        
         for (pageIndex, slice) in allPages.enumerated() {
             UIGraphicsBeginPDFPage()
             
@@ -1403,6 +1412,18 @@ class PrintService {
                 cgContext.saveGState()
                 cgContext.clip(to: drawRect)
                 pageText.draw(in: drawRect)
+                
+                // Draw paragraph numbers for numbered styles
+                if let styleSheet = project.styleSheet {
+                    Self.drawParagraphNumbers(
+                        in: pageText,
+                        drawRect: drawRect,
+                        styleSheet: styleSheet,
+                        styleCounters: &fastPathStyleCounters,
+                        lastNumberForStyle: &fastPathLastNumberForStyle
+                    )
+                }
+                
                 cgContext.restoreGState()
             }
             
@@ -1478,6 +1499,132 @@ class PrintService {
             }
         }
         return result
+    }
+    
+    /// Draw paragraph numbers for numbered styles in a PDF context.
+    /// Mutates running counter state so numbers increment correctly across pages.
+    static func drawParagraphNumbers(
+        in attributedString: NSAttributedString,
+        drawRect: CGRect,
+        styleSheet: StyleSheet,
+        styleCounters: inout [String: Int],
+        lastNumberForStyle: inout [String: Int]
+    ) {
+        // Build parent map
+        var parentMap: [String: String] = [:]
+        if let styles = styleSheet.textStyles {
+            for style in styles {
+                if let parentName = style.parentStyleName, !parentName.isEmpty {
+                    parentMap[style.name] = parentName
+                }
+            }
+        }
+        
+        // Use a temporary TextKit stack to compute line positions
+        let tempStorage = NSTextStorage(attributedString: attributedString)
+        let tempLM = NSLayoutManager()
+        let tempContainer = NSTextContainer(size: CGSize(width: drawRect.width, height: drawRect.height))
+        tempContainer.lineFragmentPadding = 0
+        tempStorage.addLayoutManager(tempLM)
+        tempLM.addTextContainer(tempContainer)
+        tempLM.ensureLayout(for: tempContainer)
+        
+        let text = attributedString.string as NSString
+        let length = attributedString.length
+        var scanLocation = 0
+        
+        while scanLocation < length {
+            let paragraphRange = text.paragraphRange(for: NSRange(location: scanLocation, length: 0))
+            defer { scanLocation = NSMaxRange(paragraphRange) }
+            
+            guard paragraphRange.location < length else { continue }
+            let attrLocation = min(paragraphRange.location, length - 1)
+            guard attrLocation >= 0 else { continue }
+            
+            let attrs = tempStorage.attributes(at: attrLocation, effectiveRange: nil)
+            let styleName = attrs[.textStyle] as? String
+            let style = styleName.flatMap { styleSheet.style(named: $0) }
+            
+            guard let styleName = styleName,
+                  let style = style,
+                  style.numberFormat != .none else { continue }
+            
+            // Handle parent reset
+            if let parentName = parentMap[styleName] {
+                let currentParentNumber = lastNumberForStyle[parentName] ?? 0
+                let trackedParentNumber = lastNumberForStyle["\(styleName)_parentNum"] ?? 0
+                if currentParentNumber != trackedParentNumber {
+                    styleCounters[styleName] = 0
+                    lastNumberForStyle["\(styleName)_parentNum"] = currentParentNumber
+                }
+            }
+            
+            let counter = (styleCounters[styleName] ?? 0) + 1
+            styleCounters[styleName] = counter
+            lastNumberForStyle[styleName] = counter
+            
+            // Build formatted number
+            let formattedNumber: String
+            var hasParent = false
+            var cur: String? = styleName
+            while let name = cur, parentMap[name] != nil {
+                hasParent = true
+                cur = parentMap[name]
+            }
+            
+            if hasParent {
+                var segments: [(styleName: String, number: Int)] = []
+                var walk: String? = styleName
+                while let name = walk {
+                    let num = (name == styleName) ? counter : (lastNumberForStyle[name] ?? 0)
+                    segments.append((name, num))
+                    walk = parentMap[name]
+                }
+                segments.reverse()
+                let parts: [String] = segments.map { seg in
+                    let level = seg.styleName.contains("level-3") ? 2 : (seg.styleName.contains("level-2") ? 1 : 0)
+                    if let s = styleSheet.style(named: seg.styleName), s.numberFormat != .none {
+                        return s.numberFormat.symbol(for: max(seg.number - 1, 0), adornment: .plain, level: level)
+                    }
+                    return "\(seg.number)"
+                }
+                let combined = parts.joined(separator: ".")
+                formattedNumber = style.numberAdornment.apply(to: combined)
+            } else {
+                let level = styleName.contains("level-3") ? 2 : (styleName.contains("level-2") ? 1 : 0)
+                formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment, level: level)
+            }
+            
+            // Get line position from temp layout manager
+            let glyphRange = tempLM.glyphRange(forCharacterRange: paragraphRange, actualCharacterRange: nil)
+            guard glyphRange.length > 0 else { return }
+            let lineFragmentRect = tempLM.lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
+            
+            let paragraphFont = attrs[.font] as? UIFont ?? style.generateFont(applyPlatformScaling: false)
+            let paragraphColor = (attrs[.foregroundColor] as? UIColor)?.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light)) ?? UIColor.black
+            
+            let numberAttributes: [NSAttributedString.Key: Any] = [
+                .font: paragraphFont,
+                .foregroundColor: paragraphColor
+            ]
+            let numberString = formattedNumber as NSString
+            let numberSize = numberString.size(withAttributes: numberAttributes)
+            
+            let numberX: CGFloat
+            if style.styleCategory == .list {
+                let gap: CGFloat = 4.0
+                numberX = drawRect.origin.x + style.headIndent - numberSize.width - gap
+            } else {
+                // Non-list numbered paragraphs (headings): draw at the style's base firstLineIndent
+                // Text starts at firstLineIndent + numberWidth; number sits flush left at margin
+                numberX = drawRect.origin.x + style.firstLineIndent
+            }
+            
+            let baselineY = drawRect.origin.y + lineFragmentRect.origin.y + (lineFragmentRect.height - numberSize.height) / 2
+            
+            let numberRect = CGRect(x: numberX, y: baselineY, width: numberSize.width, height: numberSize.height)
+            numberString.draw(in: numberRect, withAttributes: numberAttributes)
+        }
     }
     
     /// Draw header or footer text for the fast-path renderer
@@ -1600,6 +1747,19 @@ class PrintService {
                 let printFont = font.withSize(printSize)
                 mutable.addAttribute(.font, value: printFont, range: range)
             }
+        }
+        
+        // Also scale paragraph indents to match the descaled fonts
+        let scaleFactor: CGFloat = 1.0 / kCatalystFontScale
+        mutable.enumerateAttribute(.paragraphStyle, in: fullRange) { value, range, _ in
+            guard let ps = value as? NSParagraphStyle else { return }
+            let needsScale = ps.firstLineHeadIndent != 0 || ps.headIndent != 0 || ps.tailIndent != 0
+            guard needsScale else { return }
+            let mps = ps.mutableCopy() as! NSMutableParagraphStyle
+            if mps.firstLineHeadIndent != 0 { mps.firstLineHeadIndent *= scaleFactor }
+            if mps.headIndent != 0 { mps.headIndent *= scaleFactor }
+            if mps.tailIndent != 0 { mps.tailIndent *= scaleFactor }
+            mutable.addAttribute(.paragraphStyle, value: mps, range: range)
         }
         
         return mutable

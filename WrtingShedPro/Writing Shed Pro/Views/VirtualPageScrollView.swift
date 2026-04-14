@@ -1115,11 +1115,23 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Set ONLY this page's text
         textView.attributedText = mutableString
         
-        // Set starting line number for poetry projects (for continuous numbering across pages)
-        if let numberingLayoutManager = textView.layoutManager as? NumberingLayoutManager,
-           project?.type == .poetry {
-            let startingLineNumber = calculatePoetryStartingLineNumber(forPage: pageIndex)
-            numberingLayoutManager.poetryStartingLineNumber = startingLineNumber
+        // Set starting counters for paragraph numbering (continuous across pages)
+        if let numberingLayoutManager = textView.layoutManager as? NumberingLayoutManager {
+            if let proj = project, let styleSheet = proj.styleSheet, pageInfo.characterRange.location > 0 {
+                let state = NumberingLayoutManager.computeCounterState(
+                    upTo: pageInfo.characterRange.location,
+                    in: layoutManager.textStorage,
+                    styleSheet: styleSheet
+                )
+                numberingLayoutManager.initialStyleCounters = state.styleCounters
+                numberingLayoutManager.initialLastNumberForStyle = state.lastNumberForStyle
+            }
+            
+            // Set starting line number for poetry projects (for continuous numbering across pages)
+            if project?.type == .poetry {
+                let startingLineNumber = calculatePoetryStartingLineNumber(forPage: pageIndex)
+                numberingLayoutManager.poetryStartingLineNumber = startingLineNumber
+            }
         }
         
         #if DEBUG

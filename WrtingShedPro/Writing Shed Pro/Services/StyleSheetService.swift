@@ -200,6 +200,62 @@ struct StyleSheetService {
         // Get existing style names for quick lookup
         let existingStyleNames = Set(styles.map { $0.name })
         
+        // Add missing system text/heading/footnote styles
+        // These can be lost during CloudKit sync turbulence
+        let systemStyleDefs: [(UIFont.TextStyle, String, StyleCategory, Int, CGFloat?, Bool, Int)] = [
+            (.largeTitle, "Large Title", .heading, 0, nil, true, 0),
+            (.title1, "Title 1", .heading, 1, nil, true, 0),
+            (.title2, "Title 2", .heading, 2, nil, true, 1),
+            (.title3, "Title 3", .heading, 3, nil, true, 2),
+            (.headline, "Headline", .heading, 4, nil, true, 3),
+            (.body, "Body", .text, 5, nil, false, 0),
+            (.callout, "Body 1", .text, 6, 16, false, 0),
+            (.subheadline, "Body 2", .text, 7, 14, false, 0),
+            (.footnote, "Footnote", .footnote, 8, nil, false, 0),
+            (.caption1, "Caption 1", .text, 9, nil, false, 0),
+            (.caption2, "Caption 2", .text, 10, nil, false, 0)
+        ]
+        
+        for (textStyle, displayName, category, order, customFontSize, includeInTOC, tocLevel) in systemStyleDefs {
+            let styleName = textStyle.rawValue
+            if !existingStyleNames.contains(styleName) {
+                let font = UIFont.preferredFont(forTextStyle: textStyle)
+                let isBold = (category == .heading)
+                let fontSize = customFontSize ?? font.pointSize
+                let numberFormat: NumberFormat = (category == .footnote) ? .decimal : .none
+                let numberAdornment: NumberingAdornment = (category == .footnote) ? .plain : .period
+                
+                let newStyle = TextStyleModel(
+                    name: styleName,
+                    displayName: displayName,
+                    displayOrder: order,
+                    fontSize: fontSize,
+                    isBold: isBold,
+                    isItalic: false,
+                    alignment: .left,
+                    numberFormat: numberFormat,
+                    styleCategory: category,
+                    isSystemStyle: true
+                )
+                newStyle.numberAdornment = numberAdornment
+                newStyle.includeInTOC = includeInTOC
+                newStyle.tocLevel = tocLevel
+                newStyle.styleSheet = stylesheet
+                context.insert(newStyle)
+                
+                if stylesheet.textStyles == nil {
+                    stylesheet.textStyles = [newStyle]
+                } else {
+                    stylesheet.textStyles?.append(newStyle)
+                }
+                
+                addedCount += 1
+                #if DEBUG
+                print("➕ Added missing system style: \(displayName)")
+                #endif
+            }
+        }
+        
         // Add missing nested list styles (Level 2 and 3)
         let listIndentPerLevel: CGFloat = 36.0
         let nestedListStyles: [(String, String, NumberFormat, Int, Int)] = [

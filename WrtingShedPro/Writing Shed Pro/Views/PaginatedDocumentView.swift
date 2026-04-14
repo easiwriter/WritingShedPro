@@ -308,6 +308,9 @@ struct PaginatedDocumentView: View {
         // was changed after the footnote was last saved.
         FootnoteAttachment.reconcileMarkerStyles(in: textStorage, stylesheet: project.styleSheet)
         
+        // Ensure numbered heading paragraphs have firstLineHeadIndent for number space
+        NumberingLayoutManager.ensureNumberIndents(in: textStorage, styleSheet: project.styleSheet)
+        
         // Create layout manager
         let manager = PaginatedTextLayoutManager(
             textStorage: textStorage,
@@ -372,6 +375,8 @@ struct PaginatedDocumentView: View {
                 
                 // Reconcile footnote marker styles with the project stylesheet
                 FootnoteAttachment.reconcileMarkerStyles(in: existingManager.textStorage, stylesheet: project.styleSheet)
+                
+                NumberingLayoutManager.ensureNumberIndents(in: existingManager.textStorage, styleSheet: project.styleSheet)
             }
             
             existingManager.updatePageSetup(pageSetup)
@@ -421,6 +426,19 @@ struct PaginatedDocumentView: View {
             scaledFontSizes.insert(newSize)
             let newFont = font.withSize(newSize)
             mutableString.addAttribute(.font, value: newFont, range: range)
+        }
+        
+        // Also scale paragraph indents proportionally so that number spacing
+        // (computed from Catalyst-scaled fonts) remains correct for the descaled fonts.
+        mutableString.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { value, range, _ in
+            guard let ps = value as? NSParagraphStyle else { return }
+            let needsScale = ps.firstLineHeadIndent != 0 || ps.headIndent != 0 || ps.tailIndent != 0
+            guard needsScale else { return }
+            let mps = ps.mutableCopy() as! NSMutableParagraphStyle
+            if mps.firstLineHeadIndent != 0 { mps.firstLineHeadIndent *= scaleFactor }
+            if mps.headIndent != 0 { mps.headIndent *= scaleFactor }
+            if mps.tailIndent != 0 { mps.tailIndent *= scaleFactor }
+            mutableString.addAttribute(.paragraphStyle, value: mps, range: range)
         }
         
         #if DEBUG

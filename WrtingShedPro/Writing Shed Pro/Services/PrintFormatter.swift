@@ -158,6 +158,18 @@ class PrintFormatter {
             mutableString.addAttribute(.font, value: newFont, range: range)
         }
         
+        // Also scale paragraph indents to match the descaled fonts
+        mutableString.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { value, range, _ in
+            guard let ps = value as? NSParagraphStyle else { return }
+            let needsScale = ps.firstLineHeadIndent != 0 || ps.headIndent != 0 || ps.tailIndent != 0
+            guard needsScale else { return }
+            let mps = ps.mutableCopy() as! NSMutableParagraphStyle
+            if mps.firstLineHeadIndent != 0 { mps.firstLineHeadIndent *= scaleFactor }
+            if mps.headIndent != 0 { mps.headIndent *= scaleFactor }
+            if mps.tailIndent != 0 { mps.tailIndent *= scaleFactor }
+            mutableString.addAttribute(.paragraphStyle, value: mps, range: range)
+        }
+        
         #if DEBUG
         print("   - Applied scaling factor: \(scaleFactor) (Mac=÷1.3, iOS=×1.0)")
         #endif

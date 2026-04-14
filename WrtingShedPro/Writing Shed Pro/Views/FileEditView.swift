@@ -3007,12 +3007,13 @@ struct FileEditView: View {
         // The expensive AttributedStringSerializer.encode() now only runs when we actually save,
         // not on every keystroke.
         saveDebounceTimer?.invalidate()
+        let coalescer = WriteCoalescer.shared
         saveDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak modelContext] _ in
             // Encode attributed content only when saving (was previously per-keystroke)
             self.file.currentVersion?.attributedContent = newAttributedText
             // Use WriteCoalescer for save batching + CloudKit export coalescing.
             // This also notifies SyncHealthMonitor of local changes.
-            if let coalescer = WriteCoalescer.shared {
+            if let coalescer = coalescer {
                 coalescer.requestSave()
             } else {
                 do {

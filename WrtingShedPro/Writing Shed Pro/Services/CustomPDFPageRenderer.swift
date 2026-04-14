@@ -45,6 +45,10 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
     private var pageTextViews: [Int: UITextView] = [:]
     private var footnoteControllers: [Int: UIViewController] = [:]
     
+    /// Running paragraph numbering counter state across pages
+    private var pdfStyleCounters: [String: Int] = [:]
+    private var pdfLastNumberForStyle: [String: Int] = [:]
+    
     // MARK: - Initialization
     
     /// Initialize with our layout manager and context
@@ -586,8 +590,25 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         // Draw the attributed string
         mutableString.draw(in: drawRect)
         
+        // Draw paragraph numbers for numbered styles
+        drawParagraphNumbers(in: mutableString, drawRect: drawRect)
+        
         // Restore context state
         context.restoreGState()
+    }
+    
+    /// Draw paragraph numbers for styles that have numbering enabled.
+    /// Uses the running pdfStyleCounters/pdfLastNumberForStyle state so
+    /// numbers increment correctly across pages.
+    private func drawParagraphNumbers(in attributedString: NSMutableAttributedString, drawRect: CGRect) {
+        guard let styleSheet = project.styleSheet else { return }
+        PrintService.drawParagraphNumbers(
+            in: attributedString,
+            drawRect: drawRect,
+            styleSheet: styleSheet,
+            styleCounters: &pdfStyleCounters,
+            lastNumberForStyle: &pdfLastNumberForStyle
+        )
     }
     
     private func drawFootnotes<F: FootnoteRenderable & Identifiable>(footnotes: [F],
