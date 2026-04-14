@@ -3008,7 +3008,7 @@ struct FileEditView: View {
         // not on every keystroke.
         saveDebounceTimer?.invalidate()
         let coalescer = WriteCoalescer.shared
-        saveDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak modelContext] _ in
+        saveDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
             // Encode attributed content only when saving (was previously per-keystroke)
             self.file.currentVersion?.attributedContent = newAttributedText
             // Use WriteCoalescer for save batching + CloudKit export coalescing.
