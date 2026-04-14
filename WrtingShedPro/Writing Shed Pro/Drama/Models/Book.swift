@@ -29,7 +29,7 @@ final class Book {
     // Relationships
     var project: Project?
     
-    @Relationship(deleteRule: .cascade, inverse: \SceneBookLink.book)
+    @Relationship(deleteRule: .nullify, inverse: \SceneBookLink.book)
     var sceneLinks: [SceneBookLink]? = []
     
     /// Scenes in this book (derived from join table)

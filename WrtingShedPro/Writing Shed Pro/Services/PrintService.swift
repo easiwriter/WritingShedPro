@@ -313,6 +313,7 @@ class PrintService {
         // Create text storage and layout manager using our pagination system
         // Use ORIGINAL font sizes to match pagination view line breaks
         let textStorage = NSTextStorage(attributedString: content)
+        FootnoteAttachment.reconcileMarkerStyles(in: textStorage, stylesheet: project.styleSheet)
         let layoutManager = PaginatedTextLayoutManager(
             textStorage: textStorage,
             pageSetup: pageSetup
@@ -545,6 +546,7 @@ class PrintService {
         
         // Create text storage and layout manager using our pagination system
         let textStorage = NSTextStorage(attributedString: content)
+        FootnoteAttachment.reconcileMarkerStyles(in: textStorage, stylesheet: project.styleSheet)
         let layoutManager = PaginatedTextLayoutManager(
             textStorage: textStorage,
             pageSetup: pageSetup
@@ -908,6 +910,7 @@ class PrintService {
         
         // Create text storage from content
         let textStorage = NSTextStorage(attributedString: content)
+        FootnoteAttachment.reconcileMarkerStyles(in: textStorage, stylesheet: project.styleSheet)
         
         // Create layout manager using our pagination system
         let layoutManager = PaginatedTextLayoutManager(
@@ -1039,6 +1042,7 @@ class PrintService {
         
         // STANDARD PATH: Full layout calculation for footnote-aware rendering
         let textStorage = NSTextStorage(attributedString: content)
+        FootnoteAttachment.reconcileMarkerStyles(in: textStorage, stylesheet: project.styleSheet)
         let layoutManager = PaginatedTextLayoutManager(
             textStorage: textStorage,
             pageSetup: pageSetup

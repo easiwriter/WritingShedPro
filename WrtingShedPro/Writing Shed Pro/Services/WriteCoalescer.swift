@@ -8,8 +8,10 @@ import UIKit
 /// Centralised save coalescer that batches `modelContext.save()` calls.
 ///
 /// Callers invoke `requestSave()` instead of saving directly. The coalescer
-/// waits for an idle window (`flushDelay`, default 2 s) before performing a
-/// single save. This dramatically reduces CloudKit export operations during
+/// waits for an idle window before performing a single save. The delay adapts
+/// to editing activity: during rapid bursts the delay is extended to coalesce
+/// more aggressively; once the user goes idle all pending changes flush
+/// immediately. This dramatically reduces CloudKit export operations during
 /// intensive editing sessions.
 @Observable
 @MainActor
@@ -32,6 +34,9 @@ final class WriteCoalescer {
     /// Timestamp of last successful flush.
     private(set) var lastFlushTime: Date?
 
+    /// Current editing activity level, derived from request frequency.
+    private(set) var editingActivity: EditingActivity = .idle
+
     // MARK: - Configuration
 
     /// Idle threshold before flushing (seconds).
@@ -41,12 +46,28 @@ final class WriteCoalescer {
     /// Reduces save frequency to avoid deepening the rate-limit storm.
     let rateLimitDelayMultiplier: TimeInterval = 3.0
 
-    /// The effective delay, accounting for active rate-limit state.
+    /// Multiplier applied during burst editing (many requests in a short window).
+    let burstDelayMultiplier: TimeInterval = 1.75
+
+    /// Number of requests within `burstWindowDuration` to classify as a burst.
+    let burstRequestThreshold: Int = 5
+
+    /// Sliding window for counting burst activity (seconds).
+    let burstWindowDuration: TimeInterval = 10.0
+
+    /// Seconds of inactivity after the last request before an idle flush fires.
+    let idleFlushThreshold: TimeInterval = 5.0
+
+    /// The effective delay, accounting for editing activity and rate-limit state.
     private var effectiveDelay: TimeInterval {
-        if CloudKitSyncThrottler.shared.isRateLimited {
-            return flushDelay * rateLimitDelayMultiplier
+        var delay = flushDelay
+        if editingActivity == .burst {
+            delay *= burstDelayMultiplier
         }
-        return flushDelay
+        if CloudKitSyncThrottler.shared.isRateLimited {
+            delay *= rateLimitDelayMultiplier
+        }
+        return delay
     }
 
     /// Optional health monitor — notified after each successful flush.
@@ -57,7 +78,11 @@ final class WriteCoalescer {
     private let modelContext: ModelContext
     // @ObservationIgnored so deinit can invalidate/clean up
     @ObservationIgnored private var flushTimer: Timer?
+    @ObservationIgnored private var idleTimer: Timer?
     @ObservationIgnored private var diagnosticTimer: Timer?
+
+    /// Timestamps of recent `requestSave()` calls for burst detection.
+    @ObservationIgnored private var recentRequestTimes: [Date] = []
 
     /// Interval for periodic diagnostic logging (seconds). 0 disables.
     private let diagnosticInterval: TimeInterval = 300 // 5 minutes
@@ -105,6 +130,7 @@ final class WriteCoalescer {
 
     deinit {
         flushTimer?.invalidate()
+        idleTimer?.invalidate()
         diagnosticTimer?.invalidate()
         #if canImport(UIKit)
         if let observer = resignActiveObserver {
@@ -116,11 +142,14 @@ final class WriteCoalescer {
     // MARK: - Public API
 
     /// Request a coalesced save. Resets the flush timer each time it is called
-    /// so that rapid successive requests produce a single save.
+    /// so that rapid successive requests produce a single save. The flush
+    /// delay adapts based on editing activity (burst vs. normal).
     func requestSave() {
         requestCount += 1
         pendingSave = true
+        updateEditingActivity()
         resetTimer()
+        resetIdleTimer()
     }
 
     /// Immediately save if there are pending changes. Safe to call multiple
@@ -136,7 +165,54 @@ final class WriteCoalescer {
     func cancelPending() {
         flushTimer?.invalidate()
         flushTimer = nil
+        idleTimer?.invalidate()
+        idleTimer = nil
         pendingSave = false
+        editingActivity = .idle
+    }
+
+    // MARK: - Activity Tracking
+
+    /// Editing activity levels used to adapt save scheduling.
+    enum EditingActivity: String {
+        /// No recent requests — user is not editing.
+        case idle
+        /// Normal editing pace.
+        case active
+        /// Rapid-fire changes — coalesce more aggressively.
+        case burst
+    }
+
+    private func updateEditingActivity() {
+        let now = Date()
+        recentRequestTimes.append(now)
+
+        // Trim timestamps outside the burst window.
+        let windowStart = now.addingTimeInterval(-burstWindowDuration)
+        recentRequestTimes.removeAll { $0 < windowStart }
+
+        if recentRequestTimes.count >= burstRequestThreshold {
+            editingActivity = .burst
+        } else {
+            editingActivity = .active
+        }
+    }
+
+    private func resetIdleTimer() {
+        idleTimer?.invalidate()
+        idleTimer = Timer.scheduledTimer(withTimeInterval: idleFlushThreshold, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleIdleTimeout()
+            }
+        }
+    }
+
+    private func handleIdleTimeout() {
+        idleTimer = nil
+        editingActivity = .idle
+        recentRequestTimes.removeAll()
+        // User stopped editing — flush anything still pending.
+        flush()
     }
 
     // MARK: - Private
@@ -172,7 +248,7 @@ final class WriteCoalescer {
         guard saveCount > lastDiagnosticSaveCount else { return } // skip if idle
         let ratio = saveCount > 0 ? Double(requestCount) / Double(saveCount) : 0
         let rateLimited = CloudKitSyncThrottler.shared.isRateLimited
-        print("📊 [WriteCoalescer] requests=\(requestCount) saves=\(saveCount) ratio=\(String(format: "%.1f", ratio)):1 pending=\(pendingSave) rateLimited=\(rateLimited)")
+        print("📊 [WriteCoalescer] requests=\(requestCount) saves=\(saveCount) ratio=\(String(format: "%.1f", ratio)):1 pending=\(pendingSave) activity=\(editingActivity.rawValue) rateLimited=\(rateLimited)")
         lastDiagnosticSaveCount = saveCount
     }
     #endif

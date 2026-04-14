@@ -29,7 +29,7 @@ final class PoetryCollection {
     // Relationships
     var project: Project?
     
-    @Relationship(deleteRule: .cascade, inverse: \TextFileCollectionLink.poetryCollection)
+    @Relationship(deleteRule: .nullify, inverse: \TextFileCollectionLink.poetryCollection)
     var textFileLinks: [TextFileCollectionLink]? = []
     
     /// Text files in this collection (derived from join table)

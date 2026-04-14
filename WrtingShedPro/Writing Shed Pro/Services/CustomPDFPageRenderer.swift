@@ -140,10 +140,20 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         // Maximum footnote height - must match PaginatedTextLayoutManager
         let maxFootnoteHeight = contentRect.height * 0.5
         
-        // Use the character range from the constructor-supplied layoutResult directly,
-        // because layoutManager.layoutResult is set asynchronously on the main thread
-        // and may not be available yet during background PDF rendering.
-        let pageCharRange = pageInfo.characterRange
+        // Use the actual character range from the final layout manager container when
+        // available. After the final container rebuild (with footnote height reserved),
+        // the container may fit fewer characters than the iteration-phase pageInfo estimated.
+        // Using the stale range would include text that overflows the draw rect, clipping
+        // footnote markers near the bottom of the page.
+        let pageCharRange: NSRange
+        if pageIndex < layoutManager.layoutManager.textContainers.count {
+            let container = layoutManager.layoutManager.textContainers[pageIndex]
+            layoutManager.layoutManager.ensureLayout(for: container)
+            let glyphRange = layoutManager.layoutManager.glyphRange(for: container)
+            pageCharRange = layoutManager.layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+        } else {
+            pageCharRange = pageInfo.characterRange
+        }
         
         if let version = version, let modelContext = modelContext {
             versionFootnotes = layoutManager.getFootnotes(in: pageCharRange, version: version, context: modelContext)
@@ -271,7 +281,7 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             )
         } else {
             drawTextContent(
-                pageInfo: pageInfo,
+                characterRange: pageCharRange,
                 containerHeight: containerHeight,
                 topInset: topInset,
                 leftInset: leftInset,
@@ -497,13 +507,12 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         #endif
     }
     
-    private func drawTextContent(pageInfo: PaginatedTextLayoutManager.PageInfo,
+    private func drawTextContent(characterRange: NSRange,
                                  containerHeight: CGFloat,
                                  topInset: CGFloat,
                                  leftInset: CGFloat,
                                  context: CGContext) {
-        // Extract text for this page
-        let characterRange = pageInfo.characterRange
+        guard characterRange.length > 0 else { return }
         let attributedString = layoutManager.textStorage.attributedSubstring(from: characterRange)
         
         // Process attachments (convert footnotes to superscript numbers, remove comments)

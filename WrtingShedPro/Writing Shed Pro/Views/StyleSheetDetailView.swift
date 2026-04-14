@@ -53,6 +53,7 @@ struct StyleSheetDetailView: View {
         .navigationTitle(styleSheet.name)
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: styleSheet.footnoteMarkerStyleRaw) { _, _ in
+            WriteCoalescer.shared?.requestSave()
             NotificationCenter.default.post(
                 name: NSNotification.Name("StyleSheetModified"),
                 object: nil,

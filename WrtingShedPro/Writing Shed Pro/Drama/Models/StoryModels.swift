@@ -366,19 +366,19 @@ final class StoryScene {
     var trashedDate: Date?
     
     // Relationships (via join tables for CloudKit compatibility)
-    @Relationship(deleteRule: .cascade, inverse: \SceneChapterLink.scene)
+    @Relationship(deleteRule: .nullify, inverse: \SceneChapterLink.scene)
     var chapterLinks: [SceneChapterLink]? = []
     
-    @Relationship(deleteRule: .cascade, inverse: \SceneActLink.scene)
+    @Relationship(deleteRule: .nullify, inverse: \SceneActLink.scene)
     var actLinks: [SceneActLink]? = []
     
-    @Relationship(deleteRule: .cascade, inverse: \SceneBookLink.scene)
+    @Relationship(deleteRule: .nullify, inverse: \SceneBookLink.scene)
     var bookLinks: [SceneBookLink]? = []
     
-    @Relationship(deleteRule: .cascade, inverse: \ScenePlotElementLink.scene)
+    @Relationship(deleteRule: .nullify, inverse: \ScenePlotElementLink.scene)
     var plotElementLinks: [ScenePlotElementLink]? = []
     
-    @Relationship(deleteRule: .cascade, inverse: \SceneCharacterLink.scene)
+    @Relationship(deleteRule: .nullify, inverse: \SceneCharacterLink.scene)
     var characterLinks: [SceneCharacterLink]? = []
     
     var project: Project?
@@ -528,7 +528,7 @@ final class Chapter {
     // Relationships
     var project: Project?
     
-    @Relationship(deleteRule: .cascade, inverse: \SceneChapterLink.chapter)
+    @Relationship(deleteRule: .nullify, inverse: \SceneChapterLink.chapter)
     var sceneLinks: [SceneChapterLink]? = []
     
     /// Scenes in this chapter (derived from join table)
@@ -571,7 +571,7 @@ final class Act {
     // Relationships
     var project: Project?
     
-    @Relationship(deleteRule: .cascade, inverse: \SceneActLink.act)
+    @Relationship(deleteRule: .nullify, inverse: \SceneActLink.act)
     var sceneLinks: [SceneActLink]? = []
     
     /// Scenes in this act (derived from join table)
@@ -614,7 +614,7 @@ final class ProseSection {
     // Relationships
     var project: Project?
     
-    @Relationship(deleteRule: .cascade, inverse: \TextFileSectionLink.section)
+    @Relationship(deleteRule: .nullify, inverse: \TextFileSectionLink.section)
     var textFileLinks: [TextFileSectionLink]? = []
     
     /// Text files in this section (derived from join table)
@@ -661,11 +661,11 @@ final class Character {
     var customAttributes: [CustomAttribute]?
     
     // Scenes this character appears in (via join table for CloudKit)
-    @Relationship(deleteRule: .cascade, inverse: \SceneCharacterLink.character)
+    @Relationship(deleteRule: .nullify, inverse: \SceneCharacterLink.character)
     var sceneLinks: [SceneCharacterLink]? = []
     
     // Plot elements this character is planned for (via join table for CloudKit)
-    @Relationship(deleteRule: .cascade, inverse: \CharacterPlotElementLink.character)
+    @Relationship(deleteRule: .nullify, inverse: \CharacterPlotElementLink.character)
     var plotElementLinks: [CharacterPlotElementLink]? = []
     
     /// Scenes this character appears in (derived from join table)
@@ -755,7 +755,7 @@ final class Location {
     var scenes: [StoryScene]?
     
     // Plot elements this location is planned for (via join table for CloudKit)
-    @Relationship(deleteRule: .cascade, inverse: \LocationPlotElementLink.location)
+    @Relationship(deleteRule: .nullify, inverse: \LocationPlotElementLink.location)
     var plotElementLinks: [LocationPlotElementLink]? = []
     
     /// Plot elements for this location (derived from join table)
@@ -819,15 +819,15 @@ final class PlotElement {
     var project: Project?
     
     // Many-to-many with Scene (via join table for CloudKit)
-    @Relationship(deleteRule: .cascade, inverse: \ScenePlotElementLink.plotElement)
+    @Relationship(deleteRule: .nullify, inverse: \ScenePlotElementLink.plotElement)
     var sceneLinks: [ScenePlotElementLink]? = []
     
     // Characters involved in this plot beat (via join table for CloudKit)
-    @Relationship(deleteRule: .cascade, inverse: \CharacterPlotElementLink.plotElement)
+    @Relationship(deleteRule: .nullify, inverse: \CharacterPlotElementLink.plotElement)
     var characterLinks: [CharacterPlotElementLink]? = []
     
     // Locations for this plot beat (via join table for CloudKit)
-    @Relationship(deleteRule: .cascade, inverse: \LocationPlotElementLink.plotElement)
+    @Relationship(deleteRule: .nullify, inverse: \LocationPlotElementLink.plotElement)
     var locationLinks: [LocationPlotElementLink]? = []
     
     /// Linked scenes (derived from join table)

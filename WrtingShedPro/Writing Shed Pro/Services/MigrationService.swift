@@ -18,6 +18,7 @@ class MigrationService {
         if importConfirmed {
             deduplicateManuscriptSubfolders(context: context)
             cleanupOrphanedTrashItems(context: context)
+            cleanupOrphanedJoinLinks(context: context)
         }
         migrateManuscriptSubfolders(context: context, importConfirmed: importConfirmed)
         migrateFeature036(context: context, importConfirmed: importConfirmed)
@@ -265,6 +266,47 @@ class MigrationService {
             } catch {
                 #if DEBUG
                 print("❌ [MigrationService] Failed to save TrashItem cleanup: \(error)")
+                #endif
+            }
+        }
+    }
+    
+    /// Remove orphaned join-table records whose parent entities have been deleted.
+    /// With `.nullify` delete rules, deleting a parent sets the link's relationship
+    /// to nil rather than cascade-deleting the link itself.  This prevents CloudKit
+    /// export queue poisoning (CKErrorDomain code=2) from cross-device cascade echoes.
+    /// Links where BOTH sides are nil are safe to remove — they serve no purpose.
+    private static func cleanupOrphanedJoinLinks(context: ModelContext) {
+        var removedCount = 0
+        
+        func removeOrphans<T: PersistentModel>(_ type: T.Type, bothNil: (T) -> Bool) {
+            let descriptor = FetchDescriptor<T>()
+            guard let all = try? context.fetch(descriptor) else { return }
+            for link in all where bothNil(link) {
+                context.delete(link)
+                removedCount += 1
+            }
+        }
+        
+        removeOrphans(TextFileCollectionLink.self) { $0.textFile == nil && $0.poetryCollection == nil }
+        removeOrphans(TextFileSectionLink.self) { $0.textFile == nil && $0.section == nil }
+        removeOrphans(SceneChapterLink.self) { $0.scene == nil && $0.chapter == nil }
+        removeOrphans(SceneActLink.self) { $0.scene == nil && $0.act == nil }
+        removeOrphans(SceneBookLink.self) { $0.scene == nil && $0.book == nil }
+        removeOrphans(ScenePlotElementLink.self) { $0.scene == nil && $0.plotElement == nil }
+        removeOrphans(SceneCharacterLink.self) { $0.scene == nil && $0.character == nil }
+        removeOrphans(CharacterPlotElementLink.self) { $0.character == nil && $0.plotElement == nil }
+        removeOrphans(LocationPlotElementLink.self) { $0.location == nil && $0.plotElement == nil }
+        
+        if removedCount > 0 {
+            do {
+                try context.save()
+                #if DEBUG
+                print("🧹 [MigrationService] Removed \(removedCount) orphaned join-link records")
+                #endif
+            } catch {
+                #if DEBUG
+                print("❌ [MigrationService] Failed to save join-link cleanup: \(error)")
                 #endif
             }
         }

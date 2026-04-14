@@ -3010,12 +3010,18 @@ struct FileEditView: View {
         saveDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak modelContext] _ in
             // Encode attributed content only when saving (was previously per-keystroke)
             self.file.currentVersion?.attributedContent = newAttributedText
-            do {
-                try modelContext?.save()
-            } catch {
-                #if DEBUG
-                print("Error saving context: \(error)")
-                #endif
+            // Use WriteCoalescer for save batching + CloudKit export coalescing.
+            // This also notifies SyncHealthMonitor of local changes.
+            if let coalescer = WriteCoalescer.shared {
+                coalescer.requestSave()
+            } else {
+                do {
+                    try modelContext?.save()
+                } catch {
+                    #if DEBUG
+                    print("Error saving context: \(error)")
+                    #endif
+                }
             }
         }
         
@@ -5751,25 +5757,50 @@ struct FileEditView: View {
         // Renumber remaining models so the database is authoritative
         FootnoteManager.shared.renumberFootnotes(forVersion: currentVersion, context: modelContext)
         
-        // Sync text attachment numbers and marker style with the database
+        // Sync text attachment numbers and marker style with the database.
+        // CRITICAL: Replace attachment characters (not just mutate the object in place)
+        // to force the text system to regenerate the marker image. Mutating the
+        // FootnoteAttachment's properties alone doesn't trigger a redraw because
+        // NSTextStorage doesn't observe changes on attachment objects.
         var needsUpdate = false
+        let footnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: currentVersion, context: modelContext)
         
-        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
-            guard let attachment = value as? FootnoteAttachment else { return }
-            if let footnote = FootnoteManager.shared.getFootnoteByAttachment(attachmentID: attachment.footnoteID, context: modelContext) {
+        for footnote in footnotes {
+            if let (attachment, range) = mutableContent.footnoteAttachment(withID: footnote.attachmentID) {
+                var needsReplace = false
                 if attachment.number != footnote.number {
                     attachment.number = footnote.number
+                    needsReplace = true
+                }
+                if attachment.markerStyle != markerStyle {
+                    attachment.markerStyle = markerStyle
+                    needsReplace = true
+                }
+                if needsReplace {
+                    // Replace the attachment character to force image regeneration
+                    let newAttachmentString = NSAttributedString(attachment: attachment)
+                    mutableContent.replaceCharacters(in: range, with: newAttachmentString)
                     needsUpdate = true
                 }
-            }
-            if attachment.markerStyle != markerStyle {
-                attachment.markerStyle = markerStyle
-                needsUpdate = true
             }
         }
         
         if needsUpdate {
             attributedContent = mutableContent
+            
+            // CRITICAL: Push directly to the text view. FormattedTextEditor.updateUIView
+            // only propagates when the plain text string changes. Replacing an attachment
+            // at an existing U+FFFC position doesn't change the string, so the text view
+            // would keep displaying the old marker image. Without this, saveChanges()
+            // reads stale marker styles from the text view and persists them.
+            textViewCoordinator.modifyTypingAttributes { textView in
+                let savedSelection = textView.selectedRange
+                textView.textStorage.setAttributedString(mutableContent)
+                if savedSelection.location <= textView.textStorage.length {
+                    textView.selectedRange = savedSelection
+                }
+            }
+            
             #if DEBUG
             print("📝🔢 Reconciled footnote numbers/marker style on load")
             #endif

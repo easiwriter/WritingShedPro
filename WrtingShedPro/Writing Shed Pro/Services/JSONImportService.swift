@@ -677,6 +677,11 @@ class JSONImportService {
             #endif
         }
         
+        // Clear any tombstone that matches this project name+type so that
+        // zombie detection on the next launch doesn't cascade-delete the
+        // freshly imported folders and publications.
+        DeduplicationService.clearTombstone(name: project.name ?? "", typeRaw: project.typeRaw)
+        
         // Save
         try modelContext.save()
         
@@ -1067,6 +1072,10 @@ class JSONImportService {
         //   - isCollection = false (has collectionSubmissionIds) → Submissions folder
         // Calling importCollectionSubmissions() would create DUPLICATE submission records
         // try importCollectionSubmissions(from: writingShedData, into: project)
+        
+        // Clear any tombstone for this project name+type so zombie detection
+        // doesn't cascade-delete the imported folders and publications.
+        DeduplicationService.clearTombstone(name: project.name ?? "", typeRaw: project.typeRaw)
         
         // Save
         try modelContext.save()

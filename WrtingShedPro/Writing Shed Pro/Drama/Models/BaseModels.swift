@@ -788,11 +788,11 @@ final class TextFile {
     var scene: StoryScene?
     
     // Prose: A TextFile can belong to multiple ProseSections (via join table for CloudKit)
-    @Relationship(deleteRule: .cascade, inverse: \TextFileSectionLink.textFile)
+    @Relationship(deleteRule: .nullify, inverse: \TextFileSectionLink.textFile)
     var sectionLinks: [TextFileSectionLink]? = []
     
     // Feature 036: Poetry Collection membership (via join table for CloudKit)
-    @Relationship(deleteRule: .cascade, inverse: \TextFileCollectionLink.textFile)
+    @Relationship(deleteRule: .nullify, inverse: \TextFileCollectionLink.textFile)
     var poetryCollectionLinks: [TextFileCollectionLink]? = []
     
     // Feature 029: Manuscript Assembly

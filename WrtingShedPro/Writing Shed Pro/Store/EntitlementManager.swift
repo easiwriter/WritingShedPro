@@ -37,6 +37,11 @@ final class EntitlementManager {
     /// Whether entitlements have been loaded
     private(set) var isLoaded: Bool = false
 
+    /// Product IDs verified directly from purchase transactions within this session.
+    /// Merged into cachedEntitlements so we don't lose a purchase just because
+    /// Transaction.currentEntitlements is slow to update (known iOS StoreKit issue).
+    private var locallyVerifiedProductIDs: Set<String> = []
+
     /// True when: entitlements loaded, no purchases found, AND the device was offline
     /// during the initial load. Clears automatically when purchases are verified online.
     private(set) var showOfflinePurchaseWarning: Bool = false
@@ -87,7 +92,7 @@ final class EntitlementManager {
         let hasConfirmedPath = hasConfirmedNetworkPath
         let wasOffline = hasConfirmedPath ? !isNetworkReachable : false
         await purchaseManager.checkEntitlement()
-        cachedEntitlements = purchaseManager.entitledProductIDs
+        cachedEntitlements = purchaseManager.entitledProductIDs.union(locallyVerifiedProductIDs)
         isLoaded = true
 
         // Show the offline warning only if we got no entitlements AND we were
@@ -138,11 +143,19 @@ final class EntitlementManager {
             return false
         }
 #endif
-        // Bundle unlocks everything
-        if purchaseManager.isEntitled(to: WSPProduct.allInBundle.rawValue) {
+        // If entitlements haven't loaded yet, assume purchased to avoid
+        // false blocks while the async StoreKit check is still in-flight.
+        guard isLoaded else {
             return true
         }
-        return purchaseManager.isEntitled(to: product.rawValue)
+        // Check cached entitlements first (includes locally verified purchases
+        // that Transaction.currentEntitlements may not yet reflect on iOS).
+        let cachedBundle = cachedEntitlements.contains(WSPProduct.allInBundle.rawValue)
+        let cachedProduct = cachedEntitlements.contains(product.rawValue)
+        // Also check the purchase manager directly as a fallback
+        let bundleEntitled = cachedBundle || purchaseManager.isEntitled(to: WSPProduct.allInBundle.rawValue)
+        let productEntitled = cachedProduct || purchaseManager.isEntitled(to: product.rawValue)
+        return bundleEntitled || productEntitled
     }
     
     /// Check if a project type is unlocked (purchased or bundle)
@@ -190,6 +203,19 @@ final class EntitlementManager {
         return WSPProduct.individualModules.filter { !isModulePurchased($0) }
     }
     
+    // MARK: - Verified Purchase Recording
+
+    /// Record a product ID from a verified StoreKit transaction.
+    /// This ensures the entitlement is recognised immediately, even if
+    /// Transaction.currentEntitlements hasn't caught up yet (iOS timing issue).
+    func recordVerifiedPurchase(_ productID: String) {
+        locallyVerifiedProductIDs.insert(productID)
+        cachedEntitlements.insert(productID)
+        #if DEBUG
+        print("✅ [EntitlementManager] Recorded verified purchase: \(productID), cachedEntitlements=\(cachedEntitlements)")
+        #endif
+    }
+
     // MARK: - Free Tier Limit Checks
     
     /// Check if user can create a new project of the given type

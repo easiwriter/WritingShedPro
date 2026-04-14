@@ -30,6 +30,7 @@ struct SyncDiagnosticsView: View {
     @State private var orphanedFolderCount: Int = 0
     @State private var orphanedFileCount: Int = 0
     @State private var duplicateStyleSheetCount: Int = 0
+    @State private var tombstoneCount: Int = 0
     @State private var repairMessage: String = ""
     @State private var showRepairResult = false
     
@@ -42,6 +43,7 @@ struct SyncDiagnosticsView: View {
     @State private var syncResetScheduled = false
     @State private var showDeleteZoneConfirmation = false
     @State private var zoneDeleteStatus: String = ""
+    @State private var zoneWasDeletedThisSession = false
     
     var body: some View {
         NavigationStack {
@@ -63,6 +65,7 @@ struct SyncDiagnosticsView: View {
                 checkCloudKitSubscriptions()
                 checkForOrphans()
                 checkForDuplicateStyleSheets()
+                tombstoneCount = DeduplicationService.tombstoneCount
             }
             .alert("Repair Complete", isPresented: $showRepairResult) {
                 Button("OK") { }
@@ -254,6 +257,13 @@ struct SyncDiagnosticsView: View {
         lines.append(contentsOf: projectInventoryLines())
         lines.append("")
         lines.append(contentsOf: publicationInventoryLines())
+
+        let tombstones = DeduplicationService.tombstoneDescriptions()
+        lines.append("")
+        lines.append("Zombie Tombstones: \(tombstones.count)")
+        for t in tombstones {
+            lines.append("- \(t.name) | type=\(t.type) | deleted=\(t.deletedAt.formatted(date: .abbreviated, time: .shortened))")
+        }
 
         return lines.joined(separator: "\n")
     }
@@ -466,6 +476,12 @@ struct SyncDiagnosticsView: View {
             if duplicateCount > 0 {
                 duplicateReferencesRepairRow
             }
+
+            tombstoneStatusRow
+
+            if tombstoneCount > 0 {
+                tombstoneClearRow
+            }
         }
     }
 
@@ -621,6 +637,39 @@ struct SyncDiagnosticsView: View {
         }
     }
 
+    private var tombstoneStatusRow: some View {
+        HStack {
+            Text("Zombie Tombstones")
+            Spacer()
+            Text("\(tombstoneCount) active")
+                .foregroundColor(tombstoneCount > 0 ? .red : .secondary)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            tombstoneCount = DeduplicationService.tombstoneCount
+        }
+    }
+
+    private var tombstoneClearRow: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Image(systemName: "trash.slash")
+                Text("Clear All Tombstones")
+                Spacer()
+            }
+            .foregroundColor(.red)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                clearAllTombstones()
+            }
+            ForEach(DeduplicationService.tombstoneDescriptions(), id: \.name) { t in
+                Text("\(t.name) (\(t.type)) — \(t.deletedAt.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private var stylesheetsSection: some View {
         Section("StyleSheets") {
             ForEach(stylesheets, id: \.id) { stylesheet in
@@ -673,6 +722,11 @@ struct SyncDiagnosticsView: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
+            } else if zoneWasDeletedThisSession {
+                Text("⚠️ Zone was just deleted. Quit and relaunch to re-export local data. Do NOT reset the local database or all data will be lost.")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
             } else {
                 Button("Reset Sync Database") {
                     showResetSyncConfirmation = true
@@ -682,12 +736,12 @@ struct SyncDiagnosticsView: View {
         }
         .alert("Reset Sync Database?", isPresented: $showResetSyncConfirmation) {
             Button("Cancel", role: .cancel) { }
-            Button("Reset", role: .destructive) {
+            Button("Delete Local Data & Re-Import", role: .destructive) {
                 UserDefaults.standard.set(true, forKey: "resetSyncOnNextLaunch")
                 syncResetScheduled = true
             }
         } message: {
-            Text("This deletes the local database and performs a full re-import from CloudKit on next launch. No cloud data is lost. Quit and relaunch the app after confirming.")
+            Text("⚠️ This DELETES ALL LOCAL DATA on this device and re-imports from CloudKit on next launch. Only use this if the CloudKit zone has good data. If you just deleted the CloudKit zone, do NOT use this — just quit and relaunch instead.")
         }
         .alert("Delete CloudKit Zone?", isPresented: $showDeleteZoneConfirmation) {
             Button("Cancel", role: .cancel) { }
@@ -695,7 +749,7 @@ struct SyncDiagnosticsView: View {
                 deleteCloudKitZone()
             }
         } message: {
-            Text("This permanently deletes ALL data in the CloudKit zone. Other devices will lose their synced data. Only this device's local database is preserved. Make sure you have a backup before proceeding.")
+            Text("⚠️ This permanently deletes ALL data in the CloudKit zone. This device's local data is preserved. After deleting, just QUIT AND RELAUNCH this app — it will re-export local data to a fresh zone. Do NOT use 'Reset Sync Database' on this device afterwards or you will lose everything.")
         }
 
         #if DEBUG
@@ -741,7 +795,8 @@ struct SyncDiagnosticsView: View {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    zoneDeleteStatus = "✅ CloudKit zone deleted. Other devices should reset their local DB and re-sync."
+                    zoneDeleteStatus = "✅ Zone deleted. Quit and relaunch this app to re-export. Other devices: Reset Sync Database then relaunch."
+                    zoneWasDeletedThisSession = true
                 case .failure(let error):
                     zoneDeleteStatus = "❌ Zone delete failed: \(error.localizedDescription)"
                 }
@@ -816,6 +871,14 @@ struct SyncDiagnosticsView: View {
         } catch {
             repairMessage = "Error merging stylesheets: \(error.localizedDescription)"
         }
+        showRepairResult = true
+    }
+
+    /// Clear all zombie tombstones to prevent imported projects from being killed.
+    private func clearAllTombstones() {
+        DeduplicationService.clearAllTombstones()
+        tombstoneCount = 0
+        repairMessage = "All zombie tombstones cleared. Re-imported projects are now safe."
         showRepairResult = true
     }
 

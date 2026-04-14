@@ -267,6 +267,29 @@ final class FootnoteAttachment: NSTextAttachment {
             height: height
         )
     }
+    
+    // MARK: - Marker Style Reconciliation
+    
+    /// Update all FootnoteAttachment marker styles in the given text storage to match
+    /// the project stylesheet. Replaces stale attachment characters so the text system
+    /// regenerates the marker image.
+    static func reconcileMarkerStyles(in textStorage: NSMutableAttributedString, stylesheet: StyleSheet?) {
+        let markerStyle = stylesheet?.footnoteMarkerStyle ?? .numeric
+        var replacements: [(NSRange, FootnoteAttachment)] = []
+        
+        textStorage.enumerateAttribute(.attachment, in: NSRange(location: 0, length: textStorage.length), options: []) { value, range, _ in
+            guard let attachment = value as? FootnoteAttachment else { return }
+            if attachment.markerStyle != markerStyle {
+                attachment.markerStyle = markerStyle
+                replacements.append((range, attachment))
+            }
+        }
+        
+        // Replace in reverse order to keep ranges valid
+        for (range, attachment) in replacements.reversed() {
+            textStorage.replaceCharacters(in: range, with: NSAttributedString(attachment: attachment))
+        }
+    }
 }
 
 // MARK: - NSAttributedString Extension

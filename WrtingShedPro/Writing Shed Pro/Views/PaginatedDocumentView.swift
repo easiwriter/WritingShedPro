@@ -303,6 +303,11 @@ struct PaginatedDocumentView: View {
         // Update caption numbers for image attachments (Feature 016)
         ImageAttachment.updateCaptionNumbers(in: textStorage, styleSheet: project.styleSheet)
         
+        // Reconcile footnote marker styles with the project stylesheet.
+        // The serialized data may contain stale marker styles if the stylesheet
+        // was changed after the footnote was last saved.
+        FootnoteAttachment.reconcileMarkerStyles(in: textStorage, stylesheet: project.styleSheet)
+        
         // Create layout manager
         let manager = PaginatedTextLayoutManager(
             textStorage: textStorage,
@@ -364,6 +369,9 @@ struct PaginatedDocumentView: View {
                 
                 // Update caption numbers for image attachments (Feature 016)
                 ImageAttachment.updateCaptionNumbers(in: existingManager.textStorage, styleSheet: project.styleSheet)
+                
+                // Reconcile footnote marker styles with the project stylesheet
+                FootnoteAttachment.reconcileMarkerStyles(in: existingManager.textStorage, stylesheet: project.styleSheet)
             }
             
             existingManager.updatePageSetup(pageSetup)

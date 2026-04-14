@@ -72,6 +72,27 @@ class DeduplicationService {
         }
     }
 
+    /// Remove ALL tombstones. Used after recovery imports to prevent zombie detection
+    /// from killing freshly re-imported projects.
+    static func clearAllTombstones() {
+        let existing = loadTombstones()
+        guard !existing.isEmpty else { return }
+        saveTombstones([])
+        #if DEBUG
+        print("🪦 [DeduplicationService] Cleared all \(existing.count) tombstone(s)")
+        #endif
+    }
+
+    /// Return a human-readable list of active tombstones for diagnostics.
+    static func tombstoneDescriptions() -> [(name: String, type: String, deletedAt: Date)] {
+        loadTombstones().map { ($0.normalizedName, $0.typeRaw ?? "unknown", $0.deletedAt) }
+    }
+
+    /// Return the number of active tombstones.
+    static var tombstoneCount: Int {
+        loadTombstones().count
+    }
+
     /// After a CloudKit import, delete any projects that match an active tombstone.
     /// This prevents "zombie" records from reappearing after permanent deletion.
     @MainActor

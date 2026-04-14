@@ -153,8 +153,16 @@ final class SyncHealthMonitor {
         if let exportTime {
             gap = localTime.timeIntervalSince(exportTime)
         } else {
-            // Never had a successful export — measure from local change.
-            gap = Date().timeIntervalSince(localTime)
+            // No export has been observed this session. This typically means
+            // NSPersistentCloudKitContainer had nothing to export (the change
+            // token was already current). Unless the throttler signals trouble,
+            // treat this as healthy rather than assuming a stall.
+            if throttler.isRateLimited || throttler.exportInProgress {
+                gap = Date().timeIntervalSince(localTime)
+            } else {
+                transition(to: .healthy)
+                return
+            }
         }
 
         // No gap or export is newer than local change → healthy.
