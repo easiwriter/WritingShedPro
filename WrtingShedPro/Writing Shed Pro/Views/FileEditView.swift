@@ -3014,7 +3014,7 @@ struct FileEditView: View {
             // Use WriteCoalescer for save batching + CloudKit export coalescing.
             // This also notifies SyncHealthMonitor of local changes.
             Task { @MainActor in
-                coalescer.requestSave()
+                coalescer?.requestSave()
             }
         }
         
