@@ -866,12 +866,13 @@ struct FolderFilesView: View {
         
         for file in filesToSubmit {
             let currentVersion = file.currentVersion
+            let statusDate: Date = Date()
             let submittedFile = SubmittedFile(
                 submission: submission,
                 textFile: file,
                 version: currentVersion,
                 status: .pending,
-                statusDate: Date(),
+                statusDate: statusDate,
                 project: project
             )
             modelContext.insert(submittedFile)

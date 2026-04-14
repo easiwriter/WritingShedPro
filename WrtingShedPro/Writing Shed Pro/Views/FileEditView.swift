@@ -3013,16 +3013,8 @@ struct FileEditView: View {
             self.file.currentVersion?.attributedContent = newAttributedText
             // Use WriteCoalescer for save batching + CloudKit export coalescing.
             // This also notifies SyncHealthMonitor of local changes.
-            if let coalescer = coalescer {
+            Task { @MainActor in
                 coalescer.requestSave()
-            } else {
-                do {
-                    try modelContext?.save()
-                } catch {
-                    #if DEBUG
-                    print("Error saving context: \(error)")
-                    #endif
-                }
             }
         }
         

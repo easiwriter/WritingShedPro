@@ -590,11 +590,6 @@ class NumberingLayoutManager: NSLayoutManager {
         let numberString = formattedNumber as NSString
         let numberSize = numberString.size(withAttributes: numberAttributes)
         
-        // Extract paragraph style measurements for diagnostics
-        let paragraphStyle = paragraphAttributes[.paragraphStyle] as? NSParagraphStyle
-        let actualFirstLineIndent = paragraphStyle?.firstLineHeadIndent ?? 0
-        let actualHeadIndent = paragraphStyle?.headIndent ?? 0
-        
         // For list styles, draw the number just before where the text starts (at headIndent)
         // For other numbered styles (headings), draw at the style's base firstLineIndent.
         // generateAttributes() sets firstLineHeadIndent = firstLineIndent + numberWidth,
