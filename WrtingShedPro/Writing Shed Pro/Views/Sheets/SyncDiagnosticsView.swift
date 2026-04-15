@@ -44,6 +44,8 @@ struct SyncDiagnosticsView: View {
     @State private var showDeleteZoneConfirmation = false
     @State private var zoneDeleteStatus: String = ""
     @State private var zoneWasDeletedThisSession = false
+    @State private var reexportStatus: String = ""
+    @State private var zoneVerifyStatus: String = ""
     
     var body: some View {
         NavigationStack {
@@ -752,10 +754,18 @@ struct SyncDiagnosticsView: View {
             Text("⚠️ This permanently deletes ALL data in the CloudKit zone. This device's local data is preserved. After deleting, just QUIT AND RELAUNCH this app — it will re-export local data to a fresh zone. Do NOT use 'Reset Sync Database' on this device afterwards or you will lose everything.")
         }
 
-        #if DEBUG
-        Section("Debug Actions") {
-            Button("Force Save Context") {
-                saveContextAndShowStatus()
+        Section("Zone Recovery") {
+            Button("Force Re-export All Data") {
+                forceReexportAllData()
+            }
+            .foregroundStyle(.orange)
+
+            if !reexportStatus.isEmpty {
+                Text(reexportStatus)
+                    .font(.caption)
+                    .foregroundStyle(reexportStatus.hasPrefix("✅") ? .green :
+                                     reexportStatus.hasPrefix("❌") ? .red : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Button("Delete CloudKit Zone") {
@@ -768,6 +778,27 @@ struct SyncDiagnosticsView: View {
                     .font(.caption)
                     .foregroundStyle(zoneDeleteStatus.hasPrefix("✅") ? .green : .orange)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button("Verify Zone Content") {
+                verifyZoneContent()
+            }
+            .foregroundStyle(.blue)
+
+            if !zoneVerifyStatus.isEmpty {
+                Text(zoneVerifyStatus)
+                    .font(.caption)
+                    .foregroundStyle(zoneVerifyStatus.hasPrefix("✅") ? .green :
+                                     zoneVerifyStatus.hasPrefix("❌") ? .red : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
+        }
+
+        #if DEBUG
+        Section("Debug Actions") {
+            Button("Force Save Context") {
+                saveContextAndShowStatus()
             }
         }
         #endif
@@ -804,6 +835,110 @@ struct SyncDiagnosticsView: View {
         }
         operation.qualityOfService = .userInitiated
         database.add(operation)
+    }
+
+    private func verifyZoneContent() {
+        zoneVerifyStatus = "Querying zone…"
+        let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
+        let database = ckContainer.privateCloudDatabase
+        let zoneID = CKRecordZone.ID(zoneName: "com.apple.coredata.cloudkit.zone", ownerName: CKCurrentUserDefaultName)
+
+        // First verify the zone exists
+        database.fetch(withRecordZoneID: zoneID) { zone, error in
+            if let error = error {
+                DispatchQueue.main.async {
+                    zoneVerifyStatus = "❌ Zone fetch failed: \(error.localizedDescription)"
+                }
+                return
+            }
+            guard zone != nil else {
+                DispatchQueue.main.async {
+                    zoneVerifyStatus = "❌ Zone does not exist"
+                }
+                return
+            }
+
+            // Fetch all changes with nil token (= full zone contents)
+            let config = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
+            config.previousServerChangeToken = nil
+            let fetchOp = CKFetchRecordZoneChangesOperation(recordZoneIDs: [zoneID], configurationsByRecordZoneID: [zoneID: config])
+
+            var typeCounts: [String: Int] = [:]
+            var totalRecords = 0
+
+            fetchOp.recordWasChangedBlock = { _, result in
+                if case .success(let record) = result {
+                    let type = record.recordType
+                    DispatchQueue.main.async {
+                        typeCounts[type, default: 0] += 1
+                        totalRecords += 1
+                    }
+                }
+            }
+
+            fetchOp.fetchRecordZoneChangesResultBlock = { result in
+                // Give a moment for all recordWasChanged callbacks
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    switch result {
+                    case .success:
+                        if totalRecords == 0 {
+                            zoneVerifyStatus = "⚠️ Zone exists but contains 0 records"
+                        } else {
+                            let summary = typeCounts.sorted { $0.key < $1.key }
+                                .map { "\($0.key): \($0.value)" }
+                                .joined(separator: "\n")
+                            zoneVerifyStatus = "✅ Zone has \(totalRecords) records:\n\(summary)"
+                        }
+                    case .failure(let error):
+                        zoneVerifyStatus = "❌ Zone fetch changes failed: \(error.localizedDescription)"
+                    }
+                }
+            }
+
+            fetchOp.qualityOfService = .userInitiated
+            database.add(fetchOp)
+        }
+    }
+
+    /// Touch every record to force NSPersistentCloudKitContainer to re-export
+    /// all data. Use after a zone delete + relaunch when the persistent history
+    /// token has advanced past records that need re-exporting.
+    private func forceReexportAllData() {
+        reexportStatus = "Touching all records…"
+        let now = Date()
+        var touchedCount = 0
+
+        // Touch all projects
+        for project in projects {
+            project.modifiedDate = now
+            touchedCount += 1
+        }
+
+        // Touch all folders (no modifiedDate — set userOrder to force dirty)
+        for folder in allFolders {
+            let order = folder.userOrder ?? 0
+            folder.userOrder = order
+            touchedCount += 1
+        }
+
+        // Touch all text files
+        for file in allTextFiles {
+            file.modifiedDate = now
+            touchedCount += 1
+        }
+
+        // Touch all publications
+        for pub in publications {
+            pub.modifiedDate = now
+            touchedCount += 1
+        }
+
+        do {
+            try modelContext.save()
+            reexportStatus = "✅ Touched \(touchedCount) records. Export should begin shortly."
+        } catch {
+            reexportStatus = "❌ Save failed: \(error.localizedDescription)"
+        }
     }
 
     /// Check for duplicate projects (same name + creation date)

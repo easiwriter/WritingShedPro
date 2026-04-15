@@ -42,16 +42,20 @@ struct Write_App: App {
         // a full zone import with a fresh server change token.
         if UserDefaults.standard.bool(forKey: "resetSyncOnNextLaunch") {
             UserDefaults.standard.removeObject(forKey: "resetSyncOnNextLaunch")
-            let storeURL = URL.documentsDirectory.appending(path: "writingshed.sqlite")
             let fm = FileManager.default
-            for suffix in ["", "-wal", "-shm"] {
-                let url = storeURL.deletingLastPathComponent().appending(path: "writingshed.sqlite\(suffix)")
-                try? fm.removeItem(at: url)
-            }
-            // Also remove CloudKit metadata caches alongside the store
-            let ckAssets = storeURL.deletingLastPathComponent().appending(path: "writingshed.sqlite.ckAssets")
-            if fm.fileExists(atPath: ckAssets.path) {
-                try? fm.removeItem(at: ckAssets)
+            let docsDir = URL.documentsDirectory
+            // Delete ALL files/directories matching writingshed.sqlite* (including hidden variants)
+            // This catches: .sqlite, -wal, -shm, .ckAssets, -ckAssets, and any other CoreData companions
+            if let contents = try? fm.contentsOfDirectory(at: docsDir, includingPropertiesForKeys: nil) {
+                for url in contents {
+                    let name = url.lastPathComponent
+                    if name.hasPrefix("writingshed.sqlite") || name.hasPrefix(".writingshed.sqlite") {
+                        try? fm.removeItem(at: url)
+                        #if DEBUG
+                        print("🗑️ [Write_App] Reset deleted: \(name)")
+                        #endif
+                    }
+                }
             }
             #if DEBUG
             print("🔄 [Write_App] Sync database reset — deleted store files for fresh CloudKit import")

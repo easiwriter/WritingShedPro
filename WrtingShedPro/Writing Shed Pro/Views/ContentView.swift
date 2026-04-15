@@ -412,8 +412,9 @@ struct ContentView: View {
             // --- Do we have projects yet? ---
             if !projects.isEmpty { return }
             
+            let freshContext = ModelContext(modelContext.container)
             let descriptor = FetchDescriptor<Project>()
-            if let count = try? modelContext.fetchCount(descriptor), count > 0 {
+            if let count = try? freshContext.fetchCount(descriptor), count > 0 {
                 #if DEBUG
                 print("🔄 [ContentView] Found \(count) projects at check \(check)/\(totalChecks) — refreshing")
                 #endif

@@ -312,9 +312,12 @@ struct NoteEditorSheet: View {
         if isReferencingExisting,
            let selectedID = selectedExistingNoteID,
            let selectedNote = existingNotesOfType.first(where: { $0.id == selectedID }) {
-            // Reference existing note
-            onSave?(selectedNote)
+            // Reference existing note - dismiss first, then notify parent
+            let callback = onSave
             dismiss()
+            DispatchQueue.main.async {
+                callback?(selectedNote)
+            }
         } else {
             // Create new note or update existing
             let trimmedContent = noteContent.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -364,8 +367,13 @@ struct NoteEditorSheet: View {
                 #endif
             }
             
-            onSave?(note)
+            // Dismiss first, then notify parent - onSave triggers heavy
+            // state updates (insertNoteMarker) that can block SwiftUI dismiss
+            let callback = onSave
             dismiss()
+            DispatchQueue.main.async {
+                callback?(note)
+            }
         }
     }
     
