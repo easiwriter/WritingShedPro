@@ -182,12 +182,16 @@ class NumberingLayoutManager: NSLayoutManager {
     /// Ensure paragraphs with numbered non-list styles have sufficient firstLineHeadIndent
     /// so the drawn number (at style.firstLineIndent) doesn't overlap the text.
     /// Call AFTER removePlatformScaling so fonts in the text are at print size.
+    ///
+    /// Computes each paragraph's actual number string (e.g. "(4)", "(10)") and sets
+    /// firstLineHeadIndent = firstLineIndent + actualNumberWidth + gap, so the gap
+    /// between number and text is always consistent.
     static func ensureNumberIndents(in textStorage: NSMutableAttributedString, styleSheet: StyleSheet?) {
         guard let styleSheet = styleSheet, textStorage.length > 0 else {
             return
         }
         
-        // Build parent map for ancestor depth calculation
+        // Build parent map for hierarchical numbering
         var parentMap: [String: String] = [:]
         if let styles = styleSheet.textStyles {
             for style in styles {
@@ -199,40 +203,59 @@ class NumberingLayoutManager: NSLayoutManager {
         
         let text = textStorage.string as NSString
         let length = textStorage.length
+        let gap: CGFloat = 4.0
+        
+        // Track counters per style (same logic as drawBackground)
+        var styleCounters: [String: Int] = [:]
+        var lastNumberForStyle: [String: Int] = [:]
         var scanLocation = 0
         
         while scanLocation < length {
             let paragraphRange = text.paragraphRange(for: NSRange(location: scanLocation, length: 0))
             defer { scanLocation = NSMaxRange(paragraphRange) }
             
-            let attrLocation = min(paragraphRange.location, length - 1)
-            let attrs = textStorage.attributes(at: attrLocation, effectiveRange: nil)
-            let styleName = attrs[.textStyle] as? String
-            let style = styleName.flatMap { styleSheet.style(named: $0) }
+            // Skip form feed characters at paragraph start.
+            // Manuscript assembly inserts \f between files, and \f is not a paragraph
+            // separator in NSString, so it becomes the first char of the next "paragraph".
+            // The actual styled content (with .textStyle and correct font) follows the \f.
+            var attrLocation = min(paragraphRange.location, length - 1)
+            let endOfParagraph = NSMaxRange(paragraphRange)
+            while attrLocation < endOfParagraph - 1,
+                  text.character(at: attrLocation) == 0x000C {
+                attrLocation += 1
+            }
             
-            guard let styleName = styleName,
-                  let style = style,
+            let attrs = textStorage.attributes(at: attrLocation, effectiveRange: nil)
+            guard let styleName = attrs[.textStyle] as? String,
+                  let style = styleSheet.style(named: styleName),
                   style.numberFormat != .none,
                   style.styleCategory != .list else { continue }
             
-            // Calculate ancestor depth for multi-level numbering width
-            var ancestorDepth = 0
-            var current = parentMap[styleName]
-            while let name = current {
-                ancestorDepth += 1
-                current = parentMap[name]
+            // Handle parent reset (child counter resets when parent number changes)
+            if let parentName = parentMap[styleName] {
+                let currentParentNumber = lastNumberForStyle[parentName] ?? 0
+                let trackedParentNumber = lastNumberForStyle["\(styleName)_parentNum"] ?? 0
+                if currentParentNumber != trackedParentNumber {
+                    styleCounters[styleName] = 0
+                    lastNumberForStyle["\(styleName)_parentNum"] = currentParentNumber
+                }
             }
             
-            // Use the actual font from the text (already descaled if removePlatformScaling ran)
-            let font = attrs[.font] as? UIFont ?? style.generateFont(applyPlatformScaling: false)
-            let numberWidth = style.numberFormat.estimatedWidth(for: font, adornment: style.numberAdornment, ancestorDepth: ancestorDepth)
+            let counter = (styleCounters[styleName] ?? 0) + 1
+            styleCounters[styleName] = counter
+            lastNumberForStyle[styleName] = counter
             
-            // Number draws at style.firstLineIndent; text must start after numberWidth
-            let requiredIndent = style.firstLineIndent + numberWidth
+            // Build the actual number string for THIS paragraph
+            let numberString = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment)
+            let font = attrs[.font] as? UIFont ?? style.generateFont(applyPlatformScaling: false)
+            let numberWidth = ceil((numberString as NSString).size(withAttributes: [.font: font]).width)
+            
+            // Number draws at style.firstLineIndent; text starts right after number + gap
+            let requiredIndent = style.firstLineIndent + numberWidth + gap
             let existingPS = attrs[.paragraphStyle] as? NSParagraphStyle
             let currentIndent = existingPS?.firstLineHeadIndent ?? 0
             
-            if currentIndent < requiredIndent {
+            if abs(currentIndent - requiredIndent) > 0.5 {
                 let mutablePS = (existingPS?.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
                 mutablePS.firstLineHeadIndent = requiredIndent
                 textStorage.addAttribute(.paragraphStyle, value: mutablePS, range: paragraphRange)
@@ -590,22 +613,23 @@ class NumberingLayoutManager: NSLayoutManager {
         let numberString = formattedNumber as NSString
         let numberSize = numberString.size(withAttributes: numberAttributes)
         
-        // For list styles, draw the number just before where the text starts (at headIndent)
-        // For other numbered styles (headings), draw at the style's base firstLineIndent.
-        // generateAttributes() sets firstLineHeadIndent = firstLineIndent + numberWidth,
-        // so lineFragmentRect.origin.x includes the numberWidth offset. We draw at the
-        // base indent (before that offset) so the number sits to the left of the text.
+        // Draw the number at the style's base firstLineIndent (left margin).
+        // ensureNumberIndents sets firstLineHeadIndent = firstLineIndent + numberWidth + gap
+        // per paragraph, so the text starts right after this number with a consistent gap.
         let numberX: CGFloat
         if style.styleCategory == .list {
             // List items: number goes just before headIndent position
             let gap: CGFloat = 4.0
             numberX = origin.x + style.headIndent - numberSize.width - gap
         } else {
-            // Non-list numbered paragraphs (headings): draw at the style's base firstLineIndent.
-            // The text starts at firstLineIndent + numberWidth (set by generateAttributes/ensureNumberIndents),
-            // so the number sits flush left at the margin where the heading would normally start.
+            // Non-list numbered paragraphs (headings): draw at the style's base indent.
             numberX = origin.x + style.firstLineIndent
         }
+        
+        #if DEBUG
+        let paragraphStyle = paragraphAttributes[.paragraphStyle] as? NSParagraphStyle
+        print("   🎨 drawNumber: '\(formattedNumber)' numberWidth=\(numberSize.width) numberX=\(numberX) firstLineHeadIndent=\(paragraphStyle?.firstLineHeadIndent ?? -1) style.firstLineIndent=\(style.firstLineIndent) isPaginated=\(isPaginatedView)")
+        #endif
         
         // Calculate baseline-aligned Y position: vertically center number in line fragment
         let baselineY = origin.y + lineFragmentRect.origin.y + (lineFragmentRect.height - numberSize.height) / 2

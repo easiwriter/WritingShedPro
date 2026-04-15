@@ -195,109 +195,19 @@ struct StyleSheetService {
         
         var fixedCount = 0
         var deletedCount = 0
-        var addedCount = 0
         
-        // Get existing style names for quick lookup
-        let existingStyleNames = Set(styles.map { $0.name })
-        
-        // Add missing system text/heading/footnote styles
-        // These can be lost during CloudKit sync turbulence
-        let systemStyleDefs: [(UIFont.TextStyle, String, StyleCategory, Int, CGFloat?, Bool, Int)] = [
-            (.largeTitle, "Large Title", .heading, 0, nil, true, 0),
-            (.title1, "Title 1", .heading, 1, nil, true, 0),
-            (.title2, "Title 2", .heading, 2, nil, true, 1),
-            (.title3, "Title 3", .heading, 3, nil, true, 2),
-            (.headline, "Headline", .heading, 4, nil, true, 3),
-            (.body, "Body", .text, 5, nil, false, 0),
-            (.callout, "Body 1", .text, 6, 16, false, 0),
-            (.subheadline, "Body 2", .text, 7, 14, false, 0),
-            (.footnote, "Footnote", .footnote, 8, nil, false, 0),
-            (.caption1, "Caption 1", .text, 9, nil, false, 0),
-            (.caption2, "Caption 2", .text, 10, nil, false, 0)
-        ]
-        
-        for (textStyle, displayName, category, order, customFontSize, includeInTOC, tocLevel) in systemStyleDefs {
-            let styleName = textStyle.rawValue
-            if !existingStyleNames.contains(styleName) {
-                let font = UIFont.preferredFont(forTextStyle: textStyle)
-                let isBold = (category == .heading)
-                let fontSize = customFontSize ?? font.pointSize
-                let numberFormat: NumberFormat = (category == .footnote) ? .decimal : .none
-                let numberAdornment: NumberingAdornment = (category == .footnote) ? .plain : .period
-                
-                let newStyle = TextStyleModel(
-                    name: styleName,
-                    displayName: displayName,
-                    displayOrder: order,
-                    fontSize: fontSize,
-                    isBold: isBold,
-                    isItalic: false,
-                    alignment: .left,
-                    numberFormat: numberFormat,
-                    styleCategory: category,
-                    isSystemStyle: true
-                )
-                newStyle.numberAdornment = numberAdornment
-                newStyle.includeInTOC = includeInTOC
-                newStyle.tocLevel = tocLevel
-                newStyle.styleSheet = stylesheet
-                context.insert(newStyle)
-                
-                if stylesheet.textStyles == nil {
-                    stylesheet.textStyles = [newStyle]
-                } else {
-                    stylesheet.textStyles?.append(newStyle)
-                }
-                
-                addedCount += 1
+        // Deduplicate styles with the same name (can happen during CloudKit sync)
+        var seenNames = Set<String>()
+        for style in styles {
+            if seenNames.contains(style.name) {
                 #if DEBUG
-                print("➕ Added missing system style: \(displayName)")
+                print("🗑️ Removing duplicate style: \(style.displayName) (\(style.name))")
                 #endif
+                context.delete(style)
+                deletedCount += 1
+                continue
             }
-        }
-        
-        // Add missing nested list styles (Level 2 and 3)
-        let listIndentPerLevel: CGFloat = 36.0
-        let nestedListStyles: [(String, String, NumberFormat, Int, Int)] = [
-            // Base list styles (in case they're missing)
-            ("list-numbered", "Numbered List", .decimal, 11, 0),
-            ("list-bullet", "Bullet List", .bulletSymbols, 14, 0),
-            // Nested list styles
-            ("list-numbered-level-2", "Numbered List Level 2", .lowercaseLetter, 12, 1),
-            ("list-numbered-level-3", "Numbered List Level 3", .lowercaseRoman, 13, 2),
-            ("list-bullet-level-2", "Bullet List Level 2", .bulletSymbols, 15, 1),
-            ("list-bullet-level-3", "Bullet List Level 3", .bulletSymbols, 16, 2)
-        ]
-        
-        for (name, displayName, numberFormat, order, level) in nestedListStyles {
-            if !existingStyleNames.contains(name) {
-                let headIndent = listIndentPerLevel * CGFloat(level + 1)
-                let newStyle = TextStyleModel(
-                    name: name,
-                    displayName: displayName,
-                    displayOrder: order,
-                    fontSize: 17,
-                    alignment: .left,
-                    headIndent: headIndent,
-                    numberFormat: numberFormat,
-                    styleCategory: .list,
-                    isSystemStyle: false
-                )
-                newStyle.styleSheet = stylesheet
-                context.insert(newStyle)
-                
-                // Also append to the stylesheet's textStyles array explicitly
-                if stylesheet.textStyles == nil {
-                    stylesheet.textStyles = [newStyle]
-                } else {
-                    stylesheet.textStyles?.append(newStyle)
-                }
-                
-                addedCount += 1
-                #if DEBUG
-                print("➕ Added missing list style: \(displayName)")
-                #endif
-            }
+            seenNames.insert(style.name)
         }
         
         for style in styles {
@@ -332,14 +242,14 @@ struct StyleSheetService {
             }
         }
         
-        if fixedCount > 0 || deletedCount > 0 || addedCount > 0 {
+        if fixedCount > 0 || deletedCount > 0 {
             #if DEBUG
-            print("✅ Fixed \(fixedCount) style categories, deleted \(deletedCount) obsolete styles, added \(addedCount) missing styles - saving...")
+            print("✅ Fixed \(fixedCount) style categories, deleted \(deletedCount) obsolete styles - saving...")
             #endif
             Task { @MainActor in WriteCoalescer.shared?.requestSave() }
         } else {
             #if DEBUG
-            print("✅ All style categories are correct, no obsolete styles found, no missing styles")
+            print("✅ All style categories are correct, no obsolete styles found")
             #endif
         }
     }

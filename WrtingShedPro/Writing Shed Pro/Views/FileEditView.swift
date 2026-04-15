@@ -2360,9 +2360,26 @@ struct FileEditView: View {
             print("📂 ======== STYLE DIAG: LOAD END ========")
             #endif
             // Strip adaptive colors (black/white/gray) to support dark mode properly
-            let processedContent = AttributedStringSerializer.stripAdaptiveColors(from: savedContent)
+            var processedContent = AttributedStringSerializer.stripAdaptiveColors(from: savedContent)
             
             // No iPhone-specific font changes - use view scale transform instead
+            
+            // Strip orphaned U+FFFC characters: these are stale attachment placeholders
+            // left behind when an attachment was deleted but the character remained.
+            // Only do this when formattedContent IS present — if formattedContent is nil,
+            // the U+FFFC might belong to a real attachment waiting for CloudKit sync.
+            if file.currentVersion?.formattedContent != nil {
+                let cleanedContent = Self.stripOrphanedAttachmentPlaceholders(from: processedContent)
+                if cleanedContent.length != processedContent.length {
+                    #if DEBUG
+                    print("🧹 [FileEditView] Stripped \(processedContent.length - cleanedContent.length) orphaned U+FFFC character(s) from content")
+                    #endif
+                    processedContent = cleanedContent
+                    // Persist the cleaned content so the stale U+FFFC doesn't recur
+                    file.currentVersion?.attributedContent = cleanedContent
+                    WriteCoalescer.shared?.requestSave()
+                }
+            }
             
             attributedContent = processedContent
             previousContent = attributedContent.string
@@ -3225,6 +3242,8 @@ struct FileEditView: View {
                 attributedContent = updatedContent
                 previousContent = updatedContent.string
                 previousAttributedContent = updatedContent
+                // Explicit user action — always allow save
+                hasMissingAttachments = false
                 saveChanges()
             }
         }
@@ -3279,6 +3298,10 @@ struct FileEditView: View {
                 attributedContent = updatedContent
                 previousContent = updatedContent.string
                 previousAttributedContent = updatedContent
+                // Explicit user action — always allow save even if orphaned U+FFFC
+                // set hasMissingAttachments on load (programmatic textStorage edits
+                // may not trigger textViewDidChange to clear the flag).
+                hasMissingAttachments = false
                 saveChanges()
             }
         }
@@ -3404,6 +3427,8 @@ struct FileEditView: View {
         // Update the attributed content binding
         attributedContent = textView.attributedText ?? NSAttributedString()
         
+        // Explicit user action — always allow save
+        hasMissingAttachments = false
         // Save changes
         saveChanges()
         
@@ -7876,6 +7901,41 @@ struct FileEditView: View {
         
         // Force UI refresh
         refreshTrigger = UUID()
+    }
+    
+    // MARK: - Orphaned Attachment Cleanup
+    
+    /// Remove U+FFFC characters that have no corresponding NSTextAttachment.
+    /// These are stale placeholders left behind when an attachment was deleted
+    /// but the replacement character was not cleaned up.
+    private static func stripOrphanedAttachmentPlaceholders(from attributedString: NSAttributedString) -> NSAttributedString {
+        let text = attributedString.string
+        guard text.contains("\u{FFFC}") else { return attributedString }
+        
+        let mutable = NSMutableAttributedString(attributedString: attributedString)
+        // Collect ranges of orphaned U+FFFC (no attachment attribute) in reverse
+        var orphanedRanges: [NSRange] = []
+        mutable.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutable.length), options: []) { _, _, _ in }
+        
+        // Walk every character; if it's U+FFFC and has no attachment, it's orphaned
+        let nsString = text as NSString
+        for i in stride(from: nsString.length - 1, through: 0, by: -1) {
+            if nsString.character(at: i) == 0xFFFC {
+                let hasAttachment = mutable.attribute(.attachment, at: i, effectiveRange: nil) != nil
+                if !hasAttachment {
+                    orphanedRanges.append(NSRange(location: i, length: 1))
+                }
+            }
+        }
+        
+        guard !orphanedRanges.isEmpty else { return attributedString }
+        
+        // Delete in reverse order (ranges already reversed from the stride)
+        for range in orphanedRanges {
+            mutable.deleteCharacters(in: range)
+        }
+        
+        return mutable
     }
     
     private func saveChanges() {
