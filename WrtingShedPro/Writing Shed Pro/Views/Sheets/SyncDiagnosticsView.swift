@@ -49,6 +49,8 @@ struct SyncDiagnosticsView: View {
     @State private var reexportStatus: String = ""
     @State private var zoneVerifyStatus: String = ""
     @State private var foreignZoneStatus: String = ""
+    @State private var purgeOrphansStatus: String = ""
+    @State private var showPurgeOrphansConfirmation = false
     
     var body: some View {
         NavigationStack {
@@ -843,6 +845,28 @@ struct SyncDiagnosticsView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
             }
+
+            Button("Purge Orphaned Zone Records") {
+                showPurgeOrphansConfirmation = true
+            }
+            .foregroundStyle(.red)
+            .alert("Purge Orphaned Zone Records?", isPresented: $showPurgeOrphansConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Purge", role: .destructive) {
+                    purgeOrphanedZoneRecords()
+                }
+            } message: {
+                Text("This deletes all records from the CloudKit zone EXCEPT StyleSheet, TextStyleModel, PoetryFormModel, and ImageStyle. Use when the zone has orphaned child records with no parent Project.")
+            }
+
+            if !purgeOrphansStatus.isEmpty {
+                Text(purgeOrphansStatus)
+                    .font(.caption)
+                    .foregroundStyle(purgeOrphansStatus.hasPrefix("✅") ? .green :
+                                     purgeOrphansStatus.hasPrefix("❌") ? .red : .orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
         }
 
         #if DEBUG
@@ -885,6 +909,99 @@ struct SyncDiagnosticsView: View {
         }
         operation.qualityOfService = .userInitiated
         database.add(operation)
+    }
+
+    /// Purge orphaned records from CloudKit zone.
+    /// Keeps only standalone types (StyleSheet, TextStyleModel, PoetryFormModel, ImageStyle).
+    /// Deletes everything else (Versions, Folders, TextFiles, Publications, etc.).
+    private func purgeOrphanedZoneRecords() {
+        purgeOrphansStatus = "Fetching zone records…"
+        let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
+        let database = ckContainer.privateCloudDatabase
+        let zoneID = CKRecordZone.ID(zoneName: "com.apple.coredata.cloudkit.zone", ownerName: CKCurrentUserDefaultName)
+
+        let safeTypes: Set<String> = [
+            "CD_StyleSheet", "CD_TextStyleModel", "CD_PoetryFormModel", "CD_ImageStyle"
+        ]
+
+        let config = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
+        config.previousServerChangeToken = nil
+        let fetchOp = CKFetchRecordZoneChangesOperation(recordZoneIDs: [zoneID], configurationsByRecordZoneID: [zoneID: config])
+
+        var recordIDsToDelete: [CKRecord.ID] = []
+        var keptCount = 0
+
+        fetchOp.recordWasChangedBlock = { recordID, result in
+            if case .success(let record) = result {
+                if safeTypes.contains(record.recordType) {
+                    keptCount += 1
+                } else {
+                    recordIDsToDelete.append(recordID)
+                }
+            }
+        }
+
+        fetchOp.fetchRecordZoneChangesResultBlock = { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .failure(let error):
+                    purgeOrphansStatus = "❌ Fetch failed: \(error.localizedDescription)"
+                case .success:
+                    if recordIDsToDelete.isEmpty {
+                        purgeOrphansStatus = "✅ No orphaned records to purge. \(keptCount) safe records kept."
+                        return
+                    }
+                    purgeOrphansStatus = "Deleting \(recordIDsToDelete.count) orphaned records (keeping \(keptCount))…"
+                    self.batchDeleteFromCloudKit(database: database, recordIDs: recordIDsToDelete, keptCount: keptCount)
+                }
+            }
+        }
+
+        fetchOp.qualityOfService = .userInitiated
+        database.add(fetchOp)
+    }
+
+    /// Delete CKRecords in batches of 400 (CloudKit limit)
+    private func batchDeleteFromCloudKit(database: CKDatabase, recordIDs: [CKRecord.ID], keptCount: Int) {
+        let batchSize = 400
+        let batches = stride(from: 0, to: recordIDs.count, by: batchSize).map {
+            Array(recordIDs[$0..<min($0 + batchSize, recordIDs.count)])
+        }
+        let totalToDelete = recordIDs.count
+        var deletedSoFar = 0
+        var failedCount = 0
+
+        func deleteBatch(index: Int) {
+            guard index < batches.count else {
+                DispatchQueue.main.async {
+                    if failedCount == 0 {
+                        purgeOrphansStatus = "✅ Purged \(totalToDelete) orphaned records. \(keptCount) safe records kept."
+                    } else {
+                        purgeOrphansStatus = "⚠️ Purged \(deletedSoFar) of \(totalToDelete) records. \(failedCount) failed. \(keptCount) safe records kept."
+                    }
+                }
+                return
+            }
+
+            let batch = batches[index]
+            let deleteOp = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: batch)
+            deleteOp.modifyRecordsResultBlock = { result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        deletedSoFar += batch.count
+                        purgeOrphansStatus = "Deleting… \(deletedSoFar)/\(totalToDelete)"
+                    case .failure:
+                        failedCount += batch.count
+                    }
+                    deleteBatch(index: index + 1)
+                }
+            }
+            deleteOp.qualityOfService = .userInitiated
+            database.add(deleteOp)
+        }
+
+        deleteBatch(index: 0)
     }
 
     private func listAndDeleteForeignZones() {
