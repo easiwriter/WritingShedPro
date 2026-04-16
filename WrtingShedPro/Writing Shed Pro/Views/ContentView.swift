@@ -369,31 +369,24 @@ struct ContentView: View {
             #if DEBUG
             print("🔄 [ContentView] Reconcile: DB has \(dbActiveCount) active projects, UI shows \(uiActiveCount). Forcing refresh.")
             #endif
-            // Nudge the main context to merge store state — @Query caches
-            // deleted objects until the context processes a save/merge cycle.
-            try? modelContext.save()
             refreshTrigger.toggle()
             return
         }
 
         // Build a quick id→name lookup from the store and compare against @Query objects.
         // If any name is stale in the UI layer, refresh the whole view.
-        // Also detect projects in @Query that no longer exist in the store (remote deletion).
         let dbNameByID = Dictionary(uniqueKeysWithValues: allProjects.compactMap { p -> (UUID, String)? in
             guard let name = p.name else { return nil }
             return (p.id, name)
         })
-        let hasStaleData = projects.contains { p in
-            guard let dbName = dbNameByID[p.id] else {
-                return true  // Project in @Query but not in DB — remotely deleted
-            }
+        let hasStaleName = projects.contains { p in
+            guard let dbName = dbNameByID[p.id] else { return false }
             return p.name != dbName
         }
-        if hasStaleData {
+        if hasStaleName {
             #if DEBUG
-            print("🔄 [ContentView] Reconcile: stale or deleted project(s) detected in @Query — forcing refresh.")
+            print("🔄 [ContentView] Reconcile: stale project name(s) detected in @Query — forcing refresh.")
             #endif
-            try? modelContext.save()
             refreshTrigger.toggle()
         }
     }
