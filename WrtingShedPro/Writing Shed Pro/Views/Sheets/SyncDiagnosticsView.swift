@@ -69,6 +69,7 @@ struct SyncDiagnosticsView: View {
                 checkProjectOrderHealth()
                 checkCloudKitSubscriptions()
                 checkForOrphans()
+                checkForOrphanedPublications()
                 checkForDuplicateStyleSheets()
                 tombstoneCount = DeduplicationService.tombstoneCount
             }
