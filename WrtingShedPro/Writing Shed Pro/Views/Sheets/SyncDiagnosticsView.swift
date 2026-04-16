@@ -1193,13 +1193,19 @@ struct SyncDiagnosticsView: View {
     }
 
     private func checkForOrphanedPublications() {
-        orphanedPublicationCount = publications.filter { $0.project == nil }.count
+        let projectSet = Set(projects.map { $0.persistentModelID })
+        orphanedPublicationCount = publications.filter { pub in
+            pub.project == nil || !projectSet.contains(pub.project!.persistentModelID)
+        }.count
     }
 
     /// Delete publications that have no parent project.
     /// These are unreachable in the UI and represent sync remnants.
     private func deleteOrphanedPublications() {
-        let orphans = publications.filter { $0.project == nil }
+        let projectSet = Set(projects.map { $0.persistentModelID })
+        let orphans = publications.filter { pub in
+            pub.project == nil || !projectSet.contains(pub.project!.persistentModelID)
+        }
 
         guard !orphans.isEmpty else {
             repairMessage = "No orphaned publications found."
