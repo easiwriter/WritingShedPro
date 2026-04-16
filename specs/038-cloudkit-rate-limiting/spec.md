@@ -5,6 +5,92 @@
 **Status**: Draft
 **Input**: User description: "An approach for avoiding CloudKit rate limiting"
 
+## An Observation
+Yes—there have been recurring, real-world issues with the CloudKit daemon (cloudd) on iOS. Some are intermittent platform quirks, others are design-related behaviours that surface as “bugs” in apps using CloudKit, Core Data, or SwiftData.
+Here’s a clear breakdown based on what developers are actually seeing.
+ 1. Sync Delays & “Stuck” Daemon
+A very common issue:
+Changes don’t propagate for minutes—or at all
+The daemon appears idle even when there are pending changes
+Typical causes
+Internal throttling (Apple aggressively rate-limits CloudKit activity)
+Device in low power mode or backgrounded too long
+Network changes (Wi-Fi ↔ cellular)
+What’s really happening
+cloudd queues operations and may defer them silently. There’s no guarantee of near-real-time sync.
+ 2. Silent Failures (Especially with SwiftData)
+With SwiftData + CloudKit:
+Property updates sometimes don’t sync
+No explicit error is surfaced
+Logs show activity, but no server-side change
+This aligns with what you mentioned earlier—simple field updates not syncing.
+Likely causes
+Record not marked as changed (dirty tracking issue)
+Conflict resolution silently discarding updates
+Schema mismatch or multiple zones
+ 3. Multiple Zones Problem
+You’ve already noticed this—and it’s a big one.
+SwiftData / Core Data + CloudKit may create multiple record zones
+Sync can become inconsistent across zones
+Some changes go to one zone and never reconcile properly
+Expected vs reality
+You expect: 1 zone per container
+You often get: multiple zones (especially after migrations or model changes)
+This is a known pain point rather than a one-off bug.
+ 4. Rate Limiting & Backoff
+CloudKit enforces:
+Per-device limits
+Per-container limits
+Background execution limits
+Symptoms:
+Sync works… then suddenly stops
+Resumes later without explanation
+The daemon applies exponential backoff internally—you don’t control it.
+ 5. Daemon Crashes / Resets
+Less common, but happens:
+cloudd crashes or is killed by the system
+Sync state is lost or reset
+App appears “desynced” until next full cycle
+You’ll see this in Console logs as:
+cloudd: connection interrupted
+cloudd: restarting
+ 6. Debugging Is Painful (by Design)
+Apple gives limited visibility:
+Logs are verbose but not actionable
+No official tooling to inspect queues
+Dashboard doesn’t reflect real-time device state
+Even in Xcode, debugging CloudKit is largely indirect.
+
+# The Key Insight
+CloudKit is eventually consistent, not immediately consistent.
+If your mental model is:
+“I changed a value, it should sync right away”
+…you’ll keep hitting frustration. The system is designed more like:
+“Changes will sync when the system decides it’s appropriate”
+
+ What’s Likely Happening in Your Case
+Based on your earlier notes:
+Multiple zones → fragmentation
+Simple updates not syncing → dirty tracking or conflict discard
+SwiftData involved → still relatively immature with CloudKit
+That combination is known to produce exactly what you’re seeing.
+
+ Practical Mitigations
+These tend to improve reliability:
+Force meaningful changes (not just property tweaks)
+Avoid rapid-fire updates
+Ensure a single logical zone where possible
+Periodically fetch to “kick” sync
+Log CloudKit operations aggressively during dev
+Test on real devices (simulator lies here)
+ Strategic Take (important)
+You mentioned trying Point-Free’s SQLite approach earlier—and that instinct is sound.
+Many experienced teams:
+Use CloudKit as a transport layer
+Avoid relying on Apple’s higher-level abstractions (SwiftData/Core Data sync)
+Because:
+The closer you are to cloudd, the more predictable things become
+
 ## Overview
 
 Writing Shed Pro syncs user data (projects, folders, text files, comments, references, etc.) across iOS and macOS devices via CloudKit. Under certain conditions the sync engine can be rate-limited by CloudKit, causing sync to stall — sometimes indefinitely. This is the app's most critical reliability concern: users must trust that their writing is safely synced across devices.

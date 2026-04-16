@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import CloudKit
+import SQLite3
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -46,6 +47,7 @@ struct SyncDiagnosticsView: View {
     @State private var zoneWasDeletedThisSession = false
     @State private var reexportStatus: String = ""
     @State private var zoneVerifyStatus: String = ""
+    @State private var foreignZoneStatus: String = ""
     
     var body: some View {
         NavigationStack {
@@ -793,6 +795,20 @@ struct SyncDiagnosticsView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
             }
+
+            Button("List & Delete Foreign Zones") {
+                listAndDeleteForeignZones()
+            }
+            .foregroundStyle(.orange)
+
+            if !foreignZoneStatus.isEmpty {
+                Text(foreignZoneStatus)
+                    .font(.caption)
+                    .foregroundStyle(foreignZoneStatus.hasPrefix("✅") ? .green :
+                                     foreignZoneStatus.hasPrefix("❌") ? .red : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
         }
 
         #if DEBUG
@@ -835,6 +851,105 @@ struct SyncDiagnosticsView: View {
         }
         operation.qualityOfService = .userInitiated
         database.add(operation)
+    }
+
+    private func listAndDeleteForeignZones() {
+        foreignZoneStatus = "Fetching all zones…"
+        let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
+        let database = ckContainer.privateCloudDatabase
+        let expectedZoneName = "com.apple.coredata.cloudkit.zone"
+
+        database.fetchAllRecordZones { zones, error in
+            guard let zones = zones else {
+                DispatchQueue.main.async {
+                    foreignZoneStatus = "❌ Failed to fetch zones: \(error?.localizedDescription ?? "unknown")"
+                }
+                return
+            }
+
+            let foreignZones = zones.filter { $0.zoneID.zoneName != expectedZoneName && $0.zoneID.zoneName != "_defaultZone" }
+            let allNames = zones.map { $0.zoneID.zoneName }
+
+            if foreignZones.isEmpty {
+                DispatchQueue.main.async {
+                    foreignZoneStatus = "✅ No foreign zones found. All zones: \(allNames.joined(separator: ", "))"
+                }
+                return
+            }
+
+            DispatchQueue.main.async {
+                foreignZoneStatus = "Found \(foreignZones.count) foreign zone(s): \(foreignZones.map { $0.zoneID.zoneName }.joined(separator: ", ")). Deleting…"
+            }
+
+            let foreignZoneIDs = foreignZones.map { $0.zoneID }
+            let deleteOp = CKModifyRecordZonesOperation(recordZonesToSave: nil, recordZoneIDsToDelete: foreignZoneIDs)
+            deleteOp.modifyRecordZonesResultBlock = { result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        // Also clean foreign zone metadata from local SQLite
+                        let localCleanCount = Self.cleanForeignZoneMetadataFromLocalStore()
+                        let deletedNames = foreignZones.map { $0.zoneID.zoneName }.joined(separator: ", ")
+                        let remaining = allNames.filter { name in !foreignZoneIDs.contains(where: { $0.zoneName == name }) }.joined(separator: ", ")
+                        foreignZoneStatus = "✅ Deleted \(foreignZones.count) foreign zone(s): \(deletedNames). Local metadata rows cleaned: \(localCleanCount). Remaining zones: \(remaining)"
+                    case .failure(let err):
+                        foreignZoneStatus = "❌ Failed to delete foreign zones: \(err.localizedDescription)"
+                    }
+                }
+            }
+            deleteOp.qualityOfService = .userInitiated
+            database.add(deleteOp)
+        }
+    }
+
+    /// Remove foreign zone metadata rows from the local SQLite store.
+    /// NSPersistentCloudKitContainer uses internal tables (ANSCKRECORDZONEMETADATA etc.)
+    /// to track zone state. Foreign entries (e.g. co.pointfree.SQLiteData) can confuse
+    /// the mirroring engine into exporting operations against non-existent zones.
+    private static func cleanForeignZoneMetadataFromLocalStore() -> Int {
+        let storeURL = URL.documentsDirectory.appending(path: "writingshed.sqlite")
+        guard FileManager.default.fileExists(atPath: storeURL.path) else { return 0 }
+
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(storeURL.path, &db, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK,
+              let db = db else { return 0 }
+        defer { sqlite3_close(db) }
+
+        let expectedZone = "com.apple.coredata.cloudkit.zone"
+        var totalDeleted = 0
+
+        // Tables that store zone-related metadata
+        let metadataTables = [
+            "ANSCKRECORDZONEMETADATA",
+            "ANSCKDATABASEMETADATA"
+        ]
+
+        for table in metadataTables {
+            // Check if table exists
+            var checkStmt: OpaquePointer?
+            let checkSQL = "SELECT name FROM sqlite_master WHERE type='table' AND name='\(table)'"
+            guard sqlite3_prepare_v2(db, checkSQL, -1, &checkStmt, nil) == SQLITE_OK else { continue }
+            let exists = sqlite3_step(checkStmt) == SQLITE_ROW
+            sqlite3_finalize(checkStmt)
+            guard exists else { continue }
+
+            // For zone metadata, delete rows not matching our expected zone
+            if table == "ANSCKRECORDZONEMETADATA" {
+                let deleteSQL = "DELETE FROM \(table) WHERE ZZONENAME IS NOT NULL AND ZZONENAME != ?"
+                var deleteStmt: OpaquePointer?
+                guard sqlite3_prepare_v2(db, deleteSQL, -1, &deleteStmt, nil) == SQLITE_OK else { continue }
+                sqlite3_bind_text(deleteStmt, 1, (expectedZone as NSString).utf8String, -1, nil)
+                if sqlite3_step(deleteStmt) == SQLITE_DONE {
+                    totalDeleted += Int(sqlite3_changes(db))
+                }
+                sqlite3_finalize(deleteStmt)
+            }
+        }
+
+        #if DEBUG
+        print("🧹 [SyncDiag] Cleaned \(totalDeleted) foreign zone metadata rows from local store")
+        #endif
+        return totalDeleted
     }
 
     private func verifyZoneContent() {
