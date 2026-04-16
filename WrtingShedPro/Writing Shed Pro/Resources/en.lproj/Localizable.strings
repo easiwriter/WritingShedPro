@@ -930,6 +930,8 @@
 "fileEdit.deleteVersionMessage" = "Please confirm that you want to delete this version. This action cannot be undone.";
 "fileEdit.commentSheet.title" = "Comment";
 "fileEdit.footnoteSheet.title" = "Footnote";
+"fileEdit.deletedRemotely.title" = "File Deleted";
+"fileEdit.deletedRemotely.message" = "This file was deleted on another device. Your changes cannot be saved.";
 
 /* Page Setup */
 "pageSetup.title" = "Page Setup";

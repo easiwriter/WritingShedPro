@@ -136,6 +136,9 @@ struct FileEditView: View {
     // Feature 112: Table of Figures
     @State private var showTableOfFiguresSettings = false
     
+    // Remote deletion detection
+    @State private var fileWasDeletedRemotely = false
+    
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(SearchContext.self) private var searchContext: SearchContext?
@@ -1682,6 +1685,7 @@ struct FileEditView: View {
                 saveDebounceTimer?.invalidate()
                 saveDebounceTimer = nil
                 
+                guard !fileWasDeletedRemotely else { return }
                 saveChanges()
                 saveUndoState()
                 
@@ -1708,6 +1712,23 @@ struct FileEditView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UndoRedoContentRestored"))) { notification in
                 handleUndoRedoContentRestored(notification)
+            }
+            .onReceive(
+                NotificationCenter.default
+                    .publisher(for: NSNotification.Name("NSPersistentStoreRemoteChangeNotification"))
+                    .receive(on: RunLoop.main)
+            ) { _ in
+                checkIfFileDeletedRemotely()
+            }
+            .alert(
+                NSLocalizedString("fileEdit.deletedRemotely.title", comment: "File deleted on another device alert title"),
+                isPresented: $fileWasDeletedRemotely
+            ) {
+                Button(NSLocalizedString("common.ok", comment: "OK button")) {
+                    dismiss()
+                }
+            } message: {
+                Text(NSLocalizedString("fileEdit.deletedRemotely.message", comment: "File deleted on another device alert message"))
             }
             .alert("Print Error", isPresented: $showPrintError) {
                 Button("OK", role: .cancel) { }
@@ -7808,6 +7829,28 @@ struct FileEditView: View {
     
     // MARK: - Persistence
     
+    /// Check if the file has been deleted on another device via CloudKit sync.
+    /// Uses a fresh ModelContext to read directly from the persistent store,
+    /// bypassing SwiftData's in-memory cache.
+    private func checkIfFileDeletedRemotely() {
+        guard !fileWasDeletedRemotely else { return }
+        let freshContext = ModelContext(modelContext.container)
+        let fileID = file.id
+        var descriptor = FetchDescriptor<TextFile>(
+            predicate: #Predicate { $0.id == fileID }
+        )
+        descriptor.fetchLimit = 1
+        let exists = (try? freshContext.fetchCount(descriptor)) ?? 0
+        if exists == 0 {
+            #if DEBUG
+            print("⚠️ [FileEditView] File '\(file.name ?? "unknown")' was deleted remotely — blocking saves and dismissing.")
+            #endif
+            saveDebounceTimer?.invalidate()
+            saveDebounceTimer = nil
+            fileWasDeletedRemotely = true
+        }
+    }
+    
     private func saveUndoState() {
         undoManager.flushTypingBuffer()
         file.saveUndoState(undoManager)
@@ -7939,6 +7982,9 @@ struct FileEditView: View {
     }
     
     private func saveChanges() {
+        // Don't save if the file was deleted on another device
+        guard !fileWasDeletedRemotely else { return }
+        
         // IMPORTANT: Do NOT save if formattedContent is incomplete from CloudKit sync.
         // The decoded content is missing image attachments that exist on another device.
         // Saving would overwrite the phone's complete formattedContent with a stripped version.
