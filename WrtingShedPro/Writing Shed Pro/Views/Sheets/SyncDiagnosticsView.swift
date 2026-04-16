@@ -30,6 +30,7 @@ struct SyncDiagnosticsView: View {
     @State private var projectOrderCollisionCount: Int = 0
     @State private var orphanedFolderCount: Int = 0
     @State private var orphanedFileCount: Int = 0
+    @State private var orphanedPublicationCount: Int = 0
     @State private var duplicateStyleSheetCount: Int = 0
     @State private var tombstoneCount: Int = 0
     @State private var repairMessage: String = ""
@@ -469,6 +470,12 @@ struct SyncDiagnosticsView: View {
                 orphanedFilesRepairRow
             }
 
+            orphanedPublicationsStatusRow
+
+            if orphanedPublicationCount > 0 {
+                orphanedPublicationsRepairRow
+            }
+
             duplicateStyleSheetsStatusRow
 
             if duplicateStyleSheetCount > 0 {
@@ -586,6 +593,32 @@ struct SyncDiagnosticsView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             deleteOrphanedFiles()
+        }
+    }
+
+    private var orphanedPublicationsStatusRow: some View {
+        HStack {
+            Text("Orphaned Publications")
+            Spacer()
+            Text("\(orphanedPublicationCount) found")
+                .foregroundColor(orphanedPublicationCount > 0 ? .orange : .secondary)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            checkForOrphanedPublications()
+        }
+    }
+
+    private var orphanedPublicationsRepairRow: some View {
+        HStack {
+            Image(systemName: "doc.badge.minus")
+            Text("Delete Orphaned Publications")
+            Spacer()
+        }
+        .foregroundColor(.red)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            deleteOrphanedPublications()
         }
     }
 
@@ -1155,6 +1188,35 @@ struct SyncDiagnosticsView: View {
             orphanedFolderCount = 0
         } catch {
             repairMessage = "Error deleting orphaned folders: \(error.localizedDescription)"
+        }
+        showRepairResult = true
+    }
+
+    private func checkForOrphanedPublications() {
+        orphanedPublicationCount = publications.filter { $0.project == nil }.count
+    }
+
+    /// Delete publications that have no parent project.
+    /// These are unreachable in the UI and represent sync remnants.
+    private func deleteOrphanedPublications() {
+        let orphans = publications.filter { $0.project == nil }
+
+        guard !orphans.isEmpty else {
+            repairMessage = "No orphaned publications found."
+            showRepairResult = true
+            return
+        }
+
+        for pub in orphans {
+            modelContext.delete(pub)
+        }
+
+        do {
+            try modelContext.save()
+            repairMessage = "Deleted \(orphans.count) orphaned publication(s)."
+            orphanedPublicationCount = 0
+        } catch {
+            repairMessage = "Error deleting orphaned publications: \(error.localizedDescription)"
         }
         showRepairResult = true
     }
