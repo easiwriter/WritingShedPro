@@ -91,6 +91,15 @@ struct ProjectInfoSheet: View {
         .id(project.id)
         .onAppear { initializeFields() }
         .onChange(of: project.id) { oldValue, newValue in initializeFields() }
+        .onChange(of: allStyleSheets) { _, _ in
+            // If the selected stylesheet was deleted, fall back to default
+            if let selected = selectedStyleSheet, !allStyleSheets.contains(where: { $0.id == selected.id }) {
+                if let defaultSheet = StyleSheetService.getDefaultStyleSheet(context: modelContext) {
+                    selectedStyleSheet = defaultSheet
+                    project.styleSheet = defaultSheet
+                }
+            }
+        }
     }
     
     // MARK: - Extracted Subviews
