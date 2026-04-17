@@ -273,6 +273,7 @@ struct ProjectInfoSheet: View {
             .pickerStyle(.menu)
             .onChange(of: selectedStyleSheet) { oldValue, newValue in
                 project.styleSheet = newValue
+                project.modifiedDate = Date()
                 NotificationCenter.default.post(
                     name: NSNotification.Name("ProjectStyleSheetChanged"),
                     object: nil,

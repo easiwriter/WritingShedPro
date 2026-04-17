@@ -770,15 +770,50 @@ struct ContentView: View {
 
             var waitCycles = 0
             let isFreshDatabase = projects.isEmpty
-            let maxWait = isFreshDatabase ? 30 : 5  // fresh install: 30s, relaunch: 5s
-            while (throttler.hasActiveCloudKitEvent || throttler.isSyncing) && waitCycles < maxWait {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                waitCycles += 1
-                #if DEBUG
-                if waitCycles % 5 == 0 {
-                    print("⏳ [ContentView] Waiting for CloudKit to settle before stylesheet init... (\(waitCycles)s, fresh=\(isFreshDatabase))")
+            let maxWait = isFreshDatabase ? 60 : 5  // fresh install: 60s, relaunch: 5s
+            
+            if isFreshDatabase {
+                // On a fresh install, wait for CloudKit import to deliver stylesheets
+                // rather than creating them locally. Creating local records before import
+                // completes causes export failures (code=2) that block all sync.
+                while waitCycles < maxWait {
+                    // Check if CloudKit has already imported stylesheets
+                    let freshCtx = ModelContext(modelContext.container)
+                    let sheetDescriptor = FetchDescriptor<StyleSheet>()
+                    if let count = try? freshCtx.fetchCount(sheetDescriptor), count > 0 {
+                        #if DEBUG
+                        print("✅ [ContentView] CloudKit imported \(count) stylesheet(s) — skipping local creation")
+                        #endif
+                        break
+                    }
+                    
+                    // Also break if import completed successfully (zone might have no stylesheets)
+                    if throttler.importCompleted && throttler.importSucceeded {
+                        #if DEBUG
+                        print("✅ [ContentView] Import completed successfully — proceeding with stylesheet init")
+                        #endif
+                        break
+                    }
+                    
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                    waitCycles += 1
+                    #if DEBUG
+                    if waitCycles % 5 == 0 {
+                        print("⏳ [ContentView] Waiting for CloudKit import before stylesheet init... (\(waitCycles)s)")
+                    }
+                    #endif
                 }
-                #endif
+            } else {
+                // Existing database: just wait for active events to settle
+                while (throttler.hasActiveCloudKitEvent || throttler.isSyncing) && waitCycles < maxWait {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                    waitCycles += 1
+                    #if DEBUG
+                    if waitCycles % 5 == 0 {
+                        print("⏳ [ContentView] Waiting for CloudKit to settle before stylesheet init... (\(waitCycles)s)")
+                    }
+                    #endif
+                }
             }
 
             // Run async on main thread (ModelContext must stay on its creation thread)

@@ -716,19 +716,77 @@ final class CloudKitSyncThrottler {
             details.append(nsError.localizedDescription)
         }
 
+        // CKPartialErrorsByItemIDKey — individual record/zone errors
         if let partialByItem = nsError.userInfo[CKPartialErrorsByItemIDKey] as? [AnyHashable: NSError],
            !partialByItem.isEmpty {
             details.append("partialErrors=\(partialByItem.count)")
+            // Show first 3 distinct error codes
+            var errorCodes: [String: Int] = [:]
+            for (_, itemError) in partialByItem {
+                let key = "\(itemError.domain):\(itemError.code)"
+                errorCodes[key, default: 0] += 1
+            }
+            let summary = errorCodes.sorted(by: { $0.value > $1.value })
+                .prefix(3)
+                .map { "\($0.key)(x\($0.value))" }
+                .joined(separator: ", ")
+            details.append("errorBreakdown=[\(summary)]")
             if let first = partialByItem.first {
                 details.append("firstItem=\(first.key)")
-                details.append("firstError=\(first.value.domain):\(first.value.code)")
+                let firstErr = first.value
+                details.append("firstError=\(firstErr.domain):\(firstErr.code)")
+                // Dig into first partial error's underlying
+                if let firstUnderlying = firstErr.userInfo[NSUnderlyingErrorKey] as? NSError {
+                    details.append("firstUnderlying=\(firstUnderlying.domain):\(firstUnderlying.code) \(firstUnderlying.localizedDescription)")
+                }
             }
         }
 
-        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
-            details.append("underlying=\(underlying.domain):\(underlying.code)")
-            if !underlying.localizedDescription.isEmpty {
-                details.append(underlying.localizedDescription)
+        // NSDetailedErrorsKey — Core Data batch validation errors
+        if let detailedErrors = nsError.userInfo["NSDetailedErrors"] as? [NSError], !detailedErrors.isEmpty {
+            details.append("detailedErrors=\(detailedErrors.count)")
+            if let first = detailedErrors.first {
+                details.append("firstDetailed=\(first.domain):\(first.code) \(first.localizedDescription)")
+            }
+        }
+
+        // NSUnderlyingErrorKey — walk up to 3 levels deep
+        var current: NSError? = nsError.userInfo[NSUnderlyingErrorKey] as? NSError
+        var depth = 0
+        while let u = current, depth < 3 {
+            let prefix = depth == 0 ? "underlying" : "underlying\(depth+1)"
+            details.append("\(prefix)=\(u.domain):\(u.code)")
+            if !u.localizedDescription.isEmpty && u.localizedDescription != nsError.localizedDescription {
+                details.append(u.localizedDescription)
+            }
+            // Check for partial errors inside underlying too
+            if let nestedPartial = u.userInfo[CKPartialErrorsByItemIDKey] as? [AnyHashable: NSError],
+               !nestedPartial.isEmpty {
+                details.append("\(prefix).partialErrors=\(nestedPartial.count)")
+                var nestedCodes: [String: Int] = [:]
+                for (_, itemError) in nestedPartial {
+                    let key = "\(itemError.domain):\(itemError.code)"
+                    nestedCodes[key, default: 0] += 1
+                }
+                let nestedSummary = nestedCodes.sorted(by: { $0.value > $1.value })
+                    .prefix(3)
+                    .map { "\($0.key)(x\($0.value))" }
+                    .joined(separator: ", ")
+                details.append("\(prefix).breakdown=[\(nestedSummary)]")
+                if let first = nestedPartial.first {
+                    details.append("\(prefix).firstItem=\(first.key)")
+                    details.append("\(prefix).firstError=\(first.value.domain):\(first.value.code) \(first.value.localizedDescription)")
+                }
+            }
+            current = u.userInfo[NSUnderlyingErrorKey] as? NSError
+            depth += 1
+        }
+
+        // Dump all userInfo keys if we still only have domain+code (no details extracted)
+        if details.count <= 2 {
+            let keys = nsError.userInfo.keys.map { "\($0)" }.sorted()
+            if !keys.isEmpty {
+                details.append("userInfoKeys=[\(keys.joined(separator: ", "))]")
             }
         }
 

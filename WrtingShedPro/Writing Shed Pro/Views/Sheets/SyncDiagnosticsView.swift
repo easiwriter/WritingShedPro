@@ -273,6 +273,31 @@ struct SyncDiagnosticsView: View {
             lines.append("- \(t.name) | type=\(t.type) | deleted=\(t.deletedAt.formatted(date: .abbreviated, time: .shortened))")
         }
 
+        // Entity counts for debugging
+        lines.append("")
+        lines.append("Entity Counts (store):")
+        let freshCtx = ModelContext(modelContext.container)
+        let ssCount = (try? freshCtx.fetchCount(FetchDescriptor<StyleSheet>())) ?? -1
+        let tsCount = (try? freshCtx.fetchCount(FetchDescriptor<TextStyleModel>())) ?? -1
+        let isCount = (try? freshCtx.fetchCount(FetchDescriptor<ImageStyle>())) ?? -1
+        let pfCount = (try? freshCtx.fetchCount(FetchDescriptor<PoetryFormModel>())) ?? -1
+        let folderCount = (try? freshCtx.fetchCount(FetchDescriptor<Folder>())) ?? -1
+        let fileCount = (try? freshCtx.fetchCount(FetchDescriptor<TextFile>())) ?? -1
+        let versionCount = (try? freshCtx.fetchCount(FetchDescriptor<Version>())) ?? -1
+        let collectionCount = (try? freshCtx.fetchCount(FetchDescriptor<PoetryCollection>())) ?? -1
+        lines.append("- StyleSheet: \(ssCount)")
+        lines.append("- TextStyleModel: \(tsCount)")
+        lines.append("- ImageStyle: \(isCount)")
+        lines.append("- PoetryFormModel: \(pfCount)")
+        lines.append("- Folder: \(folderCount)")
+        lines.append("- TextFile: \(fileCount)")
+        lines.append("- Version: \(versionCount)")
+        lines.append("- PoetryCollection: \(collectionCount)")
+
+        // Pending CloudKit exports from ANSCKRECORDMETADATA
+        lines.append("")
+        lines.append(contentsOf: pendingExportLines())
+
         return lines.joined(separator: "\n")
     }
 
@@ -900,7 +925,8 @@ struct SyncDiagnosticsView: View {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    zoneDeleteStatus = "✅ Zone deleted. Quit and relaunch this app to re-export. Other devices: Reset Sync Database then relaunch."
+                    DeduplicationService.clearAllTombstones()
+                    zoneDeleteStatus = "✅ Zone deleted (tombstones cleared). Quit and relaunch this app to re-export. Other devices: Reset Sync Database then relaunch."
                     zoneWasDeletedThisSession = true
                 case .failure(let error):
                     zoneDeleteStatus = "❌ Zone delete failed: \(error.localizedDescription)"
@@ -1131,6 +1157,7 @@ struct SyncDiagnosticsView: View {
 
             var typeCounts: [String: Int] = [:]
             var totalRecords = 0
+            var projectNames: [String] = []
 
             fetchOp.recordWasChangedBlock = { _, result in
                 if case .success(let record) = result {
@@ -1138,6 +1165,9 @@ struct SyncDiagnosticsView: View {
                     DispatchQueue.main.async {
                         typeCounts[type, default: 0] += 1
                         totalRecords += 1
+                        if type == "CD_Project", let name = record["CD_name"] as? String {
+                            projectNames.append(name)
+                        }
                     }
                 }
             }
@@ -1153,7 +1183,8 @@ struct SyncDiagnosticsView: View {
                             let summary = typeCounts.sorted { $0.key < $1.key }
                                 .map { "\($0.key): \($0.value)" }
                                 .joined(separator: "\n")
-                            zoneVerifyStatus = "✅ Zone has \(totalRecords) records:\n\(summary)"
+                            let projectList = projectNames.sorted().joined(separator: ", ")
+                            zoneVerifyStatus = "✅ Zone has \(totalRecords) records:\n\(summary)\n\nProjects in zone (\(projectNames.count)): \(projectList)"
                         }
                     case .failure(let error):
                         zoneVerifyStatus = "❌ Zone fetch changes failed: \(error.localizedDescription)"
@@ -1281,6 +1312,72 @@ struct SyncDiagnosticsView: View {
         tombstoneCount = 0
         repairMessage = "All zombie tombstones cleared. Re-imported projects are now safe."
         showRepairResult = true
+    }
+
+    /// Read pending export counts from the CloudKit metadata SQLite table.
+    private func pendingExportLines() -> [String] {
+        var lines: [String] = []
+        lines.append("Pending CloudKit Exports:")
+
+        let storeURL = URL.documentsDirectory.appending(path: "writingshed.sqlite")
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(storeURL.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK,
+              let db = db else {
+            lines.append("- (could not open store)")
+            return lines
+        }
+        defer { sqlite3_close(db) }
+
+        // Total pending uploads
+        var stmt: OpaquePointer?
+        let totalSQL = "SELECT count(*) FROM ANSCKRECORDMETADATA WHERE ZNEEDSUPLOAD=1;"
+        if sqlite3_prepare_v2(db, totalSQL, -1, &stmt, nil) == SQLITE_OK {
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                let total = sqlite3_column_int(stmt, 0)
+                lines.append("- Total pending: \(total)")
+            }
+        }
+        sqlite3_finalize(stmt)
+
+        // Pending deletes
+        stmt = nil
+        let deleteSQL = "SELECT count(*) FROM ANSCKRECORDMETADATA WHERE ZNEEDSCLOUDDELETE=1;"
+        if sqlite3_prepare_v2(db, deleteSQL, -1, &stmt, nil) == SQLITE_OK {
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                let total = sqlite3_column_int(stmt, 0)
+                lines.append("- Total pending deletes: \(total)")
+            }
+        }
+        sqlite3_finalize(stmt)
+
+        // Breakdown by entity type
+        stmt = nil
+        let breakdownSQL = """
+            SELECT p.Z_NAME, count(*), m.ZPENDINGEXPORTCHANGETYPENUMBER
+            FROM ANSCKRECORDMETADATA m
+            JOIN Z_PRIMARYKEY p ON p.Z_ENT = m.ZENTITYID
+            WHERE m.ZNEEDSUPLOAD=1 OR m.ZNEEDSCLOUDDELETE=1
+            GROUP BY p.Z_NAME, m.ZPENDINGEXPORTCHANGETYPENUMBER
+            ORDER BY count(*) DESC;
+            """
+        if sqlite3_prepare_v2(db, breakdownSQL, -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let name = String(cString: sqlite3_column_text(stmt, 0))
+                let count = sqlite3_column_int(stmt, 1)
+                let changeType = sqlite3_column_int(stmt, 2)
+                let changeLabel: String
+                switch changeType {
+                case 0: changeLabel = "insert"
+                case 1: changeLabel = "update"
+                case 2: changeLabel = "delete"
+                default: changeLabel = "type=\(changeType)"
+                }
+                lines.append("  - \(name): \(count) (\(changeLabel))")
+            }
+        }
+        sqlite3_finalize(stmt)
+
+        return lines
     }
 
     /// Delete folders that have no project and no parent folder.
