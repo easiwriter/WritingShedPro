@@ -220,6 +220,7 @@ struct ProjectEditableList: View {
             try data.write(to: tempURL, options: .atomic)
 
             let errorHandler = ImportErrorHandler()
+            DeduplicationService.pauseZombieDeletion(for: 45)
             let importService = JSONImportService(
                 modelContext: modelContext,
                 errorHandler: errorHandler,

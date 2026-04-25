@@ -963,6 +963,9 @@ struct ContentView: View {
                 do {
                     // Create error handler
                     let errorHandler = ImportErrorHandler()
+
+                    // Guard against import-vs-zombie cleanup races.
+                    DeduplicationService.pauseZombieDeletion(for: 45)
                     
                     // JSON/WSP/WSD import
                     // Always generate new UUIDs to prevent CloudKit from merging

@@ -116,8 +116,10 @@ class JSONImportService {
         
         // Create project
         let projectType = ProjectType(rawValue: data.project.type) ?? .prose
+        DeduplicationService.clearTombstone(name: data.project.name, typeRaw: projectType.rawValue)
         var projectName = data.project.name
         projectName = ensureUniqueName(projectName)
+        DeduplicationService.clearTombstone(name: projectName, typeRaw: projectType.rawValue)
         
         let project = Project(
             name: projectName,
@@ -176,6 +178,7 @@ class JSONImportService {
         var chapterMap: [String: Chapter] = [:]
         var actMap: [String: Act] = [:]
         var sceneMap: [String: StoryScene] = [:]
+        var deferredSceneLinks: [(sceneID: String, chapterIDs: [String], actIDs: [String], bookIDs: [String])] = []
         
         // Import prose sections first (so text files can link to them)
         for sectionData in data.proseSections ?? [] {
@@ -304,42 +307,35 @@ class JSONImportService {
             sceneMap[sceneData.id] = scene
             modelContext.insert(scene)
             
-            // Link to chapters (v1.3 array or v1.2 single)
+            // Defer join-table links to a second save phase so CloudKit can
+            // export base records before link records reference them.
+            let resolvedChapterIDs: [String]
             if let chapterIds = sceneData.chapterIds, !chapterIds.isEmpty {
-                for chapterId in chapterIds {
-                    if let chapter = chapterMap[chapterId] {
-                        scene.addToChapter(chapter)
-                    }
-                }
+                resolvedChapterIDs = chapterIds
             } else if let chapterId = sceneData.chapterId {
-                if let chapter = chapterMap[chapterId] {
-                    scene.addToChapter(chapter)
-                }
+                resolvedChapterIDs = [chapterId]
+            } else {
+                resolvedChapterIDs = []
             }
-            // Link to acts (v1.3 array or v1.2 single)
+            let resolvedActIDs: [String]
             if let actIds = sceneData.actIds, !actIds.isEmpty {
-                for actId in actIds {
-                    if let act = actMap[actId] {
-                        scene.addToAct(act)
-                    }
-                }
+                resolvedActIDs = actIds
             } else if let actId = sceneData.actId {
-                if let act = actMap[actId] {
-                    scene.addToAct(act)
-                }
+                resolvedActIDs = [actId]
+            } else {
+                resolvedActIDs = []
             }
-            // Link to books (v1.3 array or v1.2 single)
+            let resolvedBookIDs: [String]
             if let bookIds = sceneData.bookIds, !bookIds.isEmpty {
-                for bookId in bookIds {
-                    if let book = bookMap[bookId] {
-                        scene.addToBook(book)
-                    }
-                }
+                resolvedBookIDs = bookIds
             } else if let bookId = sceneData.bookId {
-                if let book = bookMap[bookId] {
-                    scene.addToBook(book)
-                }
+                resolvedBookIDs = [bookId]
+            } else {
+                resolvedBookIDs = []
             }
+            deferredSceneLinks.append(
+                (sceneID: sceneData.id, chapterIDs: resolvedChapterIDs, actIDs: resolvedActIDs, bookIDs: resolvedBookIDs)
+            )
             
             // Link to text file (bidirectional)
             if let textFileId = sceneData.textFileId, let textFile = textFileMap[textFileId] {
@@ -402,6 +398,30 @@ class JSONImportService {
             // Link to scenes
             if let sceneIds = plotData.linkedSceneIds {
                 element.linkedScenes = sceneIds.compactMap { sceneMap[$0] }
+            }
+        }
+
+        // Save phase 1: ensure parent records exist in CloudKit before join links.
+        try modelContext.save()
+
+        // Save phase 2: create scene join-table links.
+        for linkPlan in deferredSceneLinks {
+            guard let scene = sceneMap[linkPlan.sceneID] else { continue }
+
+            for chapterID in linkPlan.chapterIDs {
+                if let chapter = chapterMap[chapterID] {
+                    scene.addToChapter(chapter)
+                }
+            }
+            for actID in linkPlan.actIDs {
+                if let act = actMap[actID] {
+                    scene.addToAct(act)
+                }
+            }
+            for bookID in linkPlan.bookIDs {
+                if let book = bookMap[bookID] {
+                    scene.addToBook(book)
+                }
             }
         }
         
@@ -580,6 +600,15 @@ class JSONImportService {
         
         // Import stylesheet (if present in WSP data)
         if let sheetData = data.stylesheet {
+            // System/default sheets should always reuse the local system stylesheet.
+            // Importing another system sheet is unnecessary and can leave a pending
+            // StyleSheet insert in the same export batch as newly imported records.
+            if sheetData.isSystemStyleSheet, let defaultSheet = StyleSheetService.getDefaultStyleSheet(context: modelContext) {
+                project.styleSheet = defaultSheet
+                #if DEBUG
+                print("[JSONImport] Reused local system stylesheet '\(defaultSheet.name)' for imported project")
+                #endif
+            } else {
             // Check if a stylesheet with the same name already exists to avoid duplicates
             let existingSheet: StyleSheet? = {
                 let trimmedName = sheetData.name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -675,6 +704,7 @@ class JSONImportService {
             #if DEBUG
             print("[JSONImport] \(existingSheet != nil ? "Reused" : "Imported") stylesheet '\(sheet.name)' with \(sheet.textStyles?.count ?? 0) text styles")
             #endif
+            }
         }
         
         // Clear any tombstone that matches this project name+type so that
@@ -1111,9 +1141,11 @@ class JSONImportService {
         // Clean up project name - remove date/timestamp in brackets
         // e.g., "The 1st World (15:11:2025, 08:47)" -> "The 1st World"
         projectName = cleanProjectName(projectName)
+        DeduplicationService.clearTombstone(name: projectName, typeRaw: nil)
         
         // Check if this name already exists
         projectName = ensureUniqueName(projectName)
+        DeduplicationService.clearTombstone(name: projectName, typeRaw: nil)
         
         // Try to get project type from the nested project JSON first
         var projectType: ProjectType = .prose

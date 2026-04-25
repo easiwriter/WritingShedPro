@@ -35,6 +35,7 @@ class DeduplicationService {
 
     private static let tombstoneDefaultsKey = "WSP_DeletedProjectTombstones"
     private static let tombstoneExpiryInterval: TimeInterval = 90 * 24 * 3600 // 90 days
+    private static var zombieDeletionPausedUntil: Date?
 
     /// A lightweight record of a permanently deleted project.
     private struct Tombstone: Codable {
@@ -93,10 +94,34 @@ class DeduplicationService {
         loadTombstones().count
     }
 
-    /// After a CloudKit import, delete any projects that match an active tombstone.
-    /// This prevents "zombie" records from reappearing after permanent deletion.
+    /// Temporarily pause zombie deletion while local imports are in progress.
+    /// This prevents a race where a freshly inserted import can be deleted
+    /// before tombstone-clearing and save complete.
+    static func pauseZombieDeletion(for seconds: TimeInterval = 30) {
+        let until = Date().addingTimeInterval(max(1, seconds))
+        if let existing = zombieDeletionPausedUntil, existing > until {
+            return
+        }
+        zombieDeletionPausedUntil = until
+        #if DEBUG
+        print("🪦 [DeduplicationService] Zombie deletion paused until \(until)")
+        #endif
+    }
+
+    /// After a CloudKit import, handle any projects that match an active tombstone.
+    ///
+    /// SAFETY: Never auto-delete active projects. CloudKit can transiently reintroduce
+    /// records during sync churn, and name/key matches can be false-positives.
+    /// Only auto-delete already-trashed records that match a tombstone.
     @MainActor
     static func deleteZombieProjects(context: ModelContext) -> Int {
+        if let pauseUntil = zombieDeletionPausedUntil, Date() < pauseUntil {
+            #if DEBUG
+            print("🪦 [DeduplicationService] Skipping zombie delete while pause is active")
+            #endif
+            return 0
+        }
+
         let tombstones = loadTombstones()
         guard !tombstones.isEmpty else { return 0 }
 
@@ -104,14 +129,22 @@ class DeduplicationService {
         guard let allProjects = try? context.fetch(descriptor) else { return 0 }
 
         var deletedCount = 0
+        var skippedActiveCount = 0
         for project in allProjects {
             guard let nameKey = normalizedNameKey(for: project.name) else { continue }
             let isZombie = tombstones.contains {
                 $0.normalizedName == nameKey && $0.typeRaw == project.typeRaw
             }
             if isZombie {
+                if !project.isTrashed {
+                    skippedActiveCount += 1
+                    #if DEBUG
+                    print("🪦 [DeduplicationService] ⚠️ Matched tombstone but skipped ACTIVE project '\(project.name ?? "?")' id=\(project.id) [Zombie Safety]")
+                    #endif
+                    continue
+                }
                 #if DEBUG
-                print("🪦 [DeduplicationService] Deleting zombie project '\(project.name ?? "?")' id=\(project.id) (matched tombstone for '\(nameKey)')")
+                print("🪦 [DeduplicationService] 🗑️  DELETING ZOMBIE: '\(project.name ?? "?")' id=\(project.id) (matched tombstone for '\(nameKey)') [Zombie]")
                 #endif
                 context.delete(project)
                 deletedCount += 1
@@ -128,6 +161,12 @@ class DeduplicationService {
             print("🪦 [DeduplicationService] \(tombstones.count) active tombstone(s), no zombies found")
             #endif
         }
+
+        #if DEBUG
+        if skippedActiveCount > 0 {
+            print("🪦 [DeduplicationService] Skipped \(skippedActiveCount) active tombstone match(es) for safety")
+        }
+        #endif
 
         return deletedCount
     }
@@ -153,46 +192,45 @@ class DeduplicationService {
 
     /// Returns a stable, non-destructive view of projects for UI presentation.
     ///
-    /// CloudKit can transiently leave duplicate `Project` records in the local store.
-    /// We do not want to delete records automatically during sync churn, but we also
-    /// do not want duplicate rows in the UI. This helper groups by normalized project
-    /// name and keeps the strongest candidate for presentation.
+    /// DO NOT use this for actual data decisions. This is UI-ONLY filtering.
+    /// Simply removes exact duplicates from display without touching the database.
+    /// If you need to decide which project to keep, do that EXPLICITLY through user action.
     static func presentedProjects(from projects: [Project]) -> [Project] {
-        let canonicalByKey = Dictionary(
-            uniqueKeysWithValues: groupedProjects(projects).map { key, group in
-                (key, preferredProject(in: group))
-            }
-        )
-
-        var emittedKeys = Set<String>()
-        var visibleProjects: [Project] = []
-
-        for project in projects {
-            let key = groupKey(for: project)
-            guard !emittedKeys.contains(key) else { continue }
-            guard let canonical = canonicalByKey[key], canonical.id == project.id else { continue }
-            emittedKeys.insert(key)
-            visibleProjects.append(project)
-        }
-
-        return visibleProjects
+        // DISABLED: Do not filter by deduplication logic.
+        // Too risky — projects hidden by this logic end up deleted by external code,
+        // causing mysterious disappearances. Return all projects as-is.
+        return projects
     }
 
-    /// Returns whether a proposed name conflicts with any visible/canonical project.
+    /// Returns whether a proposed name conflicts with ANY project (including hidden/trashed duplicates).
     ///
-    /// When `excluding` is supplied, all duplicates that belong to the same normalized
-    /// name group as that project are ignored. This allows editing an existing project
-    /// without a hidden duplicate record falsely tripping validation.
+    /// CRITICAL: Checks ALL projects in the database, not just presented ones.
+    /// This prevents users from renaming to a name that another project has,
+    /// even if that other project is trashed or hidden as a duplicate.
+    /// CloudKit sync can later re-import the hidden project, causing both projects
+    /// to have the same name → deduplication deletes the weaker one.
+    ///
+    /// When `excluding` is supplied, that project is ignored. This allows editing
+    /// an existing project without its own name tripping validation.
     static func hasProjectNameConflict(_ proposedName: String, in projects: [Project], excluding excludingProject: Project? = nil) -> Bool {
         guard let proposedKey = normalizedNameKey(for: proposedName) else { return false }
 
-        let excludedGroupKey = excludingProject.map(groupKey(for:))
-
-        return presentedProjects(from: projects).contains { candidate in
-            let candidateKey = groupKey(for: candidate)
-            guard candidateKey != excludedGroupKey else { return false }
-            return normalizedNameKey(for: candidate.name) == proposedKey
+        for project in projects {
+            // Skip the project being edited
+            if let excluding = excludingProject, project.id == excluding.id {
+                continue
+            }
+            
+            // Check if ANY project has this name (including hidden duplicates, trashed, etc.)
+            if normalizedNameKey(for: project.name) == proposedKey {
+                #if DEBUG
+                print("⚠️  [DeduplicationService] Name conflict detected: proposed '\(proposedName)' matches existing project '\(project.name)' id=\(project.id) isTrashed=\(project.isTrashed)")
+                #endif
+                return true
+            }
         }
+        
+        return false
     }
 
     /// Returns the selected project plus obvious CloudKit clone rows that represent
@@ -232,7 +270,13 @@ class DeduplicationService {
     static func permanentlyDeleteProjectFamily(_ project: Project, context: ModelContext) {
         // Record tombstone BEFORE deleting so we can catch CloudKit zombies
         recordTombstone(for: project)
+        #if DEBUG
+        print("🗑️  PERMANENTLY DELETING PROJECT FAMILY: '\(project.name)' id=\(project.id)")
+        #endif
         for candidate in syncedDuplicateFamily(for: project, context: context) {
+            #if DEBUG
+            print("   ↳ deleting candidate: '\(candidate.name)' id=\(candidate.id) [Permanent Delete]")
+            #endif
             context.delete(candidate)
         }
     }
@@ -256,9 +300,7 @@ class DeduplicationService {
         print("🔍 [Dedup] Checking \(allProjects.count) projects for duplicates...")
         #endif
         
-        // Group projects by name — duplicates from CloudKit sync may have
-        // different creation dates (one from original, one from re-import)
-        // so name-only matching is the safest approach.
+        // Group projects by name
         let groups = groupedProjects(allProjects)
         
         var totalRemoved = 0
@@ -272,24 +314,55 @@ class DeduplicationService {
             print("🔍 [Dedup] Found \(projectGroup.count) copies of '\(projectName)'")
             #endif
             
-            // Pick the "best" copy to keep — the one with the most content
-            let sorted = projectGroup.sorted(by: shouldPrefer(_:_:))
-            
-            let keeper = sorted[0]
-            let duplicates = Array(sorted.dropFirst())
-            
-            #if DEBUG
-            print("  ↳ Keeping PK with score \(contentScore(for: keeper)), removing \(duplicates.count) duplicate(s)")
-            #endif
-            
-            for duplicate in duplicates {
-                // SwiftData cascade delete rules will handle child objects
-                // (Folders, TextFiles, Versions, etc.)
-                context.delete(duplicate)
-                totalRemoved += 1
+            // CRITICAL: Only deduplicate projects that are likely CloudKit clones.
+            // CloudKit clones have identical creation dates from the sync operation.
+            // If creation dates differ (e.g., renamed project gets same name as old one),
+            // they are NOT clones and should NOT be merged.
+            let sortedByCreationDate = projectGroup.sorted { a, b in
+                (a.creationDate ?? .distantPast) < (b.creationDate ?? .distantPast)
             }
             
-            affectedNames.append(projectName)
+            // Group by creation date (with 2-second tolerance for sync timing)
+            var dateGroups: [[Project]] = []
+            var currentGroup: [Project] = []
+            var lastDate: Date?
+            
+            for project in sortedByCreationDate {
+                let projDate = project.creationDate ?? .distantPast
+                if let last = lastDate, abs(projDate.timeIntervalSince(last)) > 2 {
+                    if !currentGroup.isEmpty {
+                        dateGroups.append(currentGroup)
+                    }
+                    currentGroup = [project]
+                } else {
+                    currentGroup.append(project)
+                }
+                lastDate = projDate
+            }
+            if !currentGroup.isEmpty {
+                dateGroups.append(currentGroup)
+            }
+            
+            // Only deduplicate within same-creation-date groups
+            for dateGroup in dateGroups where dateGroup.count > 1 {
+                let sorted = dateGroup.sorted(by: shouldPrefer(_:_:))
+                let keeper = sorted[0]
+                let duplicates = Array(sorted.dropFirst())
+                
+                #if DEBUG
+                print("  ↳ Keeping: '\(keeper.name)' id=\(keeper.id) isTrashed=\(keeper.isTrashed) created=\(keeper.creationDate?.formatted() ?? "?") score=\(contentScore(for: keeper))")
+                #endif
+                
+                for duplicate in duplicates {
+                    #if DEBUG
+                    print("  🗑️  DELETING DUPLICATE: '\(duplicate.name)' id=\(duplicate.id) isTrashed=\(duplicate.isTrashed) created=\(duplicate.creationDate?.formatted() ?? "?") score=\(contentScore(for: duplicate)) [CloudKit Clone]")
+                    #endif
+                    context.delete(duplicate)
+                    totalRemoved += 1
+                }
+                
+                affectedNames.append(projectName)
+            }
         }
         
         if totalRemoved > 0 {

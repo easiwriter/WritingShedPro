@@ -346,12 +346,24 @@ struct ProjectInfoSheet: View {
             return
         }
         
+        // CRITICAL: Check for name conflicts using ALL projects in the database,
+        // not just the ones visible in @Query. @Query may exclude trashed or hidden duplicates.
+        // This prevents users from renaming to a name that another project already has,
+        // even if that other project is archived/hidden.
+        let freshContext = ModelContext(modelContext.container)
+        let allProjectsDescriptor = FetchDescriptor<Project>()
+        let allProjects = (try? freshContext.fetch(allProjectsDescriptor)) ?? []
+        
         let isDuplicate = DeduplicationService.hasProjectNameConflict(trimmedName, in: allProjects, excluding: project)
         
         if isDuplicate {
             nameValidationError = NSLocalizedString("validation.duplicateProjectName", comment: "Error when project name already exists")
             return
         }
+
+        // If user intentionally renames to this value, clear any stale tombstone
+        // for the same name/type so post-import zombie cleanup cannot remove it.
+        DeduplicationService.clearTombstone(name: trimmedName, typeRaw: project.typeRaw)
         
         project.name = trimmedName
         project.modifiedDate = Date()

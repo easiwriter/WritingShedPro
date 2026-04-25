@@ -344,6 +344,22 @@ struct SyncDiagnosticsView: View {
             lines.append("  - id=\(id.uuidString) | @Query='\(queryNameByID[id] ?? "")' | Store='\(storeNameByID[id] ?? "")'")
         }
 
+        // Search for NaPoWriMo variants to diagnose the name collision issue
+        lines.append("")
+        lines.append("Diagnostic: Search for NaPoWriMo variants")
+        let allStoredProjects = (try? freshContext.fetch(FetchDescriptor<Project>())) ?? []
+        let napoVariants = allStoredProjects.filter { 
+            let name = $0.name ?? ""
+            return name.lowercased().contains("napo")
+        }
+        if napoVariants.isEmpty {
+            lines.append("- No projects with 'napo' in name found")
+        } else {
+            for project in napoVariants.sorted(by: { ($0.name ?? "") < ($1.name ?? "") }) {
+                lines.append("- FOUND: name='\(project.name ?? "?")' | id=\(project.id.uuidString) | trashed=\(project.isTrashed) | created=\(project.creationDate?.formatted() ?? "?")")
+            }
+        }
+
         return lines
     }
 
@@ -600,11 +616,11 @@ struct SyncDiagnosticsView: View {
 
     private var orphanedFoldersRepairRow: some View {
         HStack {
-            Image(systemName: "folder.badge.minus")
-            Text("Delete Orphaned Folders")
+            Image(systemName: "exclamationmark.triangle")
+            Text("Orphaned Folder Cleanup Disabled")
             Spacer()
         }
-        .foregroundColor(.red)
+        .foregroundColor(.orange)
         .contentShape(Rectangle())
         .onTapGesture {
             deleteOrphanedFolders()
@@ -613,11 +629,11 @@ struct SyncDiagnosticsView: View {
 
     private var orphanedFilesRepairRow: some View {
         HStack {
-            Image(systemName: "trash")
-            Text("Delete Orphaned Files")
+            Image(systemName: "exclamationmark.triangle")
+            Text("Orphaned File Cleanup Disabled")
             Spacer()
         }
-        .foregroundColor(.red)
+        .foregroundColor(.orange)
         .contentShape(Rectangle())
         .onTapGesture {
             deleteOrphanedFiles()
@@ -639,11 +655,11 @@ struct SyncDiagnosticsView: View {
 
     private var orphanedPublicationsRepairRow: some View {
         HStack {
-            Image(systemName: "doc.badge.minus")
-            Text("Delete Orphaned Publications")
+            Image(systemName: "exclamationmark.triangle")
+            Text("Orphaned Publication Cleanup Disabled")
             Spacer()
         }
-        .foregroundColor(.red)
+        .foregroundColor(.orange)
         .contentShape(Rectangle())
         .onTapGesture {
             deleteOrphanedPublications()
@@ -1383,27 +1399,7 @@ struct SyncDiagnosticsView: View {
     /// Delete folders that have no project and no parent folder.
     /// These are unreachable in the UI and represent sync remnants.
     private func deleteOrphanedFolders() {
-        let orphans = allFolders.filter { folder in
-            folder.project == nil && folder.parentFolder == nil
-        }
-
-        guard !orphans.isEmpty else {
-            repairMessage = "No orphaned folders found."
-            showRepairResult = true
-            return
-        }
-
-        for folder in orphans {
-            modelContext.delete(folder)
-        }
-
-        do {
-            try modelContext.save()
-            repairMessage = "Deleted \(orphans.count) orphaned folder(s)."
-            orphanedFolderCount = 0
-        } catch {
-            repairMessage = "Error deleting orphaned folders: \(error.localizedDescription)"
-        }
+        repairMessage = "Safety lock: orphan cleanup is disabled. CloudKit syncs relationships separately, so temporary nil relationships must never be auto-deleted."
         showRepairResult = true
     }
 
@@ -1417,55 +1413,14 @@ struct SyncDiagnosticsView: View {
     /// Delete publications that have no parent project.
     /// These are unreachable in the UI and represent sync remnants.
     private func deleteOrphanedPublications() {
-        let projectSet = Set(projects.map { $0.persistentModelID })
-        let orphans = publications.filter { pub in
-            pub.project == nil || !projectSet.contains(pub.project!.persistentModelID)
-        }
-
-        guard !orphans.isEmpty else {
-            repairMessage = "No orphaned publications found."
-            showRepairResult = true
-            return
-        }
-
-        for pub in orphans {
-            modelContext.delete(pub)
-        }
-
-        do {
-            try modelContext.save()
-            repairMessage = "Deleted \(orphans.count) orphaned publication(s)."
-            orphanedPublicationCount = 0
-        } catch {
-            repairMessage = "Error deleting orphaned publications: \(error.localizedDescription)"
-        }
+        repairMessage = "Safety lock: orphan cleanup is disabled. Run manual recovery steps instead of deleting records based on missing relationships."
         showRepairResult = true
     }
 
     /// Delete files that have no parent folder.
     /// These are unreachable in the UI and represent sync remnants.
     private func deleteOrphanedFiles() {
-        let orphans = allTextFiles.filter { file in
-            file.parentFolder == nil
-        }
-
-        guard !orphans.isEmpty else {
-            repairMessage = "No orphaned files found."
-            showRepairResult = true
-            return
-        }
-
-        for file in orphans {
-            modelContext.delete(file)
-        }
-
-        do {
-            try modelContext.save()
-            repairMessage = "Deleted \(orphans.count) orphaned file(s)."
-            orphanedFileCount = 0
-        } catch {
-            repairMessage = "Error deleting orphaned files: \(error.localizedDescription)"
-        }
+        repairMessage = "Safety lock: orphan cleanup is disabled. CloudKit may attach relationships after records arrive."
         showRepairResult = true
     }
 
