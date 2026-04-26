@@ -196,10 +196,25 @@ class DeduplicationService {
     /// Simply removes exact duplicates from display without touching the database.
     /// If you need to decide which project to keep, do that EXPLICITLY through user action.
     static func presentedProjects(from projects: [Project]) -> [Project] {
-        // DISABLED: Do not filter by deduplication logic.
-        // Too risky — projects hidden by this logic end up deleted by external code,
-        // causing mysterious disappearances. Return all projects as-is.
-        return projects
+        guard !projects.isEmpty else { return [] }
+
+        // Collapse only obvious CloudKit clone rows (same normalized name + type + creation date).
+        // This is a presentation-only filter and never mutates storage.
+        let groups = Dictionary(grouping: projects, by: presentationGroupKey(for:))
+        var keptIDs = Set<UUID>()
+
+        for (_, group) in groups {
+            if group.count == 1, let only = group.first {
+                keptIDs.insert(only.id)
+                continue
+            }
+
+            let keeper = preferredProject(in: group)
+            keptIDs.insert(keeper.id)
+        }
+
+        // Preserve the incoming order from callers.
+        return projects.filter { keptIDs.contains($0.id) }
     }
 
     /// Returns whether a proposed name conflicts with ANY project (including hidden/trashed duplicates).
@@ -224,7 +239,8 @@ class DeduplicationService {
             // Check if ANY project has this name (including hidden duplicates, trashed, etc.)
             if normalizedNameKey(for: project.name) == proposedKey {
                 #if DEBUG
-                print("⚠️  [DeduplicationService] Name conflict detected: proposed '\(proposedName)' matches existing project '\(project.name)' id=\(project.id) isTrashed=\(project.isTrashed)")
+                let existingName = project.name ?? "<nil>"
+                print("⚠️  [DeduplicationService] Name conflict detected: proposed '\(proposedName)' matches existing project '\(existingName)' id=\(project.id) isTrashed=\(project.isTrashed)")
                 #endif
                 return true
             }
@@ -271,11 +287,13 @@ class DeduplicationService {
         // Record tombstone BEFORE deleting so we can catch CloudKit zombies
         recordTombstone(for: project)
         #if DEBUG
-        print("🗑️  PERMANENTLY DELETING PROJECT FAMILY: '\(project.name)' id=\(project.id)")
+        let projectName = project.name ?? "<nil>"
+        print("🗑️  PERMANENTLY DELETING PROJECT FAMILY: '\(projectName)' id=\(project.id)")
         #endif
         for candidate in syncedDuplicateFamily(for: project, context: context) {
             #if DEBUG
-            print("   ↳ deleting candidate: '\(candidate.name)' id=\(candidate.id) [Permanent Delete]")
+            let candidateName = candidate.name ?? "<nil>"
+            print("   ↳ deleting candidate: '\(candidateName)' id=\(candidate.id) [Permanent Delete]")
             #endif
             context.delete(candidate)
         }
@@ -350,12 +368,14 @@ class DeduplicationService {
                 let duplicates = Array(sorted.dropFirst())
                 
                 #if DEBUG
-                print("  ↳ Keeping: '\(keeper.name)' id=\(keeper.id) isTrashed=\(keeper.isTrashed) created=\(keeper.creationDate?.formatted() ?? "?") score=\(contentScore(for: keeper))")
+                let keeperName = keeper.name ?? "<nil>"
+                print("  ↳ Keeping: '\(keeperName)' id=\(keeper.id) isTrashed=\(keeper.isTrashed) created=\(keeper.creationDate?.formatted() ?? "?") score=\(contentScore(for: keeper))")
                 #endif
                 
                 for duplicate in duplicates {
                     #if DEBUG
-                    print("  🗑️  DELETING DUPLICATE: '\(duplicate.name)' id=\(duplicate.id) isTrashed=\(duplicate.isTrashed) created=\(duplicate.creationDate?.formatted() ?? "?") score=\(contentScore(for: duplicate)) [CloudKit Clone]")
+                    let duplicateName = duplicate.name ?? "<nil>"
+                    print("  🗑️  DELETING DUPLICATE: '\(duplicateName)' id=\(duplicate.id) isTrashed=\(duplicate.isTrashed) created=\(duplicate.creationDate?.formatted() ?? "?") score=\(contentScore(for: duplicate)) [CloudKit Clone]")
                     #endif
                     context.delete(duplicate)
                     totalRemoved += 1
@@ -430,6 +450,19 @@ class DeduplicationService {
 
     private static func groupKey(for project: Project) -> String {
         normalizedNameKey(for: project.name) ?? "__project_id__:\(project.id.uuidString)"
+    }
+
+    private static func presentationGroupKey(for project: Project) -> String {
+        guard let nameKey = normalizedNameKey(for: project.name) else {
+            return "__project_id__:\(project.id.uuidString)"
+        }
+
+        let typeKey = project.typeRaw ?? ""
+        if let creationDate = project.creationDate {
+            return "\(nameKey)|\(typeKey)|\(creationDate.timeIntervalSinceReferenceDate)"
+        }
+
+        return "\(nameKey)|\(typeKey)|__nil_creation__"
     }
 
     private static func normalizedNameKey(for name: String?) -> String? {

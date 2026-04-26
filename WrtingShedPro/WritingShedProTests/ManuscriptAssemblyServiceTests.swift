@@ -260,6 +260,53 @@ final class ManuscriptAssemblyServiceTests: XCTestCase {
         file.includedInManuscript = true
         XCTAssertTrue(file.includedInManuscript)
     }
+
+    func testAssembleContentCollectsFootnotesWhenVersionRelationshipIsNil() async throws {
+        let project = Project(name: "Test Prose", type: .prose)
+        modelContext.insert(project)
+
+        let folder = Folder(name: "Prose", project: project)
+        modelContext.insert(folder)
+        project.folders = [folder]
+
+        let file = TextFile(name: "Chapter 1", parentFolder: folder)
+        file.includedInManuscript = true
+        modelContext.insert(file)
+
+        let version = Version(content: "Text with footnote")
+        version.textFile = file
+        file.versions = [version]
+        modelContext.insert(version)
+        folder.textFiles = [file]
+
+        let attachmentID = UUID()
+        let footnoteAttachment = FootnoteAttachment(footnoteID: attachmentID, number: 1)
+        let marker = NSAttributedString(attachment: footnoteAttachment)
+        let attributed = NSMutableAttributedString(string: "Body")
+        attributed.append(marker)
+        version.attributedContent = attributed
+
+        let footnote = FootnoteModel(
+            version: version,
+            characterPosition: 4,
+            attachmentID: attachmentID,
+            text: "Recovered via attachment lookup",
+            number: 1
+        )
+        modelContext.insert(footnote)
+
+        // Simulate CloudKit's temporary relationship gap where record data exists
+        // but the Version relationship has not synced yet.
+        footnote.version = nil
+
+        try modelContext.save()
+
+        let content = try await assemblyService.assembleContent(for: project)
+
+        XCTAssertEqual(content.assembledFootnotes.count, 1)
+        XCTAssertEqual(content.assembledFootnotes.first?.text, "Recovered via attachment lookup")
+        XCTAssertEqual(content.assembledFootnotes.first?.number, 1)
+    }
     
     // MARK: - Back Matter Integration Tests (Feature 029)
     

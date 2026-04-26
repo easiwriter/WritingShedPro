@@ -149,8 +149,8 @@ final class SubmissionFileTests: XCTestCase {
         let project = makePoetryProject()
         let poemsFolder = makeContentFolder(name: "Poems", project: project)
         
-        let readyFile1 = makeFile(name: "Ready A", folder: poemsFolder, status: .ready)
-        let readyFile2 = makeFile(name: "Ready B", folder: poemsFolder, status: .ready)
+        _ = makeFile(name: "Ready A", folder: poemsFolder, status: .ready)
+        _ = makeFile(name: "Ready B", folder: poemsFolder, status: .ready)
         _ = makeFile(name: "Draft C", folder: poemsFolder, status: .draft)
         _ = makeFile(name: "SetAside D", folder: poemsFolder, status: .setAside)
         try modelContext.save()
@@ -175,8 +175,8 @@ final class SubmissionFileTests: XCTestCase {
         let poemsFolder = makeContentFolder(name: "Poems", project: project)
         
         let readyFile1 = makeFile(name: "Ready A", folder: poemsFolder, status: .ready)
-        let readyFile2 = makeFile(name: "Ready B", folder: poemsFolder, status: .ready)
-        let readyFile3 = makeFile(name: "Ready C", folder: poemsFolder, status: .ready)
+        _ = makeFile(name: "Ready B", folder: poemsFolder, status: .ready)
+        _ = makeFile(name: "Ready C", folder: poemsFolder, status: .ready)
         try modelContext.save()
         
         // Create a submission (collection) with readyFile1 already added

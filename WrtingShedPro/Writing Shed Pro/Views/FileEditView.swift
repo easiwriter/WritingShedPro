@@ -2573,16 +2573,6 @@ struct FileEditView: View {
             }
         }
         
-        // Auto-show poetry form reference for empty poetry documents with a structured form
-        // (not Free Verse, which has no structure to show)
-        if isPoetryProject && attributedContent.length == 0 {
-            if let form = file.poetryForm, form.id != PoetryForm.freeVerseId {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    showPoetryFormReference = true
-                }
-            }
-        }
-        
         // Update poetry validation badge asynchronously to avoid blocking initial render
         updateValidationBadgeAsync()
         

@@ -15,7 +15,7 @@ final class CloudKitSyncThrottlerTests: XCTestCase {
 
     func testHasActiveCloudKitEventClearsStaleImportAfterTimeout() {
         let throttler = CloudKitSyncThrottler.shared
-        throttler._testSetImportInProgress(startedAt: Date().addingTimeInterval(-310))
+        throttler._testSetImportInProgress(startedAt: Date().addingTimeInterval(-610))
 
         let active = throttler.hasActiveCloudKitEvent
 
@@ -69,7 +69,7 @@ final class CloudKitSyncThrottlerTests: XCTestCase {
 
     func testRepeatedImportStartDoesNotResetOriginalStartTime() {
         let throttler = CloudKitSyncThrottler.shared
-        let originalStart = Date().addingTimeInterval(-310)
+        let originalStart = Date().addingTimeInterval(-610)
         throttler._testMarkImportStarted(at: originalStart)
         throttler._testMarkImportStarted(at: Date())
 
@@ -86,7 +86,7 @@ final class CloudKitSyncThrottlerTests: XCTestCase {
 
     func testRepeatedExportStartDoesNotResetOriginalStartTime() {
         let throttler = CloudKitSyncThrottler.shared
-        let originalStart = Date().addingTimeInterval(-310)
+        let originalStart = Date().addingTimeInterval(-610)
         throttler._testMarkExportStarted(at: originalStart)
         throttler._testMarkExportStarted(at: Date())
 
@@ -179,12 +179,12 @@ final class CloudKitSyncThrottlerTests: XCTestCase {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             XCTAssertTrue(throttler.isPostReset)
 
-            // Set import started 400s ago (> 300s normal, < 900s post-reset)
-            throttler._testSetImportInProgress(startedAt: Date().addingTimeInterval(-400))
+            // Set import started 1200s ago (> 600s normal, < 1800s post-reset)
+            throttler._testSetImportInProgress(startedAt: Date().addingTimeInterval(-1200))
 
-            // With isPostReset=true, 400s < 900s threshold → should stay active
+            // With isPostReset=true, 1200s < 1800s threshold → should stay active
             let active = throttler.hasActiveCloudKitEvent
-            XCTAssertTrue(active, "400s should not trigger stale timeout during post-reset (threshold is 900s)")
+            XCTAssertTrue(active, "1200s should not trigger stale timeout during post-reset (threshold is 1800s)")
             XCTAssertTrue(throttler.importInProgress)
             expectation.fulfill()
         }

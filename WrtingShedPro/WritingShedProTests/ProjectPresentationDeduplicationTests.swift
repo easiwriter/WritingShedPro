@@ -4,9 +4,10 @@ import SwiftData
 
 final class ProjectPresentationDeduplicationTests: XCTestCase {
 
-    func testPresentedProjectsKeepsRichestDuplicate() {
-        let sparse = Project(name: "The Republic of Heaven", type: .prose)
-        let rich = Project(name: "The Republic of Heaven", type: .prose)
+    func testPresentedProjectsKeepsRichestSyncedDuplicate() {
+        let creationDate = Date(timeIntervalSince1970: 1_710_000_000)
+        let sparse = Project(name: "The Republic of Heaven", type: .prose, creationDate: creationDate)
+        let rich = Project(name: "The Republic of Heaven", type: .prose, creationDate: creationDate)
 
         let manuscript = Folder(name: "Manuscript", project: rich)
         let draft = TextFile(name: "Draft", parentFolder: manuscript)
@@ -28,7 +29,7 @@ final class ProjectPresentationDeduplicationTests: XCTestCase {
         XCTAssertEqual(visible.count, 2)
     }
 
-    func testNameConflictIgnoresHiddenDuplicateGroupForEditedProject() {
+    func testNameConflictChecksAllProjectsIncludingHiddenDuplicates() {
         let visibleDuplicate = Project(name: "The Republic", type: .prose)
         let hiddenDuplicate = Project(name: "The Republic", type: .prose)
         let other = Project(name: "Poems 2026", type: .poetry)
@@ -38,7 +39,7 @@ final class ProjectPresentationDeduplicationTests: XCTestCase {
         manuscript.textFiles = [draft]
         visibleDuplicate.folders = [manuscript]
 
-        XCTAssertFalse(
+        XCTAssertTrue(
             DeduplicationService.hasProjectNameConflict(
                 "The Republic",
                 in: [visibleDuplicate, hiddenDuplicate, other],

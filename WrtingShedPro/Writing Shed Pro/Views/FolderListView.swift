@@ -635,12 +635,12 @@ struct FolderListView: View {
         // Check for duplicate submission name in this project
         let projectID = project.id
         let duplicatePredicate: Predicate<Submission> = #Predicate { submission in
-            submission.name == trimmedName && submission.project?.id == projectID && submission.isCollection == false
+            submission.name == trimmedName && submission.isCollection == false
         }
         var duplicateCheck = FetchDescriptor<Submission>(predicate: duplicatePredicate)
-        duplicateCheck.fetchLimit = 1
-        let duplicateCount: Int = (try? modelContext.fetchCount(duplicateCheck)) ?? 0
-        if duplicateCount > 0 {
+        let duplicateSubmissions: [Submission] = (try? modelContext.fetch(duplicateCheck)) ?? []
+        let hasDuplicate = duplicateSubmissions.contains { $0.project?.id == projectID }
+        if hasDuplicate {
             createdSubmissionName = trimmedName
             showDuplicateSubmission = true
             return

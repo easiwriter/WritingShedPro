@@ -515,7 +515,7 @@ final class ListStyleIntegrationTests: XCTestCase {
                        "fixStyleCategories should correct list-numbered to .list category")
     }
     
-    func testFixStyleCategories_AddsMissingNestedListStyles() throws {
+    func testFixStyleCategories_DoesNotAddMissingNestedListStyles() throws {
         // Stylesheet with only base list styles, missing nested ones
         let stylesheet = StyleSheet(name: "Missing Nested")
         context.insert(stylesheet)
@@ -534,13 +534,11 @@ final class ListStyleIntegrationTests: XCTestCase {
         // When
         StyleSheetService.fixStyleCategories(in: stylesheet, context: context)
         
-        // Then - nested styles should be added
+        // Then - missing styles are not auto-created here (to avoid sync-time duplication)
         let level2 = stylesheet.style(named: "list-numbered-level-2")
         let level3 = stylesheet.style(named: "list-numbered-level-3")
-        XCTAssertNotNil(level2, "fixStyleCategories should add list-numbered-level-2")
-        XCTAssertNotNil(level3, "fixStyleCategories should add list-numbered-level-3")
-        XCTAssertEqual(level2?.styleCategory, .list)
-        XCTAssertEqual(level3?.styleCategory, .list)
+        XCTAssertNil(level2, "fixStyleCategories should not add list-numbered-level-2")
+        XCTAssertNil(level3, "fixStyleCategories should not add list-numbered-level-3")
     }
     
     // MARK: - List Style Attribute Application Tests

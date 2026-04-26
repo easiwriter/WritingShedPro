@@ -63,6 +63,7 @@ final class SyncHealthMonitorTests: XCTestCase {
             degradedThreshold: 0.001,  // tiny threshold
             stalledThreshold: 600
         )
+        throttler._testSetExportInProgress(startedAt: Date())
         quickMonitor.recordLocalChange()
         // Wait a tiny bit so gap exists
         Thread.sleep(forTimeInterval: 0.01)
@@ -80,6 +81,7 @@ final class SyncHealthMonitorTests: XCTestCase {
             degradedThreshold: 0.001,
             stalledThreshold: 0.001
         )
+        throttler._testSetExportInProgress(startedAt: Date())
         monitor.recordLocalChange()
         Thread.sleep(forTimeInterval: 0.01)
         monitor.checkHealth()
@@ -100,6 +102,7 @@ final class SyncHealthMonitorTests: XCTestCase {
             degradedThreshold: 0.001,
             stalledThreshold: 0.001
         )
+        throttler._testSetExportInProgress(startedAt: Date())
         monitor.recordLocalChange()
         Thread.sleep(forTimeInterval: 0.01)
 
@@ -125,6 +128,7 @@ final class SyncHealthMonitorTests: XCTestCase {
             degradedThreshold: 0.001,
             stalledThreshold: 0.001
         )
+        throttler._testSetExportInProgress(startedAt: Date())
         monitor.recordLocalChange()
         Thread.sleep(forTimeInterval: 0.01)
         monitor.checkHealth()
@@ -144,6 +148,7 @@ final class SyncHealthMonitorTests: XCTestCase {
             degradedThreshold: 0.001,
             stalledThreshold: 600
         )
+        throttler._testSetExportInProgress(startedAt: Date())
         monitor.recordLocalChange()
         Thread.sleep(forTimeInterval: 0.01)
         monitor.checkHealth()

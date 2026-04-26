@@ -32,6 +32,10 @@ struct ContentView: View {
     /// Used to avoid repeated writes during prolonged CloudKit churn.
     @State private var lastAutoOrderNormalizationDate: Date = .distantPast
 
+    /// Last time we attempted automatic duplicate cleanup.
+    /// Keeps startup/reconcile paths from repeatedly scanning and mutating during bursts.
+    @State private var lastAutoDedupDate: Date = .distantPast
+
     /// Debounced task handle for remote-change reconciliation.
     @State private var remoteReconcileTask: Task<Void, Never>?
 
@@ -358,6 +362,9 @@ struct ContentView: View {
             }
         }
 
+        // Automatically clean up CloudKit clone rows once sync is settled.
+        performAutomaticDedupIfSafe(reason: "reconcile")
+
         let freshContext = ModelContext(modelContext.container)
         let descriptor = FetchDescriptor<Project>()
         guard let allProjects = try? freshContext.fetch(descriptor) else { return }
@@ -542,10 +549,10 @@ struct ContentView: View {
             // when CloudKit relationships may still be arriving.
             MigrationService.runMigrations(context: modelContext, importConfirmed: importConfirmed)
 
-            // IMPORTANT: Do not auto-delete "duplicate" projects on launch.
-            // CloudKit may temporarily surface same-name records during staggered
-            // relationship sync and automatic name-based deletion can remove valid
-            // newly imported projects. Deduplication remains available from diagnostics.
+            // Auto-cleanup synced clone rows after migration when sync is settled.
+            // This uses DeduplicationService's strict clone checks (same name/type/creation date)
+            // and runs only when CloudKit is idle.
+            performAutomaticDedupIfSafe(reason: "startup-migration")
 
             // After import, delete any zombie projects that match tombstones
             // (projects the user permanently deleted but CloudKit re-imported).
@@ -559,6 +566,29 @@ struct ContentView: View {
                 #endif
             }
         }
+    }
+
+    private func performAutomaticDedupIfSafe(reason: String) {
+        let throttler = CloudKitSyncThrottler.shared
+        guard scenePhase == .active else { return }
+        guard !throttler.isRateLimited else { return }
+        guard !throttler.hasActiveCloudKitEvent else { return }
+
+        // Debounce automatic dedup scans/writes.
+        let now = Date()
+        guard now.timeIntervalSince(lastAutoDedupDate) >= 30 else { return }
+        lastAutoDedupDate = now
+
+        let duplicateCount = DeduplicationService.countDuplicateProjects(context: modelContext)
+        guard duplicateCount > 0 else { return }
+
+        let result = DeduplicationService.deduplicateProjects(context: modelContext)
+        guard result.duplicatesRemoved > 0 else { return }
+
+        #if DEBUG
+        print("🧹 [ContentView] Auto-dedup removed \(result.duplicatesRemoved) duplicate project(s) via \(reason)")
+        #endif
+        refreshTrigger.toggle()
     }
     
     /// Prefetch project relationships async to warm up Swift type system

@@ -66,6 +66,6 @@ struct WorkflowStatusPickerSheet: View {
     }
     
     private func allFilesHaveStatus(_ status: WorkflowStatus) -> Bool {
-        files.allSatisfy { $0.workflowStatus == status }
+        !files.isEmpty && files.allSatisfy { $0.workflowStatus == status }
     }
 }

@@ -806,25 +806,32 @@ final class ManuscriptAssemblyService {
                     // FootnoteAttachment objects embedded in the attributed content carry the
                     // footnoteID and number. We look up the text from the FootnoteModel records.
                     let footnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
-                    if !footnotes.isEmpty {
-                        // Build a map from attachmentID → FootnoteModel for fast lookup
-                        // Use reduce to safely handle duplicate attachmentIDs (keeps last)
-                        let footnoteMap = footnotes.reduce(into: [UUID: FootnoteModel]()) { dict, fn in
-                            dict[fn.attachmentID] = fn
-                        }
-                        
-                        // Scan the newly appended range for FootnoteAttachment objects
-                        let appendedRange = NSRange(location: contentOffset, length: assembled.length - contentOffset)
-                        assembled.enumerateAttribute(.attachment, in: appendedRange, options: []) { value, range, _ in
-                            if let fnAttach = value as? FootnoteAttachment {
-                                if let fnModel = footnoteMap[fnAttach.footnoteID] {
-                                    assembledFootnotes.append(ManuscriptFootnote(
-                                        attachmentID: fnAttach.footnoteID,
-                                        text: fnModel.text,
-                                        number: fnAttach.number,
-                                        characterPosition: range.location
-                                    ))
-                                }
+                    // Build a map from attachmentID → FootnoteModel for fast lookup
+                    // Use reduce to safely handle duplicate attachmentIDs (keeps last)
+                    let footnoteMap = footnotes.reduce(into: [UUID: FootnoteModel]()) { dict, fn in
+                        dict[fn.attachmentID] = fn
+                    }
+                    
+                    // Scan the newly appended range for FootnoteAttachment objects
+                    let appendedRange = NSRange(location: contentOffset, length: assembled.length - contentOffset)
+                    assembled.enumerateAttribute(.attachment, in: appendedRange, options: []) { value, range, _ in
+                        if let fnAttach = value as? FootnoteAttachment {
+                            if let fnModel = footnoteMap[fnAttach.footnoteID] {
+                                assembledFootnotes.append(ManuscriptFootnote(
+                                    attachmentID: fnAttach.footnoteID,
+                                    text: fnModel.text,
+                                    number: fnAttach.number,
+                                    characterPosition: range.location
+                                ))
+                            } else if let fnModel = fetchFootnoteByAttachment(attachmentID: fnAttach.footnoteID) {
+                                // CloudKit may sync FootnoteModel before its Version relationship.
+                                // Fallback to attachment-ID lookup so preview footnotes still render.
+                                assembledFootnotes.append(ManuscriptFootnote(
+                                    attachmentID: fnAttach.footnoteID,
+                                    text: fnModel.text,
+                                    number: fnAttach.number,
+                                    characterPosition: range.location
+                                ))
                             }
                         }
                     }
@@ -958,6 +965,17 @@ final class ManuscriptAssemblyService {
         }
         
         return files
+    }
+
+    /// Fallback lookup for footnotes when the Version relationship has not synced yet.
+    /// Attachment IDs are generated per marker and are stable across sync.
+    private func fetchFootnoteByAttachment(attachmentID: UUID) -> FootnoteModel? {
+        let descriptor = FetchDescriptor<FootnoteModel>(
+            predicate: #Predicate { footnote in
+                footnote.attachmentID == attachmentID
+            }
+        )
+        return try? context.fetch(descriptor).first
     }
     
     /// Generate section break based on settings
