@@ -28,6 +28,7 @@ extension TextFile {
         modelContext?.insert(link)
         if poetryCollectionLinks == nil { poetryCollectionLinks = [] }
         poetryCollectionLinks?.append(link)
+        collection.modifiedDate = Date()
     }
     
     /// Remove this file from a specific poetry collection
@@ -37,11 +38,17 @@ extension TextFile {
             modelContext?.delete(link)
         }
         poetryCollectionLinks?.removeAll(where: { $0.poetryCollection?.id == collection.id })
+        collection.modifiedDate = Date()
     }
     
     /// Remove this file from all poetry collections
     func removeFromAllPoetryCollections() {
-        for link in poetryCollectionLinks ?? [] { modelContext?.delete(link) }
+        for link in poetryCollectionLinks ?? [] {
+            modelContext?.delete(link)
+            if let collection = link.poetryCollection {
+                collection.modifiedDate = Date()
+            }
+        }
         poetryCollectionLinks = []
     }
     
@@ -70,6 +77,7 @@ extension TextFile {
         modelContext?.insert(link)
         if sectionLinks == nil { sectionLinks = [] }
         sectionLinks?.append(link)
+        section.modifiedDate = Date()
     }
     
     /// Remove this file from a specific prose section
@@ -79,11 +87,17 @@ extension TextFile {
             modelContext?.delete(link)
         }
         sectionLinks?.removeAll(where: { $0.section?.id == section.id })
+        section.modifiedDate = Date()
     }
     
     /// Remove this file from all prose sections
     func removeFromAllSections() {
-        for link in sectionLinks ?? [] { modelContext?.delete(link) }
+        for link in sectionLinks ?? [] {
+            modelContext?.delete(link)
+            if let section = link.section {
+                section.modifiedDate = Date()
+            }
+        }
         sectionLinks = []
     }
     
@@ -117,6 +131,7 @@ extension StoryScene {
         modelContext?.insert(link)
         if chapterLinks == nil { chapterLinks = [] }
         chapterLinks?.append(link)
+        chapter.modifiedDate = Date()
     }
     
     /// Remove this scene from a specific chapter
@@ -126,11 +141,17 @@ extension StoryScene {
             modelContext?.delete(link)
         }
         chapterLinks?.removeAll(where: { $0.chapter?.id == chapter.id })
+        chapter.modifiedDate = Date()
     }
     
     /// Remove this scene from all chapters
     func removeFromAllChapters() {
-        for link in chapterLinks ?? [] { modelContext?.delete(link) }
+        for link in chapterLinks ?? [] {
+            modelContext?.delete(link)
+            if let chapter = link.chapter {
+                chapter.modifiedDate = Date()
+            }
+        }
         chapterLinks = []
     }
     
@@ -159,6 +180,7 @@ extension StoryScene {
         modelContext?.insert(link)
         if actLinks == nil { actLinks = [] }
         actLinks?.append(link)
+        act.modifiedDate = Date()
     }
     
     /// Remove this scene from a specific act
@@ -168,11 +190,17 @@ extension StoryScene {
             modelContext?.delete(link)
         }
         actLinks?.removeAll(where: { $0.act?.id == act.id })
+        act.modifiedDate = Date()
     }
     
     /// Remove this scene from all acts
     func removeFromAllActs() {
-        for link in actLinks ?? [] { modelContext?.delete(link) }
+        for link in actLinks ?? [] {
+            modelContext?.delete(link)
+            if let act = link.act {
+                act.modifiedDate = Date()
+            }
+        }
         actLinks = []
     }
     
@@ -201,6 +229,7 @@ extension StoryScene {
         modelContext?.insert(link)
         if bookLinks == nil { bookLinks = [] }
         bookLinks?.append(link)
+        book.modifiedDate = Date()
     }
     
     /// Remove this scene from a specific book
@@ -210,11 +239,17 @@ extension StoryScene {
             modelContext?.delete(link)
         }
         bookLinks?.removeAll(where: { $0.book?.id == book.id })
+        book.modifiedDate = Date()
     }
     
     /// Remove this scene from all books
     func removeFromAllBooks() {
-        for link in bookLinks ?? [] { modelContext?.delete(link) }
+        for link in bookLinks ?? [] {
+            modelContext?.delete(link)
+            if let book = link.book {
+                book.modifiedDate = Date()
+            }
+        }
         bookLinks = []
     }
     

@@ -159,6 +159,7 @@ struct ManuscriptBodyView: View {
     #endif
         let breakStyle = project.manuscriptSettings.sectionBreakStyle
         for (idx, file) in files.enumerated() {
+            let fileStartOffset = attributed.length
             if isDrama, let plain = file.currentVersion?.content {
                 // Render DML source using DramaMarkupRenderer
                 let document = DramaMarkupParser.shared.parse(plain)
@@ -174,6 +175,13 @@ struct ManuscriptBodyView: View {
             } else if let plain = file.currentVersion?.content {
                 attributed.append(NSAttributedString(string: plain))
             }
+
+            // Keep each file as a separate paragraph block so first-line styles
+            // (e.g. Title2 headings) are rendered consistently in preview.
+            if attributed.length > fileStartOffset {
+                ensureTrailingBlankLine(on: attributed)
+            }
+
             // Insert break between files according to user setting
             if idx < files.count - 1 {
                 if usePageBreak {
@@ -199,6 +207,18 @@ struct ManuscriptBodyView: View {
             version.attributedContent = attributed
         }
         return tf
+    }
+
+    private func ensureTrailingBlankLine(on text: NSMutableAttributedString) {
+        guard text.length > 0 else { return }
+        if text.string.hasSuffix("\n\n") {
+            return
+        }
+        if text.string.hasSuffix("\n") {
+            text.append(NSAttributedString(string: "\n"))
+        } else {
+            text.append(NSAttributedString(string: "\n\n"))
+        }
     }
     
     @ViewBuilder
@@ -263,6 +283,20 @@ struct ManuscriptBodyView: View {
 /// A read-only view for displaying attributed text content
 struct AttributedTextDisplayView: UIViewRepresentable {
     let attributedText: NSAttributedString
+
+    private var previewText: NSAttributedString {
+        let mutable = NSMutableAttributedString(attributedString: attributedText)
+        mutable.enumerateAttribute(.poemSectionType, in: NSRange(location: 0, length: mutable.length), options: []) { value, range, _ in
+            guard let raw = value as? String,
+                  let sectionType = PoemSectionType(rawValue: raw),
+                  !sectionType.isAnalyzed else {
+                return
+            }
+            mutable.removeAttribute(.foregroundColor, range: range)
+            mutable.removeAttribute(.backgroundColor, range: range)
+        }
+        return mutable
+    }
     
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
@@ -278,7 +312,7 @@ struct AttributedTextDisplayView: UIViewRepresentable {
     }
     
     func updateUIView(_ uiView: UITextView, context: Context) {
-        uiView.attributedText = attributedText
+        uiView.attributedText = previewText
         uiView.invalidateIntrinsicContentSize()
     }
     

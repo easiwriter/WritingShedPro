@@ -88,6 +88,19 @@ struct PageSetupForm: View {
         scaleFactor = pageSetup.scaleFactor
         pageBreakBetweenFiles = pageSetup.hasPageBreakBetweenFiles
         
+        // Sync manuscript settings with page setup on load
+        // If the toggle is true, ensure sectionBreakStyle is .pageBreak (for preview)
+        // If the toggle is false, ensure sectionBreakStyle is .none
+        let shouldHavePageBreak = pageSetup.hasPageBreakBetweenFiles
+        let expectedStyle: ManuscriptSettings.SectionBreakStyle = shouldHavePageBreak ? .pageBreak : .none
+        if project.manuscriptSettings.sectionBreakStyle != expectedStyle {
+            project.manuscriptSettings.sectionBreakStyle = expectedStyle
+            try? modelContext.save()
+            #if DEBUG
+            print("[PageSetupForm] Synced sectionBreakStyle to: \(expectedStyle.localizedName)")
+            #endif
+        }
+        
         #if DEBUG
         print("[PageSetupForm] Loaded paperName: '\(paperName)'")
         #endif
@@ -345,6 +358,13 @@ struct PageSetupForm: View {
             print("[PageSetupForm] Page break between files changed (per-project setting)")
             #endif
             pageSetup.hasPageBreakBetweenFiles = pageBreakBetweenFiles
+            
+            // Also update manuscript settings so the preview respects this setting
+            let newBreakStyle: ManuscriptSettings.SectionBreakStyle = pageBreakBetweenFiles ? .pageBreak : .none
+            project.manuscriptSettings.sectionBreakStyle = newBreakStyle
+            #if DEBUG
+            print("[PageSetupForm] Updated sectionBreakStyle to: \(newBreakStyle.localizedName)")
+            #endif
         }
         
         #if DEBUG

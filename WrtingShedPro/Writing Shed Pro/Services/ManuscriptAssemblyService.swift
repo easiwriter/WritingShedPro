@@ -671,6 +671,7 @@ final class ManuscriptAssemblyService {
             for file in section.files {
                 // Skip cover files — they contain only an image, not text content
                 if file.isCoverFile { continue }
+                let fileStartOffset = assembled.length
                 
                 // Skip print-only content for EPUB export (TOC with dot leaders,
                 // Table of Figures with page numbers, etc.)
@@ -835,6 +836,15 @@ final class ManuscriptAssemblyService {
                             }
                         }
                     }
+                } else if let plain = file.currentVersion?.content {
+                    assembled.append(NSAttributedString(string: plain))
+                }
+
+                // Guarantee each file ends with one blank line (two newlines).
+                // This preserves paragraph boundaries so the next file's first-line
+                // style (e.g. Title2) is rendered from its own paragraph attributes.
+                if assembled.length > fileStartOffset {
+                    ensureTrailingBlankLine(on: assembled)
                 }
             }
         }
@@ -990,6 +1000,19 @@ final class ManuscriptAssemblyService {
             return NSAttributedString(string: "\n\n\n\n")
         case .none:
             return NSAttributedString(string: "")
+        }
+    }
+
+    /// Ensure content ends with exactly one blank line boundary between files.
+    private func ensureTrailingBlankLine(on text: NSMutableAttributedString) {
+        guard text.length > 0 else { return }
+        if text.string.hasSuffix("\n\n") {
+            return
+        }
+        if text.string.hasSuffix("\n") {
+            text.append(NSAttributedString(string: "\n"))
+        } else {
+            text.append(NSAttributedString(string: "\n\n"))
         }
     }
     

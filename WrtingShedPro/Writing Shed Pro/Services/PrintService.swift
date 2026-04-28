@@ -1463,6 +1463,18 @@ class PrintService {
         for (range, replacement) in replacements.reversed() {
             mutable.replaceCharacters(in: range, with: replacement)
         }
+
+        // Marked poem sections are an editor-only visual hint.
+        // Keep the semantic marker, but remove gray foreground/background for output.
+        mutable.enumerateAttribute(.poemSectionType, in: NSRange(location: 0, length: mutable.length), options: []) { value, range, _ in
+            guard let raw = value as? String,
+                  let sectionType = PoemSectionType(rawValue: raw),
+                  !sectionType.isAnalyzed else {
+                return
+            }
+            mutable.removeAttribute(.foregroundColor, range: range)
+            mutable.removeAttribute(.backgroundColor, range: range)
+        }
         
         // Remove background colors (editing-only tints)
         mutable.removeAttribute(.backgroundColor, range: NSRange(location: 0, length: mutable.length))
