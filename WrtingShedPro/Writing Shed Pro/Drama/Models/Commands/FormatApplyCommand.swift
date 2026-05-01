@@ -45,6 +45,7 @@ final class FormatApplyCommand: UndoableCommand {
         // This is called when the command is first executed
         // Update the file's attributed content
         targetFile?.currentVersion?.attributedContent = afterContent
+        targetFile?.modifiedDate = Date()
         
         #if DEBUG
         var boldCount = 0, italicCount = 0
@@ -78,6 +79,7 @@ final class FormatApplyCommand: UndoableCommand {
         }
         
         file.currentVersion?.attributedContent = beforeContent
+        file.modifiedDate = Date()
 
         Task { @MainActor in WriteCoalescer.shared?.requestSave() }
 

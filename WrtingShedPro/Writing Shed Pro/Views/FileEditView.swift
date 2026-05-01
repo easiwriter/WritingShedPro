@@ -1677,16 +1677,11 @@ struct FileEditView: View {
                 
                 // Disconnect search manager to clean up highlights and observers
                 searchManager.disconnect()
-                
-                // Cancel debounce timer and save immediately
-                saveDebounceTimer?.invalidate()
-                saveDebounceTimer = nil
-                
-                saveChanges()
-                saveUndoState()
-                
-                // Flush any coalesced saves so changes persist before navigation.
-                WriteCoalescer.shared?.flush()
+
+                flushPendingEditorChanges()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+                flushPendingEditorChanges()
             }
             .onAppear {
                 setupOnAppear()
@@ -8039,6 +8034,15 @@ struct FileEditView: View {
         file.modifiedDate = Date()
         
         WriteCoalescer.shared?.requestSave()
+    }
+
+    private func flushPendingEditorChanges() {
+        saveDebounceTimer?.invalidate()
+        saveDebounceTimer = nil
+
+        saveChanges()
+        saveUndoState()
+        WriteCoalescer.shared?.flush()
     }
     
     /// FEATURE 029: Extract all reference attachments and create metadata
