@@ -241,6 +241,20 @@ final class SyllableCounter {
     /// Words ending in '-ed' usually don't add a syllable unless preceded by 't' or 'd'
     private func applyEdEndingRule(word: String, count: Int) -> Int {
         guard word.hasSuffix("ed") && word.count > 2 else { return count }
+
+        // Some "-led" endings are pronounced as a separate syllable
+        // (e.g. "circled", "sparkled"), while "-lled" words are often not
+        // (e.g. "called", "filled").
+        if word.hasSuffix("led") {
+            let characters = Array(word)
+            if characters.count >= 4 {
+                let characterBeforeL = characters[characters.count - 4]
+                let vowels: Set<Swift.Character> = ["a", "e", "i", "o", "u", "y"]
+                if !vowels.contains(characterBeforeL) && characterBeforeL != "l" {
+                    return count
+                }
+            }
+        }
         
         let beforeEd = word.dropLast(2).last
         

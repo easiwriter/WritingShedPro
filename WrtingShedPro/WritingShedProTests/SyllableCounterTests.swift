@@ -80,6 +80,8 @@ final class SyllableCounterTests: XCTestCase {
         XCTAssertEqual(sut.countSyllables(in: "needed"), 2)
         XCTAssertEqual(sut.countSyllables(in: "started"), 2)
         XCTAssertEqual(sut.countSyllables(in: "ended"), 2)
+        XCTAssertEqual(sut.countSyllables(in: "circled"), 2)
+        XCTAssertEqual(sut.countSyllables(in: "sparkled"), 2)
         
         // Words where -ed doesn't add a syllable
         XCTAssertEqual(sut.countSyllables(in: "walked"), 1)
