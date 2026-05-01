@@ -29,7 +29,10 @@ struct SyncDiagnosticsView: View {
     @State private var duplicateProjectCount: Int = 0
     @State private var projectOrderCollisionCount: Int = 0
     @State private var orphanedFolderCount: Int = 0
+    @State private var orphanedFolderDetails: [(id: UUID, name: String, fileCount: Int, subfolderCount: Int)] = []
     @State private var orphanedFileCount: Int = 0
+    @State private var orphanedFileDetails: [(id: UUID, name: String)] = []
+    @State private var orphanReassignStatus: String = ""
     @State private var orphanedPublicationCount: Int = 0
     @State private var duplicateStyleSheetCount: Int = 0
     @State private var tombstoneCount: Int = 0
@@ -615,29 +618,64 @@ struct SyncDiagnosticsView: View {
     }
 
     private var orphanedFoldersRepairRow: some View {
-        HStack {
-            Image(systemName: "exclamationmark.triangle")
-            Text("Orphaned Folder Cleanup Disabled")
-            Spacer()
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(orphanedFolderDetails, id: \.id) { detail in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(detail.name)
+                            .font(.caption)
+                            .foregroundColor(.primary)
+                        Text("\(detail.fileCount) files, \(detail.subfolderCount) subfolders")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Button(role: .destructive) {
+                        deleteOrphanedFolder(id: detail.id)
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.caption)
+                    }
+                }
+            }
+
+            if !orphanReassignStatus.isEmpty {
+                Text(orphanReassignStatus)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
-        .foregroundColor(.orange)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            deleteOrphanedFolders()
-        }
+        .padding(.vertical, 4)
     }
 
     private var orphanedFilesRepairRow: some View {
-        HStack {
-            Image(systemName: "exclamationmark.triangle")
-            Text("Orphaned File Cleanup Disabled")
-            Spacer()
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(orphanedFileDetails, id: \.id) { detail in
+                HStack {
+                    Text(detail.name)
+                        .font(.caption)
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Button(role: .destructive) {
+                        deleteOrphanedFile(id: detail.id)
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.caption)
+                    }
+                }
+            }
+            if orphanedFileDetails.isEmpty {
+                Text("No orphaned files found")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            if !orphanReassignStatus.isEmpty {
+                Text(orphanReassignStatus)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
-        .foregroundColor(.orange)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            deleteOrphanedFiles()
-        }
+        .padding(.vertical, 4)
     }
 
     private var orphanedPublicationsStatusRow: some View {
@@ -1261,13 +1299,34 @@ struct SyncDiagnosticsView: View {
 
     /// Check for orphaned folders and files
     private func checkForOrphans() {
-        orphanedFolderCount = allFolders.filter { folder in
-            folder.project == nil && folder.parentFolder == nil
-        }.count
+        // Use a fresh context to avoid false positives from main-context cache staleness.
+        let freshCtx = ModelContext(modelContext.container)
 
-        orphanedFileCount = allTextFiles.filter { file in
+        let folderDescriptor = FetchDescriptor<Folder>()
+        let fetchedFolders = (try? freshCtx.fetch(folderDescriptor)) ?? []
+        let orphanedFolders = fetchedFolders.filter { folder in
+            let hasNoProject = folder.project == nil
+            let hasNoParent = folder.parentFolder == nil
+            return hasNoProject && hasNoParent
+        }
+
+        orphanedFolderCount = orphanedFolders.count
+        orphanedFolderDetails = orphanedFolders.map { folder in
+            (id: folder.id,
+             name: folder.name ?? "unnamed",
+             fileCount: folder.textFiles?.count ?? 0,
+             subfolderCount: folder.folders?.count ?? 0)
+        }
+
+        let fileDescriptor = FetchDescriptor<TextFile>()
+        let fetchedFiles = (try? freshCtx.fetch(fileDescriptor)) ?? []
+        let orphanedFiles = fetchedFiles.filter { file in
             file.parentFolder == nil
-        }.count
+        }
+        orphanedFileCount = orphanedFiles.count
+        orphanedFileDetails = orphanedFiles.map { file in
+            (id: file.id, name: file.name.isEmpty ? "Untitled" : file.name)
+        }
     }
 
     private func checkForDuplicateStyleSheets() {
@@ -1403,6 +1462,42 @@ struct SyncDiagnosticsView: View {
         showRepairResult = true
     }
 
+    /// Delete orphaned folders that are provably empty (no files, no subfolders).
+    /// These cannot contain user data and are safe to remove.
+    private func deleteEmptyOrphanedFolders() {
+        let freshCtx = ModelContext(modelContext.container)
+        let descriptor = FetchDescriptor<Folder>()
+        guard let allFolders = try? freshCtx.fetch(descriptor) else {
+            repairMessage = "Failed to fetch folders."
+            showRepairResult = true
+            return
+        }
+        let toDelete = allFolders.filter { folder in
+            let hasNoProject = folder.project == nil
+            let hasNoParent = folder.parentFolder == nil
+            let hasNoFiles = folder.textFiles?.isEmpty ?? true
+            let hasNoSubfolders = folder.folders?.isEmpty ?? true
+            return hasNoProject && hasNoParent && hasNoFiles && hasNoSubfolders
+        }
+        guard !toDelete.isEmpty else {
+            repairMessage = "No empty orphaned folders found."
+            showRepairResult = true
+            return
+        }
+        let names = toDelete.map { $0.name ?? "unnamed" }.joined(separator: ", ")
+        for folder in toDelete {
+            freshCtx.delete(folder)
+        }
+        do {
+            try freshCtx.save()
+            checkForOrphans()
+            repairMessage = "Deleted \(toDelete.count) empty orphaned folder(s): \(names)."
+        } catch {
+            repairMessage = "Save failed: \(error.localizedDescription)"
+        }
+        showRepairResult = true
+    }
+
     private func checkForOrphanedPublications() {
         let projectSet = Set(projects.map { $0.persistentModelID })
         orphanedPublicationCount = publications.filter { pub in
@@ -1422,6 +1517,42 @@ struct SyncDiagnosticsView: View {
     private func deleteOrphanedFiles() {
         repairMessage = "Safety lock: orphan cleanup is disabled. CloudKit may attach relationships after records arrive."
         showRepairResult = true
+    }
+
+    /// Delete a specific orphaned folder (and its contents via cascade) by UUID.
+    private func deleteOrphanedFolder(id: UUID) {
+        let descriptor = FetchDescriptor<Folder>(predicate: #Predicate { $0.id == id })
+        guard let folder = (try? modelContext.fetch(descriptor))?.first else {
+            orphanReassignStatus = "❌ Folder not found"
+            return
+        }
+        let name = folder.name ?? "folder"
+        modelContext.delete(folder)
+        do {
+            try modelContext.save()
+            orphanReassignStatus = "✅ Deleted \"\(name)\""
+            checkForOrphans()
+        } catch {
+            orphanReassignStatus = "❌ Delete failed: \(error.localizedDescription)"
+        }
+    }
+
+    /// Delete a specific orphaned file by UUID.
+    private func deleteOrphanedFile(id: UUID) {
+        let descriptor = FetchDescriptor<TextFile>(predicate: #Predicate { $0.id == id })
+        guard let file = (try? modelContext.fetch(descriptor))?.first else {
+            orphanReassignStatus = "❌ File not found"
+            return
+        }
+        let name = file.name
+        modelContext.delete(file)
+        do {
+            try modelContext.save()
+            orphanReassignStatus = "✅ Deleted \"\(name)\""
+            checkForOrphans()
+        } catch {
+            orphanReassignStatus = "❌ Delete failed: \(error.localizedDescription)"
+        }
     }
 
     /// Check whether the NSPersistentCloudKitContainer CKDatabaseSubscription exists.
