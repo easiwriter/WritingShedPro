@@ -949,6 +949,7 @@ final class TextFile {
         poetryFormId = form?.id
         poetryFormName = form?.name
         modifiedDate = Date()
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
     }
     
     // MARK: - Computed Properties
@@ -998,6 +999,7 @@ final class TextFile {
         versions?.append(newVersion)
         currentVersionIndex = (versions?.count ?? 1) - 1
         modifiedDate = Date()
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
         return newVersion
     }
     
@@ -1007,6 +1009,7 @@ final class TextFile {
         if let index = versions?.firstIndex(of: version) {
             currentVersionIndex = index
             modifiedDate = Date()
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
         }
     }
     
@@ -1023,6 +1026,7 @@ final class TextFile {
     func updateCurrentVersion(content newContent: String) {
         currentVersion?.updateContent(newContent)
         modifiedDate = Date()
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
     }
     
     /// Returns all versions sorted by version number

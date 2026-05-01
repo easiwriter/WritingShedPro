@@ -7,9 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D786773B2F9DF4F80087BC02 /* TestPlan.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = D786773A2F9DF4F80087BC02 /* TestPlan.xctestplan */; };
 		D79879872F2F4874007DE592 /* StoreKitManager in Frameworks */ = {isa = PBXBuildFile; productRef = D79879862F2F4874007DE592 /* StoreKitManager */; };
 		D7987A922F2F7B67007DE592 /* Products.storekit in Resources */ = {isa = PBXBuildFile; fileRef = D7987A912F2F7B67007DE592 /* Products.storekit */; };
-		D79E62412F890D8D00644388 /* TestPlan.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = D79E62402F890D8D00644388 /* TestPlan.xctestplan */; };
 		D7B1F4D72EACFFE400B7F3C8 /* ToolbarSUI in Frameworks */ = {isa = PBXBuildFile; productRef = D7B1F4D62EACFFE400B7F3C8 /* ToolbarSUI */; };
 		D7QLEXT012F05000000000001 /* WSPQuickLook.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D7QLEXT002F05000000000001 /* WSPQuickLook.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -65,8 +65,9 @@
 		D76ABF582F260E6C002D8588 /* WSP Reader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WSP Reader.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D76ABF682F260E6F002D8588 /* WSP ReaderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "WSP ReaderTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D76ABF722F260E70002D8588 /* WSP ReaderUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "WSP ReaderUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D786773A2F9DF4F80087BC02 /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
 		D7987A912F2F7B67007DE592 /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Products.storekit; sourceTree = "<group>"; };
-		D79E62402F890D8D00644388 /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
+		D7C200BD2F9DF82A001CA4E7 /* Writing Shed Pro 1.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Writing Shed Pro 1.xctestplan"; sourceTree = "<group>"; };
 		D7QLEXT002F05000000000001 /* WSPQuickLook.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WSPQuickLook.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -189,7 +190,8 @@
 		D741DF632EA76292003629E8 = {
 			isa = PBXGroup;
 			children = (
-				D79E62402F890D8D00644388 /* TestPlan.xctestplan */,
+				D7C200BD2F9DF82A001CA4E7 /* Writing Shed Pro 1.xctestplan */,
+				D786773A2F9DF4F80087BC02 /* TestPlan.xctestplan */,
 				D7987A912F2F7B67007DE592 /* Products.storekit */,
 				D741DF6E2EA76292003629E8 /* Writing Shed Pro */,
 				D741DF802EA76295003629E8 /* WritingShedProTests */,
@@ -447,7 +449,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D7987A922F2F7B67007DE592 /* Products.storekit in Resources */,
-				D79E62412F890D8D00644388 /* TestPlan.xctestplan in Resources */,
+				D786773B2F9DF4F80087BC02 /* TestPlan.xctestplan in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -552,7 +554,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Writing Shed Pro/WritingShedProDebug.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 78;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = SK6C3MP32D;
 				ENABLE_APP_SANDBOX = YES;
@@ -610,7 +612,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Writing Shed Pro/WritingShedProRelease.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 78;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = SK6C3MP32D;
 				ENABLE_APP_SANDBOX = YES;

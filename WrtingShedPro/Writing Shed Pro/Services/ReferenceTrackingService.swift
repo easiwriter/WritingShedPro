@@ -47,6 +47,7 @@ class ReferenceTrackingService {
         case .note, .endnote:
             if let entry = fetchNoteEntry(id: entryID, in: context) {
                 entry.incrementReferenceCount()
+                WriteCoalescer.shared?.requestSave()
                 #if DEBUG
                 print("[ReferenceTrackingService] ✅ Incremented note \(entryID) count to \(entry.referenceCount)")
                 #endif
@@ -54,6 +55,7 @@ class ReferenceTrackingService {
         case .glossary:
             if let entry = fetchGlossaryEntry(id: entryID, in: context) {
                 entry.incrementReferenceCount()
+                WriteCoalescer.shared?.requestSave()
                 #if DEBUG
                 print("[ReferenceTrackingService] ✅ Incremented glossary \(entryID) count to \(entry.referenceCount)")
                 #endif
@@ -61,6 +63,7 @@ class ReferenceTrackingService {
         case .reference:
             if let entry = fetchReferenceEntry(id: entryID, in: context) {
                 entry.incrementReferenceCount()
+                WriteCoalescer.shared?.requestSave()
                 #if DEBUG
                 print("[ReferenceTrackingService] ✅ Incremented reference \(entryID) count to \(entry.referenceCount)")
                 #endif
@@ -68,6 +71,7 @@ class ReferenceTrackingService {
         case .index, .figure, .table:
             if let entry = fetchIndexEntry(id: entryID, in: context) {
                 entry.incrementReferenceCount()
+                WriteCoalescer.shared?.requestSave()
                 #if DEBUG
                 print("[ReferenceTrackingService] ✅ Incremented index \(entryID) count to \(entry.referenceCount)")
                 #endif
@@ -90,6 +94,7 @@ class ReferenceTrackingService {
         case .note, .endnote:
             if let entry = fetchNoteEntry(id: entryID, in: context) {
                 entry.decrementReferenceCount()
+                WriteCoalescer.shared?.requestSave()
                 #if DEBUG
                 print("[ReferenceTrackingService] ✅ Decremented note \(entryID) count to \(entry.referenceCount)")
                 #endif
@@ -97,6 +102,7 @@ class ReferenceTrackingService {
         case .glossary:
             if let entry = fetchGlossaryEntry(id: entryID, in: context) {
                 entry.decrementReferenceCount()
+                WriteCoalescer.shared?.requestSave()
                 #if DEBUG
                 print("[ReferenceTrackingService] ✅ Decremented glossary \(entryID) count to \(entry.referenceCount)")
                 #endif
@@ -104,6 +110,7 @@ class ReferenceTrackingService {
         case .reference:
             if let entry = fetchReferenceEntry(id: entryID, in: context) {
                 entry.decrementReferenceCount()
+                WriteCoalescer.shared?.requestSave()
                 #if DEBUG
                 print("[ReferenceTrackingService] ✅ Decremented reference \(entryID) count to \(entry.referenceCount)")
                 #endif
@@ -111,6 +118,7 @@ class ReferenceTrackingService {
         case .index, .figure, .table:
             if let entry = fetchIndexEntry(id: entryID, in: context) {
                 entry.decrementReferenceCount()
+                WriteCoalescer.shared?.requestSave()
                 #if DEBUG
                 print("[ReferenceTrackingService] ✅ Decremented index \(entryID) count to \(entry.referenceCount)")
                 #endif

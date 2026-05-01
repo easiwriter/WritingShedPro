@@ -10,6 +10,7 @@ struct FolderListView: View {
     @State private var showAddFolderSheet = false
     @State private var isLoadingFolders = true
     @State private var loadedFolders: [Folder] = []
+    @State private var loadedSubfolders: [Folder] = []
     
     // Manuscript export/preview/print state
     @State private var isExporting = false
@@ -51,9 +52,7 @@ struct FolderListView: View {
     var projectFolders: [Folder] {
         guard !isLoadingFolders else { return [] }
         let order = folderOrderForProjectType(project.type)
-        
-        // Filter to only top-level folders (no parent folder)
-        var topLevelFolders = loadedFolders.filter { $0.parentFolder == nil }
+        var topLevelFolders = loadedFolders
         
         // Hide redundant folders based on fiction class
         if project.type == .fiction {
@@ -295,7 +294,7 @@ struct FolderListView: View {
     // Get subfolders for the selected folder
     var currentSubfolders: [Folder] {
         guard let selectedFolder = selectedFolder else { return [] }
-        let subfolders = selectedFolder.folders ?? []
+        let subfolders = loadedSubfolders
         
         // Special ordering for Manuscript subfolders: Front Matter, Body, Back Matter
         if selectedFolder.name == "Manuscript" {
@@ -637,7 +636,7 @@ struct FolderListView: View {
         let duplicatePredicate: Predicate<Submission> = #Predicate { submission in
             submission.name == trimmedName && submission.isCollection == false
         }
-        var duplicateCheck = FetchDescriptor<Submission>(predicate: duplicatePredicate)
+        let duplicateCheck = FetchDescriptor<Submission>(predicate: duplicatePredicate)
         let duplicateSubmissions: [Submission] = (try? modelContext.fetch(duplicateCheck)) ?? []
         let hasDuplicate = duplicateSubmissions.contains { $0.project?.id == projectID }
         if hasDuplicate {
@@ -1106,8 +1105,31 @@ struct FolderListView: View {
 
     // Load folders asynchronously to avoid blocking UI
     private func loadFolders() async {
-        // Access the folders relationship asynchronously
-        loadedFolders = project.folders ?? []
+        let freshContext = ModelContext(modelContext.container)
+
+        if let selectedFolder {
+            // Fetch subfolders directly from store to avoid traversing potentially
+            // invalidated in-memory folder relationships after CloudKit deletes.
+            let selectedFolderID = selectedFolder.id
+            let descriptor = FetchDescriptor<Folder>(
+                predicate: #Predicate<Folder> { folder in
+                    folder.parentFolder?.id == selectedFolderID
+                }
+            )
+            loadedSubfolders = (try? freshContext.fetch(descriptor)) ?? []
+            loadedFolders = []
+        } else {
+            // Fetch only top-level project folders from a fresh context.
+            let projectID = project.id
+            let descriptor = FetchDescriptor<Folder>(
+                predicate: #Predicate<Folder> { folder in
+                    folder.project?.id == projectID && folder.parentFolder == nil
+                }
+            )
+            loadedFolders = (try? freshContext.fetch(descriptor)) ?? []
+            loadedSubfolders = []
+        }
+
         isLoadingFolders = false
     }
     

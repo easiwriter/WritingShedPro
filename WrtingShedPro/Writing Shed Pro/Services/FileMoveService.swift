@@ -190,12 +190,21 @@ class FileMoveService {
     /// - Throws: FileMoveError if any file is invalid
     func deleteFilesPermanently(_ files: [TextFile]) throws {
         for file in files {
+            if let parentFolder = file.parentFolder,
+               let index = parentFolder.textFiles?.firstIndex(where: { $0.id == file.id }) {
+                parentFolder.textFiles?.remove(at: index)
+            }
+            file.parentFolder = nil
+
             // Clean up index entry references before deleting
             cleanupIndexReferences(for: file)
             modelContext.delete(file)
         }
-        
-        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+
+        // Permanent deletes must persist immediately so the file cannot
+        // reappear after relaunch if the coalescer is unavailable or delayed.
+        try modelContext.save()
+        modelContext.processPendingChanges()
     }
     
     /// Cleans up index entry references when a file is deleted

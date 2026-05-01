@@ -148,6 +148,32 @@ final class ContainerRelationshipTests: XCTestCase {
         file.poetryCollection = nil
         XCTAssertEqual(file.poetryCollections?.count ?? 0, 0)
     }
+
+    func testDeleteFilesPermanentlyPersistsWithoutWriteCoalescer() throws {
+        let project = Project(name: "Test Project", type: .prose)
+        let folder = Folder(name: "Draft", project: project)
+        let file = TextFile(name: "Draft 1", initialContent: "Hello", parentFolder: folder)
+
+        modelContext.insert(project)
+        modelContext.insert(folder)
+        modelContext.insert(file)
+        try modelContext.save()
+
+        WriteCoalescer.shared = nil
+
+        let service = FileMoveService(modelContext: modelContext)
+        try service.deleteFilesPermanently([file])
+
+        XCTAssertFalse(folder.textFiles?.contains(where: { $0.id == file.id }) ?? false,
+                   "Permanent delete should remove the file from the folder relationship immediately")
+
+        let freshContext = ModelContext(modelContainer)
+        let fileID = file.id
+        let descriptor = FetchDescriptor<TextFile>(predicate: #Predicate { $0.id == fileID })
+        let remaining = try freshContext.fetch(descriptor)
+
+        XCTAssertTrue(remaining.isEmpty, "Permanent delete should be saved immediately")
+    }
     
     // MARK: - TextFile ↔ ProseSection
     

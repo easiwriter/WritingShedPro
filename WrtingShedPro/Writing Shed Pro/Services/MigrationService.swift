@@ -4,6 +4,13 @@ import SwiftData
 /// Service for migrating existing data to support new features
 /// Run once at app startup to update existing projects
 class MigrationService {
+    struct PostImportRepairResult {
+        let orphanedVersionsRemoved: Int
+
+        var totalRemoved: Int {
+            orphanedVersionsRemoved
+        }
+    }
     
     
     /// Run all pending migrations
@@ -22,6 +29,32 @@ class MigrationService {
         }
         migrateManuscriptSubfolders(context: context, importConfirmed: importConfirmed)
         migrateFeature036(context: context, importConfirmed: importConfirmed)
+    }
+
+    /// Repairs obviously broken records left behind by CloudKit mirroring resets.
+    ///
+    /// This intentionally deletes only records that are impossible to keep safely:
+    /// Version rows with no parent TextFile, no formatted content, no plain-text content,
+    /// and no child relationships. These are empty import stubs, not user-authored data.
+    @MainActor
+    static func repairPostImportArtifacts(context: ModelContext) -> PostImportRepairResult {
+        let removedVersions = cleanupEmptyOrphanedVersions(context: context)
+
+        if removedVersions > 0 {
+            do {
+                try context.save()
+                #if DEBUG
+                print("🧹 [MigrationService] Post-import repair removed \(removedVersions) empty orphaned version(s)")
+                #endif
+            } catch {
+                #if DEBUG
+                print("❌ [MigrationService] Failed post-import repair save: \(error)")
+                #endif
+                return PostImportRepairResult(orphanedVersionsRemoved: 0)
+            }
+        }
+
+        return PostImportRepairResult(orphanedVersionsRemoved: removedVersions)
     }
 
     /// Merge duplicate custom stylesheets that can be produced by import/duplicate/CloudKit flows.
@@ -995,5 +1028,30 @@ class MigrationService {
         // CloudKit may still be syncing relationships. The Chapter entities
         // will remain but become unused once scenes point to Books instead.
         // This is intentional CloudKit-safe behaviour per project guidelines.
+    }
+
+    /// Remove empty Version stubs created by a partial CloudKit re-import after mirroring reset.
+    ///
+    /// These rows have no owning TextFile and no content payload. Keeping them serves no purpose,
+    /// but leaves extra CloudKit-tracked records that can contribute to later import failures.
+    private static func cleanupEmptyOrphanedVersions(context: ModelContext) -> Int {
+        let descriptor = FetchDescriptor<Version>()
+        guard let allVersions = try? context.fetch(descriptor) else { return 0 }
+
+        let orphanedVersions = allVersions.filter { version in
+            guard version.textFile == nil else { return false }
+            guard version.formattedContent == nil else { return false }
+            guard version.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+            guard (version.comments?.isEmpty ?? true) else { return false }
+            guard (version.footnotes?.isEmpty ?? true) else { return false }
+            guard (version.submittedFiles?.isEmpty ?? true) else { return false }
+            return true
+        }
+
+        for version in orphanedVersions {
+            context.delete(version)
+        }
+
+        return orphanedVersions.count
     }
 }

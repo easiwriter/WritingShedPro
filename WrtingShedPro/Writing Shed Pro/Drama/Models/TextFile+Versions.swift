@@ -2,6 +2,17 @@ import Foundation
 
 /// Extension to TextFile model for version navigation and management
 extension TextFile {
+    private func markVersionStateChanged(flushImmediately: Bool = false) {
+        modifiedDate = Date()
+        Task { @MainActor in
+            if flushImmediately {
+                WriteCoalescer.shared?.requestSave()
+                WriteCoalescer.shared?.flush()
+            } else {
+                WriteCoalescer.shared?.requestSave()
+            }
+        }
+    }
     
     /// Check if currently at the first version
     func atFirstVersion() -> Bool {
@@ -71,6 +82,7 @@ extension TextFile {
         
         // Set new index directly (no conversion needed - we work in sorted space)
         self.currentVersionIndex = newIndex
+        markVersionStateChanged()
         #if DEBUG
         print("   ✅ Updated currentVersionIndex to: \(newIndex)")
         #endif
@@ -141,6 +153,7 @@ extension TextFile {
         
         // Set as current version (last index)
         self.currentVersionIndex = (versions?.count ?? 1) - 1
+        markVersionStateChanged()
     }
     
     /// Delete the current version (if more than one version exists)
@@ -178,8 +191,12 @@ extension TextFile {
             print("   actualIndex in unsorted array: \(actualIndex)")
             #endif
             self.versions?.remove(at: actualIndex)
+            // CRITICAL: Must hard-delete from the persistent store so CloudKit exports a deletion.
+            // Removing from the relationship array alone leaves the Version record in the DB,
+            // which CloudKit will re-import and re-attach, causing the version to reappear.
+            self.modelContext?.delete(versionToDelete)
             #if DEBUG
-            print("   ✅ Removed version at index \(actualIndex)")
+            print("   ✅ Removed version at index \(actualIndex) and deleted from store (will flush immediately)")
             print("   remaining versions: \(self.versions?.map { "v\($0.versionNumber)" } ?? [])")
             #endif
         } else {
@@ -193,6 +210,10 @@ extension TextFile {
         if currentVersionIndex >= newCount {
             self.currentVersionIndex = max(0, newCount - 1)
         }
+        // CRITICAL: flush=true ensures the deletion is persisted immediately, not deferred.
+        // A deferred save risks a resurrection if any code re-reads versions from the store
+        // before the flush fires, or if CloudKit imports before the deletion export is queued.
+        markVersionStateChanged(flushImmediately: true)
         #if DEBUG
         print("   new currentVersionIndex: \(currentVersionIndex)")
         #endif
@@ -207,5 +228,6 @@ extension TextFile {
         
         // Set index to last position in sorted array
         self.currentVersionIndex = sortedVersions.count - 1
+        markVersionStateChanged()
     }
 }

@@ -18,6 +18,9 @@ struct ContentView: View {
     /// Task handle for the periodic sync timer (cancelled when app goes to background)
     @State private var periodicSyncTask: Task<Void, Never>?
 
+    /// Last time we ran a lightweight CloudKit probe to wake stalled sync state.
+    @State private var lastCloudKitProbeDate: Date = .distantPast
+
     /// Startup migrations must run at most once per app launch.
     /// ContentView can be rebuilt during sync reconciliation, and rerunning migrations
     /// during CloudKit activity can cause unnecessary write churn.
@@ -35,6 +38,10 @@ struct ContentView: View {
     /// Last time we attempted automatic duplicate cleanup.
     /// Keeps startup/reconcile paths from repeatedly scanning and mutating during bursts.
     @State private var lastAutoDedupDate: Date = .distantPast
+
+    /// Last time we attempted post-import repair cleanup.
+    /// Keeps reconcile/startup paths from repeatedly scanning the store after a sync storm.
+    @State private var lastPostImportRepairDate: Date = .distantPast
 
     /// Debounced task handle for remote-change reconciliation.
     @State private var remoteReconcileTask: Task<Void, Never>?
@@ -108,14 +115,23 @@ struct ContentView: View {
             //
             // Keeping: passive CloudKitSyncThrottler observation,
             // UI reconciliation on remote-change notifications.
+
+            // Keep the passive watchdog running while foregrounded so UI reconciliation
+            // and stale-sync diagnostics continue without opening Sync Diagnostics.
+            if scenePhase == .active {
+                startPeriodicSyncTimer()
+            }
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             if newPhase == .active && oldPhase != .active {
                 // Just reconcile the UI on foreground resume — don't
                 // force any CloudKit operations.
+                syncOnForegroundResume()
+                startPeriodicSyncTimer()
                 scheduleRemoteReconcile(reason: "foreground-resume")
             }
             if newPhase == .background {
+                stopPeriodicSyncTimer()
                 writeCoalescer.flush()
             }
         }
@@ -217,6 +233,7 @@ struct ContentView: View {
     /// This performs only local reconciliation and diagnostics-safe self-healing.
     private func performPeriodicSyncWatchdogTick() {
         reconcileProjectListIfNeeded()
+        maybeRunCloudKitLivenessProbe(reason: "periodic")
 
         let throttler = CloudKitSyncThrottler.shared
         let now = Date()
@@ -256,6 +273,43 @@ struct ContentView: View {
         #if DEBUG
         print("🔄 [ContentView] Sync watchdog: idle \(Int(secondsSinceEvent))s — passive observation only")
         #endif
+    }
+
+    /// Lightweight CloudKit liveness probe while app is active.
+    /// This is read-only and avoids manual imports/exports, but helps wake the
+    /// CloudKit stack when silent pushes are delayed or dropped.
+    private func maybeRunCloudKitLivenessProbe(reason: String) {
+        let now = Date()
+        guard now.timeIntervalSince(lastCloudKitProbeDate) >= 60 else { return }
+        lastCloudKitProbeDate = now
+
+        let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
+        ckContainer.privateCloudDatabase.fetchAllSubscriptions { subscriptions, error in
+            #if DEBUG
+            if let error {
+                print("⚠️ [ContentView] CloudKit probe (\(reason)) failed: \(error.localizedDescription)")
+            } else {
+                let count = subscriptions?.count ?? 0
+                print("✅ [ContentView] CloudKit probe (\(reason)) completed: subscriptions=\(count)")
+            }
+            #endif
+
+            // Follow with a cheap zone list fetch. In practice this helps kick
+            // CloudKit activity on devices that missed silent pushes.
+            ckContainer.privateCloudDatabase.fetchAllRecordZones { zones, zoneError in
+                #if DEBUG
+                if let zoneError {
+                    print("⚠️ [ContentView] CloudKit zone probe (\(reason)) failed: \(zoneError.localizedDescription)")
+                } else {
+                    print("✅ [ContentView] CloudKit zone probe (\(reason)) completed: zones=\(zones?.count ?? 0)")
+                }
+                #endif
+
+                DispatchQueue.main.async {
+                    scheduleRemoteReconcile(reason: "cloudkit-liveness-probe")
+                }
+            }
+        }
     }
 
     /// Assign userOrder to projects that don't have one yet.
@@ -364,6 +418,7 @@ struct ContentView: View {
 
         // Automatically clean up CloudKit clone rows once sync is settled.
         performAutomaticDedupIfSafe(reason: "reconcile")
+        performPostImportRepairIfSafe(reason: "reconcile")
 
         let freshContext = ModelContext(modelContext.container)
         let descriptor = FetchDescriptor<Project>()
@@ -553,6 +608,7 @@ struct ContentView: View {
             // This uses DeduplicationService's strict clone checks (same name/type/creation date)
             // and runs only when CloudKit is idle.
             performAutomaticDedupIfSafe(reason: "startup-migration")
+            performPostImportRepairIfSafe(reason: "startup-migration")
 
             // After import, delete any zombie projects that match tombstones
             // (projects the user permanently deleted but CloudKit re-imported).
@@ -590,152 +646,40 @@ struct ContentView: View {
         #endif
         refreshTrigger.toggle()
     }
+
+    private func performPostImportRepairIfSafe(reason: String) {
+        let throttler = CloudKitSyncThrottler.shared
+        guard scenePhase == .active else { return }
+        guard throttler.importCompleted && throttler.importSucceeded else { return }
+        guard !throttler.hasActiveCloudKitEvent else { return }
+        guard !throttler.isSyncing else { return }
+
+        let now = Date()
+        guard now.timeIntervalSince(lastPostImportRepairDate) >= 30 else { return }
+        lastPostImportRepairDate = now
+
+        let result = MigrationService.repairPostImportArtifacts(context: modelContext)
+        guard result.totalRemoved > 0 else { return }
+
+        #if DEBUG
+        print("🧹 [ContentView] Post-import repair removed \(result.totalRemoved) record(s) via \(reason)")
+        #endif
+        refreshTrigger.toggle()
+    }
     
     /// Prefetch project relationships async to warm up Swift type system
     /// This prevents UI freeze when tapping first project after app launch
     private func prefetchProjectData() {
         guard !projects.isEmpty else { return }
-        
-        // DIAGNOSTIC: Log all data to understand sync issues
+
+        // Keep launch-time prefetch relationship-safe.
+        // Remote CloudKit deletes can invalidate stale in-memory folder objects;
+        // touching deep relationships here can crash before reconciliation runs.
         #if DEBUG
-        print("========================================")
-        print("📊 [SYNC DIAGNOSTIC] Starting data analysis...")
-        print("========================================")
-        
-        // Check project details to see what differentiates working vs broken
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm"
-        
-        print("📋 [SYNC] PROJECT DETAILS (checking for differences):")
-        for project in projects.sorted(by: { ($0.creationDate ?? Date.distantPast) < ($1.creationDate ?? Date.distantPast) }) {
-            let folderCount = project.folders?.count ?? 0
-            let status = folderCount > 0 ? "✅" : "❌"
-            let created = project.creationDate.map { dateFormatter.string(from: $0) } ?? "nil"
-            let modified = project.modifiedDate.map { dateFormatter.string(from: $0) } ?? "nil"
-            print("   \(status) '\(project.name ?? "?")' type:\(project.typeRaw ?? "nil") created:\(created) modified:\(modified) folders:\(folderCount)")
-        }
-        print("")
-        
-        // First, do a direct database query for ALL folders regardless of relationships
-        let folderDescriptor = FetchDescriptor<Folder>()
-        if let allFolders = try? modelContext.fetch(folderDescriptor) {
-            print("📁 [SYNC] Total folders in database: \(allFolders.count)")
-            
-            var orphanedFolders: [Folder] = []
-            var foldersWithProject: [Folder] = []
-            var foldersWithParent: [Folder] = []
-            var foldersWithBoth: [Folder] = []
-            
-            for folder in allFolders {
-                let hasProject = folder.project != nil
-                let hasParent = folder.parentFolder != nil
-                
-                if !hasProject && !hasParent {
-                    orphanedFolders.append(folder)
-                } else if hasProject && hasParent {
-                    foldersWithBoth.append(folder)
-                } else if hasProject {
-                    foldersWithProject.append(folder)
-                } else {
-                    foldersWithParent.append(folder)
-                }
-            }
-            
-            print("   ├─ Folders with project relationship: \(foldersWithProject.count)")
-            print("   ├─ Folders with parentFolder (subfolders): \(foldersWithParent.count)")
-            print("   ├─ Folders with BOTH (error): \(foldersWithBoth.count)")
-            print("   └─ Folders with NEITHER (orphaned): \(orphanedFolders.count)")
-            
-            if !orphanedFolders.isEmpty {
-                print("⚠️ [SYNC] ORPHANED FOLDERS (no project, no parent):")
-                for folder in orphanedFolders.prefix(20) {
-                    print("   - '\(folder.name ?? "nil")' id:\(folder.persistentModelID)")
-                }
-                if orphanedFolders.count > 20 {
-                    print("   ... and \(orphanedFolders.count - 20) more")
-                }
-            }
-        }
-        
-        // Also query all files directly
-        let fileDescriptor = FetchDescriptor<TextFile>()
-        if let allFiles = try? modelContext.fetch(fileDescriptor) {
-            print("📄 [SYNC] Total files in database: \(allFiles.count)")
-            
-            let orphanedFiles = allFiles.filter { $0.parentFolder == nil }
-            print("   └─ Files with no folder (orphaned): \(orphanedFiles.count)")
-            
-            if !orphanedFiles.isEmpty {
-                print("⚠️ [SYNC] ORPHANED FILES (no folder):")
-                for file in orphanedFiles.prefix(10) {
-                    print("   - '\(file.name)'")
-                }
-            }
-        }
-        
-        print("----------------------------------------")
-        print("📊 [SYNC] Projects visible to @Query: \(projects.count)")
-        
-        for project in projects {
-            let folderCount = project.folders?.count ?? 0
-            let rootFolders = project.folders?.filter { $0.parentFolder == nil } ?? []
-            print("   📁 '\(project.name ?? "Untitled")' - \(folderCount) folders (\(rootFolders.count) root)")
-            
-            if folderCount == 0 {
-                print("      ⚠️ NO FOLDERS - this is the problem!")
-            } else {
-                // Show root folders
-                for folder in rootFolders.prefix(5) {
-                    let fileCount = folder.textFiles?.count ?? 0
-                    let subfolderCount = folder.folders?.count ?? 0
-                    print("      ├─ '\(folder.name ?? "nil")' (\(fileCount) files, \(subfolderCount) subfolders)")
-                }
-                if rootFolders.count > 5 {
-                    print("      └─ ... and \(rootFolders.count - 5) more root folders")
-                }
-            }
-        }
-        
-        print("========================================")
-        print("📊 [SYNC DIAGNOSTIC] Analysis complete")
-        print("========================================")
-        
-        // Schedule a delayed re-check to see if CloudKit sync fixes relationships
-        Task {
-            try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds
-            await MainActor.run {
-                runDelayedDiagnostic()
-            }
-        }
-        #endif
-        
-        // Only do expensive prefetch in Debug builds where it matters
-        #if DEBUG
-        print("[ContentView] Starting async prefetch of project relationships...")
-        
-        Task { @MainActor in
-            // Access relationships to force SwiftData to materialize them
-            // Runs async on main thread (SwiftData objects must stay on their thread)
-            for project in projects {
-                // Touch each relationship to warm up the object graph
-                _ = project.folders?.count ?? 0
-                _ = project.publications?.count ?? 0
-                _ = project.submissions?.count ?? 0
-                _ = project.submittedFiles?.count ?? 0
-                _ = project.trashedItems?.count ?? 0
-                _ = project.styleSheet?.name
-                _ = project.pageSetup?.paperSize
-                
-                // Access nested relationships in folders
-                if let folders = project.folders {
-                    for folder in folders {
-                        _ = folder.textFiles?.count ?? 0
-                        _ = folder.folders?.count ?? 0
-                    }
-                }
-            }
-            
-            print("[ContentView] ✅ Prefetch complete")
+        let freshContext = ModelContext(modelContext.container)
+        let projectDescriptor = FetchDescriptor<Project>()
+        if let count = try? freshContext.fetchCount(projectDescriptor) {
+            print("[ContentView] Prefetch snapshot: \(count) project(s) in store")
         }
         #endif
     }

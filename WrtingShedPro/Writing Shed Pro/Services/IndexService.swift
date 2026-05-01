@@ -315,6 +315,7 @@ class IndexService {
         
         entry.parentEntry = newParent
         entry.modifiedAt = Date()
+        WriteCoalescer.shared?.requestSave()
         
         #if DEBUG
         if let parent = newParent {
@@ -334,6 +335,7 @@ class IndexService {
         guard !normalizedKeyword.isEmpty else { return }
         
         entry.updateKeyword(normalizedKeyword)
+        WriteCoalescer.shared?.requestSave()
         
         #if DEBUG
         print("[IndexService] ✏️ Renamed entry to '\(normalizedKeyword)'")
@@ -347,6 +349,7 @@ class IndexService {
     func addReference(to entry: IndexEntry, fromFile fileID: UUID, isPrimary: Bool = false) {
         entry.incrementReferenceCount()
         entry.addReferencingFile(fileID)
+        WriteCoalescer.shared?.requestSave()
         
         #if DEBUG
         print("[IndexService] ➕ Added reference to '\(entry.keyword)' from file \(fileID.uuidString.prefix(8))...")
@@ -365,6 +368,7 @@ class IndexService {
         if wasLastInFile {
             entry.removeReferencingFile(fileID)
         }
+        WriteCoalescer.shared?.requestSave()
         
         #if DEBUG
         print("[IndexService] ➖ Removed reference to '\(entry.keyword)' (count: \(entry.referenceCount))")
@@ -378,6 +382,7 @@ class IndexService {
     func setSeeReference(for entry: IndexEntry, to targetEntry: IndexEntry?) {
         entry.seeEntryID = targetEntry?.id
         entry.modifiedAt = Date()
+        WriteCoalescer.shared?.requestSave()
         
         #if DEBUG
         if let target = targetEntry {
@@ -392,6 +397,7 @@ class IndexService {
     @MainActor
     func addSeeAlsoReference(for entry: IndexEntry, to targetEntry: IndexEntry) {
         entry.addSeeAlso(targetEntry.id)
+        WriteCoalescer.shared?.requestSave()
         
         #if DEBUG
         print("[IndexService] 👉 Added See also '\(targetEntry.keyword)' to '\(entry.keyword)'")
@@ -402,6 +408,7 @@ class IndexService {
     @MainActor
     func removeSeeAlsoReference(for entry: IndexEntry, to targetEntryID: UUID) {
         entry.removeSeeAlso(targetEntryID)
+        WriteCoalescer.shared?.requestSave()
     }
     
     // MARK: - Fetch Methods

@@ -80,12 +80,17 @@ final class WriteCoalescer {
     @ObservationIgnored private var flushTimer: Timer?
     @ObservationIgnored private var idleTimer: Timer?
     @ObservationIgnored private var diagnosticTimer: Timer?
+    @ObservationIgnored private var unsignaledChangeTimer: Timer?
 
     /// Timestamps of recent `requestSave()` calls for burst detection.
     @ObservationIgnored private var recentRequestTimes: [Date] = []
 
     /// Interval for periodic diagnostic logging (seconds). 0 disables.
     private let diagnosticInterval: TimeInterval = 300 // 5 minutes
+
+    /// Safety-net interval to detect local model mutations that did not call
+    /// `requestSave()` and still need to be persisted/exported.
+    private let unsignaledChangeCheckInterval: TimeInterval = 20
 
     /// Snapshot of `saveCount` at last diagnostic log, used to detect activity.
     private var lastDiagnosticSaveCount: Int = 0
@@ -126,12 +131,21 @@ final class WriteCoalescer {
             }
         }
         #endif
+
+        if unsignaledChangeCheckInterval > 0 {
+            unsignaledChangeTimer = Timer.scheduledTimer(withTimeInterval: unsignaledChangeCheckInterval, repeats: true) { [weak self] _ in
+                Task { @MainActor in
+                    self?.checkForUnsignaledChanges()
+                }
+            }
+        }
     }
 
     deinit {
         flushTimer?.invalidate()
         idleTimer?.invalidate()
         diagnosticTimer?.invalidate()
+        unsignaledChangeTimer?.invalidate()
         #if canImport(UIKit)
         if let observer = resignActiveObserver {
             NotificationCenter.default.removeObserver(observer)
@@ -241,6 +255,19 @@ final class WriteCoalescer {
             print("⚠️ [WriteCoalescer] Save failed: \(error.localizedDescription)")
             #endif
         }
+    }
+
+    /// Catch writes that mutated models but forgot to request a save.
+    /// This keeps local DB and CloudKit export queue from silently stalling.
+    private func checkForUnsignaledChanges() {
+        guard !pendingSave else { return }
+        guard modelContext.hasChanges else { return }
+
+        #if DEBUG
+        print("⚠️ [WriteCoalescer] Detected unsignaled model changes — scheduling coalesced save")
+        #endif
+
+        requestSave()
     }
 
     #if DEBUG
