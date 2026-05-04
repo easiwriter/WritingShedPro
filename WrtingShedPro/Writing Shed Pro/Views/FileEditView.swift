@@ -925,11 +925,10 @@ struct FileEditView: View {
                 }
                 
                 // Character and Location insert buttons (for Fiction and Drama projects)
-                // Only show when there are characters, locations, or plot elements to display
                 if let project = file.project,
-                   (project.type == .fiction || project.type == .drama),
-                   hasCharactersLocationsOrPlotElements(project: project) {
+                   (project.type == .fiction || project.type == .drama) {
                     characterLocationInsertMenu(project: project)
+                        .disabled(!hasCharactersLocationsOrPlotElements(project: project))
                 }
                 
                 // On iPhone, group paginate/insert/print into a menu to save space
@@ -1081,8 +1080,12 @@ struct FileEditView: View {
     
     /// Menu for inserting character or location names (Fiction and Drama projects)
     private func hasCharactersLocationsOrPlotElements(project: Project) -> Bool {
-        let hasCharacters = !(project.characters ?? []).isEmpty
-        let hasLocations = !(project.locations ?? []).isEmpty
+        let hasCharacters = file.scene != nil
+            ? !(file.scene!.characters ?? []).isEmpty
+            : !(project.characters ?? []).isEmpty
+        let hasLocations = file.scene != nil
+            ? !(file.scene!.locations ?? []).isEmpty
+            : !(project.locations ?? []).isEmpty
         let hasPlotElements = !(file.scene?.plotElements ?? []).isEmpty
         return hasCharacters || hasLocations || hasPlotElements
     }
@@ -1100,7 +1103,12 @@ struct FileEditView: View {
     
     @ViewBuilder
     private func characterInsertSection(project: Project) -> some View {
-        let characters = (project.characters ?? []).sorted { ($0.name ?? "") < ($1.name ?? "") }
+        // When editing a scene file, show only that scene's linked characters.
+        // If the file has no scene, fall back to all project characters.
+        let characters = (file.scene != nil
+            ? (file.scene!.characters ?? [])
+            : (project.characters ?? []))
+            .sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
         if !characters.isEmpty {
             Section(NSLocalizedString("autocomplete.characters", comment: "Characters")) {
                 ForEach(characters, id: \.id) { character in
@@ -1121,7 +1129,9 @@ struct FileEditView: View {
     
     @ViewBuilder
     private func locationInsertSection(project: Project) -> some View {
-        let locations = (project.locations ?? []).sorted { ($0.name ?? "") < ($1.name ?? "") }
+        // Show this scene's locations, or fall back to all project locations if none assigned.
+        let locations = file.scene?.locations
+            ?? (project.locations ?? []).sorted { ($0.name ?? "") < ($1.name ?? "") }
         if !locations.isEmpty {
             Section(NSLocalizedString("autocomplete.locations", comment: "Locations")) {
                 ForEach(locations, id: \.id) { location in
@@ -1703,6 +1713,16 @@ struct FileEditView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UndoRedoContentRestored"))) { notification in
                 handleUndoRedoContentRestored(notification)
+            }
+            // Reload editor content when CloudKit imports a remote change.
+            // Without this, the Mac shows stale content indefinitely because the
+            // @State var attributedContent is only populated on onAppear.
+            .onReceive(
+                NotificationCenter.default.publisher(
+                    for: NSNotification.Name("NSPersistentStoreRemoteChangeNotification")
+                ).debounce(for: .seconds(1.5), scheduler: RunLoop.main)
+            ) { _ in
+                reloadFromRemoteChangeIfSafe()
             }
             .alert("Print Error", isPresented: $showPrintError) {
                 Button("OK", role: .cancel) { }
@@ -2904,9 +2924,13 @@ struct FileEditView: View {
         #endif
         #endif
         
+        #if DEBUG
+        print("🔵 [SYNC TRACE 1/5] handleAttributedTextChange — file='\(file.name)' version=#\(file.currentVersion?.versionNumber ?? -1) currentVersionIndex=\(file.currentVersionIndex) versionCount=\(file.versions?.count ?? 0)")
+        #endif
+        
         guard !isPerformingUndoRedo else {
             #if DEBUG
-            print("🔄 Skipping - performing undo/redo")
+            print("🔵 [SYNC TRACE 1/5] BLOCKED — isPerformingUndoRedo=true")
             #endif
             return
         }
@@ -2924,7 +2948,7 @@ struct FileEditView: View {
         // Skip during batch replace - undo will be handled manually
         guard !searchManager.isPerformingBatchReplace else {
             #if DEBUG
-            print("🔄 Skipping - performing batch replace")
+            print("🔵 [SYNC TRACE 1/5] BLOCKED — isPerformingBatchReplace=true")
             #endif
             return
         }
@@ -2959,10 +2983,14 @@ struct FileEditView: View {
 
         guard hasTextChanged || hasAttributeChanged else {
             #if DEBUG
-            print("🔄 Content and attributes unchanged - skipping")
+            print("� [SYNC TRACE 1/5] BLOCKED — no change detected (text same, attrs same)")
             #endif
             return
         }
+        
+        #if DEBUG
+        print("🔵 [SYNC TRACE 1/5] PASSED all guards — change detected, will schedule save")
+        #endif
 
         
         // Clear image selection when text changes
@@ -3004,18 +3032,46 @@ struct FileEditView: View {
         previousAttributedContent = newAttributedText  // Cache for next change
         
         file.modifiedDate = Date()
+        #if DEBUG
+        print("🔵 [SYNC TRACE 2/5] file.modifiedDate set — TextFile '\(file.name)' is now dirty")
+        #endif
         
         // PERFORMANCE FIX: Debounce saves AND encoding to reduce I/O
         // The expensive AttributedStringSerializer.encode() now only runs when we actually save,
         // not on every keystroke.
         saveDebounceTimer?.invalidate()
         let coalescer = WriteCoalescer.shared
+        #if DEBUG
+        print("🔵 [SYNC TRACE 2/5] scheduling debounce timer (0.5s) — version=#\(file.currentVersion?.versionNumber ?? -1) currentVersion=\(file.currentVersion != nil ? "EXISTS" : "NIL ⚠️")")
+        #endif
         saveDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
+            #if DEBUG
+            let contentBefore = self.file.currentVersion?.content
+            let hasChangesBefore = self.file.modelContext?.hasChanges ?? false
+            print("🔵 [SYNC TRACE 3/5] debounce timer FIRED — currentVersion=\(self.file.currentVersion != nil ? "EXISTS version=#\(self.file.currentVersion!.versionNumber)" : "NIL ⚠️ CONTENT WILL NOT BE SAVED"), hasChanges=\(hasChangesBefore)")
+            #endif
             // Encode attributed content only when saving (was previously per-keystroke)
             self.file.currentVersion?.attributedContent = newAttributedText
+            // FIX: Re-touch modifiedDate here, AFTER writing version content.
+            // The earlier set (before the timer) may have been captured by a prior coalesced
+            // flush (e.g. the idle timer from a previous requestSave). Without this, hasChanges
+            // can be false by the time executeSave() runs, making modelContext.save() a no-op
+            // and silently dropping the edit from CloudKit's export queue.
+            self.file.modifiedDate = Date()
+            #if DEBUG
+            let savedBytes = self.file.currentVersion?.formattedContent?.count ?? 0
+            let contentAfter = self.file.currentVersion?.content
+            let hasChangesAfter = self.file.modelContext?.hasChanges ?? false
+            let contentChanged = contentBefore != contentAfter
+            print("🔵 [SYNC TRACE 3/5] version.attributedContent SET — formattedContent=\(savedBytes) bytes \(savedBytes == 0 ? "⚠️ ZERO BYTES" : "✅")")
+            print("🔵 [SYNC TRACE 3b] content \(contentChanged ? "CHANGED ✅" : "UNCHANGED ⚠️") (\(contentBefore?.count ?? 0)→\(contentAfter?.count ?? 0) chars), hasChanges: \(hasChangesBefore)→\(hasChangesAfter)")
+            #endif
             // Use WriteCoalescer for save batching + CloudKit export coalescing.
             // This also notifies SyncHealthMonitor of local changes.
             Task { @MainActor in
+                #if DEBUG
+                print("🔵 [SYNC TRACE 4/5] Task on MainActor — calling requestSave()")
+                #endif
                 coalescer?.requestSave()
             }
         }
@@ -8043,6 +8099,56 @@ struct FileEditView: View {
         saveChanges()
         saveUndoState()
         WriteCoalescer.shared?.flush()
+    }
+
+    /// Reload the editor's attributed content from the SwiftData model after a CloudKit import,
+    /// but ONLY when the user is not actively typing. This keeps the Mac editor in sync with
+    /// changes made on other devices without clobbering in-progress local edits.
+    private func reloadFromRemoteChangeIfSafe() {
+        // Skip if user is actively typing (debounce timer is live)
+        guard saveDebounceTimer == nil else {
+            #if DEBUG
+            print("⬇️ [Remote Refresh] Skipping reload — user is actively typing")
+            #endif
+            return
+        }
+        // Skip when in preview mode — editor shows converted content, not real content
+        guard !isPreviewingAsAlternateFormat else { return }
+        // Skip during undo/redo operations
+        guard !isPerformingUndoRedo else { return }
+
+        guard let versionId = file.currentVersion?.id else { return }
+
+        // Use a fresh ModelContext to bypass SwiftData's in-memory @Transient cache.
+        // The in-memory Version object's _cachedAttributedContent may not have been
+        // invalidated after a CloudKit import — SwiftData does not clear @Transient
+        // properties when merging remote changes. A fresh context reads directly from
+        // the SQLite store, which always reflects the latest imported data.
+        let freshContext = ModelContext(modelContext.container)
+        let targetId = versionId
+        guard let freshVersion = (try? freshContext.fetch(
+            FetchDescriptor<Version>(predicate: #Predicate { $0.id == targetId })
+        ))?.first else { return }
+
+        guard let freshContent = freshVersion.attributedContent else { return }
+
+        // Only reload if content actually differs
+        guard freshContent.string != attributedContent.string else {
+            #if DEBUG
+            print("⬇️ [Remote Refresh] Content unchanged for '\(file.name)' — no reload needed")
+            #endif
+            return
+        }
+
+        #if DEBUG
+        print("⬇️ [Remote Refresh] CloudKit imported new content for '\(file.name)' version=#\(freshVersion.versionNumber) — reloading editor (\(attributedContent.length) → \(freshContent.length) chars)")
+        #endif
+
+        // Strip adaptive colors for dark-mode safety (same as setupOnAppear)
+        let processedContent = AttributedStringSerializer.stripAdaptiveColors(from: freshContent)
+        attributedContent = processedContent
+        previousContent = processedContent.string
+        previousAttributedContent = processedContent
     }
     
     /// FEATURE 029: Extract all reference attachments and create metadata

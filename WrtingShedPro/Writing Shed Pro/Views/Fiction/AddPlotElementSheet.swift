@@ -336,11 +336,10 @@ struct AddPlotElementSheet: View {
             )
         }
         element.project = project
+        modelContext.insert(element)  // Must insert before setting relationships so join-record inserts have a valid modelContext
         element.characters = Array(selectedCharacters)
         element.locations = Array(selectedLocations)
         element.linkedScenes = Array(selectedScenes)
-        
-        modelContext.insert(element)
         
         // Create scene/episode if name provided
         let trimmedSceneName = sceneName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -371,8 +370,8 @@ struct AddPlotElementSheet: View {
                 break
             }
             scene.characters = Array(selectedCharacters)
-            // Set first location if any selected
-            scene.location = selectedLocations.first
+            // Set selected locations
+            scene.locations = Array(selectedLocations)
             // Link scene to plot element
             scene.plotElements = [element]
             

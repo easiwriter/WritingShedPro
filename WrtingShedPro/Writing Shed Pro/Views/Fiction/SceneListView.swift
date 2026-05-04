@@ -1770,6 +1770,7 @@ struct SceneListView: View {
         // Update order indices
         for (index, scene) in scenes.enumerated() {
             scene.userOrder = index
+            scene.modifiedDate = Date()
         }
         
         try? modelContext.save()
@@ -1778,6 +1779,7 @@ struct SceneListView: View {
     private func renumberScenes() {
         for (index, scene) in sortedScenes.enumerated() {
             scene.userOrder = index
+            scene.modifiedDate = Date()
         }
         try? modelContext.save()
     }
@@ -2054,7 +2056,7 @@ struct SceneRowView: View {
                     .foregroundColor(.secondary)
                 }
                 
-                if let location = scene.location {
+                if let location = scene.locations?.first {
                     HStack(spacing: 2) {
                         Image(systemName: "mappin")
                             .font(.footnote)

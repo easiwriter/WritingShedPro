@@ -150,3 +150,18 @@ final class LocationPlotElementLink {
         self.plotElement = plotElement
     }
 }
+
+// MARK: - Scene ↔ Location (many-to-many)
+
+/// Join record linking a StoryScene to a Location (many-to-many, CloudKit compatible).
+@Model
+final class SceneLocationLink {
+    var id: UUID = UUID()
+    var scene: StoryScene?
+    var location: Location?
+
+    init(scene: StoryScene? = nil, location: Location? = nil) {
+        self.scene = scene
+        self.location = location
+    }
+}

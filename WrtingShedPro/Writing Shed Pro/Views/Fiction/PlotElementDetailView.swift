@@ -28,25 +28,11 @@ struct PlotElementDetailView: View {
     @State private var editDescription: String = ""
     @State private var editMonomythStage: MonomythStage?
     @State private var editThreeActStage: ThreeActStage?
-    @State private var editCharacters: Set<Character> = []
-    @State private var editLocations: Set<Location> = []
     @State private var editLinkedScenes: Set<StoryScene> = []
     @State private var showDeleteConfirmation = false
     @State private var showCreateSceneSheet = false
     
     // MARK: - Computed
-    
-    private var availableCharacters: [Character] {
-        (project.characters ?? []).sorted { 
-            ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
-        }
-    }
-    
-    private var availableLocations: [Location] {
-        (project.locations ?? []).sorted { 
-            ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
-        }
-    }
     
     private var linkedScenes: [StoryScene] {
         (plotElement.linkedScenes ?? []).sorted {
@@ -59,16 +45,9 @@ struct PlotElementDetailView: View {
     }
     
     private var availableScenes: [StoryScene] {
-        // Scenes are attached to TextFiles in folders, not directly in project.scenes
-        var scenes: [StoryScene] = []
-        for folder in project.folders ?? [] {
-            for textFile in folder.textFiles ?? [] {
-                if let scene = textFile.scene {
-                    scenes.append(scene)
-                }
-            }
-        }
-        return scenes.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        (project.scenes ?? [])
+            .filter { !$0.isTrashed }
+            .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
     }
     
     // MARK: - Body
@@ -307,56 +286,6 @@ struct PlotElementDetailView: View {
             }
         }
         
-        // Characters (multi-select)
-        if !availableCharacters.isEmpty {
-            Section {
-                ForEach(availableCharacters) { character in
-                    Button {
-                        toggleCharacter(character)
-                    } label: {
-                        HStack {
-                            Text(character.name ?? "")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            if editCharacters.contains(character) {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                    }
-                }
-            } header: {
-                Text(NSLocalizedString("fiction.plot.element.section.characters", comment: "Characters"))
-            } footer: {
-                Text(NSLocalizedString("fiction.plot.element.characters.footer", comment: "Characters involved in this plot beat"))
-            }
-        }
-        
-        // Locations (multi-select)
-        if !availableLocations.isEmpty {
-            Section {
-                ForEach(availableLocations) { location in
-                    Button {
-                        toggleLocation(location)
-                    } label: {
-                        HStack {
-                            Text(location.name ?? "")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            if editLocations.contains(location) {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                    }
-                }
-            } header: {
-                Text(NSLocalizedString("fiction.plot.element.section.locations", comment: "Locations"))
-            } footer: {
-                Text(NSLocalizedString("fiction.plot.element.locations.footer", comment: "Where this plot beat takes place"))
-            }
-        }
-        
         // Linked Scenes/Episodes (multi-select)
         if !availableScenes.isEmpty {
             Section {
@@ -392,22 +321,6 @@ struct PlotElementDetailView: View {
     
     // MARK: - Actions
     
-    private func toggleCharacter(_ character: Character) {
-        if editCharacters.contains(character) {
-            editCharacters.remove(character)
-        } else {
-            editCharacters.insert(character)
-        }
-    }
-    
-    private func toggleLocation(_ location: Location) {
-        if editLocations.contains(location) {
-            editLocations.remove(location)
-        } else {
-            editLocations.insert(location)
-        }
-    }
-    
     private func toggleScene(_ scene: StoryScene) {
         if editLinkedScenes.contains(scene) {
             editLinkedScenes.remove(scene)
@@ -421,8 +334,6 @@ struct PlotElementDetailView: View {
         editDescription = plotElement.notes ?? ""
         editMonomythStage = plotElement.monomythStage
         editThreeActStage = plotElement.threeActStage
-        editCharacters = Set(plotElement.characters ?? [])
-        editLocations = Set(plotElement.locations ?? [])
         editLinkedScenes = Set(plotElement.linkedScenes ?? [])
         isEditing = true
     }
@@ -450,8 +361,6 @@ struct PlotElementDetailView: View {
             plotElement.pearsonStageRaw = nil
         }
         
-        plotElement.characters = Array(editCharacters)
-        plotElement.locations = Array(editLocations)
         plotElement.linkedScenes = Array(editLinkedScenes)
         
         try? modelContext.save()

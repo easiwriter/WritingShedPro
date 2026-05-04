@@ -2790,8 +2790,8 @@ class JSONImportService {
             guard let location = locationMap[locationId] else { continue }
             for sceneId in sceneIds {
                 if let scene = sceneMap[sceneId] {
-                    // Location has a one-to-many relationship with scenes (scene.location)
-                    scene.location = location
+                    // Append to scene's multi-location list
+                    scene.locations = (scene.locations ?? []) + [location]
                     #if DEBUG
                     print("[JSONImport] Linked location '\(location.name ?? "")' to scene '\(scene.name ?? "")'")
                     #endif

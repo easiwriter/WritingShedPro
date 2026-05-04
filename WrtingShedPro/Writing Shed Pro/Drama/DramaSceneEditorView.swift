@@ -429,7 +429,12 @@ struct DramaSceneEditorView: View {
     
     @ViewBuilder
     private var characterInsertSection: some View {
-        let characters = (project.characters ?? []).sorted { ($0.name ?? "") < ($1.name ?? "") }
+        // When editing a scene file, show only that scene's linked characters.
+        // If the file has no scene, fall back to all project characters.
+        let characters = (file.scene != nil
+            ? (file.scene!.characters ?? [])
+            : (project.characters ?? []))
+            .sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
         if !characters.isEmpty {
             Section(NSLocalizedString("autocomplete.characters", comment: "Characters")) {
                 ForEach(characters, id: \.id) { character in
@@ -445,7 +450,9 @@ struct DramaSceneEditorView: View {
     
     @ViewBuilder
     private var locationInsertSection: some View {
-        let locations = (project.locations ?? []).sorted { ($0.name ?? "") < ($1.name ?? "") }
+        // Show this scene's locations, or fall back to all project locations if none assigned.
+        let locations: [Location] = file.scene?.locations
+            ?? (project.locations ?? []).sorted { ($0.name ?? "") < ($1.name ?? "") }
         if !locations.isEmpty {
             Section(NSLocalizedString("autocomplete.locations", comment: "Locations")) {
                 ForEach(locations, id: \.id) { location in

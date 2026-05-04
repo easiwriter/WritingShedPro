@@ -386,9 +386,13 @@ final class StoryScene {
     @Relationship(deleteRule: .cascade, inverse: \TextFile.scene)
     var textFile: TextFile?  // Contains the actual scene content
     
-    // Scene takes place at a location (one-to-many, CloudKit compatible)
+    // Legacy single-location relationship (kept for backward compat; data read via `locations`)
     @Relationship(inverse: \Location.scenes)
     var location: Location?
+    
+    // Many-to-many locations via join table (CloudKit compatible)
+    @Relationship(deleteRule: .nullify, inverse: \SceneLocationLink.scene)
+    var locationLinks: [SceneLocationLink]? = []
     
     // MARK: - Many-to-Many Computed Properties (via join tables)
     
@@ -444,6 +448,9 @@ final class StoryScene {
                 modelContext?.insert(link)
                 if plotElementLinks == nil { plotElementLinks = [] }
                 plotElementLinks?.append(link)
+                // Explicitly update the other side so @Observable fires on PlotElement
+                if element.sceneLinks == nil { element.sceneLinks = [] }
+                element.sceneLinks?.append(link)
             }
         }
     }
@@ -458,7 +465,36 @@ final class StoryScene {
                 modelContext?.insert(link)
                 if characterLinks == nil { characterLinks = [] }
                 characterLinks?.append(link)
+                // Explicitly update the other side so @Observable fires on Character
+                if character.sceneLinks == nil { character.sceneLinks = [] }
+                character.sceneLinks?.append(link)
             }
+        }
+    }
+    
+    /// All locations for this scene. Reads from the join table; also surfaces the legacy
+    /// single `location` field for any scenes that predate the multi-location model.
+    var locations: [Location]? {
+        get {
+            var result = locationLinks?.compactMap(\.location) ?? []
+            if let single = location, !result.contains(where: { $0.id == single.id }) {
+                result.insert(single, at: 0)
+            }
+            return result.isEmpty ? nil : result
+        }
+        set {
+            for link in locationLinks ?? [] { modelContext?.delete(link) }
+            locationLinks = []
+            for loc in newValue ?? [] {
+                let link = SceneLocationLink(scene: self, location: loc)
+                modelContext?.insert(link)
+                if locationLinks == nil { locationLinks = [] }
+                locationLinks?.append(link)
+                if loc.sceneLinks == nil { loc.sceneLinks = [] }
+                loc.sceneLinks?.append(link)
+            }
+            // Keep legacy field in sync with first location for any code that still reads it
+            location = newValue?.first
         }
     }
     
@@ -679,6 +715,9 @@ final class Character {
                 modelContext?.insert(link)
                 if sceneLinks == nil { sceneLinks = [] }
                 sceneLinks?.append(link)
+                // Explicitly update the other side so @Observable fires on StoryScene
+                if scene.characterLinks == nil { scene.characterLinks = [] }
+                scene.characterLinks?.append(link)
             }
         }
     }
@@ -694,6 +733,9 @@ final class Character {
                 modelContext?.insert(link)
                 if plotElementLinks == nil { plotElementLinks = [] }
                 plotElementLinks?.append(link)
+                // Explicitly update the other side so @Observable fires on PlotElement
+                if element.characterLinks == nil { element.characterLinks = [] }
+                element.characterLinks?.append(link)
             }
         }
     }
@@ -751,8 +793,12 @@ final class Location {
     @Relationship(deleteRule: .cascade, inverse: \CustomAttribute.location)
     var customAttributes: [CustomAttribute]?
     
-    // Scenes that take place at this location (one-to-many, CloudKit compatible)
+    // Scenes that take place at this location (legacy one-to-many; kept for existing data)
     var scenes: [StoryScene]?
+    
+    // Many-to-many scenes via join table
+    @Relationship(deleteRule: .nullify, inverse: \SceneLocationLink.location)
+    var sceneLinks: [SceneLocationLink]? = []
     
     // Plot elements this location is planned for (via join table for CloudKit)
     @Relationship(deleteRule: .nullify, inverse: \LocationPlotElementLink.location)
@@ -841,13 +887,21 @@ final class PlotElement {
                 modelContext?.insert(link)
                 if sceneLinks == nil { sceneLinks = [] }
                 sceneLinks?.append(link)
+                // Explicitly update the other side so @Observable fires on StoryScene
+                if scene.plotElementLinks == nil { scene.plotElementLinks = [] }
+                scene.plotElementLinks?.append(link)
             }
         }
     }
     
-    /// Characters involved in this plot beat (derived from join table)
+    /// Characters in this plot beat — derived as the union of all linked scenes' characters.
     var characters: [Character]? {
-        get { characterLinks?.compactMap(\.character) }
+        get {
+            let fromScenes = (linkedScenes ?? []).flatMap { $0.characters ?? [] }
+            var seen = Set<PersistentIdentifier>()
+            return fromScenes.filter { seen.insert($0.persistentModelID).inserted }
+        }
+        // Setter retained for import compatibility; data is ignored by the getter.
         set {
             for link in characterLinks ?? [] { modelContext?.delete(link) }
             characterLinks = []
@@ -856,13 +910,20 @@ final class PlotElement {
                 modelContext?.insert(link)
                 if characterLinks == nil { characterLinks = [] }
                 characterLinks?.append(link)
+                if character.plotElementLinks == nil { character.plotElementLinks = [] }
+                character.plotElementLinks?.append(link)
             }
         }
     }
     
-    /// Locations for this plot beat (derived from join table)
+    /// Locations in this plot beat — derived as the union of all linked scenes' locations.
     var locations: [Location]? {
-        get { locationLinks?.compactMap(\.location) }
+        get {
+            let fromScenes = (linkedScenes ?? []).flatMap { $0.locations ?? [] }
+            var seen = Set<PersistentIdentifier>()
+            return fromScenes.filter { seen.insert($0.persistentModelID).inserted }
+        }
+        // Setter retained for import compatibility; data is ignored by the getter.
         set {
             for link in locationLinks ?? [] { modelContext?.delete(link) }
             locationLinks = []
@@ -871,6 +932,8 @@ final class PlotElement {
                 modelContext?.insert(link)
                 if locationLinks == nil { locationLinks = [] }
                 locationLinks?.append(link)
+                if location.plotElementLinks == nil { location.plotElementLinks = [] }
+                location.plotElementLinks?.append(link)
             }
         }
     }

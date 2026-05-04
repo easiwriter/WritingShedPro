@@ -29,7 +29,7 @@ struct SceneDetailView: View {
     @State private var editSummary: String = ""
     @State private var editMonomythStage: MonomythStage?
     @State private var editThreeActStage: ThreeActStage?
-    @State private var editLocation: Location?
+    @State private var editLocations: Set<Location> = []
     @State private var editCharacters: Set<Character> = []
     @State private var editPlotElements: Set<PlotElement> = []
     @State private var showDeleteConfirmation = false
@@ -185,9 +185,10 @@ struct SceneDetailView: View {
 
     @ViewBuilder
     private var locationSection: some View {
-        if let location = scene.location {
+        let locs = scene.locations ?? []
+        if !locs.isEmpty {
             Section {
-                LabeledContent(NSLocalizedString("fiction.scene.location", comment: "Location")) {
+                ForEach(locs.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { location in
                     Text(location.name ?? "-")
                 }
             } header: {
@@ -431,19 +432,27 @@ struct SceneDetailView: View {
             Text(NSLocalizedString("fiction.scene.summary", comment: "Summary"))
         }
         
-        // Location
-        Section {
-            Picker(NSLocalizedString("fiction.scene.location", comment: "Location"), selection: $editLocation) {
-                Text(NSLocalizedString("fiction.scene.location.none", comment: "None"))
-                    .tag(nil as Location?)
-                
+        // Locations (multi-select)
+        if !availableLocations.isEmpty {
+            Section {
                 ForEach(availableLocations) { location in
-                    Text(location.name ?? "")
-                        .tag(location as Location?)
+                    Button {
+                        toggleLocation(location)
+                    } label: {
+                        HStack {
+                            Text(location.name ?? "")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if editLocations.contains(location) {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
                 }
+            } header: {
+                Text(NSLocalizedString("fiction.scene.section.location", comment: "Location"))
             }
-        } header: {
-            Text(NSLocalizedString("fiction.scene.section.location", comment: "Location"))
         }
         
         // Characters
@@ -565,10 +574,18 @@ struct SceneDetailView: View {
         editSummary = scene.synopsis ?? ""
         editMonomythStage = scene.monomythStage
         editThreeActStage = scene.threeActStage
-        editLocation = scene.location
+        editLocations = Set(scene.locations ?? [])
         editCharacters = Set(scene.characters ?? [])
         editPlotElements = Set(scene.plotElements ?? [])
         isEditing = true
+    }
+    
+    private func toggleLocation(_ location: Location) {
+        if editLocations.contains(location) {
+            editLocations.remove(location)
+        } else {
+            editLocations.insert(location)
+        }
     }
     
     private func toggleCharacter(_ character: Character) {
@@ -595,7 +612,6 @@ struct SceneDetailView: View {
         if let project = scene.project {
             switch project.storyStructure {
             case .freeform:
-                // Clear all stages for freeform
                 scene.monomythStageRaw = nil
                 scene.campbellStageRaw = nil
                 scene.threeActStageRaw = nil
@@ -615,7 +631,7 @@ struct SceneDetailView: View {
             scene.monomythStage = editMonomythStage
         }
         
-        scene.location = editLocation
+        scene.locations = Array(editLocations)
         scene.characters = Array(editCharacters)
         scene.plotElements = Array(editPlotElements)
         
