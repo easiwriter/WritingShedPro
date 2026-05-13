@@ -10,62 +10,59 @@ import SwiftUI
 
 struct DocumentInfoView: View {
     let document: WSPDocument
-    @Environment(\.dismiss) private var dismiss
+    @Binding var isPresented: Bool
     
     var body: some View {
-        NavigationStack {
-            List {
-                // Project info
-                Section("Project") {
-                    InfoRow(label: "Name", value: document.projectName)
-                    InfoRow(label: "Type", value: formattedProjectType)
-                    
-                    if let date = document.exportDate {
-                        InfoRow(label: "Exported", value: formattedDate(date))
-                    }
-                    
-                    InfoRow(label: "Created With", value: "Writing Shed Pro \(document.appVersion)")
-                }
-                
-                // Statistics
-                Section("Statistics") {
-                    InfoRow(label: "Folders", value: "\(document.folders.count)")
-                    InfoRow(label: "Files", value: "\(document.allFiles.count)")
-                    InfoRow(label: "Total Words", value: "\(totalWordCount)")
-                }
-                
-                // File details
-                Section("Files by Folder") {
-                    ForEach(document.folders) { folder in
-                        FolderInfoRow(folder: folder)
-                    }
-                }
-                
-                // Publications (if any)
-                if !document.publications.isEmpty {
-                    Section("Publications Referenced") {
-                        ForEach(document.publications) { pub in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(pub.name)
-                                
-                                if let type = pub.type {
-                                    Text(type.capitalized)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
-                }
+        #if targetEnvironment(macCatalyst)
+        // On Catalyst, NavigationStack toolbar items inside a sheet render in a
+        // disconnected window context — Done button is unresponsive until focus shifts.
+        // Use a plain VStack header instead.
+        VStack(spacing: 0) {
+            HStack {
+                Text("Document Info")
+                    .font(.headline)
+                Spacer()
+                Button("Done") { isPresented = false }
+                    .buttonStyle(.borderedProminent)
             }
-            .navigationTitle("Document Info")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+
+            Divider()
+
+            infoList
+        }
+        #else
+        NavigationStack {
+            infoList
+                .navigationTitle("Document Info")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { isPresented = false }
+                    }
                 }
+        }
+        #endif
+    }
+
+    private var infoList: some View {
+        List {
+            Section("Project") {
+                InfoRow(label: "Name", value: document.projectName)
+                InfoRow(label: "Type", value: formattedProjectType)
+
+                if let date = document.exportDate {
+                    InfoRow(label: "Exported", value: formattedDate(date))
+                }
+
+                InfoRow(label: "Created With", value: "Writing Shed Pro \(document.appVersion)")
+            }
+
+            Section("Statistics") {
+                InfoRow(label: "Folders", value: "\(document.folders.count)")
+                InfoRow(label: "Files", value: "\(document.allFiles.count)")
+                InfoRow(label: "Total Words", value: "\(totalWordCount)")
             }
         }
     }
@@ -140,8 +137,4 @@ struct FolderInfoRow: View {
             }
         }
     }
-}
-
-#Preview {
-    Text("Document Info Preview")
 }

@@ -11,15 +11,23 @@ import SwiftUI
 struct DocumentReaderView: View {
     @Environment(ReaderAppState.self) var appState
     var document: WSPDocument
-    
-    @State private var selectedFile: WSPReaderFile?
+
+    enum DetailSelection: Hashable {
+        case file(WSPReaderFile)
+        case manuscript
+    }
+
+    @State private var selection: DetailSelection?
     @State private var showSidebar: Bool = true
-    @State private var searchText: String = ""
-    @State private var showSearch: Bool = false
     @State private var showDocumentInfo: Bool = false
-    @State private var showManuscriptSheet: Bool = false
-    @State private var showSettings: Bool = false
-    
+    @State private var statusFilter: String = "All"
+
+    // Convenience for code that still needs the selected file
+    private var selectedFile: WSPReaderFile? {
+        if case .file(let f) = selection { return f }
+        return nil
+    }
+
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(showSidebar ? .all : .detailOnly)) {
             sidebarContent
@@ -33,44 +41,14 @@ struct DocumentReaderView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-        .sheet(isPresented: $showSearch) {
-            SearchView(document: document, isPresented: $showSearch, selectedFile: $selectedFile)
+        .onAppear {
+            restoreSelectionIfNeeded()
+        }
+        .onChange(of: selection) {
+            persistSelection()
         }
         .sheet(isPresented: $showDocumentInfo) {
-            DocumentInfoView(document: document)
-        }
-        .sheet(isPresented: $showSettings) {
-            NavigationStack {
-                ReaderSettingsView()
-                    .navigationTitle("Settings")
-                    #if os(iOS)
-                    .navigationBarTitleDisplayMode(.inline)
-                    #endif
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") { showSettings = false }
-                        }
-                    }
-            }
-        }
-        .sheet(isPresented: $showManuscriptSheet) {
-            NavigationStack {
-                ManuscriptReaderView(
-                    title: document.manuscriptPreviewTitle,
-                    files: document.manuscriptPreviewFiles,
-                    fontSize: appState.fontSize,
-                    onNavigateToFile: navigateToFile
-                )
-                .navigationTitle("Manuscript")
-                #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-                #endif
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { showManuscriptSheet = false }
-                    }
-                }
-            }
+            DocumentInfoView(document: document, isPresented: $showDocumentInfo)
         }
     }
     
@@ -79,82 +57,151 @@ struct DocumentReaderView: View {
     @ViewBuilder
     private var sidebarContent: some View {
         if document.isManualProject {
-            // Manual projects use special TOC navigation
-            ManualNavigationView(document: document, selectedFile: $selectedFile)
+            ManualNavigationView(document: document, selectedFile: Binding(
+                get: { if case .file(let f) = selection { return f } else { return nil } },
+                set: { selection = $0.map { .file($0) } }
+            ))
+                .navigationTitle(document.projectName)
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                #endif
+                #if os(iOS) && !targetEnvironment(macCatalyst)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { appState.closeDocument() } label: {
+                            Label("Back", systemImage: "chevron.backward")
+                        }
+                    }
+                }
+                #endif
         } else {
-            // Standard projects use folder/file list
             standardSidebar
         }
     }
     
     @ViewBuilder
     private var standardSidebar: some View {
-        List(selection: $selectedFile) {
-            // Project header
-            Section {
-                HStack {
-                    Image(systemName: projectIcon)
-                        .foregroundStyle(.brown)
-                        .font(.title2)
-                    
-                    VStack(alignment: .leading) {
-                        Text(document.projectName)
-                            .font(.headline)
-                        
-                        Text(projectTypeLabel)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-
+        List(selection: $selection) {
             Section("Reader") {
-                Button {
-                    appState.closeDocument()
-                } label: {
-                    Label("Back to Home", systemImage: "chevron.backward")
-                }
+                Label("View Manuscript", systemImage: "eye")
+                    .tag(DetailSelection.manuscript)
 
-                Button {
-                    appState.showFilePicker = true
-                } label: {
-                    Label("Open Another Project", systemImage: "folder.badge.plus")
-                }
-
-                Button {
-                    showManuscriptSheet = true
-                } label: {
-                    Label("View Manuscript", systemImage: "eye")
-                }
-            }
-            
-            // Primary work folders only (container + file folder)
-            Section("Folders") {
                 ForEach(document.readerPrimaryFolders) { folder in
-                    FolderSection(folder: folder, selectedFile: $selectedFile)
+                    FolderSection(folder: folder, selection: $selection, statusFilter: statusFilter)
                 }
             }
         }
         .listStyle(.sidebar)
-        .navigationTitle("Contents")
+        .navigationTitle(document.projectName)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-        .searchable(text: $searchText, prompt: "Search files")
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if availableStatuses.count > 1 {
+                statusFilterBar
+            }
+        }
+        #if os(iOS) && !targetEnvironment(macCatalyst)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { appState.closeDocument() } label: {
+                    Label("Back", systemImage: "chevron.backward")
+                }
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showDocumentInfo = true
+                } label: {
+                    Image(systemName: "info.circle")
+                }
+            }
+        }
+        #endif
     }
+
+    private var availableStatuses: [String] {
+        let statuses = document.readerPrimaryFolders
+            .flatMap { collectStatuses(from: $0) }
+        let unique = Array(Set(statuses)).sorted()
+        return unique.isEmpty ? [] : ["All"] + unique
+    }
+
+    private func collectStatuses(from folder: WSPReaderFolder) -> [String] {
+        let fileStatuses = folder.files.compactMap { $0.workflowStatus }.filter { !$0.isEmpty }
+        let subStatuses = folder.subfolders.flatMap { collectStatuses(from: $0) }
+        return fileStatuses + subStatuses
+    }
+
+    private func statusColor(for status: String) -> Color {
+        switch status.lowercased() {
+        case "draft":    return Color(UIColor.systemBlue)
+        case "ready":    return Color(UIColor.systemGreen)
+        case "setaside": return Color(UIColor.systemRed)
+        case "all":      return .primary
+        default:         return .primary
+        }
+    }
+
+    private var statusFilterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(availableStatuses, id: \.self) { status in
+                    let isSelected = statusFilter == status
+                    let color = statusColor(for: status)
+                    Button {
+                        statusFilter = status
+                    } label: {
+                        Text(status.capitalized)
+                            .font(.caption)
+                            .fontWeight(isSelected ? .semibold : .regular)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(isSelected ? color.opacity(0.2) : Color.secondary.opacity(0.12))
+                            .foregroundStyle(isSelected ? color : color.opacity(0.7))
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(color, lineWidth: isSelected ? 1.5 : 0))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
+        .background(.bar)
+    }
+
+
     
     // MARK: - Detail
     
     @ViewBuilder
     private var detailContent: some View {
-        if let file = selectedFile {
+        switch selection {
+        case .file(let file):
             FileReaderView(
-                file: file, 
+                file: file,
+                projectType: document.projectType,
+                dramaScriptType: document.dramaScriptType,
+                fontSize: appState.fontSize,
+                onNavigateToFile: navigateToFile,
+                onNavigatePrev: { navigateAdjacent(to: file, forward: false) },
+                onNavigateNext: { navigateAdjacent(to: file, forward: true) }
+            )
+        case .manuscript:
+            ManuscriptReaderView(
+                title: document.manuscriptPreviewTitle,
+                files: document.manuscriptPreviewFiles,
+                projectType: document.projectType,
+                dramaScriptType: document.dramaScriptType,
                 fontSize: appState.fontSize,
                 onNavigateToFile: navigateToFile
             )
-        } else {
+            .navigationTitle("Manuscript")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+        case nil:
             ContentUnavailableView(
                 "Select a File",
                 systemImage: "doc.text",
@@ -166,78 +213,38 @@ struct DocumentReaderView: View {
     // MARK: - Navigation
     
     private func navigateToFile(_ fileId: String) {
-        // Find file by ID anywhere in the document
         if let file = document.findFile(byId: fileId) {
-            showManuscriptSheet = false
-            selectedFile = file
+            selection = .file(file)
         }
     }
-    
+
+    private func navigateAdjacent(to file: WSPReaderFile, forward: Bool) {
+        if let adjacent = document.adjacentFile(to: file, forward: forward) {
+            selection = .file(adjacent)
+        }
+    }
+
+    private func restoreSelectionIfNeeded() {
+        guard selection == nil,
+              let fileID = appState.readerSelectionFileID(for: document),
+              let file = document.findFile(byId: fileID) else {
+            return
+        }
+
+        selection = .file(file)
+    }
+
+    private func persistSelection() {
+        if case .file(let file) = selection {
+            appState.storeReaderSelection(fileID: file.id, for: document)
+        }
+    }
+
     // MARK: - Toolbar
     
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        #if os(iOS)
-        ToolbarItem(placement: .topBarLeading) {
-            Button {
-                appState.closeDocument()
-            } label: {
-                Label("Back", systemImage: "chevron.backward")
-            }
-        }
-
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                // Full-screen reading toggle
-                Button {
-                    withAnimation {
-                        showSidebar.toggle()
-                    }
-                } label: {
-                    Label(showSidebar ? "Full Screen Reading" : "Show Contents", 
-                          systemImage: showSidebar ? "arrow.up.left.and.arrow.down.right" : "sidebar.left")
-                }
-                
-                Divider()
-                
-                fontSizeControls
-                
-                Divider()
-                
-                Button {
-                    showSearch.toggle()
-                } label: {
-                    Label("Search", systemImage: "magnifyingglass")
-                }
-                
-                Divider()
-
-                Button {
-                    showManuscriptSheet = true
-                } label: {
-                    Label("View Manuscript", systemImage: "eye")
-                }
-
-                Divider()
-                
-                Button {
-                    showDocumentInfo = true
-                } label: {
-                    Label("Document Info", systemImage: "info.circle")
-                }
-
-                Divider()
-
-                Button {
-                    showSettings = true
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-            }
-        }
-        #else
+        #if targetEnvironment(macCatalyst)
         ToolbarItemGroup(placement: .automatic) {
             Button {
                 appState.closeDocument()
@@ -247,52 +254,31 @@ struct DocumentReaderView: View {
             .help("Back to Home")
 
             Button {
-                appState.showFilePicker = true
-            } label: {
-                Image(systemName: "folder.badge.plus")
-            }
-            .help("Open Another Project")
-
-            Button {
-                withAnimation {
-                    showSidebar.toggle()
-                }
+                withAnimation { showSidebar.toggle() }
             } label: {
                 Image(systemName: showSidebar ? "sidebar.left" : "sidebar.leading")
             }
             .help(showSidebar ? "Hide Sidebar" : "Show Sidebar")
 
-            Button {
-                showManuscriptSheet = true
-            } label: {
-                Image(systemName: "eye")
-            }
-            .help("View Manuscript")
-            
             fontSizeControls
-            
-            Button {
-                showSearch.toggle()
-            } label: {
-                Image(systemName: "magnifyingglass")
-            }
 
-            Button {
-                showSettings = true
-            } label: {
-                Image(systemName: "gearshape")
-            }
-            .help("Settings")
-            
             Button {
                 showDocumentInfo = true
             } label: {
                 Image(systemName: "info.circle")
             }
         }
+        #else
+        ToolbarItem(placement: .automatic) {
+            EmptyView()
+        }
         #endif
     }
     
+    private var fontSizePercent: Int {
+        Int(round((appState.fontSize / 16.0) * 100))
+    }
+
     @ViewBuilder
     private var fontSizeControls: some View {
         Button {
@@ -344,6 +330,8 @@ struct DocumentReaderView: View {
 struct ManuscriptReaderView: View {
     let title: String
     let files: [WSPReaderFile]
+    let projectType: String
+    let dramaScriptType: String?
     let fontSize: CGFloat
     var onNavigateToFile: ((String) -> Void)? = nil
 
@@ -361,24 +349,22 @@ struct ManuscriptReaderView: View {
                         description: Text("No files are marked for manuscript inclusion.")
                     )
                 } else {
-                    ForEach(files) { file in
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(file.name)
-                                .font(.headline)
-                                .foregroundStyle(.secondary)
+                    LazyVStack(alignment: .leading, spacing: 24) {
+                        ForEach(files) { file in
+                            VStack(alignment: .leading, spacing: 10) {
+                                AttributedTextView(
+                                    attributedString: manuscriptContent(for: file),
+                                    fontSize: fontSize,
+                                    onLinkTap: handleLinkTap
+                                )
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.bottom, 12)
 
-                            AttributedTextView(
-                                attributedString: scaledContent(for: file),
-                                fontSize: fontSize,
-                                onLinkTap: handleLinkTap
-                            )
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .padding(.bottom, 12)
-
-                        if file.id != files.last?.id {
-                            Divider()
-                                .padding(.bottom, 8)
+                            if file.id != files.last?.id {
+                                Divider()
+                                    .padding(.bottom, 8)
+                            }
                         }
                     }
                 }
@@ -388,29 +374,33 @@ struct ManuscriptReaderView: View {
         }
     }
 
-    private func scaledContent(for file: WSPReaderFile) -> NSAttributedString {
-        let original = file.attributedContent
-        let mutable = NSMutableAttributedString(attributedString: original)
-
-        mutable.enumerateAttribute(.font, in: NSRange(location: 0, length: mutable.length)) { value, range, _ in
-            #if canImport(UIKit)
-            if let font = value as? UIFont {
-                let scaleFactor = fontSize / 16.0
-                let newSize = font.pointSize * scaleFactor
-                let newFont = font.withSize(newSize)
-                mutable.addAttribute(.font, value: newFont, range: range)
-            }
-            #elseif canImport(AppKit)
-            if let font = value as? NSFont {
-                let scaleFactor = fontSize / 16.0
-                let newSize = font.pointSize * scaleFactor
-                let newFont = NSFont(descriptor: font.fontDescriptor, size: newSize) ?? NSFont.systemFont(ofSize: newSize)
-                mutable.addAttribute(.font, value: newFont, range: range)
-            }
-            #endif
+    private func manuscriptContent(for file: WSPReaderFile) -> NSAttributedString {
+        if projectType.lowercased() == "drama" {
+            return WSPDramaRenderer.shared.render(source: file.plainContent, scriptTypeRaw: dramaScriptType)
         }
 
-        return mutable
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineSpacing = 4
+
+        #if canImport(UIKit)
+        return NSAttributedString(
+            string: file.plainContent,
+            attributes: [
+                .font: UIFont.systemFont(ofSize: fontSize),
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: paragraphStyle
+            ]
+        )
+        #elseif canImport(AppKit)
+        return NSAttributedString(
+            string: file.plainContent,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: fontSize),
+                .foregroundColor: NSColor.labelColor,
+                .paragraphStyle: paragraphStyle
+            ]
+        )
+        #endif
     }
 
     private func handleLinkTap(_ url: URL) -> Bool {
@@ -433,26 +423,43 @@ struct ManuscriptReaderView: View {
 
 struct FolderSection: View {
     let folder: WSPReaderFolder
-    @Binding var selectedFile: WSPReaderFile?
+    @Binding var selection: DocumentReaderView.DetailSelection?
+    var statusFilter: String = "All"
 
-    @State private var isExpanded: Bool = false
+    @State private var isExpanded: Bool = true
+
+    private var visibleFiles: [WSPReaderFile] {
+        guard statusFilter != "All" else { return folder.files }
+        return folder.files.filter { ($0.workflowStatus ?? "").lowercased() == statusFilter.lowercased() }
+    }
+
+    private var visibleSubfolders: [WSPReaderFolder] {
+        guard statusFilter != "All" else { return folder.subfolders }
+        return folder.subfolders.filter { hasVisibleContent($0) }
+    }
+
+    private func hasVisibleContent(_ f: WSPReaderFolder) -> Bool {
+        let hasFiles = f.files.contains { ($0.workflowStatus ?? "").lowercased() == statusFilter.lowercased() }
+        return hasFiles || f.subfolders.contains { hasVisibleContent($0) }
+    }
 
     var body: some View {
-        DisclosureGroup(isExpanded: $isExpanded) {
-            ForEach(folder.files) { file in
-                FileRow(file: file, isSelected: selectedFile?.id == file.id)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedFile = file
-                    }
-            }
+        if visibleFiles.isEmpty && visibleSubfolders.isEmpty {
+            EmptyView()
+        } else {
+            DisclosureGroup(isExpanded: $isExpanded) {
+                ForEach(visibleFiles) { file in
+                    FileRow(file: file, isSelected: selection == .file(file))
+                        .tag(DocumentReaderView.DetailSelection.file(file))
+                }
 
-            ForEach(folder.subfolders) { subfolder in
-                FolderSection(folder: subfolder, selectedFile: $selectedFile)
+                ForEach(visibleSubfolders) { subfolder in
+                    FolderSection(folder: subfolder, selection: $selection, statusFilter: statusFilter)
+                }
+            } label: {
+                Label(folder.name, systemImage: folder.iconName)
+                    .foregroundStyle(.primary)
             }
-        } label: {
-            Label(folder.name, systemImage: folder.iconName)
-                .foregroundStyle(.primary)
         }
     }
 }
@@ -463,29 +470,29 @@ struct FileRow: View {
     let file: WSPReaderFile
     let isSelected: Bool
 
+    private var statusColor: Color {
+        guard let status = file.workflowStatus else { return .primary }
+        switch status.lowercased() {
+        case "draft":     return Color(UIColor.systemBlue)
+        case "ready":     return Color(UIColor.systemGreen)
+        case "setaside":  return Color(UIColor.systemRed)
+        default:          return .primary
+        }
+    }
+
     var body: some View {
         HStack {
             Image(systemName: "doc.text")
-                .foregroundStyle(isSelected ? .white : .secondary)
+                .foregroundStyle(isSelected ? .white : statusColor)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(file.name)
-                    .foregroundStyle(isSelected ? .white : .primary)
+                    .foregroundStyle(isSelected ? .white : statusColor)
                     .lineLimit(1)
 
                 Text("\(file.wordCount) words")
                     .font(.caption2)
                     .foregroundStyle(isSelected ? .white.opacity(0.8) : .secondary)
-            }
-
-            if let status = file.workflowStatus, !status.isEmpty {
-                Text(status.capitalized)
-                    .font(.caption2)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(isSelected ? Color.white.opacity(0.2) : Color.secondary.opacity(0.12))
-                    .clipShape(Capsule())
-                    .foregroundStyle(isSelected ? .white : .secondary)
             }
 
             Spacer()
@@ -495,8 +502,4 @@ struct FileRow: View {
         .background(isSelected ? Color.accentColor : Color.clear)
         .cornerRadius(6)
     }
-}
-
-#Preview {
-    Text("Document Reader Preview")
 }

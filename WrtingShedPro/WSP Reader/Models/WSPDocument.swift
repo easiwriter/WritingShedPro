@@ -26,6 +26,7 @@ class WSPDocument {
     /// Project metadata
     let projectName: String
     let projectType: String
+    let dramaScriptType: String?
     let exportDate: Date?
     let appVersion: String
     
@@ -128,17 +129,28 @@ class WSPDocument {
         self.fileURL = url
         
         // Read file data
+        print("[WSPDocument] reading data from \(url.lastPathComponent)")
         let data = try Data(contentsOf: url)
+        print("[WSPDocument] read \(data.count) bytes")
+        
+        // Check if the file looks like a ZIP (some exporters may compress)
+        if data.prefix(2) == Data([0x50, 0x4B]) {
+            print("[WSPDocument] WARNING: file starts with PK — this is a ZIP, not plain JSON")
+        } else if let preview = String(data: data.prefix(100), encoding: .utf8) {
+            print("[WSPDocument] file preview: \(preview.prefix(80))")
+        }
         
         // Parse JSON
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         
-        let wspData = try decoder.decode(WSPExportData.self, from: data)
+        do {
+            let wspData = try decoder.decode(WSPExportData.self, from: data)
         
         // Extract project info
         self.projectName = wspData.project.name.isEmpty ? "Untitled" : wspData.project.name
         self.projectType = wspData.project.type
+        self.dramaScriptType = wspData.project.dramaScriptType
         self.exportDate = wspData.exportDate
         self.appVersion = wspData.appVersion
         
@@ -157,12 +169,11 @@ class WSPDocument {
             .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
             .map { WSPReaderSubmission(from: $0, fileByID: fileByID) }
         
-        #if DEBUG
-        print("[WSPDocument] Loaded: \(projectName)")
-        print("[WSPDocument]   Type: \(projectType)")
-        print("[WSPDocument]   Folders: \(folders.count)")
-        print("[WSPDocument]   Files: \(allFiles.count)")
-        #endif
+        print("[WSPDocument] Loaded: \(projectName) type=\(projectType) folders=\(folders.count) files=\(allFiles.count)")
+        } catch let decodeError {
+            print("[WSPDocument] JSON decode FAILED: \(decodeError)")
+            throw decodeError
+        }
     }
     
     // MARK: - Helpers
@@ -200,6 +211,16 @@ class WSPDocument {
         file(withID: id)
     }
 
+    /// Return the file immediately before or after `file` in the flat `allFiles` list.
+    /// Returns nil if already at the start/end.
+    func adjacentFile(to file: WSPReaderFile, forward: Bool) -> WSPReaderFile? {
+        let flat = allFiles
+        guard let idx = flat.firstIndex(where: { $0.id == file.id }) else { return nil }
+        let next = forward ? flat.index(after: idx) : flat.index(before: idx)
+        guard next >= flat.startIndex && next < flat.endIndex else { return nil }
+        return flat[next]
+    }
+
     func submissions(for publicationID: String) -> [WSPReaderSubmission] {
         submissions.filter { $0.publicationId == publicationID }
     }
@@ -232,7 +253,7 @@ class WSPDocument {
         let hiddenKeywords = [
             "trash", "research", "submission", "submissions",
             "publication", "publications", "magazine", "magazines",
-            "back matter"
+            "back matter", "manuscript"
         ]
         return !hiddenKeywords.contains { lower.contains($0) }
     }
@@ -402,7 +423,10 @@ struct WSPReaderFile: Identifiable, Hashable {
 
 // MARK: - Reader Version
 
-struct WSPReaderVersion: Identifiable {
+/// Uses a class (not struct) so the decoded NSAttributedString can be cached
+/// after first access — decoding the binary plist is expensive and must not
+/// repeat on every SwiftUI render.
+final class WSPReaderVersion: Identifiable {
     let id: String
     let content: String
     let formattedContentBase64: String?
@@ -412,7 +436,10 @@ struct WSPReaderVersion: Identifiable {
     let notes: String?
     let comments: [WSPReaderComment]
     let footnotes: [WSPReaderFootnote]
-    
+
+    /// Decoded once on first access, then returned from cache.
+    private var _attributedContent: NSAttributedString?
+
     init(from data: WSPVersionData) {
         self.id = data.id
         self.content = data.content
@@ -424,9 +451,16 @@ struct WSPReaderVersion: Identifiable {
         self.comments = (data.comments ?? []).map { WSPReaderComment(from: $0) }
         self.footnotes = (data.footnotes ?? []).map { WSPReaderFootnote(from: $0) }
     }
-    
-    /// Get formatted attributed string
+
+    /// Get formatted attributed string — decoded on first call, cached thereafter.
     var attributedContent: NSAttributedString {
+        if let cached = _attributedContent { return cached }
+        let result = decodeAttributedContent()
+        _attributedContent = result
+        return result
+    }
+
+    private func decodeAttributedContent() -> NSAttributedString {
         if let base64 = formattedContentBase64,
            let data = Data(base64Encoded: base64),
            !data.isEmpty {

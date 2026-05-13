@@ -15,83 +15,163 @@ import AppKit
 
 struct FileReaderView: View {
     let file: WSPReaderFile
+    let projectType: String
+    let dramaScriptType: String?
     let fontSize: CGFloat
     var onNavigateToFile: ((String) -> Void)? = nil
-    
-    @State private var showFootnotes: Bool = false
+    var onNavigatePrev: (() -> Void)? = nil
+    var onNavigateNext: (() -> Void)? = nil
+
+    @Environment(ReaderAppState.self) private var appState
     @State private var showComments: Bool = false
-    @State private var showVersionInfo: Bool = false
-    
+    /// Index of the version currently being read. Starts at the file's current version.
+    @State private var selectedVersionIndex: Int
+    /// Cached scaled attributed string — rebuilt only when file or fontSize changes.
+    @State private var displayContent: NSAttributedString = NSAttributedString()
+    /// Visual zoom scale driven by pinch and the ±/reset buttons.
+    @State private var contentScale: CGFloat = 1.0
+    /// Baseline scale accumulated across successive pinch gestures.
+    @State private var lastScale: CGFloat = 1.0
+    /// Measured natural (unscaled) content height for the scroll frame sizing trick.
+    @State private var naturalContentHeight: CGFloat = 0
+
+    init(
+        file: WSPReaderFile,
+        projectType: String,
+        dramaScriptType: String? = nil,
+        fontSize: CGFloat,
+        onNavigateToFile: ((String) -> Void)? = nil,
+        onNavigatePrev: (() -> Void)? = nil,
+        onNavigateNext: (() -> Void)? = nil
+    ) {
+        self.file = file
+        self.projectType = projectType
+        self.dramaScriptType = dramaScriptType
+        self.fontSize = fontSize
+        self.onNavigateToFile = onNavigateToFile
+        self.onNavigatePrev = onNavigatePrev
+        self.onNavigateNext = onNavigateNext
+        _selectedVersionIndex = State(initialValue: file.currentVersionIndex)
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // File header
-                fileHeader
-                
-                Divider()
-                
-                // Main content
-                AttributedTextView(
-                    attributedString: scaledContent,
-                    fontSize: fontSize,
-                    onLinkTap: handleLinkTap
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-                
-                // Footnotes section
-                if !footnotes.isEmpty {
-                    footnotesSection
+        Group {
+            #if os(iOS) && !targetEnvironment(macCatalyst)
+            GeometryReader { geo in
+                let naturalWidth = min(geo.size.width, 700)
+                ScrollView([.vertical, .horizontal]) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        scrollContent
+                            .frame(width: naturalWidth)
+                            .background(
+                                GeometryReader { inner in
+                                    Color.clear
+                                        .onAppear { naturalContentHeight = inner.size.height }
+                                        .onChange(of: inner.size.height) { _, h in naturalContentHeight = h }
+                                }
+                            )
+                            .scaleEffect(contentScale, anchor: .topLeading)
+                            .frame(
+                                width: naturalWidth * contentScale,
+                                height: max(naturalContentHeight, 1) * contentScale,
+                                alignment: .topLeading
+                            )
+                    }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-                
-                Spacer(minLength: 40)
+                .defaultScrollAnchor(.top)
+                .background(readerBackground)
+                .simultaneousGesture(pinchGesture)
             }
-            .padding()
-            .frame(maxWidth: 700, alignment: .leading)
-        }
-        .background(readerBackground)
-        .navigationTitle(file.name)
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
-        .toolbar {
-            ToolbarItemGroup(placement: .secondaryAction) {
-                if !footnotes.isEmpty {
-                    Button {
-                        showFootnotes.toggle()
-                    } label: {
-                        Label("Footnotes", systemImage: "note.text")
+            .navigationTitle(file.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItemGroup(placement: .secondaryAction) {
+                    if !comments.isEmpty {
+                        Button {
+                            showComments.toggle()
+                        } label: {
+                            Label("Comments", systemImage: "text.bubble")
+                        }
                     }
-                }
-                
-                if !comments.isEmpty {
-                    Button {
-                        showComments.toggle()
-                    } label: {
-                        Label("Comments", systemImage: "text.bubble")
-                    }
-                }
-                
-                if file.versions.count > 1 {
-                    Button {
-                        showVersionInfo.toggle()
-                    } label: {
-                        Label("Version Info", systemImage: "clock.arrow.circlepath")
-                    }
+
                 }
             }
-        }
-        .sheet(isPresented: $showFootnotes) {
-            FootnotesSheet(footnotes: footnotes)
+            #else
+            ScrollView {
+                scrollContent
+                    .frame(maxWidth: 700, alignment: .leading)
+            }
+            .background(readerBackground)
+            .navigationTitle(file.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItemGroup(placement: .secondaryAction) {
+                    if !comments.isEmpty {
+                        Button {
+                            showComments.toggle()
+                        } label: {
+                            Label("Comments", systemImage: "text.bubble")
+                        }
+                    }
+
+                }
+            }
+            #endif
         }
         .sheet(isPresented: $showComments) {
             CommentsSheet(comments: comments)
         }
-        .sheet(isPresented: $showVersionInfo) {
-            VersionInfoSheet(file: file)
+        .onAppear {
+            contentScale = appState.readerContentScale
+            lastScale = contentScale
+            displayContent = buildScaledContent()
         }
+        .onChange(of: file.id) {
+            selectedVersionIndex = file.currentVersionIndex
+            contentScale = appState.readerContentScale
+            lastScale = contentScale
+            naturalContentHeight = 0
+            displayContent = buildScaledContent()
+        }
+        .onChange(of: fontSize) { displayContent = buildScaledContent() }
+        .onChange(of: selectedVersionIndex) { displayContent = buildScaledContent() }
     }
-    
-    // MARK: - File Header
+
+    @ViewBuilder
+    private var scrollContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            fileHeader
+            Divider()
+            AttributedTextView(
+                attributedString: displayContent,
+                fontSize: fontSize,
+                onLinkTap: handleLinkTap
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if !footnotes.isEmpty {
+                footnotesSection
+            }
+            Spacer(minLength: 40)
+        }
+        .padding()
+    }
+
+    // MARK: - Gestures (iOS only)
+
+    #if os(iOS) && !targetEnvironment(macCatalyst)
+    private var pinchGesture: some Gesture {
+        MagnificationGesture()
+            .onChanged { value in
+                contentScale = min(4.0, max(0.5, lastScale * value))
+                appState.readerContentScale = contentScale
+            }
+            .onEnded { _ in
+                lastScale = contentScale
+                appState.readerContentScale = contentScale
+            }
+    }
+    #endif
     
     @ViewBuilder
     private var fileHeader: some View {
@@ -99,25 +179,113 @@ struct FileReaderView: View {
             Text(file.name)
                 .font(.title)
                 .fontWeight(.bold)
-            
-            HStack(spacing: 16) {
-                Label("\(file.wordCount) words", systemImage: "text.word.spacing")
-                
-                if let form = file.poetryFormName {
-                    Label(form, systemImage: "text.quote")
+
+            HStack(alignment: .center, spacing: 16) {
+                HStack(spacing: 16) {
+                    Label("\(file.wordCount) words", systemImage: "text.word.spacing")
+
+                    if let form = file.poetryFormName {
+                        Label(form, systemImage: "text.quote")
+                    }
+
+                    if let status = file.workflowStatus {
+                        Label(status.capitalized, systemImage: "checkmark.circle")
+                    }
                 }
-                
-                if let status = file.workflowStatus {
-                    Label(status.capitalized, systemImage: "checkmark.circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Spacer()
+
+                #if !targetEnvironment(macCatalyst)
+                HStack(spacing: 4) {
+                    Button {
+                        contentScale = max(0.5, contentScale - 0.05)
+                        lastScale = contentScale
+                        appState.readerContentScale = contentScale
+                    } label: {
+                        Image(systemName: "minus.magnifyingglass")
+                    }
+
+                    Text("\(fontSizePercent)%")
+                        .font(.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .frame(minWidth: 40, alignment: .center)
+
+                    Button {
+                        contentScale = min(4.0, contentScale + 0.05)
+                        lastScale = contentScale
+                        appState.readerContentScale = contentScale
+                    } label: {
+                        Image(systemName: "plus.magnifyingglass")
+                    }
+
+                    Button {
+                        contentScale = 1.0
+                        lastScale = 1.0
+                        appState.readerContentScale = contentScale
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                    }
                 }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                #endif
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            
+
             Text("Modified \(formattedDate(file.modifiedDate))")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
+
+            if file.versions.count > 1 {
+                versionNavigator
+            }
         }
+    }
+
+    @ViewBuilder
+    private var versionNavigator: some View {
+        HStack(spacing: 0) {
+            Button {
+                selectedVersionIndex = max(0, selectedVersionIndex - 1)
+            } label: {
+                Image(systemName: "chevron.left")
+                    .frame(width: 36, height: 32)
+            }
+            .disabled(selectedVersionIndex == 0)
+
+            Spacer()
+
+            VStack(spacing: 2) {
+                Text("Version \(selectedVersion?.versionNumber ?? 1) of \(file.versions.count)")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                if let comment = selectedVersion?.comment, !comment.isEmpty {
+                    Text(comment)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .italic()
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            Button {
+                selectedVersionIndex = min(file.versions.count - 1, selectedVersionIndex + 1)
+            } label: {
+                Image(systemName: "chevron.right")
+                    .frame(width: 36, height: 32)
+            }
+            .disabled(selectedVersionIndex == file.versions.count - 1)
+        }
+        .foregroundStyle(.secondary)
+        .buttonStyle(.borderless)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(Color.secondary.opacity(0.08))
+        .cornerRadius(8)
     }
     
     // MARK: - Footnotes Section
@@ -149,7 +317,20 @@ struct FileReaderView: View {
     // MARK: - Helpers
     
     private var scaledContent: NSAttributedString {
-        let original = file.attributedContent
+        buildScaledContent()
+    }
+
+    private var selectedVersion: WSPReaderVersion? {
+        file.versions.indices.contains(selectedVersionIndex) ? file.versions[selectedVersionIndex] : file.currentVersion
+    }
+
+    private func buildScaledContent() -> NSAttributedString {
+        let original: NSAttributedString
+        if projectType.lowercased() == "drama" {
+            original = WSPDramaRenderer.shared.render(source: selectedVersion?.content ?? file.plainContent, scriptTypeRaw: dramaScriptType)
+        } else {
+            original = selectedVersion?.attributedContent ?? NSAttributedString()
+        }
         let mutable = NSMutableAttributedString(attributedString: original)
         
         // Scale fonts to match user preference
@@ -170,6 +351,19 @@ struct FileReaderView: View {
             }
             #endif
         }
+
+        // Some imported heading styles carry paragraph indents that shift text right.
+        // Normalize indents so headings and body start at the same left edge, like WSP.
+        mutable.enumerateAttribute(.paragraphStyle, in: NSRange(location: 0, length: mutable.length)) { value, range, _ in
+            guard let paragraph = value as? NSParagraphStyle else { return }
+            if paragraph.firstLineHeadIndent != 0 || paragraph.headIndent != 0 || paragraph.tailIndent != 0 {
+                let normalized = paragraph.mutableCopy() as! NSMutableParagraphStyle
+                normalized.firstLineHeadIndent = 0
+                normalized.headIndent = 0
+                normalized.tailIndent = 0
+                mutable.addAttribute(.paragraphStyle, value: normalized, range: range)
+            }
+        }
         
         return mutable
     }
@@ -185,20 +379,32 @@ struct FileReaderView: View {
     }
     
     private var footnotes: [WSPReaderFootnote] {
-        file.currentVersion?.footnotes ?? []
+        selectedVersion?.footnotes ?? []
     }
-    
+
+    private var fontSizePercent: Int {
+        #if os(iOS) && !targetEnvironment(macCatalyst)
+        Int(round(contentScale * 100))
+        #else
+        Int(round((appState.fontSize / 16.0) * 100))
+        #endif
+    }
+
     private var comments: [WSPReaderComment] {
-        file.currentVersion?.comments ?? []
+        selectedVersion?.comments ?? []
     }
-    
+
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        return f
+    }()
+
     private func formattedDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        Self.dateFormatter.string(from: date)
     }
-    
+
     // MARK: - Link Handling
     
     private func handleLinkTap(_ url: URL) -> Bool {
@@ -375,81 +581,4 @@ struct CommentsSheet: View {
     }
 }
 
-// MARK: - Version Info Sheet
 
-struct VersionInfoSheet: View {
-    let file: WSPReaderFile
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("Current Version") {
-                    if let version = file.currentVersion {
-                        versionRow(version, isCurrent: true)
-                    }
-                }
-                
-                if file.versions.count > 1 {
-                    Section("All Versions") {
-                        ForEach(file.versions.reversed()) { version in
-                            versionRow(version, isCurrent: version.id == file.currentVersion?.id)
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Version History")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private func versionRow(_ version: WSPReaderVersion, isCurrent: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text("Version \(version.versionNumber)")
-                    .fontWeight(isCurrent ? .semibold : .regular)
-                
-                if isCurrent {
-                    Text("Current")
-                        .font(.caption)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(.blue)
-                        .cornerRadius(4)
-                }
-            }
-            
-            Text(formattedDate(version.createdDate))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            
-            if let comment = version.comment, !comment.isEmpty {
-                Text(comment)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .italic()
-            }
-        }
-        .padding(.vertical, 4)
-    }
-    
-    private func formattedDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-}
-
-#Preview {
-    Text("File Reader Preview")
-}

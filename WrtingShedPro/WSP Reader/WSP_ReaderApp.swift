@@ -17,6 +17,7 @@ struct WSP_ReaderApp: App {
             ContentView()
                 .environment(appState)
                 .onOpenURL { url in
+                    print("[WSPReader] onOpenURL received: \(url.lastPathComponent)")
                     if url.pathExtension.lowercased() == "wsp" {
                         appState.openDocument(at: url)
                     }
@@ -25,7 +26,7 @@ struct WSP_ReaderApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Open...") {
-                    appState.showFilePicker = true
+                    appState.openFilePicker()
                 }
                 .keyboardShortcut("o", modifiers: .command)
             }
@@ -38,12 +39,6 @@ struct WSP_ReaderApp: App {
                 .disabled(appState.currentDocument == nil)
             }
         }
-        #if os(macOS)
-        Settings {
-            ReaderSettingsView()
-                .environment(appState)
-        }
-        #endif
     }
 }
 

@@ -9,6 +9,8 @@
 import Foundation
 import SwiftUI
 import Observation
+import UniformTypeIdentifiers
+import UIKit
 
 /// Global app state for the WSP Reader
 @Observable
@@ -19,7 +21,7 @@ class ReaderAppState {
     /// Recently opened documents
     var recentDocuments: [RecentDocument] = []
     
-    /// Show file picker sheet
+    /// Show file picker sheet (iOS only — Catalyst uses NSOpenPanel directly)
     var showFilePicker: Bool = false
     
     /// Current font size for reading
@@ -30,6 +32,12 @@ class ReaderAppState {
     
     /// Error to display
     var currentError: ReaderError?
+
+    /// Shared zoom scale for reader previews so pinch state carries between files.
+    var readerContentScale: CGFloat = 1.0
+
+    /// Last selected file per opened document so Catalyst can restore file context after navigation.
+    var readerLastSelectedFileIDByDocumentPath: [String: String] = [:]
     
     /// Show upgrade to pro prompt
     var showUpgradePrompt: Bool = false
@@ -59,13 +67,12 @@ class ReaderAppState {
                 decoder.dateDecodingStrategy = .iso8601
                 recentDocuments = try decoder.decode([RecentDocument].self, from: data)
                 
-                // Filter out documents that no longer exist
+                // Filter out entries with no bookmark or whose file no longer exists
                 recentDocuments = recentDocuments.filter { doc in
-                    if let bookmark = doc.bookmark {
-                        var isStale = false
-                        if let url = try? URL(resolvingBookmarkData: bookmark, bookmarkDataIsStale: &isStale) {
-                            return FileManager.default.fileExists(atPath: url.path)
-                        }
+                    guard let bookmark = doc.bookmark else { return false }
+                    var isStale = false
+                    if let url = try? URL(resolvingBookmarkData: bookmark, bookmarkDataIsStale: &isStale) {
+                        return FileManager.default.fileExists(atPath: url.path)
                     }
                     return false
                 }
@@ -90,37 +97,48 @@ class ReaderAppState {
         }
     }
     
-    func addRecentDocument(url: URL, name: String) {
-        // Remove existing entry for same URL
+    func addRecentDocument(url: URL, name: String, projectType: String? = nil, fileCount: Int? = nil) {
         recentDocuments.removeAll { $0.name == name }
-        
-        // Create security-scoped bookmark
+
+        // Try to create a security-scoped bookmark for persistence across launches.
+        // On Catalyst/macOS the sandbox requires .withSecurityScope; on iOS .minimalBookmark is fine.
+        // If creation fails for any reason, still add the entry with nil bookmark so it
+        // appears in the list for the current session (filtered on next launch).
+        var bookmark: Data? = nil
         do {
-            let bookmark = try url.bookmarkData(
+            #if targetEnvironment(macCatalyst)
+            // Catalyst sandbox requires a security-scoped bookmark so the file
+            // can be reopened from the recents list without another file picker.
+            bookmark = try url.bookmarkData(
+                options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+            #else
+            bookmark = try url.bookmarkData(
                 options: .minimalBookmark,
                 includingResourceValuesForKeys: nil,
                 relativeTo: nil
             )
-            
-            let recent = RecentDocument(
-                name: name,
-                bookmark: bookmark,
-                lastOpened: Date()
-            )
-            
-            recentDocuments.insert(recent, at: 0)
-            
-            // Keep only last 10
-            if recentDocuments.count > 10 {
-                recentDocuments = Array(recentDocuments.prefix(10))
-            }
-            
-            saveRecentDocuments()
-        } catch {
-            #if DEBUG
-            print("[WSPReader] Failed to create bookmark: \(error)")
             #endif
+        } catch {
+            print("[WSPReader] bookmark creation failed (item added without bookmark): \(error)")
         }
+
+        let recent = RecentDocument(
+            name: name,
+            bookmark: bookmark,
+            lastOpened: Date(),
+            projectType: projectType,
+            fileCount: fileCount
+        )
+        recentDocuments.insert(recent, at: 0)
+
+        if recentDocuments.count > 10 {
+            recentDocuments = Array(recentDocuments.prefix(10))
+        }
+
+        saveRecentDocuments()
     }
     
     func clearRecentDocuments() {
@@ -130,39 +148,134 @@ class ReaderAppState {
     
     // MARK: - Document Opening
     
+    /// Whether a document is currently being loaded
+    var isLoadingDocument: Bool = false
+
     func openDocument(at url: URL) {
+        print("[WSPReader] openDocument: \(url.lastPathComponent)")
+        isLoadingDocument = true
+        // JSON parsing + base64 decode are CPU-heavy — do them off the main thread
+        // so the UI remains responsive while loading.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let gotAccess = url.startAccessingSecurityScopedResource()
+            if gotAccess {
+                print("[WSPReader] security scope granted for \(url.lastPathComponent)")
+            }
+            defer {
+                if gotAccess { url.stopAccessingSecurityScopedResource() }
+            }
+
+            do {
+                let document = try WSPDocument(url: url)
+                print("[WSPReader] parsed OK — project='\(document.projectName)' folders=\(document.folders.count) files=\(document.allFiles.count)")
+                DispatchQueue.main.async {
+                    self?.currentDocument = document
+                    self?.isLoadingDocument = false
+                    self?.addRecentDocument(
+                        url: url,
+                        name: document.projectName,
+                        projectType: document.projectType,
+                        fileCount: document.allFiles.count
+                    )
+                }
+            } catch {
+                print("[WSPReader] openDocument FAILED: \(error)")
+                DispatchQueue.main.async {
+                    self?.isLoadingDocument = false
+                    self?.currentError = ReaderError.openFailed(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    /// Partially parse a WSP file to register it as a recent project without opening it.
+    func registerDocument(at url: URL) {
         do {
             let document = try WSPDocument(url: url)
-            currentDocument = document
-            addRecentDocument(url: url, name: document.projectName)
+            addRecentDocument(
+                url: url,
+                name: document.projectName,
+                projectType: document.projectType,
+                fileCount: document.allFiles.count
+            )
         } catch {
-            currentError = ReaderError.openFailed(error.localizedDescription)
+            // Silently ignore registration errors — the file will open with a proper error later
         }
+    }
+
+    func removeRecentDocuments(at offsets: IndexSet) {
+        recentDocuments.remove(atOffsets: offsets)
+        saveRecentDocuments()
     }
     
     func openRecentDocument(_ recent: RecentDocument) {
-        guard let bookmark = recent.bookmark else { return }
-        
+        guard let bookmark = recent.bookmark else {
+            currentError = ReaderError.documentNotFound
+            return
+        }
+
         do {
             var isStale = false
+            #if targetEnvironment(macCatalyst)
+            let url = try URL(
+                resolvingBookmarkData: bookmark,
+                options: .withSecurityScope,
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+            #else
             let url = try URL(resolvingBookmarkData: bookmark, bookmarkDataIsStale: &isStale)
-            
+            #endif
+
             if isStale {
-                // Bookmark is stale, remove from recents
                 recentDocuments.removeAll { $0.name == recent.name }
                 saveRecentDocuments()
                 currentError = ReaderError.documentNotFound
                 return
             }
-            
             openDocument(at: url)
         } catch {
+            print("[WSPReader] openRecentDocument failed: \(error)")
             currentError = ReaderError.openFailed(error.localizedDescription)
         }
     }
     
     func closeDocument() {
         currentDocument = nil
+    }
+
+    func readerSelectionFileID(for document: WSPDocument) -> String? {
+        readerLastSelectedFileIDByDocumentPath[document.fileURL.path]
+    }
+
+    func storeReaderSelection(fileID: String?, for document: WSPDocument) {
+        let key = document.fileURL.path
+        if let fileID {
+            readerLastSelectedFileIDByDocumentPath[key] = fileID
+        } else {
+            readerLastSelectedFileIDByDocumentPath.removeValue(forKey: key)
+        }
+    }
+
+    // MARK: - File Picker
+
+    /// Opens a file picker.
+    /// On Catalyst: calls NSOpenPanel directly via AppKit (in-process) to avoid the
+    /// ViewBridge Code=18 disconnect that affects both .fileImporter and
+    /// UIDocumentPickerViewController on Catalyst.
+    func openFilePicker() {
+        #if targetEnvironment(macCatalyst)
+        CatalystFilePicker.open(allowedTypes: [UTType(filenameExtension: "wsp") ?? .data]) { [weak self] url in
+            guard let self, let url else {
+                print("[WSPReader] NSOpenPanel: cancelled or no URL")
+                return
+            }
+            print("[WSPReader] NSOpenPanel selected: \(url.lastPathComponent)")
+            self.openDocument(at: url)
+        }
+        #else
+        showFilePicker = true
+        #endif
     }
 }
 
@@ -173,6 +286,8 @@ struct RecentDocument: Codable, Identifiable {
     let name: String
     let bookmark: Data?
     let lastOpened: Date
+    var projectType: String?
+    var fileCount: Int?
 }
 
 enum ReaderTheme: String, CaseIterable {

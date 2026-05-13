@@ -193,7 +193,3 @@ struct SearchResultRow: View {
         .buttonStyle(.plain)
     }
 }
-
-#Preview {
-    Text("Search Preview")
-}

@@ -64,8 +64,7 @@ struct EditingBlockedView: View {
     }
     
     private func openAppStore() {
-        // Replace with actual App Store URL
-        if let url = URL(string: "https://apps.apple.com/app/writing-shed-pro/id0000000000") {
+        if let url = URL(string: AppConstants.appStoreURL.absoluteString) {
             #if os(iOS)
             UIApplication.shared.open(url)
             #elseif os(macOS)
@@ -100,8 +99,4 @@ extension View {
 
 extension Notification.Name {
     static let editAttempted = Notification.Name("editAttempted")
-}
-
-#Preview {
-    EditingBlockedView(isPresented: .constant(true))
 }

@@ -15,7 +15,7 @@ enum AppConstants {
     static let privacyURL = URL(string: "https://writingshedpro.com/privacy")!
     
     // MARK: - App Store
-    static let appStoreURL = URL(string: "https://apps.apple.com/app/writing-shed-pro/id0000000000")!
+    static let appStoreURL = URL(string: "https://apps.apple.com/gb/app/writing-shed-pro/id6747890719")!
     
     // MARK: - Font Size Defaults
     static let defaultFontSize: CGFloat = 16

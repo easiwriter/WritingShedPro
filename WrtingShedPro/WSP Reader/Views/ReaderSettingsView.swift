@@ -149,8 +149,3 @@ struct ReaderSettingsView: View {
         #endif
     }
 }
-
-#Preview {
-    ReaderSettingsView()
-        .environment(ReaderAppState())
-}
