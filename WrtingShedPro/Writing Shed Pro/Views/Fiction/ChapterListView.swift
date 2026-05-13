@@ -555,12 +555,14 @@ struct ChapterListView: View {
             books.move(fromOffsets: source, toOffset: destination)
             for (index, book) in books.enumerated() {
                 book.userOrder = index
+                book.modifiedDate = Date()
             }
         } else {
             var chapters = sortedChapters
             chapters.move(fromOffsets: source, toOffset: destination)
             for (index, chapter) in chapters.enumerated() {
                 chapter.userOrder = index
+                chapter.modifiedDate = Date()
             }
         }
 

@@ -287,6 +287,7 @@ struct ActListView: View {
         // Update order indices
         for (index, act) in acts.enumerated() {
             act.userOrder = index
+            act.modifiedDate = Date()
         }
         
         try? modelContext.save()
@@ -295,6 +296,7 @@ struct ActListView: View {
     private func renumberActs() {
         for (index, act) in sortedActs.enumerated() {
             act.userOrder = index
+            act.modifiedDate = Date()
         }
         try? modelContext.save()
     }

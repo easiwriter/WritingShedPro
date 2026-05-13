@@ -97,32 +97,30 @@ class ReaderAppState {
         }
     }
     
-    func addRecentDocument(url: URL, name: String, projectType: String? = nil, fileCount: Int? = nil) {
+    func addRecentDocument(url: URL, name: String, projectType: String? = nil, fileCount: Int? = nil, preCreatedBookmark: Data? = nil) {
         recentDocuments.removeAll { $0.name == name }
 
-        // Try to create a security-scoped bookmark for persistence across launches.
-        // On Catalyst/macOS the sandbox requires .withSecurityScope; on iOS .minimalBookmark is fine.
-        // If creation fails for any reason, still add the entry with nil bookmark so it
-        // appears in the list for the current session (filtered on next launch).
-        var bookmark: Data? = nil
-        do {
-            #if targetEnvironment(macCatalyst)
-            // Catalyst sandbox requires a security-scoped bookmark so the file
-            // can be reopened from the recents list without another file picker.
-            bookmark = try url.bookmarkData(
-                options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
-                includingResourceValuesForKeys: nil,
-                relativeTo: nil
-            )
-            #else
-            bookmark = try url.bookmarkData(
-                options: .minimalBookmark,
-                includingResourceValuesForKeys: nil,
-                relativeTo: nil
-            )
-            #endif
-        } catch {
-            print("[WSPReader] bookmark creation failed (item added without bookmark): \(error)")
+        // Use a pre-created bookmark when available (created while security scope is active).
+        // Fall back to creating one here for callers that don't pre-create (e.g. registerDocument).
+        var bookmark: Data? = preCreatedBookmark
+        if bookmark == nil {
+            do {
+                #if targetEnvironment(macCatalyst)
+                bookmark = try url.bookmarkData(
+                    options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
+                    includingResourceValuesForKeys: nil,
+                    relativeTo: nil
+                )
+                #else
+                bookmark = try url.bookmarkData(
+                    options: .minimalBookmark,
+                    includingResourceValuesForKeys: nil,
+                    relativeTo: nil
+                )
+                #endif
+            } catch {
+                print("[WSPReader] bookmark creation failed (item added without bookmark): \(error)")
+            }
         }
 
         let recent = RecentDocument(
@@ -168,6 +166,29 @@ class ReaderAppState {
             do {
                 let document = try WSPDocument(url: url)
                 print("[WSPReader] parsed OK — project='\(document.projectName)' folders=\(document.folders.count) files=\(document.allFiles.count)")
+
+                // Create the bookmark NOW, while security scope is still active.
+                // The defer below stops scope when this block exits — before the
+                // main-thread async runs — so creating it here is the only safe point.
+                var bookmarkData: Data? = nil
+                do {
+                    #if targetEnvironment(macCatalyst)
+                    bookmarkData = try url.bookmarkData(
+                        options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
+                        includingResourceValuesForKeys: nil,
+                        relativeTo: nil
+                    )
+                    #else
+                    bookmarkData = try url.bookmarkData(
+                        options: .minimalBookmark,
+                        includingResourceValuesForKeys: nil,
+                        relativeTo: nil
+                    )
+                    #endif
+                } catch {
+                    print("[WSPReader] bookmark creation failed: \(error)")
+                }
+
                 DispatchQueue.main.async {
                     self?.currentDocument = document
                     self?.isLoadingDocument = false
@@ -175,7 +196,8 @@ class ReaderAppState {
                         url: url,
                         name: document.projectName,
                         projectType: document.projectType,
-                        fileCount: document.allFiles.count
+                        fileCount: document.allFiles.count,
+                        preCreatedBookmark: bookmarkData
                     )
                 }
             } catch {

@@ -425,8 +425,3 @@ struct OccurrenceRow: View {
         }
     }
 }
-
-#Preview {
-    // Preview not available without SwiftData context
-    Text("IndexOccurrenceFinderSheet")
-}

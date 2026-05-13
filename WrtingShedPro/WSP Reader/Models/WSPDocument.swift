@@ -26,6 +26,7 @@ class WSPDocument {
     /// Project metadata
     let projectName: String
     let projectType: String
+    let fictionClass: String?
     let dramaScriptType: String?
     let exportDate: Date?
     let appVersion: String
@@ -101,20 +102,61 @@ class WSPDocument {
         return firstFolder(in: visible, matchingAny: preferred.container) ?? readerPrimaryFolders.first
     }
 
-    /// Manuscript preview files (container/body-matter first)
+    /// Manuscript preview files assembled in the same order as ManuscriptAssemblyService:
+    /// Front Matter → Body (from project-type source folder) → Back Matter
     var manuscriptPreviewFiles: [WSPReaderFile] {
-        if let container = readerContainerFolder {
-            let files = manuscriptFiles(in: container)
-            if !files.isEmpty {
-                return files
-            }
+        var result: [WSPReaderFile] = []
+
+        // 1. Front Matter — files inside Manuscript/Front Matter
+        if let frontMatter = manuscriptSubfolder(named: "Front Matter") {
+            result.append(contentsOf: frontMatter.files)
         }
-        return manuscriptOrderedFiles.filter { !$0.isTOCFile }
+
+        // 2. Body — files from the project-type source folder, filtered by includedInManuscript
+        let bodyFolderName = bodySourceFolderName()
+        if let bodyFolder = folders.first(where: { $0.name.caseInsensitiveCompare(bodyFolderName) == .orderedSame }) {
+            result.append(contentsOf: bodyFolder.files.filter { $0.includedInManuscript && !$0.isTOCFile })
+        }
+
+        // 3. Back Matter — files inside Manuscript/Back Matter
+        if let backMatter = manuscriptSubfolder(named: "Back Matter") {
+            result.append(contentsOf: backMatter.files)
+        }
+
+        // Fallback: if nothing found, use all includedInManuscript files except TOC
+        if result.isEmpty {
+            return manuscriptOrderedFiles.filter { !$0.isTOCFile }
+        }
+        return result
     }
 
     /// Manuscript preview title
-    var manuscriptPreviewTitle: String {
-        readerContainerFolder?.name ?? "Manuscript"
+    var manuscriptPreviewTitle: String { "Manuscript" }
+
+    /// Returns the subfolder of the top-level "Manuscript" folder with the given name.
+    private func manuscriptSubfolder(named name: String) -> WSPReaderFolder? {
+        guard let manuscriptFolder = folders.first(where: {
+            $0.name.caseInsensitiveCompare("Manuscript") == .orderedSame
+        }) else { return nil }
+        return manuscriptFolder.subfolders.first(where: {
+            $0.name.caseInsensitiveCompare(name) == .orderedSame
+        })
+    }
+
+    /// Returns the folder name containing body content — mirrors ManuscriptAssemblyService.getBodySourceFolderName()
+    private func bodySourceFolderName() -> String {
+        switch projectType.lowercased() {
+        case "poetry":   return "Poems"
+        case "drama":    return "Scenes"
+        case "prose":    return "Prose"
+        case "fiction":
+            switch fictionClass?.lowercased() {
+            case "novel":      return "Chapters"
+            case "versenovel": return "Episodes"
+            default:           return "Scenes"
+            }
+        default: return "Scenes"
+        }
     }
     
     /// Publications (read-only display)
@@ -150,6 +192,7 @@ class WSPDocument {
         // Extract project info
         self.projectName = wspData.project.name.isEmpty ? "Untitled" : wspData.project.name
         self.projectType = wspData.project.type
+        self.fictionClass = wspData.project.fictionClass
         self.dramaScriptType = wspData.project.dramaScriptType
         self.exportDate = wspData.exportDate
         self.appVersion = wspData.appVersion
@@ -229,6 +272,15 @@ class WSPDocument {
         Self.collectFilesStatic(from: folder)
             .filter { $0.includedInManuscript && !$0.isTOCFile }
             .sorted(by: Self.manuscriptSort)
+    }
+
+    private func manuscriptFilesPreservingFolderOrder(in folder: WSPReaderFolder) -> [WSPReaderFile] {
+        var files = folder.files
+            .filter { $0.includedInManuscript && !$0.isTOCFile }
+        for subfolder in folder.subfolders {
+            files.append(contentsOf: manuscriptFilesPreservingFolderOrder(in: subfolder))
+        }
+        return files
     }
 
     nonisolated private static func manuscriptSort(_ lhs: WSPReaderFile, _ rhs: WSPReaderFile) -> Bool {

@@ -274,6 +274,7 @@ struct ProjectInfoSheet: View {
             .onChange(of: selectedStyleSheet) { oldValue, newValue in
                 project.styleSheet = newValue
                 project.modifiedDate = Date()
+                WriteCoalescer.shared?.requestSave()
                 NotificationCenter.default.post(
                     name: NSNotification.Name("ProjectStyleSheetChanged"),
                     object: nil,

@@ -289,6 +289,7 @@ struct SectionListView: View {
         // Update order indices
         for (index, section) in sections.enumerated() {
             section.userOrder = index
+            section.modifiedDate = Date()
         }
         
         try? modelContext.save()
@@ -297,6 +298,7 @@ struct SectionListView: View {
     private func renumberSections() {
         for (index, section) in sortedSections.enumerated() {
             section.userOrder = index
+            section.modifiedDate = Date()
         }
         try? modelContext.save()
     }

@@ -1852,8 +1852,3 @@ struct SyncDiagnosticsView: View {
         }
     }
 }
-
-#Preview {
-    SyncDiagnosticsView()
-        .modelContainer(for: [StyleSheet.self, Project.self], inMemory: true)
-}

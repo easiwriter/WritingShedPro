@@ -360,6 +360,7 @@ struct BodyMatterView: View {
             }
         }
         
+        project.modifiedDate = Date()
         try? modelContext.save()
     }
     
@@ -410,6 +411,7 @@ struct BodyMatterView: View {
         
         // Renumber remaining items
         renumberBodyMatterItems()
+        project.modifiedDate = Date()
         try? modelContext.save()
     }
     
@@ -472,6 +474,7 @@ struct BodyMatterView: View {
             }
         }
         
+        project.modifiedDate = Date()
         try? modelContext.save()
     }
     

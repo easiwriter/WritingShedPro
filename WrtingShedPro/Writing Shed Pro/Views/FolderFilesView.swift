@@ -789,6 +789,7 @@ struct FolderFilesView: View {
         // Update userOrder for all files
         for (index, file) in files.enumerated() {
             file.userOrder = index
+            file.modifiedDate = Date()
         }
         
         // Switch to user order sorting to show the new order
@@ -812,6 +813,7 @@ struct FolderFilesView: View {
         // Update userOrder for all files
         for (index, file) in files.enumerated() {
             file.userOrder = index
+            file.modifiedDate = Date()
         }
         
         // Save context

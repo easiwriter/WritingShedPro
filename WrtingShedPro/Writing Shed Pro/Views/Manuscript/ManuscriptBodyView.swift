@@ -3,8 +3,8 @@ import SwiftData
 import UniformTypeIdentifiers
 
 
-/// View displaying the assembled manuscript body content (Feature 029)
-/// This shows a virtual view of content assembled from source folders (Poems, Scenes, Scripts, Sections)
+/// View displaying assembled manuscript content.
+/// Uses the shared manuscript assembly pipeline (front + body + back matter).
 struct ManuscriptBodyView: View {
     let project: Project
     @Environment(\.modelContext) private var context
@@ -17,10 +17,6 @@ struct ManuscriptBodyView: View {
     /// Pre-assembled text file — built off the main thread so the view appears instantly
     @State private var assembledTextFile: TextFile?
     
-    var allFiles: [TextFile] {
-        sections.flatMap { $0.files }
-    }
-
     var body: some View {
         Group {
             if isLoading {
@@ -41,7 +37,7 @@ struct ManuscriptBodyView: View {
                 bodyContent
             }
         }
-        .navigationTitle(NSLocalizedString("folder.body", comment: "Body"))
+        .navigationTitle("Manuscript")
 
         .task {
             await loadBodySections()
@@ -71,153 +67,32 @@ struct ManuscriptBodyView: View {
         errorMessage = nil
         let service = ManuscriptAssemblyService(context: context)
         assemblyService = service
-        // Get only body sections for this view
-        sections = service.getBodySections(for: project)
-        
-        let files = allFiles
-        
-        #if DEBUG
-        print("📄 [ManuscriptBodyView] loadBodySections: \(sections.count) sections, \(files.count) files")
-        #endif
-        
-        guard !files.isEmpty else {
+        do {
+            // Use the same assembly path as manuscript export/preview for consistent behavior.
+            let content = try await service.assembleContent(for: project)
+            sections = content.sections
+
+            guard content.attributedString.length > 0 else {
+                isLoading = false
+                return
+            }
+
+            let tf = TextFile(name: project.name ?? "Manuscript")
+            if let version = tf.versions?.first {
+                version.attributedContent = content.attributedString
+            }
+            assembledTextFile = tf
+
+            // Full manuscript now starts at page 1.
+            frontMatterPageCount = 0
+
+            #if DEBUG
+            print("📄 [ManuscriptBodyView] Full assembly complete. sections: \(sections.count), length: \(content.attributedString.length)")
+            #endif
             isLoading = false
-            return
-        }
-        
-        // Yield so SwiftUI can display the loading indicator before heavy work begins
-        await Task.yield()
-        
-        // Calculate front matter page count
-        frontMatterPageCount = calculateFrontMatterPageCount(using: service)
-        
-        // Assemble all files into a single TextFile with page breaks
-        assembledTextFile = makeAssembledTextFileWithPageBreaks(from: files, name: project.name ?? "Manuscript")
-        
-        #if DEBUG
-        print("📄 [ManuscriptBodyView] Assembly complete. frontMatterPageCount: \(frontMatterPageCount), assembled: \(assembledTextFile != nil)")
-        #endif
-        
-        isLoading = false
-    }
-
-    /// Calculate how many pages front matter occupies by assembling and paginating it
-    private func calculateFrontMatterPageCount(using service: ManuscriptAssemblyService) -> Int {
-        let allSections = service.getSections(for: project)
-        let frontMatterFiles = allSections
-            .filter { $0.sectionType == .frontMatter }
-            .flatMap { $0.files }
-            .filter { !$0.isCoverFile }  // Cover files don't contribute to page count
-        
-        guard !frontMatterFiles.isEmpty else { return 0 }
-        
-        let pageSetup = project.pageSetup ?? PageSetup.createWithDefaults()
-        
-        // Paginate each front matter file individually — no form feeds needed for counting.
-        // Each front matter file starts on its own page and occupies at least 1 page.
-        var totalPages = 0
-        
-        for file in frontMatterFiles {
-            if let version = file.currentVersion, let content = version.attributedContent, content.length > 0 {
-                // Strip trailing form feed characters (artifacts from previous assembly)
-                // and remove Catalyst font scaling for print-accurate page counting
-                let mutable = NSMutableAttributedString(attributedString: content)
-                while mutable.length > 0 && mutable.string.hasSuffix("\u{000C}") {
-                    mutable.deleteCharacters(in: NSRange(location: mutable.length - 1, length: 1))
-                }
-                guard mutable.length > 0 else {
-                    totalPages += 1
-                    continue
-                }
-                let prepared = PrintFormatter.removePlatformScaling(from: mutable)
-                let textStorage = NSTextStorage(attributedString: prepared)
-                let layoutManager = PaginatedTextLayoutManager(textStorage: textStorage, pageSetup: pageSetup)
-                let result = layoutManager.calculateLayout()
-                totalPages += max(result.totalPages, 1)
-            } else {
-                totalPages += 1  // Empty front matter file still occupies 1 page
-            }
-        }
-        
-        #if DEBUG
-        print("📄 [ManuscriptBodyView] Front matter: \(frontMatterFiles.count) files → \(totalPages) pages")
-        #endif
-        
-        return totalPages
-    }
-
-    private func makeAssembledTextFileWithPageBreaks(from files: [TextFile], name: String) -> TextFile {
-        let attributed = NSMutableAttributedString()
-        let isDrama = project.type == .drama
-        let scriptType: DramaScriptType = {
-            if let raw = project.dramaScriptTypeRaw, let t = DramaScriptType(rawValue: raw) { return t }
-            return .stage
-        }()
-        let usePageBreak = project.pageSetup?.hasPageBreakBetweenFiles ?? true
-    #if DEBUG
-        print("[ManuscriptBodyView] makeAssembledTextFileWithPageBreaks: usePageBreak=", usePageBreak)
-    #endif
-        let breakStyle = project.manuscriptSettings.sectionBreakStyle
-        for (idx, file) in files.enumerated() {
-            let fileStartOffset = attributed.length
-            if isDrama, let plain = file.currentVersion?.content {
-                // Render DML source using DramaMarkupRenderer
-                let document = DramaMarkupParser.shared.parse(plain)
-                let rendered = DramaMarkupRenderer.shared.render(
-                    document,
-                    scriptType: scriptType,
-                    viewMode: .formatted,
-                    showNotes: false
-                )
-                attributed.append(rendered)
-            } else if let attr = file.currentVersion?.attributedContent {
-                attributed.append(attr)
-            } else if let plain = file.currentVersion?.content {
-                attributed.append(NSAttributedString(string: plain))
-            }
-
-            // Keep each file as a separate paragraph block so first-line styles
-            // (e.g. Title2 headings) are rendered consistently in preview.
-            if attributed.length > fileStartOffset {
-                ensureTrailingBlankLine(on: attributed)
-            }
-
-            // Insert break between files according to user setting
-            if idx < files.count - 1 {
-                if usePageBreak {
-                    // Only insert page break if content doesn't already end with one
-                    if !attributed.string.hasSuffix("\u{000C}") {
-                        attributed.append(NSAttributedString(string: "\u{000C}")) // Unicode FORM FEED (page break)
-                    }
-                } else {
-                    // Always add at least two blank lines between files for clarity
-                    switch breakStyle {
-                    case .sectionMark:
-                        attributed.append(NSAttributedString(string: "\n\n\u{00A7}\n\n\n"))
-                    case .doubleSpace:
-                        attributed.append(NSAttributedString(string: "\n\n\n"))
-                    case .pageBreak, .none:
-                        attributed.append(NSAttributedString(string: "\n\n\n"))
-                    }
-                }
-            }
-        }
-        let tf = TextFile(name: name)
-        if let version = tf.versions?.first {
-            version.attributedContent = attributed
-        }
-        return tf
-    }
-
-    private func ensureTrailingBlankLine(on text: NSMutableAttributedString) {
-        guard text.length > 0 else { return }
-        if text.string.hasSuffix("\n\n") {
-            return
-        }
-        if text.string.hasSuffix("\n") {
-            text.append(NSAttributedString(string: "\n"))
-        } else {
-            text.append(NSAttributedString(string: "\n\n"))
+        } catch {
+            errorMessage = error.localizedDescription
+            isLoading = false
         }
     }
     

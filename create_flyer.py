@@ -246,10 +246,23 @@ def create_flyer():
                      fill_color=WARM_ORANGE)
     
     c.setFillColor(white)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(WIDTH/2, cta_y + 9*mm, "Coming Soon")
-    c.setFont("Helvetica", 11)
-    c.drawCentredString(WIDTH/2, cta_y + 3*mm, "For macOS & iOS")
+    c.setFont("Helvetica-Bold", 13)
+    cta_label = "Available Now on the App Store"
+    cta_prefix = "Available Now on the "
+    cta_link_word = "App Store"
+    cta_text_width = c.stringWidth(cta_label, "Helvetica-Bold", 13)
+    cta_text_x = WIDTH/2 - cta_text_width / 2
+    cta_text_y = cta_y + 7*mm
+    # Draw prefix in white
+    c.drawString(cta_text_x, cta_text_y, cta_prefix)
+    # Draw "App Store" in blue
+    prefix_width = c.stringWidth(cta_prefix, "Helvetica-Bold", 13)
+    link_word_width = c.stringWidth(cta_link_word, "Helvetica-Bold", 13)
+    c.setFillColor(HexColor('#ADD8E6'))
+    c.drawString(cta_text_x + prefix_width, cta_text_y, cta_link_word)
+    c.linkURL("https://apps.apple.com/gb/app/writing-shed-pro/id6747890719",
+              (cta_text_x, cta_text_y - 1*mm, cta_text_x + cta_text_width, cta_text_y + 5*mm),
+              relative=0)
     
     # Footer
     c.setFillColor(white)

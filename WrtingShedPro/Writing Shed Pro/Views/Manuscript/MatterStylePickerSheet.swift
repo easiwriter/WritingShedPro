@@ -146,6 +146,7 @@ struct MatterStylePickerSheet: View {
     private func save() {
         project.matterHeadingStyleName = selectedHeadingStyleName
         project.matterBodyStyleName = selectedBodyStyleName
+        project.modifiedDate = Date()
         try? modelContext.save()
         dismissSheet()
     }

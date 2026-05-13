@@ -146,7 +146,7 @@ struct ContentViewBody: View {
             }) {
                 HTMLManualView(section: state.htmlManualSection)
                     .presentationDetents([.large])
-                    .presentationSizing(.page)
+                    .modifier(PagePresentationSizingModifier())
             }
             .fileImporter(
                 isPresented: $state.showingJSONImportPicker,

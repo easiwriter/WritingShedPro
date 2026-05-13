@@ -162,6 +162,9 @@ final class WriteCoalescer {
         requestCount += 1
         pendingSave = true
         updateEditingActivity()
+        #if DEBUG
+        print("🔵 [SYNC TRACE 4/5] requestSave() received — request #\(requestCount), effectiveDelay=\(effectiveDelay)s, hasChanges=\(modelContext.hasChanges)")
+        #endif
         resetTimer()
         resetIdleTimer()
     }
@@ -241,6 +244,9 @@ final class WriteCoalescer {
     }
 
     private func executeSave() {
+        #if DEBUG
+        print("🔵 [SYNC TRACE 5/5] executeSave() — hasChanges=\(modelContext.hasChanges) pendingSave=\(pendingSave) save #\(saveCount + 1)")
+        #endif
         pendingSave = false
         do {
             try modelContext.save()
@@ -248,11 +254,11 @@ final class WriteCoalescer {
             lastFlushTime = Date()
             syncHealthMonitor?.recordLocalChange()
             #if DEBUG
-            print("💾 [WriteCoalescer] Saved (request #\(requestCount), save #\(saveCount))")
+            print("🔵 [SYNC TRACE 5/5] ✅ modelContext.save() SUCCEEDED — save #\(saveCount) CloudKit export should now be queued")
             #endif
         } catch {
             #if DEBUG
-            print("⚠️ [WriteCoalescer] Save failed: \(error.localizedDescription)")
+            print("🔵 [SYNC TRACE 5/5] ❌ modelContext.save() FAILED: \(error)")
             #endif
         }
     }

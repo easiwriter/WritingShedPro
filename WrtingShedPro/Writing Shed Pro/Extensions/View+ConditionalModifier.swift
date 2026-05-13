@@ -22,3 +22,14 @@ extension View {
         }
     }
 }
+
+/// Applies `.presentationSizing(.page)` on iOS 18+ / macOS 15+; no-op on earlier versions.
+struct PagePresentationSizingModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, macOS 15.0, *) {
+            content.presentationSizing(.page)
+        } else {
+            content
+        }
+    }
+}

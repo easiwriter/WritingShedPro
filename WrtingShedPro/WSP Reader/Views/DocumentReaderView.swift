@@ -327,6 +327,8 @@ struct DocumentReaderView: View {
 
 // MARK: - Manuscript Reader
 
+/// Renders the full assembled manuscript (front matter + body + back matter) in a
+/// single scrollable view, mirroring how FileReaderView renders individual files.
 struct ManuscriptReaderView: View {
     let title: String
     let files: [WSPReaderFile]
@@ -335,87 +337,111 @@ struct ManuscriptReaderView: View {
     let fontSize: CGFloat
     var onNavigateToFile: ((String) -> Void)? = nil
 
+    @Environment(ReaderAppState.self) private var appState
+    /// Combined attributed string built once and cached; rebuilt when fontSize changes.
+    @State private var displayContent: NSAttributedString = NSAttributedString()
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                Text(title)
-                    .font(.title)
-                    .fontWeight(.bold)
-
-                if files.isEmpty {
-                    ContentUnavailableView(
-                        "No Manuscript Content",
-                        systemImage: "doc.text",
-                        description: Text("No files are marked for manuscript inclusion.")
-                    )
-                } else {
-                    LazyVStack(alignment: .leading, spacing: 24) {
-                        ForEach(files) { file in
-                            VStack(alignment: .leading, spacing: 10) {
-                                AttributedTextView(
-                                    attributedString: manuscriptContent(for: file),
-                                    fontSize: fontSize,
-                                    onLinkTap: handleLinkTap
-                                )
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            .padding(.bottom, 12)
-
-                            if file.id != files.last?.id {
-                                Divider()
-                                    .padding(.bottom, 8)
-                            }
-                        }
+        Group {
+            if files.isEmpty {
+                ContentUnavailableView(
+                    "No Manuscript Content",
+                    systemImage: "doc.text",
+                    description: Text("No files are marked for manuscript inclusion.")
+                )
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        AttributedTextView(
+                            attributedString: displayContent,
+                            fontSize: fontSize,
+                            onLinkTap: handleLinkTap
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Spacer(minLength: 40)
                     }
+                    .padding()
+                    .frame(maxWidth: 700, alignment: .leading)
                 }
+                .background(readerBackground)
             }
-            .padding()
-            .frame(maxWidth: 760, alignment: .leading)
         }
+        .onAppear { displayContent = buildCombinedContent() }
+        .onChange(of: fontSize) { displayContent = buildCombinedContent() }
     }
 
-    private func manuscriptContent(for file: WSPReaderFile) -> NSAttributedString {
-        if projectType.lowercased() == "drama" {
-            return WSPDramaRenderer.shared.render(source: file.plainContent, scriptTypeRaw: dramaScriptType)
+    // MARK: - Content Assembly
+
+    /// Concatenate all manuscript files into one attributed string, scale fonts to
+    /// match the user's font-size preference (identical to FileReaderView.buildScaledContent).
+    private func buildCombinedContent() -> NSAttributedString {
+        let isDrama = projectType.lowercased() == "drama"
+        let combined = NSMutableAttributedString()
+
+        for (index, file) in files.enumerated() {
+            let fileContent: NSAttributedString
+            if isDrama {
+                fileContent = WSPDramaRenderer.shared.render(
+                    source: file.plainContent,
+                    scriptTypeRaw: dramaScriptType
+                )
+            } else {
+                fileContent = file.attributedContent
+            }
+
+            combined.append(fileContent)
+
+            // Separate files with a page-break character (not after the last file)
+            if index < files.count - 1 {
+                if !combined.string.hasSuffix("\n") {
+                    combined.append(NSAttributedString(string: "\n"))
+                }
+                combined.append(NSAttributedString(string: "\u{000C}")) // form feed = page break
+            }
         }
 
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.lineSpacing = 4
+        // Scale all fonts to match user preference — same as FileReaderView.buildScaledContent()
+        let scaleFactor = fontSize / 16.0
+        combined.enumerateAttribute(.font, in: NSRange(location: 0, length: combined.length)) { value, range, _ in
+#if canImport(UIKit)
+            if let font = value as? UIFont {
+                combined.addAttribute(.font, value: font.withSize(font.pointSize * scaleFactor), range: range)
+            }
+#elseif canImport(AppKit)
+            if let font = value as? NSFont {
+                let scaled = NSFont(descriptor: font.fontDescriptor, size: font.pointSize * scaleFactor)
+                    ?? NSFont.systemFont(ofSize: font.pointSize * scaleFactor)
+                combined.addAttribute(.font, value: scaled, range: range)
+            }
+#endif
+        }
 
-        #if canImport(UIKit)
-        return NSAttributedString(
-            string: file.plainContent,
-            attributes: [
-                .font: UIFont.systemFont(ofSize: fontSize),
-                .foregroundColor: UIColor.label,
-                .paragraphStyle: paragraphStyle
-            ]
-        )
-        #elseif canImport(AppKit)
-        return NSAttributedString(
-            string: file.plainContent,
-            attributes: [
-                .font: NSFont.systemFont(ofSize: fontSize),
-                .foregroundColor: NSColor.labelColor,
-                .paragraphStyle: paragraphStyle
-            ]
-        )
-        #endif
+        return combined
     }
+
+    // MARK: - Link Handling
 
     private func handleLinkTap(_ url: URL) -> Bool {
         if url.scheme == "wsp" {
             onNavigateToFile?(url.lastPathComponent)
             return true
         }
-
         if url.absoluteString.contains("file-reference:") {
             let fileId = url.absoluteString.replacingOccurrences(of: "file-reference:", with: "")
             onNavigateToFile?(fileId)
             return true
         }
-
         return false
+    }
+
+    private var readerBackground: Color {
+#if canImport(UIKit)
+        Color(uiColor: .systemBackground)
+#elseif canImport(AppKit)
+        Color(nsColor: .textBackgroundColor)
+#else
+        Color.white
+#endif
     }
 }
 
