@@ -62,6 +62,13 @@ class NumberingLayoutManager: NSLayoutManager {
         lastNumberForStyle: [String: Int],
         styleSheet: StyleSheet
     ) -> String {
+        // List styles should render a single marker per paragraph style,
+        // while parentStyleName is only used for counter reset behavior.
+        if let style = styleSheet.style(named: styleName), style.styleCategory == .list {
+            let level = bulletLevel(from: styleName)
+            return style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment, level: level)
+        }
+
         // Walk up the ancestor chain to collect segments: [grandparent, parent, self]
         var segments: [(styleName: String, number: Int)] = []
         var current: String? = styleName
@@ -120,6 +127,61 @@ class NumberingLayoutManager: NSLayoutManager {
         
         return parentMap
     }
+
+    private static func fallbackNumberFormat(for styleName: String) -> NumberFormat {
+        if styleName.hasPrefix("list-bullet") {
+            return .bulletSymbols
+        }
+        if styleName.contains("list-numbered-level-3") {
+            return .lowercaseRoman
+        }
+        if styleName.contains("list-numbered-level-2") {
+            return .lowercaseLetter
+        }
+        if styleName.hasPrefix("list-numbered") {
+            return .decimal
+        }
+        return .none
+    }
+
+    private static func effectiveNumberFormat(
+        for styleName: String,
+        style: TextStyleModel?,
+        attrs: [NSAttributedString.Key: Any]
+    ) -> NumberFormat {
+        if let style, style.numberFormat != .none {
+            return style.numberFormat
+        }
+
+        if let raw = attrs[.numberFormat] as? String,
+           let format = NumberFormat(rawValue: raw),
+           format != .none {
+            return format
+        }
+
+        return fallbackNumberFormat(for: styleName)
+    }
+
+    private func fallbackStyle(
+        for styleName: String,
+        attrs: [NSAttributedString.Key: Any],
+        numberFormat: NumberFormat
+    ) -> TextStyleModel {
+        let paragraphStyle = attrs[.paragraphStyle] as? NSParagraphStyle
+        let font = attrs[.font] as? UIFont
+        return TextStyleModel(
+            name: styleName,
+            displayName: styleName,
+            displayOrder: 0,
+            fontSize: font?.pointSize ?? 17,
+            alignment: paragraphStyle?.alignment ?? .left,
+            firstLineIndent: paragraphStyle?.firstLineHeadIndent ?? 0,
+            headIndent: paragraphStyle?.headIndent ?? 0,
+            numberFormat: numberFormat,
+            styleCategory: styleName.hasPrefix("list-") ? .list : .text,
+            isSystemStyle: false
+        )
+    }
     
     /// Compute the paragraph numbering counter state by scanning a text storage
     /// from position 0 up to (but not including) the given character offset.
@@ -157,9 +219,11 @@ class NumberingLayoutManager: NSLayoutManager {
             guard attrLocation >= 0 else { return }
             
             let attrs = textStorage.attributes(at: attrLocation, effectiveRange: nil)
-            guard let styleName = attrs[.textStyle] as? String,
-                  let style = styleSheet.style(named: styleName),
-                  style.numberFormat != .none else { return }
+            guard let styleName = attrs[.textStyle] as? String else { return }
+
+            let style = styleSheet.style(named: styleName)
+            let effectiveNumberFormat = Self.effectiveNumberFormat(for: styleName, style: style, attrs: attrs)
+            guard effectiveNumberFormat != .none else { return }
             
             // Handle parent reset
             if let parentName = parentMap[styleName] {
@@ -339,12 +403,14 @@ class NumberingLayoutManager: NSLayoutManager {
             guard attrLocation >= 0 else { return }
             
             let attrs = textStorage.attributes(at: attrLocation, effectiveRange: nil)
-            
-            guard let styleName = attrs[.textStyle] as? String,
-                  let style = styleSheet.style(named: styleName),
-                  style.numberFormat != .none else {
+
+            guard let styleName = attrs[.textStyle] as? String else {
                 return
             }
+
+            let style = styleSheet.style(named: styleName)
+            let effectiveNumberFormat = Self.effectiveNumberFormat(for: styleName, style: style, attrs: attrs)
+            guard effectiveNumberFormat != .none else { return }
             
             // Check if this style has a parent (for hierarchical numbering)
             let parentStyleName = parentStyleMap[styleName]
@@ -386,13 +452,20 @@ class NumberingLayoutManager: NSLayoutManager {
             }
             
             // Build the formatted number using the full ancestor chain
-            let formattedNumber = self.buildHierarchicalNumber(
-                for: styleName,
-                counter: counter,
-                parentStyleMap: parentStyleMap,
-                lastNumberForStyle: lastNumberForStyle,
-                styleSheet: styleSheet
-            )
+            let formattedNumber: String
+            if style != nil {
+                formattedNumber = self.buildHierarchicalNumber(
+                    for: styleName,
+                    counter: counter,
+                    parentStyleMap: parentStyleMap,
+                    lastNumberForStyle: lastNumberForStyle,
+                    styleSheet: styleSheet
+                )
+            } else {
+                let level = self.bulletLevel(from: styleName)
+                formattedNumber = effectiveNumberFormat.symbol(for: counter - 1, adornment: .period, level: level)
+            }
+            let styleForDrawing = style ?? self.fallbackStyle(for: styleName, attrs: attrs, numberFormat: effectiveNumberFormat)
             
             // Get the line fragment for this paragraph
             let glyphRange = self.glyphRange(forCharacterRange: paragraphRange, actualCharacterRange: nil)
@@ -407,20 +480,20 @@ class NumberingLayoutManager: NSLayoutManager {
                 let prevCharGlyphRange = self.glyphRange(forCharacterRange: NSRange(location: paragraphRange.location - 1, length: 1), actualCharacterRange: nil)
                 if prevCharGlyphRange.length > 0 {
                     let prevRect = self.lineFragmentRect(forGlyphAt: prevCharGlyphRange.location, effectiveRange: nil)
-                    let font = style.generateFont(applyPlatformScaling: true)
+                    let font = styleForDrawing.generateFont(applyPlatformScaling: true)
                     lineFragmentRect = CGRect(x: 0, y: prevRect.origin.y + prevRect.height, width: 100, height: font.lineHeight)
                 } else {
-                    let font = style.generateFont(applyPlatformScaling: true)
+                    let font = styleForDrawing.generateFont(applyPlatformScaling: true)
                     lineFragmentRect = CGRect(x: 0, y: 0, width: 100, height: font.lineHeight)
                 }
             } else {
                 // Empty first paragraph
-                let font = style.generateFont(applyPlatformScaling: true)
+                let font = styleForDrawing.generateFont(applyPlatformScaling: true)
                 lineFragmentRect = CGRect(x: 0, y: 0, width: 100, height: font.lineHeight)
             }
             
-            // Draw the number at the paragraph position with matching attributes
-            self.drawNumber(formattedNumber, at: CGPoint(x: origin.x, y: origin.y + lineFragmentRect.origin.y), lineFragmentRect: lineFragmentRect, paragraphAttributes: attrs, with: style)
+            // Draw with base origin; drawNumber applies lineFragmentRect.origin internally.
+            self.drawNumber(formattedNumber, at: origin, lineFragmentRect: lineFragmentRect, paragraphAttributes: attrs, with: styleForDrawing)
         }
         
         // Check for empty trailing paragraph (e.g., after pressing Enter)
@@ -430,9 +503,10 @@ class NumberingLayoutManager: NSLayoutManager {
             if textStorage.length > 0 {
                 let attrs = textStorage.attributes(at: textStorage.length - 1, effectiveRange: nil)
                 
-                if let styleName = attrs[.textStyle] as? String,
-                   let style = styleSheet.style(named: styleName),
-                   style.numberFormat != .none {
+                if let styleName = attrs[.textStyle] as? String {
+                    let style = styleSheet.style(named: styleName)
+                    let effectiveNumberFormat = Self.effectiveNumberFormat(for: styleName, style: style, attrs: attrs)
+                    guard effectiveNumberFormat != .none else { return }
                     
                     // Check if this style has a parent (for hierarchical numbering)
                     let parentStyleName = parentStyleMap[styleName]
@@ -454,34 +528,42 @@ class NumberingLayoutManager: NSLayoutManager {
                     lastNumberForStyle[styleName] = counter
                     
                     // Build the formatted number using the full ancestor chain
-                    let formattedNumber = self.buildHierarchicalNumber(
-                        for: styleName,
-                        counter: counter,
-                        parentStyleMap: parentStyleMap,
-                        lastNumberForStyle: lastNumberForStyle,
-                        styleSheet: styleSheet
-                    )
+                    let formattedNumber: String
+                    if style != nil {
+                        formattedNumber = self.buildHierarchicalNumber(
+                            for: styleName,
+                            counter: counter,
+                            parentStyleMap: parentStyleMap,
+                            lastNumberForStyle: lastNumberForStyle,
+                            styleSheet: styleSheet
+                        )
+                    } else {
+                        let level = self.bulletLevel(from: styleName)
+                        formattedNumber = effectiveNumberFormat.symbol(for: counter - 1, adornment: .period, level: level)
+                    }
+                    let styleForDrawing = style ?? self.fallbackStyle(for: styleName, attrs: attrs, numberFormat: effectiveNumberFormat)
                     
                     // Calculate Y position for empty paragraph (after last line)
-                    let font = style.generateFont(applyPlatformScaling: true)
+                    let font = styleForDrawing.generateFont(applyPlatformScaling: true)
                     let lastLineY: CGFloat
-                    let lastLineRect: CGRect
                     if textStorage.length > 1 {
                         let lastGlyphRange = self.glyphRange(forCharacterRange: NSRange(location: textStorage.length - 2, length: 1), actualCharacterRange: nil)
                         if lastGlyphRange.length > 0 {
-                            lastLineRect = self.lineFragmentRect(forGlyphAt: lastGlyphRange.location, effectiveRange: nil)
+                            let lastLineRect = self.lineFragmentRect(forGlyphAt: lastGlyphRange.location, effectiveRange: nil)
                             lastLineY = lastLineRect.origin.y + lastLineRect.height
                         } else {
                             lastLineY = font.lineHeight
-                            lastLineRect = CGRect(x: 0, y: 0, width: 100, height: font.lineHeight)
                         }
                     } else {
                         lastLineY = 0
-                        lastLineRect = CGRect(x: 0, y: 0, width: 100, height: font.lineHeight)
                     }
+
+                    // Use the next line's frame (not the previous line's frame), so baseline
+                    // math in drawNumber is correct and the marker is not clipped.
+                    let trailingLineRect = CGRect(x: 0, y: lastLineY, width: 100, height: font.lineHeight)
                     
                     // Draw the number for empty paragraph with matching attributes
-                    self.drawNumber(formattedNumber, at: CGPoint(x: origin.x, y: origin.y + lastLineY), lineFragmentRect: lastLineRect, paragraphAttributes: attrs, with: style)
+                    self.drawNumber(formattedNumber, at: origin, lineFragmentRect: trailingLineRect, paragraphAttributes: attrs, with: styleForDrawing)
                 }
             }
         }

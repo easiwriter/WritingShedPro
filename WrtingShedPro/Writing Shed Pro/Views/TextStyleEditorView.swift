@@ -27,6 +27,12 @@ struct TextStyleEditorView: View {
     private var project: Project? {
         style.styleSheet?.projects?.first
     }
+
+    // List styles are required by editor commands and numbering layout.
+    // Deleting them breaks bullets/numbering in documents.
+    private var isProtectedCoreStyle: Bool {
+        style.styleCategory == .list || style.name.hasPrefix("list-")
+    }
     
     init(style: TextStyleModel, isNewStyle: Bool = false, onSave: (() -> Void)? = nil, hideDeleteButton: Bool = false) {
         self.style = style
@@ -51,21 +57,6 @@ struct TextStyleEditorView: View {
     
     var body: some View {
         Form {
-            // Show read-only banner if this is a system stylesheet
-            if style.styleSheet?.isSystemStyleSheet == true {
-                Section {
-                    HStack {
-                        Image(systemName: "lock.fill")
-                            .foregroundStyle(.secondary)
-                            .accessibilityLabel("textStyleEditor.systemStyle.icon.accessibility")
-                        Text("textStyleEditor.systemStyle.warning")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                }
-            }
-            
             Group {
                 styleNameSection
                 fontSettingsSection
@@ -75,41 +66,38 @@ struct TextStyleEditorView: View {
                 followOnStyleSection
                 tocSection
             }
-            .disabled(style.styleSheet?.isSystemStyleSheet == true)
         }
-        .navigationTitle(style.styleSheet?.isSystemStyleSheet == true ? "textStyleEditor.viewStyle.title" : "textStyleEditor.editStyle.title")
+        .navigationTitle("textStyleEditor.editStyle.title")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button(style.styleSheet?.isSystemStyleSheet == true ? "button.done" : "button.cancel") {
+                Button("button.cancel") {
                     dismiss()
                 }
             }
-            
-            if style.styleSheet?.isSystemStyleSheet != true {
-                // Delete button (only for non-system styles and when not hidden)
-                if !style.isSystemStyle && !hideDeleteButton {
-                    ToolbarItem(placement: .destructiveAction) {
-                        Button(role: .destructive) {
-                            handleDeleteAttempt()
-                        } label: {
-                            Label("button.delete", systemImage: "trash")
-                        }
+
+            // Delete button (only for deletable styles and when not hidden)
+            if !style.isSystemStyle && !hideDeleteButton && !isProtectedCoreStyle {
+                ToolbarItem(placement: .destructiveAction) {
+                    Button(role: .destructive) {
+                        handleDeleteAttempt()
+                    } label: {
+                        Label("button.delete", systemImage: "trash")
                     }
                 }
-                
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("button.save") {
-                        if isNewStyle {
-                            // For new styles, just save directly
-                            saveChanges()
-                            dismiss()
-                        } else {
-                            // For existing styles, show options alert
-                            showingSaveOptionsAlert = true
-                        }
+            }
+
+            ToolbarItem(placement: .confirmationAction) {
+                Button("button.save") {
+                    if isNewStyle {
+                        // For new styles, just save directly
+                        saveChanges()
+                        dismiss()
+                    } else {
+                        // For existing styles, show options alert
+                        showingSaveOptionsAlert = true
                     }
-                    .disabled(!hasUnsavedChanges || editedDisplayName.isEmpty)
                 }
+                .disabled(!hasUnsavedChanges || editedDisplayName.isEmpty)
             }
         }
         .sheet(isPresented: $showingFontPicker) {
@@ -449,15 +437,20 @@ struct TextStyleEditorView: View {
                     // List styles always have numbering - no toggle needed
                     if style.styleCategory == .list {
                         VStack(alignment: .leading, spacing: 12) {
-                            // Bullet list: just show info
-                            if style.name == "list-bullet" {
-                                Text("textStyleEditor.bulletListInfo")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .padding(.vertical, 4)
+                            // Bullet list styles: explicit bullet symbol choice
+                            if style.numberFormat == .bulletSymbols {
+                                Picker("textStyleEditor.bulletStyle", selection: Binding(
+                                    get: { style.numberAdornment },
+                                    set: { style.numberAdornment = $0; hasUnsavedChanges = true }
+                                )) {
+                                    ForEach(bulletAdornmentOptions, id: \.self) { adornment in
+                                        Text(NumberFormat.bulletSymbol(for: adornment)).tag(adornment)
+                                    }
+                                }
+                                .pickerStyle(.menu)
                             }
                             // Numbered list: show format and adornment pickers
-                            else if style.name == "list-numbered" {
+                            else if style.numberFormat != .none {
                                 Picker("textStyleEditor.numberStyle", selection: Binding(
                                     get: { style.numberFormat },
                                     set: { style.numberFormat = $0; hasUnsavedChanges = true }
@@ -642,9 +635,9 @@ struct TextStyleEditorView: View {
     private var numberFormats: [NumberFormat] {
         [.decimal, .lowercaseLetter, .uppercaseLetter, .lowercaseRoman, .uppercaseRoman]
     }
-    
-    private var bulletCharacters: [String] {
-        ["•", "◦", "▪", "▫", "▸", "○", "■", "□", "▹", "▻"]
+
+    private var bulletAdornmentOptions: [NumberingAdornment] {
+        NumberingAdornment.allCases
     }
     
     // MARK: - Font Variant Helpers
@@ -866,6 +859,12 @@ struct TextStyleEditorView: View {
         newStyle.firstLineIndent = style.firstLineIndent
         newStyle.headIndent = style.headIndent
         newStyle.tailIndent = style.tailIndent
+        newStyle.numberFormat = style.numberFormat
+        newStyle.numberAdornment = style.numberAdornment
+        newStyle.followOnStyleName = style.followOnStyleName
+        newStyle.parentStyleName = style.parentStyleName
+        newStyle.includeInTOC = style.includeInTOC
+        newStyle.tocLevel = style.tocLevel
         
         // Add to stylesheet
         newStyle.styleSheet = stylesheet
@@ -905,6 +904,11 @@ struct TextStyleEditorView: View {
         #if DEBUG
         print("🗑️ handleDeleteAttempt called for style: \(style.displayName) (\(style.name))")
         #endif
+
+        guard !isProtectedCoreStyle else {
+            deleteErrorMessage = NSLocalizedString("textStyleEditor.delete.protectedListStyle", comment: "Cannot delete core list styles")
+            return
+        }
         
         // Check if style is in use
         guard let proj = project else {
@@ -935,6 +939,11 @@ struct TextStyleEditorView: View {
     }
     
     private func performDelete(replacementStyle: TextStyleModel? = nil) {
+        guard !isProtectedCoreStyle else {
+            deleteErrorMessage = NSLocalizedString("textStyleEditor.delete.protectedListStyle", comment: "Cannot delete core list styles")
+            return
+        }
+
         guard let proj = project else { return }
         
         do {

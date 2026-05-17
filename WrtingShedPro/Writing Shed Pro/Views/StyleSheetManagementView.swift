@@ -19,6 +19,10 @@ struct StyleSheetManagementView: View {
     @State private var showCreateSheet = false
     @State private var showDeleteAlert = false
     @State private var sheetToDelete: StyleSheet?
+    @State private var showRepairResultAlert = false
+    @State private var repairResultMessage: String = ""
+    @State private var showNormalizeResultAlert = false
+    @State private var normalizeResultMessage: String = ""
     
     var body: some View {
         NavigationStack {
@@ -69,6 +73,24 @@ struct StyleSheetManagementView: View {
                         dismiss()
                     }
                 }
+
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: {
+                        repairRequiredListStyles()
+                    }) {
+                        Label("styleSheetManagement.repairListStyles", systemImage: "wrench.and.screwdriver")
+                    }
+                    .accessibilityLabel("styleSheetManagement.repairListStyles.accessibility")
+                }
+
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: {
+                        normalizeLegacyFonts()
+                    }) {
+                        Label("styleSheetManagement.normalizeLegacyFonts", systemImage: "textformat.size")
+                    }
+                    .accessibilityLabel("styleSheetManagement.normalizeLegacyFonts.accessibility")
+                }
                 
                 #if DEBUG
                 ToolbarItem(placement: .topBarLeading) {
@@ -76,14 +98,6 @@ struct StyleSheetManagementView: View {
                         resetDatabase()
                     }) {
                         Label("Reset DB", systemImage: "arrow.clockwise")
-                    }
-                }
-                
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: {
-                        fixAllCategories()
-                    }) {
-                        Label("Fix Categories", systemImage: "wrench.and.screwdriver")
                     }
                 }
                 #endif
@@ -117,6 +131,16 @@ struct StyleSheetManagementView: View {
                     Text(String(format: NSLocalizedString("styleSheetManagement.deleteAlert.message", comment: ""), sheet.name))
                 }
             }
+            .alert("styleSheetManagement.repairListStyles.resultTitle", isPresented: $showRepairResultAlert) {
+                Button("button.ok", role: .cancel) { }
+            } message: {
+                Text(repairResultMessage)
+            }
+            .alert("styleSheetManagement.normalizeLegacyFonts.resultTitle", isPresented: $showNormalizeResultAlert) {
+                Button("button.ok", role: .cancel) { }
+            } message: {
+                Text(normalizeResultMessage)
+            }
         }
     }
     
@@ -138,6 +162,7 @@ struct StyleSheetManagementView: View {
             name: "\(original.name) Copy",
             isSystemStyleSheet: false
         )
+        let shouldNormalizeDefaultBodySizes = original.isSystemStyleSheet
         
         // Copy all text styles
         if let originalStyles = original.textStyles {
@@ -174,6 +199,31 @@ struct StyleSheetManagementView: View {
                 newStyle.followOnStyleName = style.followOnStyleName
                 newStyle.includeInTOC = style.includeInTOC
                 newStyle.tocLevel = style.tocLevel
+
+                // When duplicating the system default, enforce canonical body sizes.
+                if shouldNormalizeDefaultBodySizes {
+                    let normalizedDisplayName = newStyle.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    switch newStyle.name {
+                    case UIFont.TextStyle.body.rawValue:
+                        newStyle.fontSize = 12
+                    case UIFont.TextStyle.callout.rawValue:
+                        newStyle.fontSize = 11
+                    case UIFont.TextStyle.subheadline.rawValue, "UICTFontTextStyleSubheadline":
+                        newStyle.fontSize = 10
+                    default:
+                        // Fallback for legacy/misnamed rows that still have canonical display names.
+                        switch normalizedDisplayName {
+                        case "Body":
+                            newStyle.fontSize = 12
+                        case "Body 1":
+                            newStyle.fontSize = 11
+                        case "Body 2":
+                            newStyle.fontSize = 10
+                        default:
+                            break
+                        }
+                    }
+                }
                 
                 newStyle.styleSheet = duplicate
             }
@@ -202,6 +252,42 @@ struct StyleSheetManagementView: View {
             print("❌ Error deleting stylesheet: \(error)")
             #endif
         }
+    }
+
+    private func repairRequiredListStyles() {
+        let (updatedSheets, repairedStyles) = StyleSheetService.repairRequiredListStyles(context: modelContext)
+
+        if repairedStyles > 0 {
+            repairResultMessage = String(
+                format: NSLocalizedString("styleSheetManagement.repairListStyles.success", comment: ""),
+                repairedStyles,
+                updatedSheets
+            )
+        } else {
+            repairResultMessage = NSLocalizedString("styleSheetManagement.repairListStyles.noChanges", comment: "")
+        }
+
+        loadStyleSheets()
+        showRepairResultAlert = true
+    }
+
+    private func normalizeLegacyFonts() {
+        let (normalizedFiles, scannedFiles) = StyleSheetService.normalizeLegacyIPhoneScaledFonts(context: modelContext)
+
+        if normalizedFiles > 0 {
+            normalizeResultMessage = String(
+                format: NSLocalizedString("styleSheetManagement.normalizeLegacyFonts.success", comment: ""),
+                normalizedFiles,
+                scannedFiles
+            )
+        } else {
+            normalizeResultMessage = String(
+                format: NSLocalizedString("styleSheetManagement.normalizeLegacyFonts.noChanges", comment: ""),
+                scannedFiles
+            )
+        }
+
+        showNormalizeResultAlert = true
     }
     
     #if DEBUG

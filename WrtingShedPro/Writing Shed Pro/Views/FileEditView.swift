@@ -216,9 +216,9 @@ struct FileEditView: View {
     private func textEditorSection() -> some View {
         Group {
             if UIDevice.current.userInterfaceIdiom == .phone {
-                // iPhone: Scale view transform to show more content in less space
+                // iPhone: Render at true point size so text matches native editors (e.g. Pages).
                 GeometryReader { geometry in
-                    let scale: CGFloat = 0.6
+                    let scale: CGFloat = 0.95
                     let inverseScale = 1.0 / scale
                     
                     ScrollView {
@@ -6399,9 +6399,25 @@ struct FileEditView: View {
             listStyleName = "list-numbered"
         }
         
-        // Apply the list style to the paragraph
-        guard let listStyle = project.styleSheet?.style(named: listStyleName) else {
-            return
+        // Apply the list style to the paragraph.
+        // If the style was removed from the stylesheet, fall back to synthesized
+        // list attributes so bullets/numbering continue to function.
+        let styleAttributes: [NSAttributedString.Key: Any]
+        if let listStyle = project.styleSheet?.style(named: listStyleName) {
+            styleAttributes = listStyle.generateAttributes()
+        } else {
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.alignment = .left
+            paragraphStyle.firstLineHeadIndent = 36
+            paragraphStyle.headIndent = 36
+
+            styleAttributes = [
+                .font: UIFont.preferredFont(forTextStyle: .body),
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: paragraphStyle,
+                .textStyle: listStyleName,
+                .numberFormat: format.rawValue
+            ]
         }
         
         // Store before state for undo
@@ -6409,7 +6425,6 @@ struct FileEditView: View {
         
         // Apply the list style attributes to the paragraph
         let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
-        let styleAttributes = listStyle.generateAttributes()
         mutableContent.addAttributes(styleAttributes, range: paragraphRange)
         
         // Update content
@@ -6551,6 +6566,9 @@ struct FileEditView: View {
                 print("⌨️ increaseListIndent - set typingAttributes to \(nextStyleName)")
                 #endif
             }
+
+            // Keep style picker state in sync even when only typingAttributes changed.
+            currentParagraphStyle = UIFont.TextStyle(rawValue: nextStyleName)
             return
         }
         
@@ -6580,6 +6598,9 @@ struct FileEditView: View {
                 targetFile: file
             )
             undoManager.execute(command)
+
+            // Reflect updated paragraph style in the picker immediately.
+            currentParagraphStyle = UIFont.TextStyle(rawValue: nextStyleName)
         }
     }
     
@@ -6656,6 +6677,9 @@ struct FileEditView: View {
                         for (key, value) in styleAttributes {
                             textView.typingAttributes[key] = value
                         }
+
+                        // Keep style picker state in sync for empty paragraph outdent.
+                        currentParagraphStyle = .body
                     } else {
                         // Non-empty paragraph
                         textView.textStorage.beginEditing()
@@ -6677,6 +6701,9 @@ struct FileEditView: View {
                             targetFile: file
                         )
                         undoManager.execute(command)
+
+                        // Reflect exit-to-body in style picker.
+                        currentParagraphStyle = .body
                     }
                 }
             }
@@ -6727,6 +6754,9 @@ struct FileEditView: View {
             #if DEBUG
             print("⌨️ decreaseListIndent - set typingAttributes to \(prevStyleName)")
             #endif
+
+            // Keep style picker state in sync even when only typingAttributes changed.
+            currentParagraphStyle = UIFont.TextStyle(rawValue: prevStyleName)
             return
         }
         
@@ -6754,6 +6784,9 @@ struct FileEditView: View {
             targetFile: file
         )
         undoManager.execute(command)
+
+        // Reflect updated paragraph style in the picker immediately.
+        currentParagraphStyle = UIFont.TextStyle(rawValue: prevStyleName)
     }
     
     /// Update the current paragraph style state by checking the attributed content
@@ -8071,15 +8104,7 @@ struct FileEditView: View {
             #endif
         } else {
             var contentToSave = attributedContent
-            
-            // CRITICAL: Reverse the iPhone font scaling before saving
-            if UIDevice.current.userInterfaceIdiom == .phone {
-                contentToSave = AttributedStringSerializer.scaleFonts(contentToSave, scaleFactor: 1.0 / 0.55)
-                #if DEBUG
-                print("💾 Reversed iPhone font scaling (1/0.55 = \(1.0/0.55)x) before saving to database")
-                #endif
-            }
-            
+
             file.currentVersion?.attributedContent = contentToSave
             
             // FEATURE 029: Extract and save reference metadata

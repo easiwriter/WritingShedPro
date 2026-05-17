@@ -18,6 +18,13 @@
         "identifier" : "D741DF7C2EA76295003629E8",
         "name" : "Writing Shed ProTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Writing Shed Pro.xcodeproj",
+        "identifier" : "D76ABF672F260E6F002D8588",
+        "name" : "WSP ReaderTests"
+      }
     }
   ],
   "version" : 1

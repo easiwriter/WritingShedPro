@@ -1483,6 +1483,7 @@
 "textStyleEditor.delete.confirm" = "Are you sure you want to delete this style? This action cannot be undone.";
 "textStyleEditor.delete.inUse" = "This style is used in %d file(s): %@. You must select a replacement style before deleting.";
 "textStyleEditor.delete.replaceAndDelete" = "Replace and Delete";
+"textStyleEditor.delete.protectedListStyle" = "This list style is required and cannot be deleted.";
 "textStyleEditor.selectReplacement" = "Select Replacement Style";
 "textStyleEditor.saveOptions.title" = "Save Style Changes";
 "textStyleEditor.saveOptions.message" = "Do you want to update the existing style (changes will apply to all documents) or create a new style with these attributes?";
@@ -1575,6 +1576,16 @@
 "styleSheetManagement.newStylesheet.accessibility" = "Create new stylesheet";
 "styleSheetManagement.deleteAlert.title" = "Delete Stylesheet";
 "styleSheetManagement.deleteAlert.message" = "Are you sure you want to delete '%@'? Projects using this stylesheet will revert to the system default.";
+"styleSheetManagement.repairListStyles" = "Repair Required List Styles";
+"styleSheetManagement.repairListStyles.accessibility" = "Repair required list styles";
+"styleSheetManagement.repairListStyles.resultTitle" = "List Style Repair";
+"styleSheetManagement.repairListStyles.success" = "Repaired %d style(s) across %d stylesheet(s).";
+"styleSheetManagement.repairListStyles.noChanges" = "No repairs were needed. Required list styles are already present.";
+"styleSheetManagement.normalizeLegacyFonts" = "Normalize Existing Documents";
+"styleSheetManagement.normalizeLegacyFonts.accessibility" = "Normalize existing document font sizes";
+"styleSheetManagement.normalizeLegacyFonts.resultTitle" = "Document Font Normalization";
+"styleSheetManagement.normalizeLegacyFonts.success" = "Normalized %d document(s) out of %d scanned.";
+"styleSheetManagement.normalizeLegacyFonts.noChanges" = "No documents needed normalization (%d scanned).";
 
 /* StyleSheetDetailView - New Keys */
 "styleSheetDetail.name" = "Name";

@@ -20,21 +20,8 @@ struct ImageStyleSheetEditorView: View {
         Form {
             // Name Section
             Section("imageStyleEditor.styleName") {
-                if imageStyle.isSystemStyle {
-                    HStack {
-                        Text("imageStyleEditor.displayName")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text(imageStyle.displayName)
-                    }
-                    
-                    Text("imageStyleEditor.systemStyle.warning")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    TextField("imageStyleEditor.displayName", text: $imageStyle.displayName)
-                        .accessibilityLabel("imageStyleEditor.displayName.accessibility")
-                }
+                TextField("imageStyleEditor.displayName", text: $imageStyle.displayName)
+                    .accessibilityLabel("imageStyleEditor.displayName.accessibility")
             }
             
             // Default Scale Section

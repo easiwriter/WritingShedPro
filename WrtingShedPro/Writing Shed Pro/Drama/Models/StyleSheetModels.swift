@@ -54,7 +54,21 @@ final class StyleSheet {
     
     /// Get a text style by name
     func style(named name: String) -> TextStyleModel? {
-        return textStyles?.first(where: { $0.name == name })
+        guard let matches = textStyles?.filter({ $0.name == name }), !matches.isEmpty else {
+            return nil
+        }
+
+        // If duplicate names exist (e.g. sync artifacts), prefer the most recently
+        // modified style so editor saves and renderer lookups resolve consistently.
+        return matches.max { lhs, rhs in
+            if lhs.modifiedDate != rhs.modifiedDate {
+                return lhs.modifiedDate < rhs.modifiedDate
+            }
+            if lhs.createdDate != rhs.createdDate {
+                return lhs.createdDate < rhs.createdDate
+            }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
     }
     
     /// Get an image style by name
@@ -359,7 +373,7 @@ final class TextStyleModel {
             while let pName = currentParent, !pName.isEmpty {
                 ancestorDepth += 1
                 // Look up the parent style via the stylesheet relationship
-                if let parentModel = styleSheet?.textStyles?.first(where: { $0.name == pName }) {
+                if let parentModel = styleSheet?.style(named: pName) {
                     currentParent = parentModel.parentStyleName
                 } else {
                     break

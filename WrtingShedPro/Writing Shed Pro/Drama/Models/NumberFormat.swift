@@ -114,8 +114,32 @@ enum NumberFormat: String, Codable, CaseIterable {
             let symbols = ["*", "†", "‡", "§", "¶"]
             return symbols[index % symbols.count]
         case .bulletSymbols:
-            // Bullet lists use level to determine the symbol (same bullet for all items at a level)
-            // Level 0: •, Level 1: ◦, Level 2: ▪
+            return NumberFormat.bulletSymbol(for: adornment, level: level)
+        }
+    }
+
+    /// Resolve bullet symbol from stored adornment.
+    /// `.plain` is treated as the default/unset state and falls back to level-based symbols
+    /// (•/◦/▪) so that styles without a user-selected adornment behave like the old default.
+    static func bulletSymbol(for adornment: NumberingAdornment, level: Int = 0) -> String {
+        if adornment == .plain {
+            let symbols = ["•", "◦", "▪"]
+            return symbols[min(level, symbols.count - 1)]
+        }
+        switch adornment {
+        case .period:
+            return "•"
+        case .parentheses:
+            return "▪"
+        case .rightParen:
+            return "▫"
+        case .dashBefore:
+            return "▸"
+        case .dashAfter:
+            return "○"
+        case .dashBoth:
+            return "■"
+        default:
             let symbols = ["•", "◦", "▪"]
             return symbols[min(level, symbols.count - 1)]
         }

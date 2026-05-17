@@ -1,0 +1,3 @@
+Styles are named sets of formatting rules that you apply to different parts of a document, such as body text, headings, quotations, captions, and lists. Instead of formatting each paragraph manually, you assign a style and let the document handle the font, size, spacing, indentation, numbering, and other layout settings consistently.
+
+They are useful because they keep a document uniform and easier to manage. If you decide later that all headings should be larger, or that list items need different indentation, you can change the style once and every paragraph using it updates together. Styles also help give documents structure, which improves navigation, table of contents generation, export, and overall readability.

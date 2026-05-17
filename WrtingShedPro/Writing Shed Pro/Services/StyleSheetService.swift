@@ -11,6 +11,31 @@ import UIKit
 
 struct StyleSheetService {
 
+    private static func bulletAdornment(for symbol: String) -> NumberingAdornment {
+        switch symbol {
+        case "◦": return .plain
+        case "▪": return .parentheses
+        case "▫": return .rightParen
+        case "▸": return .dashBefore
+        default: return .period
+        }
+    }
+
+    private static func defaultBulletAdornment(forStyleName styleName: String) -> NumberingAdornment {
+        if styleName.contains("level-3") { return .parentheses }
+        if styleName.contains("level-2") { return .plain }
+        return .period
+    }
+
+    private static let requiredListStyles: [(name: String, displayName: String, numberFormat: NumberFormat, order: Int, level: Int, parentStyleName: String?)] = [
+        ("list-numbered", "Numbered List", .decimal, 11, 0, nil),
+        ("list-numbered-level-2", "Numbered List Level 2", .lowercaseLetter, 12, 1, "list-numbered"),
+        ("list-numbered-level-3", "Numbered List Level 3", .lowercaseRoman, 13, 2, "list-numbered-level-2"),
+        ("list-bullet", "Bullet List", .bulletSymbols, 14, 0, nil),
+        ("list-bullet-level-2", "Bullet List Level 2", .bulletSymbols, 15, 1, "list-bullet"),
+        ("list-bullet-level-3", "Bullet List Level 3", .bulletSymbols, 16, 2, "list-bullet-level-2")
+    ]
+
     static func uniqueStyleSheets(from sheets: [StyleSheet], preferredSheetID: UUID? = nil) -> [StyleSheet] {
         var grouped: [String: [StyleSheet]] = [:]
 
@@ -55,9 +80,9 @@ struct StyleSheetService {
             (.title2, "Title 2", .heading, 2, nil, true, 1),           // TOC Level 1 (first indent)
             (.title3, "Title 3", .heading, 3, nil, true, 2),           // TOC Level 2 (second indent)
             (.headline, "Headline", .heading, 4, nil, true, 3),        // TOC Level 3 (third indent)
-            (.body, "Body", .text, 5, nil, false, 0),
-            (.callout, "Body 1", .text, 6, 16, false, 0),  // Renamed to Body 1, set to 16pt
-            (.subheadline, "Body 2", .text, 7, 14, false, 0),  // Renamed to Body 2, set to 14pt
+            (.body, "Body", .text, 5, 12, false, 0),
+            (.callout, "Body 1", .text, 6, 11, false, 0),  // Renamed to Body 1, set to 11pt
+            (.subheadline, "Body 2", .text, 7, 10, false, 0),  // Renamed to Body 2, set to 10pt
             (.footnote, "Footnote", .footnote, 8, nil, false, 0),  // Keep for pagination but hidden from picker
             (.caption1, "Caption 1", .text, 9, nil, false, 0),
             (.caption2, "Caption 2", .text, 10, nil, false, 0)
@@ -122,13 +147,13 @@ struct StyleSheetService {
             ("list-bullet-level-3", "Bullet List Level 3", .bulletSymbols, 16, 2, "▪", "list-bullet-level-2")
         ]
         
-        for (name, displayName, numberFormat, order, level, _, parentStyle) in listStyles {
+        for (name, displayName, numberFormat, order, level, bulletChar, parentStyle) in listStyles {
             let headIndent = listIndentPerLevel * CGFloat(level + 1)
             let style = TextStyleModel(
                 name: name,
                 displayName: displayName,
                 displayOrder: order,
-                fontSize: 17,  // Platform scaling now applied at render time in generateFont()
+                fontSize: 12,
                 alignment: .left,  // Explicitly set left alignment for list styles
                 headIndent: headIndent,
                 numberFormat: numberFormat,
@@ -136,6 +161,11 @@ struct StyleSheetService {
                 isSystemStyle: false
             )
             style.parentStyleName = parentStyle
+            if numberFormat == .bulletSymbols, let bulletChar {
+                style.numberAdornment = bulletAdornment(for: bulletChar)
+            } else {
+                style.numberAdornment = .period
+            }
             styles.append(style)
         }
         
@@ -169,26 +199,35 @@ struct StyleSheetService {
         print("🔧 Checking \(styles.count) styles for category fixes...")
         #endif
         
-        // Map of style names to their correct categories
-        let categoryMap: [String: StyleCategory] = [
-            "UICTFontTextStyleTitle0": .heading,        // Large Title
-            "UICTFontTextStyleTitle1": .heading,        // Title 1
-            "UICTFontTextStyleTitle2": .heading,        // Title 2
-            "UICTFontTextStyleTitle3": .heading,        // Title 3
-            "UICTFontTextStyleHeadline": .heading,      // Headline
-            "UICTFontTextStyleBody": .text,             // Body
-            "UICTFontTextStyleCallout": .text,          // Body 1
-            "UICTFontTextStyleSubheadline": .text,      // Body 2
-            "UICTFontTextStyleFootnote": .footnote,     // Footnote
-            "UICTFontTextStyleCaption1": .text,         // Caption 1
-            "UICTFontTextStyleCaption2": .text,         // Caption 2
-            "list-numbered": .list,                      // Numbered List
-            "list-numbered-level-2": .list,              // Numbered List Level 2
-            "list-numbered-level-3": .list,              // Numbered List Level 3
-            "list-bullet": .list,                        // Bullet List
-            "list-bullet-level-2": .list,                // Bullet List Level 2
-            "list-bullet-level-3": .list                 // Bullet List Level 3
+        // Map of style names to their correct categories.
+        // Build from pairs so legacy aliases that equal modern raw values do not crash with duplicate keys.
+        let categoryPairs: [(String, StyleCategory)] = [
+            (UIFont.TextStyle.largeTitle.rawValue, .heading),   // Large Title
+            ("UICTFontTextStyleTitle0", .heading),             // Legacy alias for Large Title
+            (UIFont.TextStyle.title1.rawValue, .heading),        // Title 1
+            (UIFont.TextStyle.title2.rawValue, .heading),        // Title 2
+            (UIFont.TextStyle.title3.rawValue, .heading),        // Title 3
+            (UIFont.TextStyle.headline.rawValue, .heading),      // Headline
+            (UIFont.TextStyle.body.rawValue, .text),             // Body
+            (UIFont.TextStyle.callout.rawValue, .text),          // Body 1
+            (UIFont.TextStyle.subheadline.rawValue, .text),      // Body 2 (usually UICTFontTextStyleSubhead)
+            ("UICTFontTextStyleSubheadline", .text),           // Legacy alias for Body 2
+            (UIFont.TextStyle.footnote.rawValue, .footnote),     // Footnote
+            (UIFont.TextStyle.caption1.rawValue, .text),         // Caption 1
+            (UIFont.TextStyle.caption2.rawValue, .text),         // Caption 2
+            ("list-numbered", .list),                          // Numbered List
+            ("list-numbered-level-2", .list),                  // Numbered List Level 2
+            ("list-numbered-level-3", .list),                  // Numbered List Level 3
+            ("list-bullet", .list),                            // Bullet List
+            ("list-bullet-level-2", .list),                    // Bullet List Level 2
+            ("list-bullet-level-3", .list)                     // Bullet List Level 3
         ]
+        var categoryMap: [String: StyleCategory] = [:]
+        for (name, category) in categoryPairs {
+            if categoryMap[name] == nil {
+                categoryMap[name] = category
+            }
+        }
         
         // Obsolete styles to remove
         let obsoleteStyleNames = ["list-lowercase-letter", "list-uppercase-letter"]
@@ -253,6 +292,203 @@ struct StyleSheetService {
             #endif
         }
     }
+
+    // MARK: - List Style Repair
+
+    /// Ensures all required built-in list styles exist and have minimally valid list metadata.
+    /// Returns number of created or repaired styles for this stylesheet.
+    @discardableResult
+    static func repairRequiredListStyles(in stylesheet: StyleSheet, context: ModelContext) -> Int {
+        if stylesheet.textStyles == nil {
+            stylesheet.textStyles = []
+        }
+
+        let indentPerLevel: CGFloat = 36.0
+        var repairCount = 0
+
+        for template in requiredListStyles {
+            if let existing = stylesheet.textStyles?.first(where: { $0.name == template.name }) {
+                var didRepair = false
+
+                if existing.styleCategory != .list {
+                    existing.styleCategory = .list
+                    didRepair = true
+                }
+
+                if existing.numberFormat == .none {
+                    existing.numberFormat = template.numberFormat
+                    didRepair = true
+                }
+
+                if template.numberFormat == .bulletSymbols {
+                    let expectedAdornment = defaultBulletAdornment(forStyleName: template.name)
+                    if existing.numberAdornment != expectedAdornment {
+                        existing.numberAdornment = expectedAdornment
+                        didRepair = true
+                    }
+                }
+
+                let targetHeadIndent = indentPerLevel * CGFloat(template.level + 1)
+                if existing.headIndent <= 0 {
+                    existing.headIndent = targetHeadIndent
+                    didRepair = true
+                }
+
+                if existing.firstLineIndent <= 0 {
+                    existing.firstLineIndent = targetHeadIndent
+                    didRepair = true
+                }
+
+                if existing.parentStyleName != template.parentStyleName {
+                    existing.parentStyleName = template.parentStyleName
+                    didRepair = true
+                }
+
+                if existing.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    existing.displayName = template.displayName
+                    didRepair = true
+                }
+
+                if didRepair {
+                    repairCount += 1
+                }
+                continue
+            }
+
+            let headIndent = indentPerLevel * CGFloat(template.level + 1)
+            let style = TextStyleModel(
+                name: template.name,
+                displayName: template.displayName,
+                displayOrder: template.order,
+                fontSize: 12,
+                alignment: .left,
+                firstLineIndent: headIndent,
+                headIndent: headIndent,
+                numberFormat: template.numberFormat,
+                styleCategory: .list,
+                isSystemStyle: false
+            )
+            style.parentStyleName = template.parentStyleName
+            if template.numberFormat == .bulletSymbols {
+                style.numberAdornment = defaultBulletAdornment(forStyleName: template.name)
+            } else {
+                style.numberAdornment = .period
+            }
+            style.styleSheet = stylesheet
+            stylesheet.textStyles?.append(style)
+            context.insert(style)
+            repairCount += 1
+        }
+
+        if repairCount > 0 {
+            stylesheet.modifiedDate = Date()
+        }
+
+        return repairCount
+    }
+
+    /// Runs required list style repair across all stylesheets.
+    /// Returns (updatedSheetCount, repairedStyleCount).
+    @discardableResult
+    static func repairRequiredListStyles(context: ModelContext) -> (Int, Int) {
+        let descriptor = FetchDescriptor<StyleSheet>()
+        guard let sheets = try? context.fetch(descriptor) else {
+            return (0, 0)
+        }
+
+        var updatedSheetCount = 0
+        var repairedStyleCount = 0
+
+        for sheet in sheets {
+            let repaired = repairRequiredListStyles(in: sheet, context: context)
+            if repaired > 0 {
+                updatedSheetCount += 1
+                repairedStyleCount += repaired
+            }
+        }
+
+        if repairedStyleCount > 0 {
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+        }
+
+        return (updatedSheetCount, repairedStyleCount)
+    }
+
+    // MARK: - One-Time Legacy Font Normalization
+
+    /// Normalizes document font sizes that were inflated by the legacy iPhone save scaling path.
+    /// Returns (normalizedFileCount, scannedFileCount).
+    @discardableResult
+    static func normalizeLegacyIPhoneScaledFonts(context: ModelContext) -> (Int, Int) {
+        let descriptor = FetchDescriptor<TextFile>()
+        guard let files = try? context.fetch(descriptor) else {
+            return (0, 0)
+        }
+
+        let legacyScaleInverse: CGFloat = 1.0 / 0.55
+        let normalizeScale: CGFloat = 0.55
+
+        var normalizedCount = 0
+
+        for file in files {
+            guard let version = file.currentVersion,
+                  let content = version.attributedContent,
+                  content.length > 0 else {
+                continue
+            }
+
+            if needsLegacyIPhoneNormalization(content: content, file: file, inverseScale: legacyScaleInverse) {
+                let normalized = AttributedStringSerializer.scaleFonts(content, scaleFactor: normalizeScale)
+                version.attributedContent = normalized
+                file.modifiedDate = Date()
+                normalizedCount += 1
+            }
+        }
+
+        if normalizedCount > 0 {
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+        }
+
+        return (normalizedCount, files.count)
+    }
+
+    /// Detects likely legacy iPhone-scaled content by comparing paragraph run fonts
+    /// against expected style font sizes multiplied by the legacy inverse scale.
+    private static func needsLegacyIPhoneNormalization(
+        content: NSAttributedString,
+        file: TextFile,
+        inverseScale: CGFloat
+    ) -> Bool {
+        guard let styleSheet = file.project?.styleSheet else {
+            return false
+        }
+
+        var checkedRuns = 0
+        var inflatedMatches = 0
+
+        content.enumerateAttributes(in: NSRange(location: 0, length: content.length), options: []) { attrs, _, _ in
+            guard let runFont = attrs[.font] as? UIFont,
+                  let styleName = attrs[.textStyle] as? String,
+                  let style = styleSheet.style(named: styleName) else {
+                return
+            }
+
+            checkedRuns += 1
+
+            let expectedSize = style.generateFont(applyPlatformScaling: true).pointSize
+            let inflatedExpected = expectedSize * inverseScale
+            if abs(runFont.pointSize - inflatedExpected) <= 0.8 {
+                inflatedMatches += 1
+            }
+        }
+
+        guard checkedRuns >= 3 else {
+            return false
+        }
+
+        // Require a strong majority so we don't alter legitimately customized documents.
+        return (Double(inflatedMatches) / Double(checkedRuns)) >= 0.6
+    }
     
     // MARK: - StyleSheet Initialization
     
@@ -275,6 +511,8 @@ struct StyleSheetService {
         // Fix categories in existing stylesheets
         for sheet in existingSystemSheets {
             fixStyleCategories(in: sheet, context: context)
+            migrateBodyStyleDefinitionSizes(in: sheet, context: context)
+            migrateListStyleDefinitionSizes(in: sheet, context: context)
         }
         
         // Also fix all project stylesheets (not just system ones)
@@ -283,6 +521,8 @@ struct StyleSheetService {
             for sheet in allSheets {
                 if !existingSystemSheets.contains(where: { $0.id == sheet.id }) {
                     fixStyleCategories(in: sheet, context: context)
+                    migrateBodyStyleDefinitionSizes(in: sheet, context: context)
+                    migrateListStyleDefinitionSizes(in: sheet, context: context)
                 }
             }
         }
@@ -362,6 +602,79 @@ struct StyleSheetService {
         #if DEBUG
         print("📐 Default stylesheet created successfully with \(defaultSheet.textStyles?.count ?? 0) text styles and \(defaultSheet.imageStyles?.count ?? 0) image styles")
         #endif
+    }
+
+    /// Migrates body definition sizes to current defaults (12/11/10)
+    /// while preserving user-customized values.
+    private static func migrateBodyStyleDefinitionSizes(in stylesheet: StyleSheet, context: ModelContext) {
+        guard let styles = stylesheet.textStyles else { return }
+
+        let targets: [(names: [String], legacySizes: [CGFloat], to: CGFloat)] = [
+            ([UIFont.TextStyle.body.rawValue], [17], 12),
+            ([UIFont.TextStyle.callout.rawValue], [16], 11),
+            ([UIFont.TextStyle.subheadline.rawValue, "UICTFontTextStyleSubheadline"], [14], 10)
+        ]
+
+        var didUpdate = false
+
+        for target in targets {
+            guard let style = styles.first(where: { target.names.contains($0.name) }) else { continue }
+            if target.legacySizes.contains(where: { abs(style.fontSize - $0) < 0.01 }) {
+                style.fontSize = target.to
+                didUpdate = true
+            }
+        }
+
+        // Fallback for legacy/mis-labeled rows in older stylesheets: normalize by
+        // canonical display names only for known legacy/swap values.
+        for style in styles {
+            let displayName = style.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            switch displayName {
+            case "Body":
+                if abs(style.fontSize - 17) < 0.01 || abs(style.fontSize - 11) < 0.01 {
+                    style.fontSize = 12
+                    didUpdate = true
+                }
+            case "Body 1":
+                if abs(style.fontSize - 16) < 0.01 || abs(style.fontSize - 12) < 0.01 {
+                    style.fontSize = 11
+                    didUpdate = true
+                }
+            case "Body 2":
+                if abs(style.fontSize - 14) < 0.01 {
+                    style.fontSize = 10
+                    didUpdate = true
+                }
+            default:
+                break
+            }
+        }
+
+        if didUpdate {
+            stylesheet.modifiedDate = Date()
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+        }
+    }
+
+    /// Migrates built-in list style definition sizes from legacy 17pt to 12pt
+    /// without overriding user-customized list sizes.
+    private static func migrateListStyleDefinitionSizes(in stylesheet: StyleSheet, context: ModelContext) {
+        guard let styles = stylesheet.textStyles else { return }
+
+        let listStyleNames = Set(requiredListStyles.map { $0.name })
+        var didUpdate = false
+
+        for style in styles where listStyleNames.contains(style.name) {
+            if abs(style.fontSize - 17) < 0.01 {
+                style.fontSize = 12
+                didUpdate = true
+            }
+        }
+
+        if didUpdate {
+            stylesheet.modifiedDate = Date()
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+        }
     }
     
     // MARK: - Style Migration

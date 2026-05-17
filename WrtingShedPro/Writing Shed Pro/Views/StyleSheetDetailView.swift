@@ -71,15 +71,13 @@ struct StyleSheetDetailView: View {
             )
         }
         .toolbar {
-            if !styleSheet.isSystemStyleSheet {
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: {
-                        createNewStyle()
-                    }) {
-                        Label(NSLocalizedString("styleSheetDetail.newStyle", comment: "New style button"), systemImage: "plus")
-                    }
-                    .accessibilityLabel(NSLocalizedString("styleSheetDetail.newStyle.accessibility", comment: "New style accessibility"))
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: {
+                    createNewStyle()
+                }) {
+                    Label(NSLocalizedString("styleSheetDetail.newStyle", comment: "New style button"), systemImage: "plus")
                 }
+                .accessibilityLabel(NSLocalizedString("styleSheetDetail.newStyle.accessibility", comment: "New style accessibility"))
             }
         }
         .sheet(item: $newStyle) { style in
@@ -97,12 +95,8 @@ struct StyleSheetDetailView: View {
                 Text(NSLocalizedString("styleSheetDetail.name", comment: "Stylesheet name"))
                     .foregroundStyle(.secondary)
                 Spacer()
-                if styleSheet.isSystemStyleSheet {
-                    Text(styleSheet.name)
-                } else {
-                    TextField(NSLocalizedString("styleSheetDetail.name.placeholder", comment: "Name placeholder"), text: $styleSheet.name)
-                        .multilineTextAlignment(.trailing)
-                }
+                TextField(NSLocalizedString("styleSheetDetail.name.placeholder", comment: "Name placeholder"), text: $styleSheet.name)
+                    .multilineTextAlignment(.trailing)
             }
             
             HStack {
@@ -195,16 +189,10 @@ struct StyleSheetDetailView: View {
                     .italic()
             } else {
                 ForEach(sortedImageStyles, id: \.id) { imageStyle in
-                    if imageStyle.isSystemStyle && styleSheet.isSystemStyleSheet {
-                        // System style in system stylesheet - not editable
+                    NavigationLink {
+                        ImageStyleSheetEditorView(imageStyle: imageStyle)
+                    } label: {
                         ImageStyleRow(imageStyle: imageStyle)
-                    } else {
-                        // User stylesheet or editable style - make it a navigation link
-                        NavigationLink {
-                            ImageStyleSheetEditorView(imageStyle: imageStyle)
-                        } label: {
-                            ImageStyleRow(imageStyle: imageStyle)
-                        }
                     }
                 }
             }
