@@ -1415,20 +1415,13 @@ class JSONImportService {
             // Decode content
             if !versionData.quickfile {
                 if let contentString = try? decodeAttributedString(from: versionData.textFile, plainText: versionData.text) {
-                    // Apply dark mode fix
+                    // Apply dark mode fix, then normalize to Body style so legacy imports
+                    // do not reopen through the raw RTF scaling path on iOS.
                     let cleanedString = AttributedStringSerializer.stripAdaptiveColors(from: contentString)
-                    
-                    // Convert to RTF
-                    let plainText = cleanedString.string
-                    version.content = plainText
-                    
-                    // Try to save as RTF
-                    if let rtfData = try? cleanedString.data(
-                        from: NSRange(location: 0, length: cleanedString.length),
-                        documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
-                    ) {
-                        version.formattedContent = rtfData
-                    }
+                    let normalizedImport = AttributedStringSerializer.normalizeImportedWordContentToBody(cleanedString)
+
+                    version.attributedContent = normalizedImport
+                    version.content = normalizedImport.string
                 }
             }
             
