@@ -31,12 +31,15 @@ struct ProseFilesView: View {
     /// Export state
     @State private var showExportMenu = false
     @State private var filesToExport: [TextFile] = []
-    @State private var showExportSaveDialog = false
     @State private var exportFormat: ExportFormat = .rtf
+    @State private var showExportSaveDialog = false
     @State private var exportData: Data?
     @State private var exportFilename: String = ""
+    @State private var saveAsRequested = false
     @State private var showExportImageWarning = false
     @State private var pendingExportAction: (() -> Void)?
+    @State private var shareableFileURL: URL?
+    @State private var showShareSheet = false
     
     /// IAP gating
     @State private var upgradePromptReason: UpgradePromptReason?
@@ -169,30 +172,26 @@ struct ProseFilesView: View {
         } message: {
             Text(NSLocalizedString("export.imageWarning.message", comment: "Images will not be included"))
         }
-        .fileExporter(
-            isPresented: $showExportSaveDialog,
-            document: ExportDocument(
-                data: exportData ?? Data(),
-                filename: exportFilename,
-                contentType: contentTypeForFormat(exportFormat)
-            ),
-            contentType: contentTypeForFormat(exportFormat),
-            defaultFilename: exportFilename,
-            onCompletion: { result in
-                switch result {
-                case .success:
-                    #if DEBUG
-                    print("✅ [ProseFilesView] Export saved successfully")
-                    #endif
-                case .failure(let error):
-                    #if DEBUG
-                    print("❌ [ProseFilesView] Export save failed: \(error)")
-                    #endif
-                }
-                exportData = nil
-                exportFilename = ""
+        .sheet(isPresented: $showShareSheet) {
+            if let fileURL = shareableFileURL {
+                ShareSheet(urls: [fileURL])
             }
-        )
+        }
+            .fileExporter(
+                isPresented: $showExportSaveDialog,
+                document: ExportDocument(
+                    data: exportData ?? Data(),
+                    filename: exportFilename,
+                    contentType: contentTypeForFormat(exportFormat)
+                ),
+                contentType: contentTypeForFormat(exportFormat),
+                defaultFilename: exportFilename,
+                onCompletion: { _ in
+                    exportData = nil
+                    exportFilename = ""
+                    saveAsRequested = false
+                }
+            )
         .sheet(isPresented: $showCopyToProject) {
             CopyToProjectPickerView(
                 sourceProject: project,
@@ -238,10 +237,21 @@ struct ProseFilesView: View {
         if !selectedFiles.isEmpty {
             Button {
                 filesToExport = selectedFiles
+                saveAsRequested = false
                 showExportMenu = true
             } label: {
                 Label(NSLocalizedString("fileList.export", comment: "Export files"), systemImage: "square.and.arrow.up")
             }
+
+            #if os(macOS) || targetEnvironment(macCatalyst)
+            Button {
+                filesToExport = selectedFiles
+                saveAsRequested = true
+                showExportMenu = true
+            } label: {
+                Label(NSLocalizedString("manuscript.saveAs", comment: "Save As…"), systemImage: "square.and.arrow.down")
+            }
+            #endif
         }
         
         Spacer()
@@ -436,9 +446,7 @@ struct ProseFilesView: View {
                 }
                 
                 await MainActor.run {
-                    exportData = data
-                    exportFilename = "\(filename).\(format.fileExtension)"
-                    showExportSaveDialog = true
+                    presentShareFile(data: data, filename: "\(filename).\(format.fileExtension)", format: format)
                 }
             } catch {
                 #if DEBUG
@@ -454,6 +462,7 @@ struct ProseFilesView: View {
     
     private func performSingleFileExport(format: ExportFormat, content: NSAttributedString, filename: String) {
         do {
+            let data: Data
             switch format {
             case .pdf:
                 let assembled = NSMutableAttributedString()
@@ -472,26 +481,44 @@ struct ProseFilesView: View {
                     pageSetup: project.pageSetup,
                     context: modelContext
                 ) else { return }
-                exportData = pdfData
+                data = pdfData
             case .rtf:
-                exportData = try WordDocumentService.exportToRTF(content, filename: filename)
+                data = try WordDocumentService.exportToRTF(content, filename: filename)
             case .html:
-                exportData = try HTMLExportService.exportToHTMLData(content, filename: filename)
+                data = try HTMLExportService.exportToHTMLData(content, filename: filename)
             case .word:
                 let exportService = DOCXExportService(modelContext: modelContext)
-                exportData = try exportService.exportToDOCX(content, filename: filename)
+                data = try exportService.exportToDOCX(content, filename: filename)
             case .markdown:
-                exportData = try MarkdownExportService.exportToMarkdownData(content, filename: filename)
+                data = try MarkdownExportService.exportToMarkdownData(content, filename: filename)
             default:
                 return
             }
             
-            exportFilename = "\(filename).\(format.fileExtension)"
-            showExportSaveDialog = true
+            presentShareFile(data: data, filename: "\(filename).\(format.fileExtension)", format: format)
         } catch {
             #if DEBUG
             print("❌ [ProseFilesView] Single export failed: \(error)")
             #endif
+        }
+    }
+
+    private func presentShareFile(data: Data, filename: String, format: ExportFormat) {
+        if saveAsRequested {
+            exportData = data
+            exportFilename = filename
+            exportFormat = format
+            showExportSaveDialog = true
+            return
+        }
+
+        if let fileURL = ShareService.shared.createShareableFile(
+            data: data,
+            filename: filename,
+            contentType: contentTypeForFormat(format)
+        ) {
+            shareableFileURL = fileURL
+            showShareSheet = true
         }
     }
     

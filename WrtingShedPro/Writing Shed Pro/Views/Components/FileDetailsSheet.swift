@@ -11,6 +11,7 @@ import SwiftUI
 struct FileDetailsSheet: View {
     @Bindable var file: TextFile
     var onExport: ((TextFile) -> Void)? = nil
+    var onSaveAs: ((TextFile) -> Void)? = nil
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -204,13 +205,31 @@ struct FileDetailsSheet: View {
 
     @ViewBuilder
     private var exportSection: some View {
-        if let onExport = onExport {
+        if onExport != nil || onSaveAs != nil {
             Section {
-                Button {
-                    onExport(file)
-                } label: {
-                    Label(NSLocalizedString("fileList.export", comment: "Export"), systemImage: "square.and.arrow.up")
+                if let onExport = onExport {
+                    Button {
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            onExport(file)
+                        }
+                    } label: {
+                        Label(NSLocalizedString("fileList.export", comment: "Export"), systemImage: "square.and.arrow.up")
+                    }
                 }
+
+                #if os(macOS) || targetEnvironment(macCatalyst)
+                if let onSaveAs = onSaveAs {
+                    Button {
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            onSaveAs(file)
+                        }
+                    } label: {
+                        Label(NSLocalizedString("manuscript.saveAs", comment: "Save As…"), systemImage: "square.and.arrow.down")
+                    }
+                }
+                #endif
             }
         }
     }

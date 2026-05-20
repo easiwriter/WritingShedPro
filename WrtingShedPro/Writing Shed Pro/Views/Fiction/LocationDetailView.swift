@@ -24,10 +24,7 @@ struct LocationDetailView: View {
     
     @State private var isEditing = false
     @State private var editName: String = ""
-    @State private var editDetail: String = ""
-    @State private var editSights: String = ""
-    @State private var editSounds: String = ""
-    @State private var editSmells: String = ""
+    @State private var editDetails: String = ""
     @State private var showDeleteConfirmation = false
     
     // MARK: - Body
@@ -96,46 +93,11 @@ struct LocationDetailView: View {
             Text(NSLocalizedString("fiction.location.section.basic", comment: "Basic Info"))
         }
         
-        // Location Details (Detail, Sights, Sounds, Smells)
-        let hasDetail = location.detail != nil && !location.detail!.isEmpty
-        let hasSights = location.sights != nil && !location.sights!.isEmpty
-        let hasSounds = location.sounds != nil && !location.sounds!.isEmpty
-        let hasSmells = location.smells != nil && !location.smells!.isEmpty
-        
-        if hasDetail || hasSights || hasSounds || hasSmells {
+        // Location Details
+        let detailsText = consolidatedLocationDetails()
+        if !detailsText.isEmpty {
             Section {
-                if hasDetail {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.location.detail", comment: "Detail"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(location.detail!)
-                    }
-                }
-                if hasSights {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.location.sights", comment: "Sights"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(location.sights!)
-                    }
-                }
-                if hasSounds {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.location.sounds", comment: "Sounds"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(location.sounds!)
-                    }
-                }
-                if hasSmells {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.location.smells", comment: "Smells"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(location.smells!)
-                    }
-                }
+                Text(detailsText)
             } header: {
                 Text(NSLocalizedString("fiction.location.section.details", comment: "Location Details"))
             }
@@ -192,34 +154,8 @@ struct LocationDetailView: View {
         
         // Location Details
         Section {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(NSLocalizedString("fiction.location.detail", comment: "Detail"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                TextEditor(text: $editDetail)
-                    .frame(minHeight: 60)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(NSLocalizedString("fiction.location.sights", comment: "Sights"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                TextEditor(text: $editSights)
-                    .frame(minHeight: 60)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(NSLocalizedString("fiction.location.sounds", comment: "Sounds"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                TextEditor(text: $editSounds)
-                    .frame(minHeight: 60)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(NSLocalizedString("fiction.location.smells", comment: "Smells"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                TextEditor(text: $editSmells)
-                    .frame(minHeight: 60)
-            }
+            TextEditor(text: $editDetails)
+                .frame(minHeight: 120)
         } header: {
             Text(NSLocalizedString("fiction.location.section.details", comment: "Location Details"))
         }
@@ -229,19 +165,16 @@ struct LocationDetailView: View {
     
     private func startEditing() {
         editName = location.name ?? ""
-        editDetail = location.detail ?? ""
-        editSights = location.sights ?? ""
-        editSounds = location.sounds ?? ""
-        editSmells = location.smells ?? ""
+        editDetails = consolidatedLocationDetails()
         isEditing = true
     }
     
     private func saveChanges() {
         location.name = editName.trimmingCharacters(in: .whitespacesAndNewlines)
-        location.detail = editDetail.isEmpty ? nil : editDetail
-        location.sights = editSights.isEmpty ? nil : editSights
-        location.sounds = editSounds.isEmpty ? nil : editSounds
-        location.smells = editSmells.isEmpty ? nil : editSmells
+        location.detail = editDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : editDetails
+        location.sights = nil
+        location.sounds = nil
+        location.smells = nil
         
         try? modelContext.save()
         isEditing = false
@@ -251,5 +184,16 @@ struct LocationDetailView: View {
         modelContext.delete(location)
         try? modelContext.save()
         dismiss()
+    }
+
+    private func consolidatedLocationDetails() -> String {
+        let parts = [location.detail, location.sights, location.sounds, location.smells]
+            .compactMap { value -> String? in
+                guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+                    return nil
+                }
+                return trimmed
+            }
+        return parts.joined(separator: "\n\n")
     }
 }

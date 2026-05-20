@@ -47,6 +47,9 @@ struct FileListView: View {
     
     /// Called when user initiates export action (optional)
     let onExport: (([TextFile]) -> Void)?
+
+    /// Called when user initiates Save As action (optional)
+    let onExportSaveAs: (([TextFile]) -> Void)?
     
     /// Called when user initiates submit action (optional - only for folders that support submissions)
     let onSubmit: (([TextFile]) -> Void)?
@@ -236,6 +239,9 @@ struct FileListView: View {
             FileDetailsSheet(file: file, onExport: onExport != nil ? { f in
                 fileForDetails = nil
                 onExport?([f])
+            } : nil, onSaveAs: onExportSaveAs != nil ? { f in
+                fileForDetails = nil
+                onExportSaveAs?([f])
             } : nil)
         }
     }
@@ -634,6 +640,22 @@ struct FileListView: View {
             }
             .disabled(selectedFiles.isEmpty)
             .accessibilityLabel("Export selected files")
+
+            #if os(macOS) || targetEnvironment(macCatalyst)
+            if let onExportSaveAs = onExportSaveAs {
+                Button {
+                    onExportSaveAs(selectedFiles)
+                    exitEditMode()
+                } label: {
+                    Label(
+                        NSLocalizedString("manuscript.saveAs", comment: "Save As…"),
+                        systemImage: "square.and.arrow.down"
+                    )
+                }
+                .disabled(selectedFiles.isEmpty)
+                .accessibilityLabel("Save selected files as")
+            }
+            #endif
         }
         
         // Print button (if onPrint callback provided)

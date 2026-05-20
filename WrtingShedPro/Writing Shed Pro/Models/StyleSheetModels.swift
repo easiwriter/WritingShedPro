@@ -275,8 +275,21 @@ final class TextStyleModel {
         #else
         let platformScaleFactor: CGFloat = 1.0  // Standard size on iOS/iPadOS
         #endif
-        
-        let baseSize = fontSize * platformScaleFactor
+
+        let displaySizeOverrides: [String: (style: UIFont.TextStyle, defaultStoredSize: CGFloat)] = [
+            UIFont.TextStyle.body.rawValue: (.body, 12),
+            UIFont.TextStyle.callout.rawValue: (.callout, 11),
+            UIFont.TextStyle.subheadline.rawValue: (.subheadline, 10)
+        ]
+
+        let baseSize: CGFloat
+        if applyPlatformScaling,
+           let override = displaySizeOverrides[name],
+           abs(fontSize - override.defaultStoredSize) < 0.01 {
+            baseSize = UIFont.preferredFont(forTextStyle: override.style).pointSize * platformScaleFactor
+        } else {
+            baseSize = fontSize * platformScaleFactor
+        }
         
         // If a specific font name is set (e.g., "Helvetica-Bold"), use it directly
         if let specificFontName = fontName, !specificFontName.isEmpty {

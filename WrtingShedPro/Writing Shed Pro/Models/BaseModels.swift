@@ -1006,8 +1006,14 @@ final class TextFile {
     /// Switches the current version to the specified version
     /// - Parameter version: The version to switch to
     func switchToVersion(_ version: Version) {
-        if let index = versions?.firstIndex(of: version) {
-            currentVersionIndex = index
+        guard let versions = versions, !versions.isEmpty else { return }
+
+        // currentVersionIndex is always interpreted in sorted versionNumber space.
+        // Using the raw array index can point at a different snapshot when the
+        // relationship array is not already sorted.
+        let sortedVersions = versions.sorted { $0.versionNumber < $1.versionNumber }
+        if let sortedIndex = sortedVersions.firstIndex(where: { $0.id == version.id }) {
+            currentVersionIndex = sortedIndex
             modifiedDate = Date()
             Task { @MainActor in WriteCoalescer.shared?.requestSave() }
         }

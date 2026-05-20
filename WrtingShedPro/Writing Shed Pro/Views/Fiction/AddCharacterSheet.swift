@@ -25,10 +25,7 @@ struct AddCharacterSheet: View {
     @State private var name: String = ""
     @State private var role: String = ""
     @State private var selectedArchetypes: Set<CharacterArchetype> = []
-    @State private var history: String = ""
-    @State private var looks: String = ""
-    @State private var traits: String = ""
-    @State private var work: String = ""
+    @State private var details: String = ""
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     
@@ -90,34 +87,8 @@ struct AddCharacterSheet: View {
                 
                 // Character Details
                 Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.character.history", comment: "History"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        TextEditor(text: $history)
-                            .frame(minHeight: 60)
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.character.looks", comment: "Looks"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        TextEditor(text: $looks)
-                            .frame(minHeight: 60)
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.character.traits", comment: "Traits"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        TextEditor(text: $traits)
-                            .frame(minHeight: 60)
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.character.work", comment: "Work"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        TextEditor(text: $work)
-                            .frame(minHeight: 60)
-                    }
+                    TextEditor(text: $details)
+                        .frame(minHeight: 120)
                 } header: {
                     Text(NSLocalizedString("fiction.character.section.details", comment: "Character Details"))
                 }
@@ -162,10 +133,10 @@ struct AddCharacterSheet: View {
             name: trimmedName,
             role: role.isEmpty ? nil : role,
             archetypes: Array(selectedArchetypes),
-            history: history.isEmpty ? nil : history,
-            looks: looks.isEmpty ? nil : looks,
-            traits: traits.isEmpty ? nil : traits,
-            work: work.isEmpty ? nil : work
+            history: details.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : details,
+            looks: nil,
+            traits: nil,
+            work: nil
         )
         character.project = project
         

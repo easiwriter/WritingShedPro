@@ -93,6 +93,8 @@
 "manuscript.preview.layoutingPage" = "Laying out page %d…";
 "manuscript.preview.renderingPage" = "Rendering page %d of %d…";
 "manuscript.export" = "Export";
+"manuscript.share" = "Share";
+"manuscript.saveAs" = "Save As…";
 "manuscript.print" = "Print";
 "manuscript.matterStyles" = "Matter Styles";
 "manuscript.error.printFailedTitle" = "Print Failed";
@@ -1824,7 +1826,8 @@
 "fileList.rename.duplicateMessage" = "A file with this name already exists in this folder. Do you want to continue?";
 "fileList.rename.duplicateConfirm" = "Continue";
 "fileList.rename.duplicateCancel" = "Cancel";
-"fileList.export" = "Export";
+"fileList.export" = "Share";
+"fileList.share" = "Share";
 
 /* Project Trash Bin - New Keys */
 "projectTrash.title" = "Project Trash";
@@ -2258,6 +2261,7 @@
 "import.help" = "Import Word or Markdown document";
 "manuscript.error.noBodyMatterFiles" = "No body matter files to submit";
 "manuscript.export.formatTitle" = "Export Format";
+"manuscript.share.formatTitle" = "Share Format";
 "plotStructure.fiveAct" = "5-Act Structure";
 "plotStructure.freeform" = "Freeform";
 "plotStructure.monomyth" = "Hero's Journey";

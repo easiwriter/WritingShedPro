@@ -26,7 +26,7 @@ A rich text editor with bold, italic, underline, strikethrough, and a full style
 Choose from dozens of established forms — Sonnet, Haiku, Villanelle, Tanka, and more — or create your own. A real-time syllable counter powered by the CMU Pronouncing Dictionary, stress pattern analysis, and a poetry metrics dashboard help you nail the rhythm every time.
 
 **FICTION TOOLS THAT SHAPE YOUR STORY**
-Organize your novel into chapters and scenes. Build character profiles, location details, and plot outlines. Choose from Freeform, Three-Act, or Monomyth story structures. Move scenes between chapters as your story evolves.
+Organize your novel into chapters and scenes. Build character and location profiles with unified details notes, and map plot outlines. Choose from Freeform, Three-Act, or Monomyth story structures. Move scenes between chapters as your story evolves.
 
 **DRAMA TOOLS FOR STAGE AND SCREEN**
 Write screenplays and stage plays using Drama Markup Language — a lightweight, readable syntax that automatically formats character names, dialogue, and stage directions. The same source renders correctly as either film/screenplay or stage play format.

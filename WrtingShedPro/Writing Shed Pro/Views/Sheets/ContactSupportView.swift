@@ -86,16 +86,29 @@ struct ContactSupportView: View {
                 subjectSection
                 detailsSection
                 stepsSection
+                robotCheckSection
                 deviceInfoSection
                 privacyNoticeSection
-                robotCheckSection
-                sendButtonSection
             }
             .navigationTitle(NSLocalizedString("support.title", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("common.cancel", comment: "")) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        attemptSend()
+                    } label: {
+                        if supportService.isLoading {
+                            ProgressView()
+                        } else {
+                            Text(NSLocalizedString("support.send", comment: ""))
+                        }
+                    }
+                    .disabled(subject.trimmingCharacters(in: .whitespaces).isEmpty ||
+                              details.trimmingCharacters(in: .whitespaces).isEmpty ||
+                              supportService.isLoading)
                 }
             }
             .sheet(isPresented: $showMailCompose) {
@@ -263,32 +276,6 @@ struct ContactSupportView: View {
             }
         } header: {
             Text(NSLocalizedString("support.section.robotCheck", comment: ""))
-        }
-    }
-
-    private var sendButtonSection: some View {
-        Section {
-            Button {
-                attemptSend()
-            } label: {
-                HStack {
-                    Spacer()
-                    if supportService.isLoading {
-                        ProgressView()
-                            .padding(.trailing, 8)
-                        Text(NSLocalizedString("support.sending", comment: ""))
-                            .font(.headline)
-                    } else {
-                        Label(NSLocalizedString("support.send", comment: ""),
-                              systemImage: "paperplane.fill")
-                            .font(.headline)
-                    }
-                    Spacer()
-                }
-            }
-            .disabled(subject.trimmingCharacters(in: .whitespaces).isEmpty ||
-                      details.trimmingCharacters(in: .whitespaces).isEmpty ||
-                      supportService.isLoading)
         }
     }
 

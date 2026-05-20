@@ -1782,7 +1782,13 @@ class PrintService {
     /// Check if printing is available on this device
     /// - Returns: True if printing is supported
     static func isPrintingAvailable() -> Bool {
+        #if targetEnvironment(macCatalyst)
+        // Mac Catalyst supports system print workflows even when UIKit's
+        // iOS-centric availability probe can report false.
+        return true
+        #else
         return UIPrintInteractionController.isPrintingAvailable
+        #endif
     }
     
     /// Check if a specific file can be printed

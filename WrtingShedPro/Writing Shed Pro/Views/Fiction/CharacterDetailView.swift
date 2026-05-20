@@ -26,10 +26,7 @@ struct CharacterDetailView: View {
     @State private var editName: String = ""
     @State private var editRole: String = ""
     @State private var editArchetypes: Set<CharacterArchetype> = []
-    @State private var editHistory: String = ""
-    @State private var editLooks: String = ""
-    @State private var editTraits: String = ""
-    @State private var editWork: String = ""
+    @State private var editDetails: String = ""
     @State private var showDeleteConfirmation = false
     
     // MARK: - Body
@@ -121,46 +118,11 @@ struct CharacterDetailView: View {
             }
         }
         
-        // Character Details (History, Looks, Traits, Work)
-        let hasHistory = character.history != nil && !character.history!.isEmpty
-        let hasLooks = character.looks != nil && !character.looks!.isEmpty
-        let hasTraits = character.traits != nil && !character.traits!.isEmpty
-        let hasWork = character.work != nil && !character.work!.isEmpty
-        
-        if hasHistory || hasLooks || hasTraits || hasWork {
+        // Character Details
+        let detailsText = consolidatedCharacterDetails()
+        if !detailsText.isEmpty {
             Section {
-                if hasHistory {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.character.history", comment: "History"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(character.history!)
-                    }
-                }
-                if hasLooks {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.character.looks", comment: "Looks"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(character.looks!)
-                    }
-                }
-                if hasTraits {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.character.traits", comment: "Traits"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(character.traits!)
-                    }
-                }
-                if hasWork {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.character.work", comment: "Work"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(character.work!)
-                    }
-                }
+                Text(detailsText)
             } header: {
                 Text(NSLocalizedString("fiction.character.section.details", comment: "Character Details"))
             }
@@ -250,34 +212,8 @@ struct CharacterDetailView: View {
         
         // Character Details
         Section {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(NSLocalizedString("fiction.character.history", comment: "History"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                TextEditor(text: $editHistory)
-                    .frame(minHeight: 60)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(NSLocalizedString("fiction.character.looks", comment: "Looks"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                TextEditor(text: $editLooks)
-                    .frame(minHeight: 60)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(NSLocalizedString("fiction.character.traits", comment: "Traits"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                TextEditor(text: $editTraits)
-                    .frame(minHeight: 60)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(NSLocalizedString("fiction.character.work", comment: "Work"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                TextEditor(text: $editWork)
-                    .frame(minHeight: 60)
-            }
+            TextEditor(text: $editDetails)
+                .frame(minHeight: 120)
         } header: {
             Text(NSLocalizedString("fiction.character.section.details", comment: "Character Details"))
         }
@@ -289,10 +225,7 @@ struct CharacterDetailView: View {
         editName = character.name ?? ""
         editRole = character.role ?? ""
         editArchetypes = Set(character.archetypes)
-        editHistory = character.history ?? ""
-        editLooks = character.looks ?? ""
-        editTraits = character.traits ?? ""
-        editWork = character.work ?? ""
+        editDetails = consolidatedCharacterDetails()
         isEditing = true
     }
     
@@ -301,10 +234,10 @@ struct CharacterDetailView: View {
         character.role = editRole.isEmpty ? nil : editRole
         character.archetypes = Array(editArchetypes)
         character.pearsonArchetypeRaw = nil
-        character.history = editHistory.isEmpty ? nil : editHistory
-        character.looks = editLooks.isEmpty ? nil : editLooks
-        character.traits = editTraits.isEmpty ? nil : editTraits
-        character.work = editWork.isEmpty ? nil : editWork
+        character.history = editDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : editDetails
+        character.looks = nil
+        character.traits = nil
+        character.work = nil
         
         try? modelContext.save()
         isEditing = false
@@ -314,5 +247,16 @@ struct CharacterDetailView: View {
         modelContext.delete(character)
         try? modelContext.save()
         dismiss()
+    }
+
+    private func consolidatedCharacterDetails() -> String {
+        let parts = [character.history, character.looks, character.traits, character.work]
+            .compactMap { value -> String? in
+                guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+                    return nil
+                }
+                return trimmed
+            }
+        return parts.joined(separator: "\n\n")
     }
 }

@@ -173,12 +173,14 @@ Used for non-verse lines within a poem (epigraphs, prose interludes, etc.)
 ## 8. FICTION FEATURES
 
 ### Characters
-- Fields: Name, Role, Looks, Traits, History, Work
+- Fields: Name, Role, Details
+- Details is a single freeform text field used for backstory, appearance, personality traits, and occupation notes.
 - Characters can be linked to scenes
 - Shared across all scenes in a project
 
 ### Locations
-- Fields: Name, Detail, Sights, Sounds, Smells
+- Fields: Name, Details
+- Details is a single freeform text field used for descriptive setting notes (visuals, sounds, atmosphere, sensory details).
 - Can be linked to scenes
 
 ### Plot Elements

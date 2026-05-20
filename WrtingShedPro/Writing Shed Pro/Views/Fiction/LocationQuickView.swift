@@ -16,10 +16,18 @@ struct LocationQuickView: View {
     let location: Location
     
     private var hasDetails: Bool {
-        (location.detail != nil && !location.detail!.isEmpty) ||
-        (location.sights != nil && !location.sights!.isEmpty) ||
-        (location.sounds != nil && !location.sounds!.isEmpty) ||
-        (location.smells != nil && !location.smells!.isEmpty)
+        !consolidatedDetails.isEmpty
+    }
+
+    private var consolidatedDetails: String {
+        let parts = [location.detail, location.sights, location.sounds, location.smells]
+            .compactMap { value -> String? in
+                guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+                    return nil
+                }
+                return trimmed
+            }
+        return parts.joined(separator: "\n\n")
     }
     
     var body: some View {
@@ -51,18 +59,7 @@ struct LocationQuickView: View {
     
     private var detailsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let detail = location.detail, !detail.isEmpty {
-                detailField(NSLocalizedString("fiction.location.detail", comment: "Detail"), value: detail)
-            }
-            if let sights = location.sights, !sights.isEmpty {
-                detailField(NSLocalizedString("fiction.location.sights", comment: "Sights"), value: sights)
-            }
-            if let sounds = location.sounds, !sounds.isEmpty {
-                detailField(NSLocalizedString("fiction.location.sounds", comment: "Sounds"), value: sounds)
-            }
-            if let smells = location.smells, !smells.isEmpty {
-                detailField(NSLocalizedString("fiction.location.smells", comment: "Smells"), value: smells)
-            }
+            detailField(NSLocalizedString("fiction.location.section.details", comment: "Location Details"), value: consolidatedDetails)
         }
     }
     

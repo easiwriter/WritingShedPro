@@ -69,15 +69,18 @@ struct ProseListView: View {
     /// File details state (sheet(item:) avoids timing issues/blank sheets)
     @State private var fileForDetails: TextFile?
     
-    /// Export state
+    /// Export/Share state
     @State private var showExportMenu = false
     @State private var filesToExport: [TextFile] = []
-    @State private var showExportSaveDialog = false
     @State private var exportFormat: ExportFormat = .rtf
+    @State private var showExportSaveDialog = false
     @State private var exportData: Data?
     @State private var exportFilename: String = ""
+    @State private var saveAsRequested = false
     @State private var showExportImageWarning = false
     @State private var pendingExportAction: (() -> Void)?
+    @State private var shareableFileURL: URL?
+    @State private var showShareSheet = false
     
     /// Copy to Project state
     @State private var showCopyToProject = false
@@ -258,6 +261,12 @@ struct ProseListView: View {
                 FileDetailsSheet(file: file, onExport: { f in
                     fileForDetails = nil
                     filesToExport = [f]
+                    saveAsRequested = false
+                    showExportMenu = true
+                }, onSaveAs: { f in
+                    fileForDetails = nil
+                    filesToExport = [f]
+                    saveAsRequested = true
                     showExportMenu = true
                 })
             }
@@ -333,6 +342,11 @@ struct ProseListView: View {
             } message: {
                 Text(NSLocalizedString("export.imageWarning.message", comment: "Images will not be included"))
             }
+            .sheet(isPresented: $showShareSheet) {
+                if let fileURL = shareableFileURL {
+                    ShareSheet(urls: [fileURL])
+                }
+            }
             .fileExporter(
                 isPresented: $showExportSaveDialog,
                 document: ExportDocument(
@@ -342,7 +356,11 @@ struct ProseListView: View {
                 ),
                 contentType: contentTypeForFormat(exportFormat),
                 defaultFilename: exportFilename,
-                onCompletion: handleExportResult
+                onCompletion: { _ in
+                    exportData = nil
+                    exportFilename = ""
+                    saveAsRequested = false
+                }
             )
             .sheet(isPresented: $showCopyToProject) {
                 CopyToProjectPickerView(
@@ -759,14 +777,25 @@ struct ProseListView: View {
             }
         }
         
-        // Export button
+        // Share button
         if !selectedFiles.isEmpty {
             Button {
                 filesToExport = selectedFiles
+                saveAsRequested = false
                 showExportMenu = true
             } label: {
-                Label(NSLocalizedString("fileList.export", comment: "Export files"), systemImage: "square.and.arrow.up")
+                Label(NSLocalizedString("fileList.share", comment: "Share files"), systemImage: "square.and.arrow.up")
             }
+
+            #if os(macOS) || targetEnvironment(macCatalyst)
+            Button {
+                filesToExport = selectedFiles
+                saveAsRequested = true
+                showExportMenu = true
+            } label: {
+                Label(NSLocalizedString("manuscript.saveAs", comment: "Save As…"), systemImage: "square.and.arrow.down")
+            }
+            #endif
         }
         
         // Print button
@@ -1167,9 +1196,32 @@ struct ProseListView: View {
                 }
                 
                 await MainActor.run {
-                    exportData = data
-                    exportFilename = "\(filename).\(format.fileExtension)"
-                    showExportSaveDialog = true
+                    let filename = "\(filename).\(format.fileExtension)"
+                    exportFormat = format
+                    if saveAsRequested {
+                        exportData = data
+                        exportFilename = filename
+                        showExportSaveDialog = true
+                        return
+                    }
+                    
+                    // Create shareable file and trigger share sheet
+                    if let fileURL = ShareService.shared.createShareableFile(
+                        data: data,
+                        filename: filename,
+                        contentType: contentTypeForFormat(format)
+                    ) {
+                        shareableFileURL = fileURL
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            showShareSheet = true
+                        }
+                    } else {
+                        #if DEBUG
+                        print("❌ [ProseListView] Failed to create shareable file")
+                        #endif
+                        importErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed")
+                        showImportError = true
+                    }
                 }
             } catch {
                 #if DEBUG
@@ -1217,24 +1269,34 @@ struct ProseListView: View {
                 return
             }
             
-            exportFilename = "\(filename).\(format.fileExtension)"
-            showExportSaveDialog = true
+            let filename = "\(filename).\(format.fileExtension)"
+            exportFormat = format
+
+            if saveAsRequested {
+                showExportSaveDialog = true
+                return
+            }
+            
+            // Create shareable file and trigger share sheet
+            if let fileURL = ShareService.shared.createShareableFile(
+                data: exportData!,
+                filename: filename,
+                contentType: contentTypeForFormat(format)
+            ) {
+                shareableFileURL = fileURL
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    showShareSheet = true
+                }
+            } else {
+                #if DEBUG
+                print("❌ [ProseListView] Failed to create shareable file")
+                #endif
+                importErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed")
+                showImportError = true
+            }
         } catch {
             #if DEBUG
             print("❌ [ProseListView] Single export failed: \(error)")
-            #endif
-        }
-    }
-    
-    private func handleExportResult(_ result: Result<URL, Error>) {
-        switch result {
-        case .success(let url):
-            #if DEBUG
-            print("📤 [ProseListView] Export successful: \(url)")
-            #endif
-        case .failure(let error):
-            #if DEBUG
-            print("📤 [ProseListView] Export failed: \(error)")
             #endif
             importErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed") + ": \(error.localizedDescription)"
             showImportError = true
@@ -1456,8 +1518,13 @@ struct ProseListView: View {
             file.workflowStatus = .draft
             
             if let firstVersion = file.versions?.first {
-                firstVersion.content = plainText
-                firstVersion.formattedContent = rtfData
+                if let rtfData,
+                   let importedContent = AttributedStringSerializer.fromRTF(rtfData, scaleFonts: false) {
+                    firstVersion.attributedContent = importedContent
+                } else {
+                    firstVersion.content = plainText
+                    firstVersion.formattedContent = rtfData
+                }
             }
             
             file.modifiedDate = Date()
@@ -1498,7 +1565,12 @@ struct ProseListView: View {
             
             if let firstVersion = file.versions?.first {
                 firstVersion.content = plainText
-                firstVersion.formattedContent = rtfData
+                if let rtfData,
+                   let importedContent = AttributedStringSerializer.fromRTF(rtfData, scaleFonts: false) {
+                    let normalizedImport = AttributedStringSerializer.normalizeImportedWordContentToBody(importedContent)
+                    firstVersion.attributedContent = normalizedImport
+                }
+                // If rtfData is nil or unparseable, content is already set to plainText above.
             }
             
             file.modifiedDate = Date()

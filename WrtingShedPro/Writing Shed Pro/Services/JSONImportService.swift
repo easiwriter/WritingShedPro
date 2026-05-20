@@ -1369,6 +1369,11 @@ class JSONImportService {
             textFile.workflowStatus = workflowStatus
             textFile.userOrder = index  // Preserve import order for deterministic sorting
             
+            // Insert into context BEFORE importing versions so SwiftData can
+            // correctly track the bidirectional TextFile ↔ Version relationship.
+            // (Mirrors the WSP import path in importWSPTextFile.)
+            modelContext.insert(textFile)
+            
             // Clear the auto-created initial version - we'll import the real versions
             textFile.versions = []
             
@@ -1377,8 +1382,6 @@ class JSONImportService {
             
             // Import versions
             try importVersions(from: textFileData.versions, into: textFile)
-            
-            modelContext.insert(textFile)
         }
     }
     
@@ -1415,13 +1418,20 @@ class JSONImportService {
             // Decode content
             if !versionData.quickfile {
                 if let contentString = try? decodeAttributedString(from: versionData.textFile, plainText: versionData.text) {
-                    // Apply dark mode fix, then normalize to Body style so legacy imports
-                    // do not reopen through the raw RTF scaling path on iOS.
+                    // Apply dark mode fix, then scale fonts 1.8× — matching the legacy
+                    // fromLegacyRTF path so imported WSD content displays at the same
+                    // size as it did before being stored as JSON.
                     let cleanedString = AttributedStringSerializer.stripAdaptiveColors(from: contentString)
-                    let normalizedImport = AttributedStringSerializer.normalizeImportedWordContentToBody(cleanedString)
+                    let scaledString = AttributedStringSerializer.scaleFonts(cleanedString, scaleFactor: 1.8)
+                    // Strip .textStyle added by scaleFonts: the decode path for body
+                    // textStyle always uses preferredFont(.body) and ignores the stored
+                    // font size, making text appear small. Without it the decoder uses
+                    // the stored font name+size directly, preserving the 1.8× scale.
+                    let mutableScaled = NSMutableAttributedString(attributedString: scaledString)
+                    mutableScaled.removeAttribute(.textStyle, range: NSRange(location: 0, length: mutableScaled.length))
 
-                    version.attributedContent = normalizedImport
-                    version.content = normalizedImport.string
+                    version.attributedContent = mutableScaled
+                    version.content = mutableScaled.string
                 }
             }
             

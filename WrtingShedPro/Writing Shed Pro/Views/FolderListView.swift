@@ -3,6 +3,11 @@ import SwiftData
 import UniformTypeIdentifiers
 
 struct FolderListView: View {
+    private enum ManuscriptExportTarget {
+        case share
+        case saveAs
+    }
+
     let project: Project
     let selectedFolder: Folder?
     
@@ -20,6 +25,9 @@ struct FolderListView: View {
     @State private var exportData: Data?
     @State private var exportFilename = ""
     @State private var exportContentType: UTType = .pdf
+    @State private var showShareSheet = false
+    @State private var shareableFileURL: URL?
+    @State private var manuscriptExportTarget: ManuscriptExportTarget = .share
     @State private var showPreview = false
     @State private var previewPDFData: Data?
     @State private var showPrintError = false
@@ -389,14 +397,30 @@ struct FolderListView: View {
                         }
                         .disabled(isExporting)
                         
-                        Button {
-                            if !EntitlementManager.shared.canExport(projectType: project.type) {
-                                upgradePromptReason = .exportBlocked(projectType: project.type)
-                            } else {
-                                showExportFormatPicker = true
+                        Menu {
+                            Button {
+                                if !EntitlementManager.shared.canExport(projectType: project.type) {
+                                    upgradePromptReason = .exportBlocked(projectType: project.type)
+                                } else {
+                                    manuscriptExportTarget = .share
+                                    showExportFormatPicker = true
+                                }
+                            } label: {
+                                Label(NSLocalizedString("manuscript.share", comment: "Share"), systemImage: "square.and.arrow.up")
+                            }
+
+                            Button {
+                                if !EntitlementManager.shared.canExport(projectType: project.type) {
+                                    upgradePromptReason = .exportBlocked(projectType: project.type)
+                                } else {
+                                    manuscriptExportTarget = .saveAs
+                                    showExportFormatPicker = true
+                                }
+                            } label: {
+                                Label(NSLocalizedString("manuscript.saveAs", comment: "Save As…"), systemImage: "square.and.arrow.down")
                             }
                         } label: {
-                            Label(NSLocalizedString("manuscript.export", comment: "Export"), systemImage: "square.and.arrow.up")
+                            Label(NSLocalizedString("manuscript.share", comment: "Share"), systemImage: "square.and.arrow.up")
                         }
                         .disabled(isExporting)
                         
@@ -427,7 +451,9 @@ struct FolderListView: View {
             Text(printErrorMessage)
         }
         .confirmationDialog(
-            NSLocalizedString("manuscript.export.formatTitle", comment: "Export Format"),
+            manuscriptExportTarget == .share
+                ? NSLocalizedString("manuscript.share.formatTitle", comment: "Share Format")
+                : NSLocalizedString("manuscript.export.formatTitle", comment: "Export Format"),
             isPresented: $showExportFormatPicker,
             titleVisibility: .visible
         ) {
@@ -481,6 +507,11 @@ struct FolderListView: View {
         } message: {
             Text(NSLocalizedString("export.imageWarning.message", comment: "Images will not be included in this export format. Use PDF or Word (.docx) to include images."))
         }
+        .sheet(isPresented: $showShareSheet) {
+            if let fileURL = shareableFileURL {
+                ShareSheet(urls: [fileURL])
+            }
+        }
         .fileExporter(
             isPresented: $showExportSaveDialog,
             document: ExportDocument(
@@ -492,18 +523,14 @@ struct FolderListView: View {
             defaultFilename: exportFilename
         ) { result in
             switch result {
-            case .success(let url):
-                #if DEBUG
-                print("✅ [Manuscript] Exported to: \(url)")
-                #endif
+            case .success:
+                break
             case .failure(let error):
-                #if DEBUG
-                print("❌ [Manuscript] Export failed: \(error)")
-                #endif
                 exportErrorMessage = error.localizedDescription
                 showExportError = true
             }
             exportData = nil
+            exportFilename = ""
         }
         .fullScreenCover(isPresented: $showPreview) {
             ManuscriptPreviewView(
@@ -672,6 +699,28 @@ struct FolderListView: View {
         showSubmissionCreated = true
         manuscriptFilesToSubmit = []
     }
+
+    private func handleExportedData(_ data: Data, filename: String, contentType: UTType) {
+        switch manuscriptExportTarget {
+        case .share:
+            if let fileURL = ShareService.shared.createShareableFile(
+                data: data,
+                filename: filename,
+                contentType: contentType
+            ) {
+                shareableFileURL = fileURL
+                showShareSheet = true
+            } else {
+                exportErrorMessage = NSLocalizedString("manuscript.error.exportFailedGeneric", comment: "Export failed")
+                showExportError = true
+            }
+        case .saveAs:
+            exportData = data
+            exportFilename = filename
+            exportContentType = contentType
+            showExportSaveDialog = true
+        }
+    }
     
     /// Export the full manuscript as RTF
     private func exportManuscriptRTF() {
@@ -689,10 +738,7 @@ struct FolderListView: View {
                 let rtfData = try WordDocumentService.exportToRTF(content.attributedString, filename: projectName)
                 
                 await MainActor.run {
-                    exportData = rtfData
-                    exportContentType = .rtf
-                    exportFilename = "\(projectName).rtf"
-                    showExportSaveDialog = true
+                    handleExportedData(rtfData, filename: "\(projectName).rtf", contentType: .rtf)
                     isExporting = false
                 }
             } catch {
@@ -721,10 +767,7 @@ struct FolderListView: View {
                 let mdData = try MarkdownExportService.exportToMarkdownData(content.attributedString, filename: projectName)
                 
                 await MainActor.run {
-                    exportData = mdData
-                    exportContentType = UTType(filenameExtension: "md") ?? .plainText
-                    exportFilename = "\(projectName).md"
-                    showExportSaveDialog = true
+                    handleExportedData(mdData, filename: "\(projectName).md", contentType: UTType(filenameExtension: "md") ?? .plainText)
                     isExporting = false
                 }
             } catch {
@@ -755,10 +798,7 @@ struct FolderListView: View {
                 let docxData = try helper.createDOCXPackage(documentXML: docXML, images: helper.collectedImages)
                 
                 await MainActor.run {
-                    exportData = docxData
-                    exportContentType = UTType("org.openxmlformats.wordprocessingml.document") ?? .data
-                    exportFilename = "\(projectName).docx"
-                    showExportSaveDialog = true
+                    handleExportedData(docxData, filename: "\(projectName).docx", contentType: UTType("org.openxmlformats.wordprocessingml.document") ?? .data)
                     isExporting = false
                 }
             } catch {
@@ -812,10 +852,7 @@ struct FolderListView: View {
                 )
                 
                 await MainActor.run {
-                    exportData = epubData
-                    exportContentType = UTType(filenameExtension: "epub") ?? .data
-                    exportFilename = "\(projectName).epub"
-                    showExportSaveDialog = true
+                    handleExportedData(epubData, filename: "\(projectName).epub", contentType: UTType(filenameExtension: "epub") ?? .data)
                     isExporting = false
                 }
             } catch {
@@ -836,10 +873,7 @@ struct FolderListView: View {
         Task {
             if let data = await generateManuscriptPDF() {
                 await MainActor.run {
-                    exportData = data
-                    exportContentType = .pdf
-                    exportFilename = "\(projectName).pdf"
-                    showExportSaveDialog = true
+                    handleExportedData(data, filename: "\(projectName).pdf", contentType: .pdf)
                     isExporting = false
                 }
             } else {
@@ -866,10 +900,7 @@ struct FolderListView: View {
                     throw AssemblyError.noFilesFound
                 }
                 await MainActor.run {
-                    exportData = data
-                    exportContentType = UTType(filenameExtension: "fountain") ?? .plainText
-                    exportFilename = "\(projectName).fountain"
-                    showExportSaveDialog = true
+                    handleExportedData(data, filename: "\(projectName).fountain", contentType: UTType(filenameExtension: "fountain") ?? .plainText)
                     isExporting = false
                 }
             } catch {
@@ -896,10 +927,7 @@ struct FolderListView: View {
                     throw AssemblyError.noFilesFound
                 }
                 await MainActor.run {
-                    exportData = data
-                    exportContentType = UTType(filenameExtension: "fdx") ?? .xml
-                    exportFilename = "\(projectName).fdx"
-                    showExportSaveDialog = true
+                    handleExportedData(data, filename: "\(projectName).fdx", contentType: UTType(filenameExtension: "fdx") ?? .xml)
                     isExporting = false
                 }
             } catch {

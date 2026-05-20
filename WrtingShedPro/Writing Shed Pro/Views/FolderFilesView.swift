@@ -70,6 +70,9 @@ struct FolderFilesView: View {
     @State var exportAttributedStrings: [NSAttributedString] = []  // For HTML multi-file export
     @State var showExportImageWarning = false
     @State var pendingExportAction: (() -> Void)? = nil
+    @State var shareableFileURL: URL?
+    @State var showShareSheet = false
+    @State var saveAsRequested = false
 
     // State for Copy to Project
     @State var showCopyToProject = false
@@ -161,6 +164,7 @@ struct FolderFilesView: View {
             onMove: (isProseProject && !isReadOnly) ? handleMove : nil,
             onDelete: isReadOnly ? { _ in } : deleteFiles,
             onExport: isReadOnly ? nil : handleExport,
+            onExportSaveAs: isReadOnly ? nil : handleExportSaveAs,
             onSubmit: fileListOnSubmit,
             onReorder: (!isReadOnly && isContentFolder) ? moveContentFiles : nil,
             onRename: (isReadOnly || (isPoetryProject && isContentFolder)) ? nil : handleRename,
@@ -186,6 +190,13 @@ struct FolderFilesView: View {
     
     private func handleExport(_ files: [TextFile]) {
         filesToExport = files
+        saveAsRequested = false
+        showExportMenu = true
+    }
+
+    private func handleExportSaveAs(_ files: [TextFile]) {
+        filesToExport = files
+        saveAsRequested = true
         showExportMenu = true
     }
     
@@ -1119,8 +1130,13 @@ struct FolderFilesView: View {
             
             // Update the first version with imported content
             if let firstVersion = file.versions?.first {
-                firstVersion.content = plainText
-                firstVersion.formattedContent = rtfData
+                if let rtfData,
+                   let importedContent = AttributedStringSerializer.fromRTF(rtfData, scaleFonts: false) {
+                    firstVersion.attributedContent = importedContent
+                } else {
+                    firstVersion.content = plainText
+                    firstVersion.formattedContent = rtfData
+                }
             }
             
             file.modifiedDate = Date()
@@ -1162,10 +1178,17 @@ struct FolderFilesView: View {
             // Set default workflow status for imported files
             file.workflowStatus = .draft
             
-            // Update the first version with imported content
+            // Update the first version with imported content.
+            // Use fromRTF(scaleFonts: false) → attributedContent (JSON) to avoid the 1.8x
+            // legacy scaling that raw RTF storage triggers on every load.
             if let firstVersion = file.versions?.first {
                 firstVersion.content = plainText
-                firstVersion.formattedContent = rtfData
+                if let rtfData,
+                   let importedContent = AttributedStringSerializer.fromRTF(rtfData, scaleFonts: false) {
+                    let normalizedImport = AttributedStringSerializer.normalizeImportedWordContentToBody(importedContent)
+                    firstVersion.attributedContent = normalizedImport
+                }
+                // If rtfData is nil or unparseable, content is already set to plainText above.
             }
             
             file.modifiedDate = Date()
@@ -1350,7 +1373,7 @@ struct FolderFilesView: View {
                 
                 await MainActor.run {
                     exportData = data
-                    showExportSaveDialog = true
+                    sharePreparedExportData(filename: "\(filename).\(format.fileExtension)", format: format)
                 }
                 
             } catch {
@@ -1503,7 +1526,7 @@ struct FolderFilesView: View {
                 await MainActor.run {
                     exportData = data
                     exportFilename = "\(filename).\(format.fileExtension)"
-                    showExportSaveDialog = true
+                    sharePreparedExportData(filename: exportFilename, format: format)
                 }
             } catch {
                 await MainActor.run {
@@ -1585,7 +1608,7 @@ struct FolderFilesView: View {
             print("   Setting showExportSaveDialog = true")
             #endif
             
-            showExportSaveDialog = true
+            sharePreparedExportData(filename: exportFilename, format: format)
             
         } catch {
             #if DEBUG
@@ -1610,6 +1633,29 @@ struct FolderFilesView: View {
             print("❌ Export failed: \(error.localizedDescription)")
             #endif
             filesToExport = []
+        }
+    }
+
+    private func sharePreparedExportData(filename: String, format: ExportFormat) {
+        guard let data = exportData else { return }
+
+        if saveAsRequested {
+            exportFilename = filename
+            exportFormat = format
+            showExportSaveDialog = true
+            return
+        }
+
+        if let fileURL = ShareService.shared.createShareableFile(
+            data: data,
+            filename: filename,
+            contentType: contentTypeForFormat(format)
+        ) {
+            shareableFileURL = fileURL
+            showShareSheet = true
+            filesToExport = []
+            exportData = nil
+            exportFilename = ""
         }
     }
     

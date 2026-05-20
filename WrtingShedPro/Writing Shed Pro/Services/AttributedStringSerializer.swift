@@ -493,12 +493,16 @@ struct AttributedStringSerializer {
     ///   - text: The plain text content
     /// - Returns: Reconstructed NSAttributedString
     static func decode(_ data: Data, text: String) -> NSAttributedString {
-        // Start with body font and textStyle as default
+        // Start with body font as default — do NOT add a default .textStyle attribute here.
+        // Adding .textStyle = body as a default causes reapplyAllStyles() to normalize ALL text
+        // to the body style on every open, which destroys font-size hierarchies in imported
+        // documents (Word/DOCX) that were stored without explicit text-style metadata.
+        // App-created documents always have explicit .textStyle values stored in the JSON, so
+        // they are unaffected by removing this default.
         let result = NSMutableAttributedString(
             string: text,
             attributes: [
-                .font: UIFont.preferredFont(forTextStyle: .body),
-                .textStyle: UIFont.TextStyle.body.attributeValue
+                .font: UIFont.preferredFont(forTextStyle: .body)
             ]
         )
         
@@ -935,6 +939,36 @@ struct AttributedStringSerializer {
     /// - Returns: NSAttributedString with scaled fonts, or nil if decoding fails
     static func fromLegacyRTF(_ data: Data) -> NSAttributedString? {
         return fromRTF(data, scaleFonts: true)
+    }
+
+    /// Normalize imported Word content to a single Body style while preserving direct traits.
+    /// This is used for Word/RTF imports so first-open rendering matches subsequent reopens.
+    /// - Parameter attributedString: The imported attributed string to normalize.
+    /// - Returns: Content with Body font/size and preserved bold/italic/underline/strikethrough.
+    static func normalizeImportedWordContentToBody(_ attributedString: NSAttributedString) -> NSAttributedString {
+        guard attributedString.length > 0 else {
+            return attributedString
+        }
+
+        let mutableString = NSMutableAttributedString(attributedString: attributedString)
+        let range = NSRange(location: 0, length: mutableString.length)
+        let baseBodyFont = UIFont.preferredFont(forTextStyle: .body)
+
+        mutableString.enumerateAttribute(.font, in: range, options: []) { value, runRange, _ in
+            let existingFont = value as? UIFont
+            let existingTraits = existingFont?.fontDescriptor.symbolicTraits ?? []
+
+            var normalizedFont = baseBodyFont
+            if !existingTraits.isEmpty,
+               let descriptor = baseBodyFont.fontDescriptor.withSymbolicTraits(existingTraits) {
+                normalizedFont = UIFont(descriptor: descriptor, size: baseBodyFont.pointSize)
+            }
+
+            mutableString.addAttribute(.font, value: normalizedFont, range: runRange)
+            mutableString.addAttribute(.textStyle, value: UIFont.TextStyle.body.attributeValue, range: runRange)
+        }
+
+        return mutableString
     }
     
     /// Normalize imported text to use Body style while preserving traits

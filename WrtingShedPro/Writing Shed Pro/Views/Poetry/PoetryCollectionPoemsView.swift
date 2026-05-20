@@ -33,12 +33,15 @@ struct PoetryCollectionPoemsView: View {
     
     // Export state
     @State private var showExportMenu = false
-    @State private var showExportSaveDialog = false
     @State private var exportFormat: ExportFormat = .rtf
+    @State private var showExportSaveDialog = false
     @State private var exportData: Data?
     @State private var exportFilename: String = ""
+    @State private var saveAsRequested = false
     @State private var showExportImageWarning = false
     @State private var pendingExportAction: (() -> Void)?
+    @State private var shareableFileURL: URL?
+    @State private var showShareSheet = false
     
     // IAP gating
     @State private var upgradePromptReason: UpgradePromptReason?
@@ -111,9 +114,21 @@ struct PoetryCollectionPoemsView: View {
                 // More menu (export/print)
                 if !sortedFiles.isEmpty && !isEditMode {
                     Menu {
-                        Button(action: { showExportMenu = true }) {
+                        Button(action: {
+                            saveAsRequested = false
+                            showExportMenu = true
+                        }) {
                             Label(NSLocalizedString("button.export", comment: "Export"), systemImage: "square.and.arrow.up")
                         }
+
+                        #if os(macOS) || targetEnvironment(macCatalyst)
+                        Button(action: {
+                            saveAsRequested = true
+                            showExportMenu = true
+                        }) {
+                            Label(NSLocalizedString("manuscript.saveAs", comment: "Save As…"), systemImage: "square.and.arrow.down")
+                        }
+                        #endif
                         
                         Button(action: { printCollection() }) {
                             Label(NSLocalizedString("button.print", comment: "Print"), systemImage: "printer")
@@ -170,20 +185,20 @@ struct PoetryCollectionPoemsView: View {
         } message: {
             Text(NSLocalizedString("export.imageWarning.message", comment: "Images will not be included"))
         }
+        .sheet(isPresented: $showShareSheet) {
+            if let fileURL = shareableFileURL {
+                ShareSheet(urls: [fileURL])
+            }
+        }
         .fileExporter(
             isPresented: $showExportSaveDialog,
             document: ExportDocument(data: exportData ?? Data(), filename: exportFilename, contentType: contentTypeForFormat(exportFormat)),
             contentType: contentTypeForFormat(exportFormat),
             defaultFilename: exportFilename
-        ) { result in
-            #if DEBUG
-            switch result {
-            case .success(let url):
-                print("✅ Exported to: \(url)")
-            case .failure(let error):
-                print("❌ Export save failed: \(error)")
-            }
-            #endif
+        ) { _ in
+            exportData = nil
+            exportFilename = ""
+            saveAsRequested = false
         }
         .alert(NSLocalizedString("print.error.title", comment: "Print Error"), isPresented: $showPrintError) {
             Button(NSLocalizedString("button.ok", comment: "OK")) { }
@@ -408,9 +423,7 @@ struct PoetryCollectionPoemsView: View {
                 
                 await MainActor.run {
                     guard let pdfData = pdfData else { return }
-                    exportData = pdfData
-                    exportFilename = "\(filename).pdf"
-                    showExportSaveDialog = true
+                    presentShareFile(data: pdfData, filename: "\(filename).pdf", format: .pdf)
                 }
             }
             return
@@ -463,15 +476,32 @@ struct PoetryCollectionPoemsView: View {
                 }
                 
                 await MainActor.run {
-                    exportData = data
-                    exportFilename = "\(filename).\(format.fileExtension)"
-                    showExportSaveDialog = true
+                    presentShareFile(data: data, filename: "\(filename).\(format.fileExtension)", format: format)
                 }
             } catch {
                 #if DEBUG
                 print("❌ Export failed: \(error)")
                 #endif
             }
+        }
+    }
+
+    private func presentShareFile(data: Data, filename: String, format: ExportFormat) {
+        if saveAsRequested {
+            exportData = data
+            exportFilename = filename
+            exportFormat = format
+            showExportSaveDialog = true
+            return
+        }
+
+        if let fileURL = ShareService.shared.createShareableFile(
+            data: data,
+            filename: filename,
+            contentType: contentTypeForFormat(format)
+        ) {
+            shareableFileURL = fileURL
+            showShareSheet = true
         }
     }
     

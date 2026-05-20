@@ -31,86 +31,12 @@ struct StyleSheetManagementView: View {
                     NavigationLink {
                         StyleSheetDetailView(styleSheet: sheet)
                     } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(sheet.name)
-                                    .font(.headline)
-                                
-                                Text(String(format: NSLocalizedString("styleSheetManagement.stylesCount", comment: ""), sheet.textStyles?.count ?? 0))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            
-                            Spacer()
-                            
-                            Button(action: {
-                                duplicateStyleSheet(sheet)
-                            }) {
-                                Label("styleSheetManagement.duplicate", systemImage: "doc.on.doc")
-                                    .labelStyle(.iconOnly)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("styleSheetManagement.duplicate.accessibility")
-                            
-                            Button(role: .destructive, action: {
-                                sheetToDelete = sheet
-                                showDeleteAlert = true
-                            }) {
-                                Label("styleSheetManagement.delete", systemImage: "trash")
-                                    .labelStyle(.iconOnly)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("styleSheetManagement.delete.accessibility")
-                        }
-                        .padding(.vertical, 4)
+                        styleSheetRow(sheet)
                     }
                 }
             }
             .navigationTitle("styleSheetManagement.title")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("button.done") {
-                        dismiss()
-                    }
-                }
-
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: {
-                        repairRequiredListStyles()
-                    }) {
-                        Label("styleSheetManagement.repairListStyles", systemImage: "wrench.and.screwdriver")
-                    }
-                    .accessibilityLabel("styleSheetManagement.repairListStyles.accessibility")
-                }
-
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: {
-                        normalizeLegacyFonts()
-                    }) {
-                        Label("styleSheetManagement.normalizeLegacyFonts", systemImage: "textformat.size")
-                    }
-                    .accessibilityLabel("styleSheetManagement.normalizeLegacyFonts.accessibility")
-                }
-                
-                #if DEBUG
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: {
-                        resetDatabase()
-                    }) {
-                        Label("Reset DB", systemImage: "arrow.clockwise")
-                    }
-                }
-                #endif
-                
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: {
-                        showCreateSheet = true
-                    }) {
-                        Label("styleSheetManagement.newStylesheet", systemImage: "plus")
-                    }
-                    .accessibilityLabel("styleSheetManagement.newStylesheet.accessibility")
-                }
-            }
+            .toolbar { managementToolbar }
             .onAppear {
                 loadStyleSheets()
             }
@@ -142,6 +68,88 @@ struct StyleSheetManagementView: View {
                 Text(normalizeResultMessage)
             }
         }
+    }
+
+    @ToolbarContentBuilder
+    private var managementToolbar: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button("button.done") {
+                dismiss()
+            }
+        }
+
+        ToolbarItem(placement: .topBarLeading) {
+            Button(action: {
+                repairRequiredListStyles()
+            }) {
+                Label("styleSheetManagement.repairListStyles", systemImage: "wrench.and.screwdriver")
+            }
+            .accessibilityLabel("styleSheetManagement.repairListStyles.accessibility")
+        }
+
+        ToolbarItem(placement: .topBarLeading) {
+            Button(action: {
+                normalizeLegacyFonts()
+            }) {
+                Label("styleSheetManagement.normalizeLegacyFonts", systemImage: "textformat.size")
+            }
+            .accessibilityLabel("styleSheetManagement.normalizeLegacyFonts.accessibility")
+        }
+
+        #if DEBUG
+        ToolbarItem(placement: .topBarLeading) {
+            Button(action: {
+                resetDatabase()
+            }) {
+                Label("Reset DB", systemImage: "arrow.clockwise")
+            }
+        }
+        #endif
+
+        ToolbarItem(placement: .primaryAction) {
+            Button(action: {
+                showCreateSheet = true
+            }) {
+                Label("styleSheetManagement.newStylesheet", systemImage: "plus")
+            }
+            .accessibilityLabel("styleSheetManagement.newStylesheet.accessibility")
+        }
+    }
+
+    @ViewBuilder
+    private func styleSheetRow(_ sheet: StyleSheet) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(sheet.name)
+                    .font(.headline)
+
+                Text(String(format: NSLocalizedString("styleSheetManagement.stylesCount", comment: ""), sheet.textStyles?.count ?? 0))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button(action: {
+                duplicateStyleSheet(sheet)
+            }) {
+                Label("styleSheetManagement.duplicate", systemImage: "doc.on.doc")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("styleSheetManagement.duplicate.accessibility")
+
+            Button(role: .destructive, action: {
+                sheetToDelete = sheet
+                showDeleteAlert = true
+            }) {
+                Label("styleSheetManagement.delete", systemImage: "trash")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("styleSheetManagement.delete.accessibility")
+        }
+        .padding(.vertical, 4)
     }
     
     private func loadStyleSheets() {

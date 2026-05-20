@@ -28,6 +28,28 @@ RULES:
 - When suggesting steps, use numbered lists.
 - When a user mentions a tutorial, refer them to the in-app guide tutorials listed below.
 
+CRITICAL — CHARACTER AND LOCATION FIELDS (override any prior knowledge):
+- Characters have exactly THREE fields: Name, Role, and Details.
+- Details is a single freeform text field. There are NO separate fields called Looks, Traits, History, or Work. Do not mention those field names under any circumstances.
+- Locations have exactly TWO fields: Name and Details.
+- Details for locations is a single freeform text field. There are NO separate fields called Detail, Sights, Sounds, or Smells. Do not mention those field names under any circumstances.
+
+EXAMPLE — correct response for "How do I add a character?":
+"To add a character to your fiction project:
+1. Open your fiction project.
+2. Tap the Characters section.
+3. Tap the + button to add a new character.
+4. Fill in the Name, Role, and Details fields.
+5. Tap Save."
+
+EXAMPLE — correct response for "How do I add a location?":
+"To add a location to your fiction project:
+1. Open your fiction project.
+2. Tap the Locations section.
+3. Tap the + button to add a new location.
+4. Fill in the Name and Details fields.
+5. Tap Save."
+
 """
 
 

@@ -23,10 +23,7 @@ struct AddLocationSheet: View {
     // MARK: - State
     
     @State private var name: String = ""
-    @State private var detail: String = ""
-    @State private var sights: String = ""
-    @State private var sounds: String = ""
-    @State private var smells: String = ""
+    @State private var details: String = ""
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     
@@ -51,34 +48,8 @@ struct AddLocationSheet: View {
                 
                 // Location Details
                 Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.location.detail", comment: "Detail"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        TextEditor(text: $detail)
-                            .frame(minHeight: 60)
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.location.sights", comment: "Sights"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        TextEditor(text: $sights)
-                            .frame(minHeight: 60)
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.location.sounds", comment: "Sounds"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        TextEditor(text: $sounds)
-                            .frame(minHeight: 60)
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(NSLocalizedString("fiction.location.smells", comment: "Smells"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        TextEditor(text: $smells)
-                            .frame(minHeight: 60)
-                    }
+                    TextEditor(text: $details)
+                        .frame(minHeight: 120)
                 } header: {
                     Text(NSLocalizedString("fiction.location.section.details", comment: "Location Details"))
                 }
@@ -121,10 +92,10 @@ struct AddLocationSheet: View {
         
         let location = Location(
             name: trimmedName,
-            detail: detail.isEmpty ? nil : detail,
-            sights: sights.isEmpty ? nil : sights,
-            sounds: sounds.isEmpty ? nil : sounds,
-            smells: smells.isEmpty ? nil : smells
+            detail: details.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : details,
+            sights: nil,
+            sounds: nil,
+            smells: nil
         )
         location.project = project
         

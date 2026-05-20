@@ -25,12 +25,15 @@ struct SubmissionDetailView: View {
     
     // Export state
     @State private var showExportMenu = false
-    @State private var showExportSaveDialog = false
     @State private var exportFormat: ExportFormat = .rtf
+    @State private var showExportSaveDialog = false
     @State private var exportData: Data?
     @State private var exportFilename: String = ""
+    @State private var saveAsRequested = false
     @State private var showExportImageWarning = false
     @State private var pendingExportAction: (() -> Void)?
+    @State private var shareableFileURL: URL?
+    @State private var showShareSheet = false
     
     // IAP gating
     @State private var upgradePromptReason: UpgradePromptReason?
@@ -66,6 +69,11 @@ struct SubmissionDetailView: View {
         } message: {
             exportImageWarningMessage
         }
+        .sheet(isPresented: $showShareSheet) {
+            if let fileURL = shareableFileURL {
+                ShareSheet(urls: [fileURL])
+            }
+        }
         .fileExporter(
             isPresented: $showExportSaveDialog,
             document: ExportDocument(
@@ -75,17 +83,10 @@ struct SubmissionDetailView: View {
             ),
             contentType: contentTypeForFormat(exportFormat),
             defaultFilename: exportFilename,
-            onCompletion: { result in
-                switch result {
-                case .success:
-                    #if DEBUG
-                    print("✅ Export saved successfully")
-                    #endif
-                case .failure(let error):
-                    #if DEBUG
-                    print("❌ Export save failed: \(error)")
-                    #endif
-                }
+            onCompletion: { _ in
+                exportData = nil
+                exportFilename = ""
+                saveAsRequested = false
             }
         )
         .alert("Print Error", isPresented: $showPrintError) {
@@ -282,10 +283,21 @@ struct SubmissionDetailView: View {
             
             Divider()
             
-            Button(action: { prepareExport() }) {
+            Button(action: {
+                prepareExport(saveAs: false)
+            }) {
                 Label(NSLocalizedString("button.export", comment: "Export"), systemImage: "square.and.arrow.up")
             }
             .disabled(!hasSubmissionFiles)
+
+            #if os(macOS) || targetEnvironment(macCatalyst)
+            Button(action: {
+                prepareExport(saveAs: true)
+            }) {
+                Label(NSLocalizedString("manuscript.saveAs", comment: "Save As…"), systemImage: "square.and.arrow.down")
+            }
+            .disabled(!hasSubmissionFiles)
+            #endif
 
             Button(action: { printSubmission() }) {
                 Label(NSLocalizedString("button.print", comment: "Print"), systemImage: "printer")
@@ -387,7 +399,8 @@ struct SubmissionDetailView: View {
     
     // MARK: - Export
     
-    private func prepareExport() {
+    private func prepareExport(saveAs: Bool = false) {
+        saveAsRequested = saveAs
         showExportMenu = true
     }
     
@@ -530,15 +543,32 @@ struct SubmissionDetailView: View {
                 }
                 
                 await MainActor.run {
-                    exportData = data
-                    exportFilename = "\(filename).\(format.fileExtension)"
-                    showExportSaveDialog = true
+                    presentShareFile(data: data, filename: "\(filename).\(format.fileExtension)", format: format)
                 }
             } catch {
                 #if DEBUG
                 print("❌ Export failed: \(error)")
                 #endif
             }
+        }
+    }
+
+    private func presentShareFile(data: Data, filename: String, format: ExportFormat) {
+        if saveAsRequested {
+            exportData = data
+            exportFilename = filename
+            exportFormat = format
+            showExportSaveDialog = true
+            return
+        }
+
+        if let fileURL = ShareService.shared.createShareableFile(
+            data: data,
+            filename: filename,
+            contentType: contentTypeForFormat(format)
+        ) {
+            shareableFileURL = fileURL
+            showShareSheet = true
         }
     }
     

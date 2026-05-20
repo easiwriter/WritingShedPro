@@ -69,12 +69,6 @@ extension FolderFilesView {
     ]
     
     func applyFileModifiers<V: View>(_ content: V) -> some View {
-        let document = ExportDocument(
-            data: exportData ?? Data(),
-            filename: exportFilename,
-            contentType: contentTypeForFormat(exportFormat)
-        )
-        
         return content
             .fileImporter(
                 isPresented: $showImportPicker,
@@ -82,16 +76,29 @@ extension FolderFilesView {
                 allowsMultipleSelection: false,
                 onCompletion: handleImport
             )
+            .sheet(isPresented: $showShareSheet) {
+                if let fileURL = shareableFileURL {
+                    ShareSheet(urls: [fileURL])
+                }
+            }
             .fileExporter(
                 isPresented: $showExportSaveDialog,
-                document: document,
+                document: ExportDocument(
+                    data: exportData ?? Data(),
+                    filename: exportFilename,
+                    contentType: contentTypeForFormat(exportFormat)
+                ),
                 contentType: contentTypeForFormat(exportFormat),
                 defaultFilename: exportFilename,
-                onCompletion: handleExportResult
+                onCompletion: { _ in
+                    exportData = nil
+                    exportFilename = ""
+                    saveAsRequested = false
+                }
             )
-            .onChange(of: showExportSaveDialog) { oldValue, newValue in
+            .onChange(of: showShareSheet) { oldValue, newValue in
                 #if DEBUG
-                print("📤 showExportSaveDialog changed: \(oldValue) → \(newValue)")
+                print("📤 showShareSheet changed: \(oldValue) → \(newValue)")
                 print("   exportData: \(exportData != nil ? "\(exportData!.count) bytes" : "nil")")
                 print("   exportFilename: \(exportFilename)")
                 print("   exportFormat: \(exportFormat)")

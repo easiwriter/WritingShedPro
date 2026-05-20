@@ -4,6 +4,11 @@ import UniformTypeIdentifiers
 
 /// A specialized EditableList for Project items
 struct ProjectEditableList: View {
+    private enum ProjectExportTarget {
+        case share
+        case saveAs
+    }
+
     @Environment(\.modelContext) private var modelContext
     let projects: [Project]
     @Binding var selectedSortOrder: SortOrder
@@ -18,8 +23,12 @@ struct ProjectEditableList: View {
     
     // Export state
     @State private var projectToExport: Project?
+    @State private var projectForExportOptions: Project?
     @State private var exportData: Data?
     @State private var exportFilename: String = ""
+    @State private var showExportSaveDialog = false
+    @State private var shareableFileURL: URL?
+    @State private var showShareSheet = false
     @State private var showExportError = false
     @State private var exportErrorMessage = ""
     @State private var lastSeenNameByProjectID: [UUID: String] = [:]
@@ -37,13 +46,6 @@ struct ProjectEditableList: View {
         DeduplicationService.duplicateProjectIDs(in: projects)
     }
 
-    private var exportPresentationBinding: Binding<Bool> {
-        Binding(
-            get: { exportData != nil },
-            set: { if !$0 { exportData = nil; projectToExport = nil } }
-        )
-    }
-    
     var body: some View {
         projectListView
             .navigationDestination(for: Project.self) { project in
@@ -76,17 +78,44 @@ struct ProjectEditableList: View {
             .sheet(isPresented: $showingPoetrySettings) {
                 PoetrySettingsSheet()
             }
+            .sheet(isPresented: $showShareSheet) {
+                if let fileURL = shareableFileURL {
+                    ShareSheet(urls: [fileURL])
+                }
+            }
             .fileExporter(
-                isPresented: exportPresentationBinding,
+                isPresented: $showExportSaveDialog,
                 document: exportData.map { ProjectExportDocument(data: $0) },
                 contentType: UTType("com.writing-shed.wsp") ?? .json,
                 defaultFilename: exportFilename,
-                onCompletion: handleExportResult
+                onCompletion: handleSaveAsResult
             )
             .alert("Export Error", isPresented: $showExportError) {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(exportErrorMessage)
+            }
+            .confirmationDialog(
+                NSLocalizedString("projectItem.exportProject", comment: "Export project"),
+                isPresented: Binding(
+                    get: { projectForExportOptions != nil },
+                    set: { if !$0 { projectForExportOptions = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button(NSLocalizedString("manuscript.share", comment: "Share")) {
+                    guard let project = projectForExportOptions else { return }
+                    projectForExportOptions = nil
+                    exportProject(project)
+                }
+                Button(NSLocalizedString("manuscript.saveAs", comment: "Save As…")) {
+                    guard let project = projectForExportOptions else { return }
+                    projectForExportOptions = nil
+                    saveAsProject(project)
+                }
+                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                    projectForExportOptions = nil
+                }
             }
             .confirmationDialog(
                 Text(NSLocalizedString("projectEditableList.deleteTitle", comment: "Delete project(s) confirmation dialog title")),
@@ -142,7 +171,7 @@ struct ProjectEditableList: View {
                     duplicateProject(project)
                 },
                 onExportTapped: {
-                    exportProject(project)
+                    projectForExportOptions = project
                 },
                 isDuplicate: duplicateIDs.contains(project.id)
             )
@@ -168,21 +197,35 @@ struct ProjectEditableList: View {
         .presentationDragIndicator(.visible)
     }
 
-    private func handleExportResult(_ result: Result<URL, Error>) {
+    private func handleSaveAsResult(_ result: Result<URL, Error>) {
         switch result {
         case .success(let url):
             #if DEBUG
-            print("[ProjectExport] ✅ Exported to: \(url.path)")
+            print("[ProjectExport] ✅ Saved to: \(url.path)")
             #endif
         case .failure(let error):
             #if DEBUG
-            print("[ProjectExport] ❌ Export failed: \(error)")
+            print("[ProjectExport] ❌ Save failed: \(error)")
             #endif
             exportErrorMessage = error.localizedDescription
             showExportError = true
         }
         exportData = nil
         projectToExport = nil
+    }
+
+    private func shareExportedProject(data: Data, filename: String) {
+        if let fileURL = ShareService.shared.createShareableFile(
+            data: data,
+            filename: filename,
+            contentType: UTType("com.writing-shed.wsp") ?? .json
+        ) {
+            shareableFileURL = fileURL
+            showShareSheet = true
+        } else {
+            exportErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed")
+            showExportError = true
+        }
     }
     
     // MARK: - Export
@@ -192,10 +235,11 @@ struct ProjectEditableList: View {
             let exportService = JSONExportService()
             let data = try exportService.exportProject(project)
             
-            // Set filename and trigger file exporter
+            // Default project export action is Share
             exportFilename = "\(project.name ?? "Untitled").wsp"
             projectToExport = project
             exportData = data
+            shareExportedProject(data: data, filename: exportFilename)
             
             #if DEBUG
             print("[ProjectExport] Prepared export for: \(project.name ?? "Untitled") (\(data.count) bytes)")
@@ -204,6 +248,21 @@ struct ProjectEditableList: View {
             #if DEBUG
             print("[ProjectExport] ❌ Export preparation failed: \(error)")
             #endif
+            exportErrorMessage = error.localizedDescription
+            showExportError = true
+        }
+    }
+
+    private func saveAsProject(_ project: Project) {
+        do {
+            let exportService = JSONExportService()
+            let data = try exportService.exportProject(project)
+
+            exportFilename = "\(project.name ?? "Untitled").wsp"
+            projectToExport = project
+            exportData = data
+            showExportSaveDialog = true
+        } catch {
             exportErrorMessage = error.localizedDescription
             showExportError = true
         }

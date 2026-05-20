@@ -42,10 +42,7 @@ Before writing a word, sketch your main characters. This helps you stay consiste
 3. Fill in the character form:
    - **Name**: Elena Vasquez
    - **Role**: Protagonist
-   - **Looks**: Tall, dark hair, calloused hands from climbing
-   - **Traits**: Determined, impatient, secretly afraid of heights
-   - **History**: Grew up in a mining town, lost her brother to the mountain
-   - **Work**: Mountain guide
+   - **Details**: Tall, dark hair, calloused hands from climbing. Determined, impatient, secretly afraid of heights. Grew up in a mining town and lost her brother to the mountain. Works as a mountain guide.
 4. Tap **Create**
 
 ### Create Supporting Characters
@@ -66,17 +63,11 @@ Repeat for 2–3 more characters:
 
 ### The Village
 - **Name**: Pueblo Cristal
-- **Detail**: A small mountain village at the base of the Glass Mountain
-- **Sights**: Stone houses with glass-tile roofs that catch the sunrise
-- **Sounds**: Wind through narrow streets, distant rockfalls
-- **Smells**: Pine smoke, mineral dust
+- **Details**: A small mountain village at the base of the Glass Mountain. Stone houses with glass-tile roofs catch the sunrise. Wind moves through narrow streets with distant rockfalls, and the air smells of pine smoke and mineral dust.
 
 ### The Mountain
 - **Name**: The Glass Mountain
-- **Detail**: A volcanic peak with exposed glass formations
-- **Sights**: Translucent cliff faces, rainbow light refractions
-- **Sounds**: Creaking glass, echoing footsteps
-- **Smells**: Ozone after lightning strikes
+- **Details**: A volcanic peak with exposed glass formations. Translucent cliff faces refract rainbow light. The mountain creaks underfoot, footsteps echo, and ozone lingers after lightning strikes.
 
 Create as many locations as you need. Like characters, you can add more later.
 

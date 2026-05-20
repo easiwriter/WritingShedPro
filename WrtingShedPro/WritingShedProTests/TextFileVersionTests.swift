@@ -223,6 +223,29 @@ final class TextFileVersionTests: XCTestCase {
         let remainingContents = [firstContent, secondContent].compactMap { $0 }.sorted()
         XCTAssertEqual(remainingContents, ["One", "Three"], "Should have 'One' and 'Three', not 'Two'")
     }
+
+    func testSwitchToVersionNumber_UsesSortedSpaceWhenArrayUnsorted() {
+        // Build 3 versions with explicit content.
+        testFile.currentVersion?.content = "One"
+        testFile.addVersion()
+        testFile.currentVersion?.content = "Two"
+        testFile.addVersion()
+        testFile.currentVersion?.content = "Three"
+
+        guard let v1 = testFile.versions?.first(where: { $0.versionNumber == 1 }),
+              let v2 = testFile.versions?.first(where: { $0.versionNumber == 2 }),
+              let v3 = testFile.versions?.first(where: { $0.versionNumber == 3 }) else {
+            XCTFail("Missing expected versions")
+            return
+        }
+
+        // Force unsorted backing array to mimic relationship ordering edge cases.
+        testFile.versions = [v3, v1, v2]
+
+        // Select version number 2 and verify currentVersion resolves to "Two".
+        testFile.switchToVersionNumber(2)
+        XCTAssertEqual(testFile.currentVersion?.content, "Two")
+    }
     
     // MARK: - Version Label Tests
     

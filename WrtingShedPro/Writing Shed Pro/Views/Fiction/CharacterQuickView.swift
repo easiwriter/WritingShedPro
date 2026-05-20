@@ -16,10 +16,18 @@ struct CharacterQuickView: View {
     let character: Character
     
     private var hasDetails: Bool {
-        (character.history != nil && !character.history!.isEmpty) ||
-        (character.looks != nil && !character.looks!.isEmpty) ||
-        (character.traits != nil && !character.traits!.isEmpty) ||
-        (character.work != nil && !character.work!.isEmpty)
+        !consolidatedDetails.isEmpty
+    }
+
+    private var consolidatedDetails: String {
+        let parts = [character.history, character.looks, character.traits, character.work]
+            .compactMap { value -> String? in
+                guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+                    return nil
+                }
+                return trimmed
+            }
+        return parts.joined(separator: "\n\n")
     }
     
     var body: some View {
@@ -75,18 +83,7 @@ struct CharacterQuickView: View {
     
     private var detailsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let history = character.history, !history.isEmpty {
-                detailField(NSLocalizedString("fiction.character.history", comment: "History"), value: history)
-            }
-            if let looks = character.looks, !looks.isEmpty {
-                detailField(NSLocalizedString("fiction.character.looks", comment: "Looks"), value: looks)
-            }
-            if let traits = character.traits, !traits.isEmpty {
-                detailField(NSLocalizedString("fiction.character.traits", comment: "Traits"), value: traits)
-            }
-            if let work = character.work, !work.isEmpty {
-                detailField(NSLocalizedString("fiction.character.work", comment: "Work"), value: work)
-            }
+            detailField(NSLocalizedString("fiction.character.section.details", comment: "Character Details"), value: consolidatedDetails)
         }
     }
     
