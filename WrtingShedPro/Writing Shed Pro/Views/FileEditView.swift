@@ -13,6 +13,8 @@ struct NewIndexEntryData: Identifiable {
 }
 
 struct FileEditView: View {
+    private static let editorZoomScaleDefaultsKey = "editorZoomScale"
+
         @State private var presentDeleteBackMatterAlert = false
     @Bindable var file: TextFile
     
@@ -53,6 +55,8 @@ struct FileEditView: View {
     @State private var showInvisibles = false // Toggle to show invisible characters (spaces, tabs, paragraph marks, page breaks)
     @State private var isPreviewingAsAlternateFormat = false // When true, showing file in opposite format (non-destructive preview)
     @State private var prePreviewContent: NSAttributedString? // Stores original content before entering preview mode
+    @State private var editorZoomScale: CGFloat = 1.0 // User-controlled zoom for text editor
+    @State private var lastEditorZoomScale: CGFloat = 1.0 // Baseline scale for pinch gesture
     @State private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
     
@@ -213,6 +217,42 @@ struct FileEditView: View {
         .id(refreshTrigger)  // Force re-render when versions change
     }
     
+    private func editorScalingControls() -> some View {
+        HStack(spacing: 4) {
+            Button {
+                setEditorZoomScale(editorZoomScale - 0.05)
+            } label: {
+                Image(systemName: "minus.magnifyingglass")
+            }
+            
+            Text("\(editorZoomPercent)%")
+                .font(.caption)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 40, alignment: .center)
+            
+            Button {
+                setEditorZoomScale(editorZoomScale + 0.05)
+            } label: {
+                Image(systemName: "plus.magnifyingglass")
+            }
+            
+            Button {
+                setEditorZoomScale(1.0)
+            } label: {
+                Image(systemName: "arrow.counterclockwise")
+            }
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+    }
+    
+    private var editorZoomPercent: Int {
+        Int(round(editorZoomScale * 100))
+    }
+    
     private func textEditorSection() -> some View {
         Group {
             if UIDevice.current.userInterfaceIdiom == .phone {
@@ -276,6 +316,9 @@ struct FileEditView: View {
                                 },
                                 onShiftTabPressed: {
                                     decreaseListIndent()
+                                },
+                                onZoomScaleChange: { newScale in
+                                    setEditorZoomScale(newScale)
                                 }
                             )
                             .frame(width: geometry.size.width * inverseScale, height: geometry.size.height * inverseScale)
@@ -339,6 +382,9 @@ struct FileEditView: View {
                                 },
                                 onShiftTabPressed: {
                                     decreaseListIndent()
+                                },
+                                onZoomScaleChange: { newScale in
+                                    setEditorZoomScale(newScale)
                                 }
                             )
                             .frame(width: geometry.size.width * inverseScale, height: geometry.size.height * inverseScale)
@@ -403,6 +449,9 @@ struct FileEditView: View {
                                 },
                                 onShiftTabPressed: {
                                     decreaseListIndent()
+                                },
+                                onZoomScaleChange: { newScale in
+                                    setEditorZoomScale(newScale)
                                 }
                             )
                             .id(refreshTrigger)
@@ -457,6 +506,9 @@ struct FileEditView: View {
                                 },
                                 onShiftTabPressed: {
                                     decreaseListIndent()
+                                },
+                                onZoomScaleChange: { newScale in
+                                    setEditorZoomScale(newScale)
                                 }
                             )
                             .id(refreshTrigger)
@@ -1492,11 +1544,16 @@ struct FileEditView: View {
     
     private var mainContent: some View {
         VStack(spacing: 0) {
-            // Version toolbar (only shown in edit mode and not for back matter files)
+            // Version toolbar and scaling controls (only shown in edit mode and not for back matter files)
             if !isPaginationMode && isFileEditable {
-                versionToolbar()
+                HStack(spacing: 0) {
+                    versionToolbar()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    editorScalingControls()
+                }
             }
-            
+
             // Search bar (only shown in edit mode when active)
             if !isPaginationMode {
                 InEditorSearchBar(
@@ -2336,8 +2393,33 @@ struct FileEditView: View {
         }
     }
     // MARK: - Lifecycle Helpers
+
+    private func setEditorZoomScale(_ value: CGFloat) {
+        let clampedScale = max(0.5, min(4.0, value))
+        editorZoomScale = clampedScale
+        lastEditorZoomScale = clampedScale
+
+        if let textView = textViewCoordinator.textView {
+            textView.transform = CGAffineTransform(scaleX: clampedScale, y: clampedScale)
+        }
+
+        #if os(iOS)
+        UserDefaults.standard.set(Double(clampedScale), forKey: Self.editorZoomScaleDefaultsKey)
+        #endif
+    }
+
+    private func loadSavedEditorZoomScaleIfNeeded() {
+        #if os(iOS)
+        let savedScale = UserDefaults.standard.double(forKey: Self.editorZoomScaleDefaultsKey)
+        if savedScale > 0 {
+            setEditorZoomScale(CGFloat(savedScale))
+        }
+        #endif
+    }
     
     private func setupOnAppear() {
+        loadSavedEditorZoomScaleIfNeeded()
+
         // Register stylesheet with provider for image caption rendering
         if let styleSheet = file.project?.styleSheet {
             StyleSheetProvider.shared.register(styleSheet: styleSheet, for: file.id)
@@ -8103,7 +8185,7 @@ struct FileEditView: View {
             print("💾 Saving attributed content with \(commentCount) comments, \(imageCount) images, \(footnoteCount) footnotes, \(referenceCount) references, and \(poemSectionCount) marked sections")
             #endif
         } else {
-            var contentToSave = attributedContent
+            let contentToSave = attributedContent
 
             file.currentVersion?.attributedContent = contentToSave
             

@@ -135,7 +135,12 @@ struct FileReaderView: View {
             displayContent = buildScaledContent()
         }
         .onChange(of: fontSize) { displayContent = buildScaledContent() }
-        .onChange(of: selectedVersionIndex) { displayContent = buildScaledContent() }
+        .onChange(of: selectedVersionIndex) {
+            contentScale = appState.readerContentScale
+            lastScale = contentScale
+            naturalContentHeight = 0
+            displayContent = buildScaledContent()
+        }
     }
 
     @ViewBuilder

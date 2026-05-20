@@ -58,6 +58,9 @@ struct FormattedTextEditor: UIViewRepresentable {
     
     /// Optional callback when Shift+Tab is pressed (Feature 016 - list outdent)
     var onShiftTabPressed: (() -> Void)?
+
+    /// Optional callback when zoom scale changes via pinch or initial load
+    var onZoomScaleChange: ((CGFloat) -> Void)?
     
     /// Coordinator for managing textView reference
     var textViewCoordinator: TextViewCoordinator?
@@ -116,7 +119,8 @@ struct FormattedTextEditor: UIViewRepresentable {
         onGlossaryAddRequested: ((String) -> Void)? = nil,
         onIndexAddRequested: ((String) -> Void)? = nil,
         onTabPressed: (() -> Void)? = nil,
-        onShiftTabPressed: (() -> Void)? = nil
+        onShiftTabPressed: (() -> Void)? = nil,
+        onZoomScaleChange: ((CGFloat) -> Void)? = nil
     ) {
         self._attributedText = attributedText
         self._selectedRange = selectedRange
@@ -144,6 +148,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         self.onIndexAddRequested = onIndexAddRequested
         self.onTabPressed = onTabPressed
         self.onShiftTabPressed = onShiftTabPressed
+        self.onZoomScaleChange = onZoomScaleChange
     }
     
     // MARK: - UIViewRepresentable
@@ -258,15 +263,20 @@ struct FormattedTextEditor: UIViewRepresentable {
         textView.addGestureRecognizer(pinchGesture)
         
         // Load saved zoom factor from UserDefaults
-        let savedZoom = UserDefaults.standard.double(forKey: "textViewZoomFactor")
-        if savedZoom > 0 {
-            context.coordinator.currentZoomScale = CGFloat(savedZoom)
+        // Use the shared editor zoom key with fallback to the legacy key.
+        let savedZoom = UserDefaults.standard.double(forKey: "editorZoomScale")
+        let legacySavedZoom = UserDefaults.standard.double(forKey: "textViewZoomFactor")
+        let effectiveZoom = savedZoom > 0 ? savedZoom : legacySavedZoom
+        if effectiveZoom > 0 {
+            context.coordinator.currentZoomScale = CGFloat(effectiveZoom)
             textView.transform = CGAffineTransform(scaleX: context.coordinator.currentZoomScale, y: context.coordinator.currentZoomScale)
+            context.coordinator.parent.onZoomScaleChange?(context.coordinator.currentZoomScale)
             #if DEBUG
-            print("🔍 Loading saved zoom: \(savedZoom)")
+            print("🔍 Loading saved zoom: \(effectiveZoom)")
             #endif
         } else {
             context.coordinator.currentZoomScale = 1.0
+            context.coordinator.parent.onZoomScaleChange?(1.0)
         }
         
         // Add pan gesture recognizer for drag scrolling (requires 2 fingers to avoid interfering with text selection)
@@ -1703,6 +1713,7 @@ struct FormattedTextEditor: UIViewRepresentable {
                 
                 // Apply transform to scale the view
                 textView.transform = CGAffineTransform(scaleX: clampedScale, y: clampedScale)
+                parent.onZoomScaleChange?(clampedScale)
                 
             case .ended, .cancelled:
                 // Update current scale and save to UserDefaults
@@ -1714,7 +1725,8 @@ struct FormattedTextEditor: UIViewRepresentable {
                 textView.transform = CGAffineTransform(scaleX: currentZoomScale, y: currentZoomScale)
                 
                 // Save zoom factor to UserDefaults
-                UserDefaults.standard.set(Double(currentZoomScale), forKey: "textViewZoomFactor")
+                UserDefaults.standard.set(Double(currentZoomScale), forKey: "editorZoomScale")
+                parent.onZoomScaleChange?(currentZoomScale)
                 #if DEBUG
                 print("🔍 Zoom factor saved: \(currentZoomScale)")
                 #endif
