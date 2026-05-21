@@ -180,6 +180,39 @@
           "winbackOffers" : [
 
           ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "5.99",
+          "familyShareable" : false,
+          "groupNumber" : 3,
+          "internalID" : "6761024201",
+          "introductoryOffer" : {
+            "internalID" : "3E5F2A9C",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1M"
+          },
+          "localizations" : [
+            {
+              "description" : "AI-powered editorial analysis with monthly renewal",
+              "displayName" : "Manuscript Analyst Monthly",
+              "locale" : "en_GB"
+            }
+          ],
+          "productID" : "com.writingshedpro.analyst.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Manuscript Analyst Monthly",
+          "subscriptionGroupID" : "21735702",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
         }
       ]
     }
