@@ -60,7 +60,6 @@ struct ContentView: View {
             onSyncNow: syncNowFromSettings,
             onHandleImportMenu: handleImportMenu,
             onHandleJSONImport: handleJSONImport,
-            onDeleteAllProjects: deleteAllProjects,
             onPrefetchProjectData: prefetchProjectData,
             onRunMigrations: runMigrations
         )

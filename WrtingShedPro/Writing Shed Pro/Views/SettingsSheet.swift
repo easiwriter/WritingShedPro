@@ -51,6 +51,15 @@ struct SettingsSheet: View {
                     } label: {
                         Label("Import", systemImage: "arrow.down.doc")
                     }
+
+                    Button {
+                        state.hideAllProjects.toggle()
+                    } label: {
+                        Label(
+                            state.hideAllProjects ? "Show All Projects" : "Hide All Projects",
+                            systemImage: state.hideAllProjects ? "eye" : "eye.slash"
+                        )
+                    }
                 }
                 
                 // MARK: - Appearance Section (iOS only)

@@ -11,6 +11,8 @@ import Observation
 @MainActor
 @Observable
 final class ContentViewState {
+    private static let hideAllProjectsKey = "hideAllProjectsForDemos"
+
     // Navigation
     var navigationPath = NavigationPath()
     
@@ -22,7 +24,6 @@ final class ContentViewState {
     var showingJSONImportPicker = false
     var showImportError = false
     var importErrorMessage = ""
-    var showDeleteAllConfirmation = false
     
     // Sort order - stored property that syncs with UserDefaults for persistence
     private static let sortOrderKey = "projectSortOrder"
@@ -42,6 +43,13 @@ final class ContentViewState {
     // Help & Manual
     var showHTMLManual = false
     var htmlManualSection: String? = nil  // Anchor to scroll to in the HTML guide
+
+    // Demo mode
+    var hideAllProjects: Bool {
+        didSet {
+            UserDefaults.standard.set(hideAllProjects, forKey: Self.hideAllProjectsKey)
+        }
+    }
 
     
     // Debug
@@ -64,5 +72,7 @@ final class ContentViewState {
         } else {
             self.selectedSortOrder = .byName
         }
+
+        self.hideAllProjects = UserDefaults.standard.bool(forKey: Self.hideAllProjectsKey)
     }
 }

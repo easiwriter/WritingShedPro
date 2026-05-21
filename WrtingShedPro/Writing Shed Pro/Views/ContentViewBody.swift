@@ -30,7 +30,6 @@ struct ContentViewBody: View {
     let onSyncNow: () -> Void
     let onHandleImportMenu: () -> Void
     let onHandleJSONImport: (Result<[URL], Error>) -> Void
-    let onDeleteAllProjects: () -> Void
     let onPrefetchProjectData: () -> Void
     let onRunMigrations: () -> Void
     
@@ -44,13 +43,20 @@ struct ContentViewBody: View {
         projects.filter { $0.isTrashed == true }
     }
 
+    private var activeProjects: [Project] {
+        guard !state.hideAllProjects else { return [] }
+        return DeduplicationService.presentedProjects(
+            from: projects.filter { !$0.isTrashed }
+        )
+    }
+
+    private var shouldShowProjectTrashButton: Bool {
+        !state.hideAllProjects && !trashedProjects.isEmpty
+    }
+
     var body: some View {
         NavigationStack(path: $state.navigationPath) {
             VStack(spacing: 0) {
-                let activeProjects = DeduplicationService.presentedProjects(
-                    from: projects.filter { !$0.isTrashed }
-                )
-                
                 ProjectEditableList(
                     projects: activeProjects,
                     selectedSortOrder: $state.selectedSortOrder,
@@ -60,7 +66,7 @@ struct ContentViewBody: View {
                     )
                 )
                 // Only show Trash bin button if there are trashed projects
-                if !trashedProjects.isEmpty {
+                if shouldShowProjectTrashButton {
                     Button(action: { showProjectTrash = true }) {
                         Label(NSLocalizedString("projectTrash.title", comment: "Deleted Projects"), systemImage: "trash")
                     }
@@ -164,16 +170,6 @@ struct ContentViewBody: View {
             } message: {
                 Text(state.importErrorMessage)
             }
-            #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
-            .alert("contentView.deleteAll.confirmTitle", isPresented: $state.showDeleteAllConfirmation) {
-                Button("button.cancel", role: .cancel) { }
-                Button("contentView.deleteAll", role: .destructive) {
-                    onDeleteAllProjects()
-                }
-            } message: {
-                Text("contentView.deleteAll.confirmMessage \(projects.count)")
-            }
-            #endif
         }
         .onReceive(NotificationCenter.default.publisher(for: GuideNavigationService.openGuideSectionNotification)) { notification in
             let section = notification.userInfo?["section"] as? String

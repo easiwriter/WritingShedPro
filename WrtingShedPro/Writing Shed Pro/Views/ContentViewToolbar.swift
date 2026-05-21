@@ -43,14 +43,6 @@ struct ContentViewToolbar: ToolbarContent {
                 }
                 .accessibilityLabel("Help")
                 
-                #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
-                Button(role: .destructive, action: { state.showDeleteAllConfirmation = true }) {
-                    Label("contentView.deleteAll", systemImage: "trash")
-                }
-                .accessibilityLabel("contentView.deleteAll.accessibility")
-                .disabled(state.editMode == .active)
-                #endif
-                
                 Button(action: { state.showAddProject = true }) {
                     Label(NSLocalizedString("contentView.addProject", comment: "Button to add new project"), systemImage: "plus")
                 }
