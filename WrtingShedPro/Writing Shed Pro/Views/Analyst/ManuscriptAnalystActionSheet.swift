@@ -119,7 +119,7 @@ struct ManuscriptAnalystActionSheet: View {
     private func performAnalysis() {
         // Check subscription first
         Task { @MainActor in
-            let hasSubscription = await EntitlementManager.shared.isManuscriptAnalystSubscriptionActive()
+            let hasSubscription = EntitlementManager.shared.isManuscriptAnalystSubscriptionActive()
             if !hasSubscription {
                 showPaywall = true
                 return
@@ -156,12 +156,8 @@ struct ManuscriptAnalystActionSheet: View {
     let container = try! ModelContainer(for: TextFile.self, ManuscriptReview.self, configurations: config)
     
     let textFile = TextFile(
-        id: UUID(),
         name: "Chapter 1",
-        attributedContent: NSAttributedString(string: "Sample content for analysis."),
-        userOrder: 0,
-        wordCountLimit: nil,
-        currentVersion: nil
+        initialContent: "Sample content for analysis."
     )
     
     ManuscriptAnalystActionSheet(textFile: textFile)
