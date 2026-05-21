@@ -164,6 +164,6 @@ struct ManuscriptAnalystActionSheet: View {
         currentVersion: nil
     )
     
-    return ManuscriptAnalystActionSheet(textFile: textFile)
+    ManuscriptAnalystActionSheet(textFile: textFile)
         .modelContainer(container)
 }

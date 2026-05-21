@@ -92,26 +92,42 @@ class JSONImportService {
     /// Import from Writing Shed Pro native format (.wsp)
     private func importFromWSP(_ data: WSPExportData) throws -> Project {
         #if DEBUG
+        let proseSectionsCount = data.proseSections?.count ?? 0
+        let poetryCollectionsCount = data.poetryCollections?.count ?? 0
+        let booksCount = data.books?.count ?? 0
+        let chaptersCount = data.chapters?.count ?? 0
+        let actsCount = data.acts?.count ?? 0
+        let scenesCount = data.scenes?.count ?? 0
+        let charactersCount = data.characters?.count ?? 0
+        let locationsCount = data.locations?.count ?? 0
+        let plotElementsCount = data.plotElements?.count ?? 0
+        let noteEntriesCount = data.noteEntries?.count ?? 0
+        let glossaryEntriesCount = data.glossaryEntries?.count ?? 0
+        let referenceEntriesCount = data.referenceEntries?.count ?? 0
+        let citationEntriesCount = data.citationEntries?.count ?? 0
+        let indexEntriesCount = data.indexEntries?.count ?? 0
+        let contributorEntriesCount = data.contributorEntries?.count ?? 0
+
         print("[JSONImport] ===== WSP IMPORT =====")
         print("[JSONImport] Project Name: \(data.project.name)")
         print("[JSONImport] Original Project ID (from file): \(data.project.id)")
         print("[JSONImport] Format Version: \(data.formatVersion)")
         print("[JSONImport] Folders: \(data.folders.count)")
-        print("[JSONImport] Prose Sections: \(data.proseSections?.count ?? 0)")
-        print("[JSONImport] Poetry Collections: \(data.poetryCollections?.count ?? 0)")
-        print("[JSONImport] Books: \(data.books?.count ?? 0)")
-        print("[JSONImport] Chapters: \(data.chapters?.count ?? 0)")
-        print("[JSONImport] Acts: \(data.acts?.count ?? 0)")
-        print("[JSONImport] Scenes: \(data.scenes?.count ?? 0)")
-        print("[JSONImport] Characters: \(data.characters?.count ?? 0)")
-        print("[JSONImport] Locations: \(data.locations?.count ?? 0)")
-        print("[JSONImport] Plot Elements: \(data.plotElements?.count ?? 0)")
-        print("[JSONImport] Note Entries: \(data.noteEntries?.count ?? 0)")
-        print("[JSONImport] Glossary Entries: \(data.glossaryEntries?.count ?? 0)")
-        print("[JSONImport] Reference Entries: \(data.referenceEntries?.count ?? 0)")
-        print("[JSONImport] Citation Entries: \(data.citationEntries?.count ?? 0)")
-        print("[JSONImport] Index Entries: \(data.indexEntries?.count ?? 0)")
-        print("[JSONImport] Contributor Entries: \(data.contributorEntries?.count ?? 0)")
+        print("[JSONImport] Prose Sections: \(proseSectionsCount)")
+        print("[JSONImport] Poetry Collections: \(poetryCollectionsCount)")
+        print("[JSONImport] Books: \(booksCount)")
+        print("[JSONImport] Chapters: \(chaptersCount)")
+        print("[JSONImport] Acts: \(actsCount)")
+        print("[JSONImport] Scenes: \(scenesCount)")
+        print("[JSONImport] Characters: \(charactersCount)")
+        print("[JSONImport] Locations: \(locationsCount)")
+        print("[JSONImport] Plot Elements: \(plotElementsCount)")
+        print("[JSONImport] Note Entries: \(noteEntriesCount)")
+        print("[JSONImport] Glossary Entries: \(glossaryEntriesCount)")
+        print("[JSONImport] Reference Entries: \(referenceEntriesCount)")
+        print("[JSONImport] Citation Entries: \(citationEntriesCount)")
+        print("[JSONImport] Index Entries: \(indexEntriesCount)")
+        print("[JSONImport] Contributor Entries: \(contributorEntriesCount)")
         #endif
         
         // Create project
