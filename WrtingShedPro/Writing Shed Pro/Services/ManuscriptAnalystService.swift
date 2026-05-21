@@ -7,7 +7,7 @@ final class ManuscriptAnalystService {
     static let shared = ManuscriptAnalystService()
 
     private var reviewCache: [String: ManuscriptReview] = [:]
-    private let cloudFlareEndpoint = "https://writingshedpro.easiwriter.workers.dev/api/manuscript-analyst/review"
+    private let cloudFlareEndpoint = "https://wsp-support.writingshedpro.workers.dev/api/manuscript-analyst/review"
     
     // Soft cap tracking
     private var monthlyTokenUsage: Int = 0
