@@ -2904,3 +2904,61 @@
 
 // MARK: - Menu Bar
 "menu.help.userGuide" = "Writing Shed Pro User Guide";
+
+// MARK: - Manuscript Analyst (Feature 040)
+"analyst.error.subscriptionInactive" = "Manuscript Analyst subscription required. Start your free trial in Settings.";
+"analyst.error.projectNotFound" = "Could not find the project for this file.";
+"analyst.error.noContent" = "No content to analyze. Add text to your file first.";
+"analyst.error.invalidEndpoint" = "Analysis service is misconfigured.";
+"analyst.error.invalidResponse" = "Received invalid response from analysis service.";
+"analyst.error.apiError" = "Analysis service error: %@";
+"analyst.error.network" = "Network error: %@";
+
+"analyst.sheet.title" = "Analyze This File";
+"analyst.sheet.analyzing" = "Analyzing your manuscript…";
+"analyst.sheet.analyzingSubtitle" = "This may take up to 30 seconds";
+"analyst.sheet.button" = "Analyze Now";
+"analyst.sheet.receipt" = "Tailored feedback for your writing genre";
+"analyst.sheet.categories" = "Specific suggestions by category";
+"analyst.sheet.strengths" = "Analysis of key writing strengths";
+
+"analyst.paywall.title" = "Manuscript Analyst";
+"analyst.paywall.subtitle" = "AI-Powered Editorial Feedback";
+"analyst.paywall.feature1" = "Smart editorial suggestions tailored to your genre";
+"analyst.paywall.feature2" = "Track writing improvements over time";
+"analyst.paywall.feature3" = "Analyze entire manuscripts in seconds";
+"analyst.paywall.feature4" = "AI powered by Claude 3.5 Sonnet";
+"analyst.paywall.planTitle" = "Subscription Plans";
+"analyst.paywall.monthly" = "Monthly";
+"analyst.paywall.monthlyPrice" = "$5.99/month";
+"analyst.paywall.firstMonth" = "First Month";
+"analyst.paywall.free" = "FREE";
+"analyst.paywall.startTrial" = "Start Free Trial";
+"analyst.paywall.maybeLater" = "Maybe Later";
+"analyst.paywall.terms" = "Trial terms";
+"analyst.paywall.trialDetails" = "First month free, then $5.99/month. Cancel anytime. Billed to your App Store account.";
+
+"analyst.review.title" = "Review Suggestions";
+"analyst.review.summary" = "Analysis Summary";
+"analyst.review.focusAreas" = "Suggested Focus Areas";
+"analyst.review.noSuggestions" = "No Suggestions";
+"analyst.review.noSuggestionsDetail" = "Great work! The analyst found no issues to address.";
+"analyst.review.tokens" = "%d tokens";
+"analyst.review.analysisTime" = "%dms";
+"analyst.review.sortBySeverity" = "By Severity";
+"analyst.review.sortByCategory" = "By Category";
+"analyst.review.sortByNewest" = "Newest First";
+"analyst.review.hideAddressed" = "Hide Addressed";
+"analyst.review.showAll" = "Show All";
+
+"analyst.suggestion.observation" = "Observation";
+"analyst.suggestion.suggestion" = "Suggestion";
+"analyst.suggestion.rationale" = "Why This Matters";
+"analyst.suggestion.markAddressed" = "Mark as Addressed";
+"analyst.suggestion.markUnaddressed" = "Mark as Unaddressed";
+"analyst.suggestion.addressedLabel" = "Addressed";
+
+"analyst.softCap.approaching" = "Approaching Limit";
+"analyst.softCap.approachingMessage" = "You have a few analyses remaining this month.";
+"analyst.softCap.throttled" = "Usage Limit Approaching";
+"analyst.softCap.throttledMessage" = "You're approaching your monthly analysis limit. Consider reviewing again next month.";

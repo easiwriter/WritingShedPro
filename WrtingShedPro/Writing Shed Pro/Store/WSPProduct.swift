@@ -18,6 +18,7 @@ enum WSPProduct: String, CaseIterable, Identifiable {
     case fictionWriter = "com.writingshedpro.fictionwriter"
     case dramaWriter = "com.writingshedpro.dramawriter"
     case allInBundle = "com.writingshedpro.allinbundle"
+    case manuscriptAnalystSubscription = "com.writingshedpro.analyst.monthly"
     
     var id: String { rawValue }
     
@@ -30,7 +31,7 @@ enum WSPProduct: String, CaseIterable, Identifiable {
     
     // MARK: - Project Type Mapping
     
-    /// Maps product to its corresponding ProjectType (nil for bundle)
+    /// Maps product to its corresponding ProjectType (nil for bundle and subscriptions)
     var projectType: ProjectType? {
         switch self {
         case .proseWriter: return .prose
@@ -38,6 +39,7 @@ enum WSPProduct: String, CaseIterable, Identifiable {
         case .fictionWriter: return .fiction
         case .dramaWriter: return .drama
         case .allInBundle: return nil  // Bundle unlocks all
+        case .manuscriptAnalystSubscription: return nil  // Subscription, not type-specific
         }
     }
     
@@ -61,6 +63,7 @@ enum WSPProduct: String, CaseIterable, Identifiable {
         case .fictionWriter: return "Fiction Writer"
         case .dramaWriter: return "Drama Writer"
         case .allInBundle: return "All-in Bundle"
+        case .manuscriptAnalystSubscription: return "Manuscript Analyst"
         }
     }
     
@@ -72,6 +75,7 @@ enum WSPProduct: String, CaseIterable, Identifiable {
         case .fictionWriter: return "Novels, short fiction, outlines"
         case .dramaWriter: return "Stage plays, screenplays, DML"
         case .allInBundle: return "All modules - best value!"
+        case .manuscriptAnalystSubscription: return "AI-powered editorial analysis"
         }
     }
     
@@ -83,6 +87,7 @@ enum WSPProduct: String, CaseIterable, Identifiable {
         case .fictionWriter: return "book"
         case .dramaWriter: return "theatermasks"
         case .allInBundle: return "star.circle.fill"
+        case .manuscriptAnalystSubscription: return "sparkles"
         }
     }
     
@@ -94,6 +99,7 @@ enum WSPProduct: String, CaseIterable, Identifiable {
         case .fictionWriter: return .orange
         case .dramaWriter: return .red
         case .allInBundle: return .purple
+        case .manuscriptAnalystSubscription: return .cyan
         }
     }
     

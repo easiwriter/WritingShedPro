@@ -251,6 +251,25 @@ final class EntitlementManager {
     func canPrint(projectType: ProjectType) -> Bool {
         return isProjectTypeUnlocked(projectType)
     }
+
+    /// Check if user has active Manuscript Analyst subscription
+    func isManuscriptAnalystSubscriptionActive() -> Bool {
+#if DEBUG
+        if isPaywallCaptureModeEnabled {
+            return false
+        }
+#endif
+        // If entitlements haven't loaded yet, assume subscribed to avoid
+        // false blocks while the async StoreKit check is still in-flight.
+        guard isLoaded else {
+            return true
+        }
+        // Check if the subscription product is in cached entitlements
+        let subscriptionProductID = WSPProduct.manuscriptAnalystSubscription.rawValue
+        let hasCachedSubscription = cachedEntitlements.contains(subscriptionProductID)
+        let hasDirectSubscription = purchaseManager.isEntitled(to: subscriptionProductID)
+        return hasCachedSubscription || hasDirectSubscription
+    }
     
     // MARK: - Free Tier Limits
     
