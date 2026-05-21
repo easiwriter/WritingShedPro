@@ -24,7 +24,7 @@ final class ManuscriptAnalystService {
         modelContext: ModelContext
     ) async throws -> ManuscriptReview {
         // Validate subscription
-        guard await EntitlementManager.shared.isManuscriptAnalystSubscriptionActive() else {
+        guard EntitlementManager.shared.isManuscriptAnalystSubscriptionActive() else {
             throw ManuscriptAnalystError.subscriptionInactive
         }
 
@@ -39,16 +39,16 @@ final class ManuscriptAnalystService {
 
         let analysisProfile = determineAnalysisProfile(
             projectType: project.type,
-            fictionClass: project.fictionClass
+            fictionClass: project.fictionClassRaw
         )
 
         let request = buildRequest(
             analysisMode: "file",
             projectType: project.type.rawValue,
-            fictionClass: project.fictionClass,
+            fictionClass: project.fictionClassRaw,
             analysisProfile: analysisProfile,
             fileName: textFile.name,
-            content: textFile.attributedContent?.string ?? "",
+            content: textFile.currentContent,
             fileCount: 1
         )
 
@@ -70,7 +70,7 @@ final class ManuscriptAnalystService {
         modelContext: ModelContext
     ) async throws -> ManuscriptReview {
         // Validate subscription
-        guard await EntitlementManager.shared.isManuscriptAnalystSubscriptionActive() else {
+        guard EntitlementManager.shared.isManuscriptAnalystSubscriptionActive() else {
             throw ManuscriptAnalystError.subscriptionInactive
         }
 
@@ -81,7 +81,7 @@ final class ManuscriptAnalystService {
 
         let analysisProfile = determineAnalysisProfile(
             projectType: project.type,
-            fictionClass: project.fictionClass
+            fictionClass: project.fictionClassRaw
         )
 
         // Assemble content from all body-section files
@@ -93,7 +93,7 @@ final class ManuscriptAnalystService {
         let request = buildRequest(
             analysisMode: "manuscript",
             projectType: project.type.rawValue,
-            fictionClass: project.fictionClass,
+            fictionClass: project.fictionClassRaw,
             analysisProfile: analysisProfile,
             fileName: project.name ?? "Untitled Manuscript",
             content: bodyFiles.content,
@@ -196,7 +196,8 @@ final class ManuscriptAnalystService {
         for folder in bodyFolders.sorted(by: { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }) {
             let files = (folder.textFiles ?? []).sorted(by: { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) })
             for file in files {
-                if let content = file.attributedContent?.string, !content.isEmpty {
+                let content = file.currentContent
+                if !content.isEmpty {
                     combinedContent += "\n\n--- \(file.name) ---\n\n"
                     combinedContent += content
                     fileCount += 1
@@ -288,7 +289,6 @@ final class ManuscriptAnalystService {
         
         // Soft cap thresholds (conservative defaults)
         let tokenThreshold = 100_000  // 100K tokens per month
-        let reviewThreshold = 50  // 50 reviews per month
         
         if monthlyTokenUsage > Int(Double(tokenThreshold) * 0.9) {
             currentSoftCapState = "approaching_limit"
