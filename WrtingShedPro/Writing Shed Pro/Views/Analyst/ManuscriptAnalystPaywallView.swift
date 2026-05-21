@@ -4,9 +4,9 @@ import StoreKit
 /// Paywall view for the Manuscript Analyst subscription service.
 struct ManuscriptAnalystPaywallView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var isPresented = true
-    @State private var showStore = false
+    @State private var isPurchasing = false
     @State private var showTrialTerms = false
+    @State private var purchaseError: String?
     var onSubscribe: (() -> Void)?
 
     var body: some View {
@@ -78,14 +78,22 @@ struct ManuscriptAnalystPaywallView: View {
 
                 // CTA buttons
                 VStack(spacing: 12) {
-                    Button(action: { showStore = true }) {
-                        Label("Start Free Trial", systemImage: "star.fill")
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .foregroundStyle(.white)
-                            .background(.cyan)
-                            .cornerRadius(8)
+                    Button(action: { Task { await purchaseSubscription() } }) {
+                        Group {
+                            if isPurchasing {
+                                ProgressView()
+                                    .tint(.white)
+                            } else {
+                                Label("Start Free Trial", systemImage: "star.fill")
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(.cyan)
+                        .cornerRadius(8)
                     }
+                    .disabled(isPurchasing)
 
                     Button(action: { dismiss() }) {
                         Text("Maybe Later")
@@ -122,18 +130,46 @@ struct ManuscriptAnalystPaywallView: View {
             } message: {
                 Text("First month free, then $5.99/month. Cancel anytime in App Store subscription settings. Billed to your Apple ID account.")
             }
-            .onChange(of: showStore) { _, isShowing in
-                guard !isShowing else { return }
-                Task {
-                    await EntitlementManager.shared.refreshEntitlements()
-                    await MainActor.run {
-                        if EntitlementManager.shared.isManuscriptAnalystSubscriptionActive() {
-                            onSubscribe?()
-                            dismiss()
-                        }
-                    }
-                }
+            .alert("Purchase Error", isPresented: Binding(
+                get: { purchaseError != nil },
+                set: { if !$0 { purchaseError = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(purchaseError ?? "")
             }
+        }
+    }
+
+    private func purchaseSubscription() async {
+        isPurchasing = true
+        defer { isPurchasing = false }
+        do {
+            let productID = WSPProduct.manuscriptAnalystSubscription.rawValue
+            let products = try await Product.products(for: [productID])
+            guard let product = products.first else {
+                purchaseError = "Subscription not available. Please try again later."
+                return
+            }
+            let result = try await product.purchase()
+            switch result {
+            case .success(let verification):
+                if case .verified(let transaction) = verification {
+                    await transaction.finish()
+                    EntitlementManager.shared.recordVerifiedPurchase(transaction.productID)
+                    await EntitlementManager.shared.refreshEntitlements()
+                    onSubscribe?()
+                    dismiss()
+                }
+            case .userCancelled:
+                break
+            case .pending:
+                break
+            @unknown default:
+                break
+            }
+        } catch {
+            purchaseError = error.localizedDescription
         }
     }
 
