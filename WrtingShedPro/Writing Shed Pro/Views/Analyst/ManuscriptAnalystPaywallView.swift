@@ -122,9 +122,6 @@ struct ManuscriptAnalystPaywallView: View {
                     }
                 }
             }
-            .fullScreenCover(isPresented: $showStore) {
-                StoreView(autoPurchaseProduct: .manuscriptAnalystSubscription)
-            }
             .alert("Trial Terms", isPresented: $showTrialTerms) {
                 Button("OK", role: .cancel) {}
             } message: {

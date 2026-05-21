@@ -2415,8 +2415,6 @@ struct FileEditView: View {
 
     private func setEditorZoomScale(_ value: CGFloat) {
         let clampedScale = max(0.5, min(4.0, value))
-        editorZoomScale = clampedScale
-        lastEditorZoomScale = clampedScale
 
         if let textView = textViewCoordinator.textView {
             textView.transform = CGAffineTransform(scaleX: clampedScale, y: clampedScale)
@@ -2425,6 +2423,11 @@ struct FileEditView: View {
         #if os(iOS)
         UserDefaults.standard.set(Double(clampedScale), forKey: Self.editorZoomScaleDefaultsKey)
         #endif
+
+        DispatchQueue.main.async {
+            editorZoomScale = clampedScale
+            lastEditorZoomScale = clampedScale
+        }
     }
 
     private func loadSavedEditorZoomScaleIfNeeded() {
