@@ -139,6 +139,9 @@ struct FileEditView: View {
     
     // Feature 112: Table of Figures
     @State private var showTableOfFiguresSettings = false
+
+    // Feature 040: Manuscript Analyst
+    @State private var showManuscriptAnalyst = false
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -661,6 +664,12 @@ struct FileEditView: View {
                 )
             }
         }
+
+        Button(action: {
+            showManuscriptAnalyst = true
+        }) {
+            Label("Analyze", systemImage: "sparkles")
+        }
         
         Divider()
         
@@ -1024,6 +1033,13 @@ struct FileEditView: View {
                         .accessibilityLabel("fileEdit.switchToEditMode.accessibility")
                     }
                 } else {
+                    Button(action: {
+                        showManuscriptAnalyst = true
+                    }) {
+                        Image(systemName: "sparkles")
+                    }
+                    .accessibilityLabel("Analyze with Manuscript Analyst")
+
                     // iPad/Mac: Pagination mode toggle (always available)
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.3)) {
@@ -1922,6 +1938,9 @@ struct FileEditView: View {
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $showManuscriptAnalyst) {
+                ManuscriptAnalystActionSheet(textFile: file)
             }
             .sheet(item: $selectedPlotElement) { plotElement in
                 PlotElementQuickView(plotElement: plotElement)

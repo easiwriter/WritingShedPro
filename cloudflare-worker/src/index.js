@@ -94,7 +94,7 @@ async function handleManuscriptAnalystReview(request, env) {
         );
     }
 
-    const apiKey = env.LLM_API_KEY_CLAUDE;
+    const apiKey = env.LLM_API_KEY;
     if (!apiKey) {
         return jsonResponse({ error: "Service configuration error" }, 500);
     }
@@ -105,18 +105,22 @@ async function handleManuscriptAnalystReview(request, env) {
 
         const startTime = Date.now();
 
-        const llmResponse = await fetch("https://api.anthropic.com/v1/messages", {
+        const llmResponse = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
-                "x-api-key": apiKey,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: "claude-3-5-sonnet-20241022",
-                max_tokens: 2048,
-                system: systemPrompt,
+                model: "gpt-4o-mini",
+                max_tokens: 1800,
+                temperature: 0.3,
+                response_format: { type: "json_object" },
                 messages: [
+                    {
+                        role: "system",
+                        content: systemPrompt,
+                    },
                     {
                         role: "user",
                         content: userPrompt,
@@ -127,7 +131,7 @@ async function handleManuscriptAnalystReview(request, env) {
 
         if (!llmResponse.ok) {
             const error = await llmResponse.text();
-            console.error("Claude API error:", llmResponse.status, error);
+            console.error("OpenAI API error:", llmResponse.status, error);
             if (llmResponse.status === 429) {
                 return jsonResponse(
                     { error: "Rate limited - please try again later", softCapState: "throttled" },
@@ -138,9 +142,9 @@ async function handleManuscriptAnalystReview(request, env) {
         }
 
         const data = await llmResponse.json();
-        const analysisText = data.content?.[0]?.text ?? "";
+        const analysisText = data.choices?.[0]?.message?.content ?? "";
         const analysisTimeMs = Date.now() - startTime;
-        const tokensUsed = data.usage?.output_tokens ?? 0;
+        const tokensUsed = data.usage?.total_tokens ?? 0;
 
         // Parse the analysis response
         const analysis = parseAnalysisResponse(analysisText, analysisProfile);
@@ -161,7 +165,7 @@ async function handleManuscriptAnalystReview(request, env) {
                     contentAnalyzed: content.length,
                     tokensUsed: tokensUsed,
                     analysisTimeMs: analysisTimeMs,
-                    model: "claude-3-5-sonnet-20241022",
+                    model: "gpt-4o-mini",
                     softCapState: calculateSoftCapState(tokensUsed, subscriptionTier),
                 },
             },
@@ -229,26 +233,25 @@ async function handleSupport(request, env) {
                         content: `[${reportType}] ${trimmedQuery}\n\nDevice: ${safeDeviceInfo}\nApp Version: ${safeAppVersion}`,
                     },
                 ],
-                }),
-            });
+            }),
+        });
 
-            if (!llmResponse.ok) {
-                console.error("LLM API error:", llmResponse.status);
-                return jsonResponse({ error: "Support service temporarily unavailable" }, 502);
-            }
-
-            const data = await llmResponse.json();
-            const answer =
-                data.choices?.[0]?.message?.content ??
-                "We could not generate a response at this time. Please tap \"Ask Developer\" to email us directly.";
-
-            return jsonResponse({ response: answer }, 200);
-        } catch (err) {
-            console.error("LLM request failed:", err);
+        if (!llmResponse.ok) {
+            console.error("LLM API error:", llmResponse.status);
             return jsonResponse({ error: "Support service temporarily unavailable" }, 502);
         }
-    },
-};
+
+        const data = await llmResponse.json();
+        const answer =
+            data.choices?.[0]?.message?.content ??
+            "We could not generate a response at this time. Please tap \"Ask Developer\" to email us directly.";
+
+        return jsonResponse({ response: answer }, 200);
+    } catch (err) {
+        console.error("LLM request failed:", err);
+        return jsonResponse({ error: "Support service temporarily unavailable" }, 502);
+    }
+}
 
 function jsonResponse(body, status) {
     return new Response(JSON.stringify(body), {

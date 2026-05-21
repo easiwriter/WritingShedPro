@@ -12,6 +12,7 @@ struct FileDetailView: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     @State private var showDeleteConfirmation = false
+    @State private var showManuscriptAnalyst = false
     
     init(file: TextFile) {
         self.file = file
@@ -57,6 +58,15 @@ struct FileDetailView: View {
                 }
                 .accessibilityLabel(NSLocalizedString("fileDetail.deleteAccessibility", comment: "Delete file accessibility"))
             }
+
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showManuscriptAnalyst = true
+                } label: {
+                    Image(systemName: "sparkles")
+                }
+                .accessibilityLabel("Analyze with Manuscript Analyst")
+            }
         }
         .alert(NSLocalizedString("fileDetail.error", comment: "Error alert title"), isPresented: $showErrorAlert) {
             Button(NSLocalizedString("fileDetail.ok", comment: "OK button"), role: .cancel) { }
@@ -74,6 +84,9 @@ struct FileDetailView: View {
             Button(NSLocalizedString("fileDetail.cancel", comment: "Cancel button"), role: .cancel) { }
         } message: {
             Text(NSLocalizedString("fileDetail.deleteWarning", comment: "Delete warning"))
+        }
+        .sheet(isPresented: $showManuscriptAnalyst) {
+            ManuscriptAnalystActionSheet(textFile: file)
         }
     }
     
