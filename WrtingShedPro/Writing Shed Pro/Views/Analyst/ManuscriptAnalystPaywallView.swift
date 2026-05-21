@@ -5,15 +5,17 @@ import StoreKit
 struct ManuscriptAnalystPaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isPresented = true
+    @State private var showStore = false
+    @State private var showTrialTerms = false
     var onSubscribe: (() -> Void)?
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
+            VStack(spacing: 10) {
                 // Hero section
                 VStack(spacing: 12) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 64))
+                        .font(.system(size: 48))
                         .foregroundStyle(.cyan)
                     
                     VStack(spacing: 8) {
@@ -25,18 +27,18 @@ struct ManuscriptAnalystPaywallView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .padding(.vertical, 24)
+                .padding(.vertical, 12)
 
                 Divider()
 
                 // Features list
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
                     featureRow("sparkles", "Smart editorial suggestions tailored to your genre", .cyan)
                     featureRow("chart.line", "Track writing improvements over time", .green)
                     featureRow("lightning.bolt", "Analyze entire manuscripts in seconds", .orange)
                     featureRow("brain.fill", "AI powered by Claude 3.5 Sonnet", .purple)
                 }
-                .padding(.vertical, 16)
+                .padding(.vertical, 8)
 
                 Divider()
 
@@ -70,16 +72,13 @@ struct ManuscriptAnalystPaywallView: View {
                     .background(Color(.systemBackground))
                     .cornerRadius(8)
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, 4)
 
-                Spacer()
+                Spacer(minLength: 0)
 
                 // CTA buttons
                 VStack(spacing: 12) {
-                    Button(action: { 
-                        onSubscribe?()
-                        dismiss()
-                    }) {
+                    Button(action: { showStore = true }) {
                         Label("Start Free Trial", systemImage: "star.fill")
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
@@ -99,15 +98,10 @@ struct ManuscriptAnalystPaywallView: View {
                 }
 
                 // Fine print
-                VStack(spacing: 4) {
-                    Text("Trial terms")
+                Button(action: { showTrialTerms = true }) {
+                    Label("Trial Terms", systemImage: "info.circle")
                         .font(.caption2)
-                        .fontWeight(.semibold)
                         .foregroundStyle(.secondary)
-                    Text("First month free, then $5.99/month. Cancel anytime. Billed to your App Store account.")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(3)
                 }
             }
             .padding()
@@ -117,6 +111,26 @@ struct ManuscriptAnalystPaywallView: View {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .fullScreenCover(isPresented: $showStore) {
+                StoreView(autoPurchaseProduct: .manuscriptAnalystSubscription)
+            }
+            .alert("Trial Terms", isPresented: $showTrialTerms) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("First month free, then $5.99/month. Cancel anytime in App Store subscription settings. Billed to your Apple ID account.")
+            }
+            .onChange(of: showStore) { _, isShowing in
+                guard !isShowing else { return }
+                Task {
+                    await EntitlementManager.shared.refreshEntitlements()
+                    await MainActor.run {
+                        if EntitlementManager.shared.isManuscriptAnalystSubscriptionActive() {
+                            onSubscribe?()
+                            dismiss()
+                        }
                     }
                 }
             }

@@ -36,11 +36,7 @@ struct ManuscriptAnalystActionSheet: View {
             .sheet(isPresented: $showPaywall) {
                 ManuscriptAnalystPaywallView(onSubscribe: {
                     showPaywall = false
-                    // Trigger StoreKit purchase flow
-                    Task {
-                        // This would be integrated with StoreKit product purchase
-                        print("Launching subscription purchase...")
-                    }
+                    performAnalysis()
                 })
             }
             .alert("Analysis Error", isPresented: $showError, presenting: error) { _ in
