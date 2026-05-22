@@ -29,6 +29,9 @@ class NumberingLayoutManager: NSLayoutManager {
     
     /// Whether to draw invisible characters (spaces, tabs, paragraph marks, page breaks)
     var showInvisibles: Bool = false
+
+    /// Whether to draw editor line numbers in the right margin
+    var showDocumentLineNumbers: Bool = false
     
     /// Initial counter state for cross-page numbering continuity.
     /// Set by VirtualPageScrollView to continue numbering from previous pages.
@@ -40,6 +43,12 @@ class NumberingLayoutManager: NSLayoutManager {
     
     /// Font size for poetry line numbers
     private let poetryLineNumberFontSize: CGFloat = 11
+
+    /// Width reserved for document line numbers in edit mode
+    private let documentLineNumberWidth: CGFloat = 56
+
+    /// Font size for document line numbers
+    private let documentLineNumberFontSize: CGFloat = 14
     
     /// Determine the bullet level from a style name
     /// Returns 0 for base level, 1 for level-2, 2 for level-3, etc.
@@ -343,6 +352,12 @@ class NumberingLayoutManager: NSLayoutManager {
         if project.type == .poetry && isPaginatedView {
             drawPoetryLineNumbers(forGlyphRange: glyphsToShow, at: origin)
         }
+
+        // Document line numbers for the regular editor view.
+        // This is independent from poetry pagination numbering.
+        if showDocumentLineNumbers && !isPaginatedView {
+            drawDocumentLineNumbers(forGlyphRange: glyphsToShow, at: origin)
+        }
         
         // Paragraph numbering requires a stylesheet
         guard let styleSheet = project.styleSheet else {
@@ -634,6 +649,81 @@ class NumberingLayoutManager: NSLayoutManager {
             // Draw the line number on the right
             self.drawPoetryLineNumber(lineNum, at: origin, lineFragmentRect: lineFragmentRect, containerWidth: textContainer.size.width)
         }
+    }
+
+    /// Draw line numbers on the left margin for regular editor documents.
+    /// Counts every paragraph line (including blank lines) to align with analyst references.
+    private func drawDocumentLineNumbers(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
+        guard let textStorage = textStorage,
+              let textContainer = textContainers.first else {
+            return
+        }
+
+        let visibleCharRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
+        let text = textStorage.string as NSString
+        let fullRange = NSRange(location: 0, length: textStorage.length)
+
+        var paragraphLineNumbers: [Int: Int] = [:]
+        var lineNumber = 0
+
+        text.enumerateSubstrings(in: fullRange, options: .byParagraphs) { _, paragraphRange, _, _ in
+            lineNumber += 1
+            paragraphLineNumbers[paragraphRange.location] = lineNumber
+        }
+
+        text.enumerateSubstrings(in: fullRange, options: .byParagraphs) { [weak self] _, paragraphRange, _, _ in
+            guard let self = self else { return }
+
+            let paragraphEnd = paragraphRange.location + paragraphRange.length
+            let visibleEnd = visibleCharRange.location + visibleCharRange.length
+            let isVisible = (paragraphRange.location < visibleEnd) && (paragraphEnd > visibleCharRange.location)
+
+            guard isVisible,
+                  let lineNum = paragraphLineNumbers[paragraphRange.location] else {
+                return
+            }
+
+            let glyphRange = self.glyphRange(forCharacterRange: paragraphRange, actualCharacterRange: nil)
+            guard glyphRange.length > 0 else { return }
+
+            let lineFragmentRect = self.lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
+            self.drawDocumentLineNumber(lineNum, at: origin, lineFragmentRect: lineFragmentRect)
+        }
+
+        // Show a trailing line number for an empty last paragraph after a final newline.
+        if text.hasSuffix("\n") {
+            let trailingLine = lineNumber + 1
+            if textStorage.length > 0 {
+                let lastGlyphRange = glyphRange(forCharacterRange: NSRange(location: textStorage.length - 1, length: 1), actualCharacterRange: nil)
+                if lastGlyphRange.length > 0 {
+                    let lastRect = lineFragmentRect(forGlyphAt: lastGlyphRange.location, effectiveRange: nil)
+                    let trailingRect = CGRect(x: 0, y: lastRect.origin.y + lastRect.height, width: lastRect.width, height: lastRect.height)
+                    drawDocumentLineNumber(trailingLine, at: origin, lineFragmentRect: trailingRect)
+                }
+            }
+        }
+    }
+
+    /// Draw a single document line number in the left margin.
+    private func drawDocumentLineNumber(_ lineNumber: Int, at origin: CGPoint, lineFragmentRect: CGRect) {
+        let numberString = "\(lineNumber)" as NSString
+        let numberAttributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.monospacedDigitSystemFont(ofSize: documentLineNumberFontSize, weight: .regular),
+            .foregroundColor: UIColor.secondaryLabel
+        ]
+
+        let numberSize = numberString.size(withAttributes: numberAttributes)
+        let numberX = origin.x - documentLineNumberWidth + 6
+        let baselineY = origin.y + lineFragmentRect.origin.y + (lineFragmentRect.height - numberSize.height) / 2
+
+        let numberRect = CGRect(
+            x: numberX,
+            y: baselineY,
+            width: documentLineNumberWidth - 10,
+            height: numberSize.height
+        )
+
+        numberString.draw(in: numberRect, withAttributes: numberAttributes)
     }
     
     /// Draw a single poetry line number on the right margin

@@ -5,6 +5,7 @@ import SwiftData
 struct ManuscriptAnalystActionSheet: View {
     let textFile: TextFile
     @State private var isLoading = false
+    @State private var hasStartedAnalysis = false
     @State private var showPaywall = false
     @State private var review: ManuscriptReview?
     @State private var error: ManuscriptAnalystError?
@@ -20,8 +21,14 @@ struct ManuscriptAnalystActionSheet: View {
                 } else if let review = review {
                     AnalystReviewView(review: review)
                 } else {
-                    initialState
+                    Color(.systemBackground)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+            }
+            .task {
+                guard !hasStartedAnalysis else { return }
+                hasStartedAnalysis = true
+                performAnalysis()
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -47,69 +54,19 @@ struct ManuscriptAnalystActionSheet: View {
         }
     }
 
-    private var initialState: some View {
-        VStack(spacing: 16) {
-            VStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.cyan)
-                Text("Analyze This File")
-                    .font(.headline)
-                Text(textFile.name)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 24)
-
-            VStack(alignment: .leading, spacing: 12) {
-                Text("You'll receive:")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                
-                analyzeRow("Tailored feedback for your writing genre", "sparkles")
-                analyzeRow("Specific suggestions by category", "list.bullet")
-                analyzeRow("Analysis of key writing strengths", "checkmark.circle")
-            }
-
-            Spacer()
-
-            Button(action: performAnalysis) {
-                Label("Analyze Now", systemImage: "wand.and.stars")
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .foregroundStyle(.white)
-                    .background(.cyan)
-                    .cornerRadius(8)
-            }
-        }
-        .padding()
-    }
-
     private var loadingState: some View {
         VStack(spacing: 16) {
             ProgressView()
                 .scaleEffect(1.5)
             Text("Analyzing your manuscript...")
-                .font(.subheadline)
+                .font(.title3)
                 .foregroundStyle(.secondary)
             Text("This may take up to 30 seconds")
-                .font(.caption)
+                .font(.body)
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemBackground))
-    }
-
-    private func analyzeRow(_ text: String, _ icon: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.body)
-                .foregroundStyle(.cyan)
-                .frame(width: 24)
-            Text(text)
-                .font(.caption)
-            Spacer()
-        }
     }
 
     private func performAnalysis() {
@@ -145,17 +102,4 @@ struct ManuscriptAnalystActionSheet: View {
             }
         }
     }
-}
-
-#Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: TextFile.self, ManuscriptReview.self, configurations: config)
-    
-    let textFile = TextFile(
-        name: "Chapter 1",
-        initialContent: "Sample content for analysis."
-    )
-    
-    ManuscriptAnalystActionSheet(textFile: textFile)
-        .modelContainer(container)
 }

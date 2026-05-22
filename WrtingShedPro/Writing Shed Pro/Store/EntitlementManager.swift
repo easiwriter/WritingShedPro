@@ -82,6 +82,11 @@ final class EntitlementManager {
     /// Configure the manager and load initial entitlements
     func configure() async {
         startNetworkMonitoring()
+        // Configure StoreKitPurchaseManager with the subscription config so it
+        // starts the transaction listener and registers valid product IDs.
+        if let config = SubscriptionConfigLoader.loadLocalizedConfig() {
+            purchaseManager.configure(from: config)
+        }
         await refreshEntitlements()
     }
     

@@ -7,6 +7,8 @@ struct AnalystReviewView: View {
     @State private var isArchived: Bool = false
     @State private var selectedCategory: String?
     @State private var sortBy: SortOption = .severity
+    @State private var useLargeText = true
+    @State private var expandedSuggestionId: String?
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
@@ -27,7 +29,20 @@ struct AnalystReviewView: View {
                             emptyState
                         } else {
                             ForEach(filteredSuggestions, id: \.suggestionId) { suggestion in
-                                SuggestionCard(suggestion: suggestion)
+                                SuggestionCard(
+                                    suggestion: suggestion,
+                                    isExpanded: expandedSuggestionId == suggestion.suggestionId,
+                                    useLargeText: useLargeText,
+                                    onToggleExpanded: {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            if expandedSuggestionId == suggestion.suggestionId {
+                                                expandedSuggestionId = nil
+                                            } else {
+                                                expandedSuggestionId = suggestion.suggestionId
+                                            }
+                                        }
+                                    }
+                                )
                             }
                         }
                     }
@@ -44,6 +59,13 @@ struct AnalystReviewView: View {
                             ForEach(SortOption.allCases, id: \.self) { option in
                                 Label(option.label, systemImage: option.icon).tag(option)
                             }
+                        }
+                        Divider()
+                        Button(action: { useLargeText.toggle() }) {
+                            Label(
+                                useLargeText ? "Standard Text" : "Larger Text",
+                                systemImage: useLargeText ? "textformat.size.smaller" : "textformat.size.larger"
+                            )
                         }
                         Divider()
                         Button(action: { isArchived.toggle() }) {
@@ -67,48 +89,44 @@ struct AnalystReviewView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Analysis Summary")
-                        .font(.headline)
+                        .font(.title3)
+                        .fontWeight(.semibold)
                     sentimentBadge
                 }
                 Spacer()
-                if let metadata = review.metadata {
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("\(metadata.tokensUsed) tokens")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("\(metadata.analysisTimeMs)ms")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
             }
             .padding(.horizontal)
 
-            Text(review.summary)
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(review.summary)
+                        .font(useLargeText ? .title3 : .body)
+                        .foregroundStyle(.primary)
 
-            if let focusOrder = review.suggestedFocusOrder, !focusOrder.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Suggested Focus Areas")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(focusOrder, id: \.self) { area in
-                            HStack(spacing: 8) {
-                                Image(systemName: "star.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.orange)
-                                Text(area)
-                                    .font(.caption)
+                    if let focusOrder = review.suggestedFocusOrder, !focusOrder.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Suggested Focus Areas")
+                                .font(useLargeText ? .title3 : .headline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.primary)
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(focusOrder, id: \.self) { area in
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "star.fill")
+                                            .font(useLargeText ? .body : .callout)
+                                            .foregroundStyle(.orange)
+                                        Text(area)
+                                            .font(useLargeText ? .title3 : .body)
+                                            .foregroundStyle(.primary)
+                                    }
+                                }
                             }
                         }
                     }
                 }
                 .padding(.horizontal)
             }
+            .frame(maxHeight: 220)
         }
         .padding(.vertical, 12)
         .background(Color(.systemBackground))
@@ -119,7 +137,7 @@ struct AnalystReviewView: View {
     private var sentimentBadge: some View {
         let (icon, color) = sentimentStyle(for: review.overallSentiment)
         return Label(review.overallSentiment.capitalized, systemImage: icon)
-            .font(.caption)
+            .font(useLargeText ? .headline : .callout)
             .foregroundStyle(.white)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
@@ -133,10 +151,11 @@ struct AnalystReviewView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.green)
             Text("No Suggestions")
-                .font(.headline)
+                .font(.title3)
+                .fontWeight(.semibold)
             Text("Great work! The analyst found no issues to address.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(useLargeText ? .title3 : .body)
+                .foregroundStyle(.primary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -151,11 +170,11 @@ struct AnalystReviewView: View {
                         .foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Usage Limit Approaching")
-                            .font(.caption)
+                            .font(useLargeText ? .title3 : .body)
                             .fontWeight(.semibold)
                         Text("You're approaching your monthly analysis limit. Consider reviewing again next month.")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .font(useLargeText ? .body : .callout)
+                            .foregroundStyle(.primary)
                     }
                     Spacer()
                 }
@@ -170,11 +189,11 @@ struct AnalystReviewView: View {
                         .foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Approaching Limit")
-                            .font(.caption)
+                            .font(useLargeText ? .title3 : .body)
                             .fontWeight(.semibold)
                         Text("You have a few analyses remaining this month.")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .font(useLargeText ? .body : .callout)
+                            .foregroundStyle(.primary)
                     }
                     Spacer()
                 }
@@ -258,8 +277,10 @@ struct AnalystReviewView: View {
 // MARK: - Suggestion Card
 
 struct SuggestionCard: View {
-    @State var suggestion: ReviewSuggestion
-    @State private var isExpanded = false
+    let suggestion: ReviewSuggestion
+    let isExpanded: Bool
+    let useLargeText: Bool
+    let onToggleExpanded: () -> Void
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
@@ -269,19 +290,19 @@ struct SuggestionCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(suggestion.category)
-                            .font(.subheadline)
+                            .font(useLargeText ? .title3 : .headline)
                             .fontWeight(.semibold)
                         Spacer()
                         if suggestion.isAddressed {
                             Label("Addressed", systemImage: "checkmark")
-                                .font(.caption2)
+                                .font(useLargeText ? .body : .footnote)
                                 .foregroundStyle(.green)
                         }
                     }
                     if let location = suggestion.location {
                         Text(location)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(useLargeText ? .body : .callout)
+                            .foregroundStyle(.primary)
                     }
                 }
             }
@@ -291,33 +312,35 @@ struct SuggestionCard: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Section {
                         Text(suggestion.observation)
-                            .font(.caption)
+                            .font(useLargeText ? .title3 : .body)
+                            .foregroundStyle(.primary)
                     } header: {
                         Text("Observation")
-                            .font(.caption2)
+                            .font(useLargeText ? .headline : .callout)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.primary)
                     }
 
                     Section {
                         Text(suggestion.suggestion)
-                            .font(.caption)
+                            .font(useLargeText ? .title3 : .body)
+                            .foregroundStyle(.primary)
                     } header: {
                         Text("Suggestion")
-                            .font(.caption2)
+                            .font(useLargeText ? .headline : .callout)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.primary)
                     }
 
                     Section {
                         Text(suggestion.rationale)
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                            .font(useLargeText ? .body : .callout)
+                            .foregroundStyle(.primary)
                     } header: {
                         Text("Why This Matters")
-                            .font(.caption2)
+                            .font(useLargeText ? .headline : .callout)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.primary)
                     }
 
                     HStack(spacing: 12) {
@@ -326,13 +349,13 @@ struct SuggestionCard: View {
                                 suggestion.isAddressed ? "Mark as Unaddressed" : "Mark as Addressed",
                                 systemImage: suggestion.isAddressed ? "xmark.circle" : "checkmark.circle"
                             )
-                            .font(.caption)
+                            .font(useLargeText ? .title3 : .body)
                         }
                         Spacer()
                         if let notes = suggestion.userNotes, !notes.isEmpty {
                             Text("Note added")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                                .font(useLargeText ? .body : .footnote)
+                                .foregroundStyle(.primary)
                         }
                     }
                     .padding(.top, 4)
@@ -343,17 +366,13 @@ struct SuggestionCard: View {
         .background(Color(.systemBackground))
         .border(severityBorderColor, width: 1)
         .cornerRadius(8)
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isExpanded.toggle()
-            }
-        }
+        .onTapGesture(perform: onToggleExpanded)
     }
 
     private var severityIndicator: some View {
         VStack {
             Image(systemName: severityIcon)
-                .font(.caption)
+                .font(useLargeText ? .headline : .callout)
                 .foregroundStyle(severityColor)
             Spacer()
         }
@@ -391,43 +410,4 @@ struct SuggestionCard: View {
         suggestion.isAddressed.toggle()
         try? modelContext.save()
     }
-}
-
-#Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: ManuscriptReview.self, ReviewSuggestion.self, configurations: config)
-    
-    let review = ManuscriptReview(
-        reviewId: UUID().uuidString,
-        timestamp: Date(),
-        projectId: UUID(),
-        analysisMode: "file",
-        summary: "Your prose is clear and engaging, with strong character development. Focus on tightening dialogue and varying sentence structure for greater impact.",
-        overallSentiment: "encouraging",
-        analysisProfile: "prose"
-    )
-    
-    review.suggestions = [
-        ReviewSuggestion(
-            suggestionId: "1",
-            category: "Dialogue",
-            severity: "medium",
-            location: "Page 3, Paragraph 2",
-            observation: "The dialogue feels somewhat static.",
-            suggestion: "Vary the pacing and add more subtext to make conversations feel more natural.",
-            rationale: "Readers connect emotionally through character voice and conflict in dialogue."
-        ),
-        ReviewSuggestion(
-            suggestionId: "2",
-            category: "Sentence Structure",
-            severity: "low",
-            location: nil,
-            observation: "Many sentences follow a similar structure.",
-            suggestion: "Mix short and long sentences to create rhythm and emphasis.",
-            rationale: "Sentence variety improves readability and maintains reader engagement."
-        )
-    ]
-    
-    return AnalystReviewView(review: review)
-        .modelContainer(container)
 }

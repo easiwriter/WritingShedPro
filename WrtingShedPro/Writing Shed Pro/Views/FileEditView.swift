@@ -14,6 +14,7 @@ struct NewIndexEntryData: Identifiable {
 
 struct FileEditView: View {
     private static let editorZoomScaleDefaultsKey = "editorZoomScale"
+    private static let showLineNumbersDefaultsKey = "showDocumentLineNumbers"
 
         @State private var presentDeleteBackMatterAlert = false
     @Bindable var file: TextFile
@@ -53,6 +54,7 @@ struct FileEditView: View {
     @State private var showImageSourcePicker = false // Show Photos vs Files chooser
     @State private var isPaginationMode = false // Toggle between edit and pagination preview modes
     @State private var showInvisibles = false // Toggle to show invisible characters (spaces, tabs, paragraph marks, page breaks)
+    @State private var showLineNumbers = false // Toggle to show editor line numbers in right gutter
     @State private var isPreviewingAsAlternateFormat = false // When true, showing file in opposite format (non-destructive preview)
     @State private var prePreviewContent: NSAttributedString? // Stores original content before entering preview mode
     @State private var editorZoomScale: CGFloat = 1.0 // User-controlled zoom for text editor
@@ -272,6 +274,7 @@ struct FileEditView: View {
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
                                 showInvisibles: showInvisibles,
+                                showLineNumbers: showLineNumbers,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
                                 onTextChange: { newText in
@@ -338,6 +341,7 @@ struct FileEditView: View {
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
                                 showInvisibles: showInvisibles,
+                                showLineNumbers: showLineNumbers,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
                                 onTextChange: { newText in
@@ -411,6 +415,7 @@ struct FileEditView: View {
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
                                 showInvisibles: showInvisibles,
+                                showLineNumbers: showLineNumbers,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
                                 onTextChange: { newText in
@@ -468,6 +473,7 @@ struct FileEditView: View {
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
                                 showInvisibles: showInvisibles,
+                                showLineNumbers: showLineNumbers,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
                                 onTextChange: { newText in
@@ -650,6 +656,17 @@ struct FileEditView: View {
                 systemImage: showInvisibles ? "eye.slash" : "eye"
             )
         }
+
+        Button(action: {
+            toggleLineNumbers()
+        }) {
+            Label(
+                showLineNumbers
+                    ? NSLocalizedString("fileEdit.hideLineNumbers", comment: "Hide Line Numbers")
+                    : NSLocalizedString("fileEdit.showLineNumbers", comment: "Show Line Numbers"),
+                systemImage: showLineNumbers ? "list.bullet.rectangle.portrait" : "list.number"
+            )
+        }
         
         // Content type toggle (Rich Text / Markdown) - not for poetry or drama projects
         if supportsMarkdown {
@@ -666,7 +683,7 @@ struct FileEditView: View {
         }
 
         Button(action: {
-            showManuscriptAnalyst = true
+            presentManuscriptAnalyst()
         }) {
             Label("Analyze", systemImage: "text.magnifyingglass")
         }
@@ -1034,7 +1051,7 @@ struct FileEditView: View {
                     }
                 } else {
                     Button(action: {
-                        showManuscriptAnalyst = true
+                        presentManuscriptAnalyst()
                     }) {
                         Label("Analyze", systemImage: "text.magnifyingglass")
                     }
@@ -1060,6 +1077,15 @@ struct FileEditView: View {
                         .accessibilityLabel(showInvisibles
                             ? NSLocalizedString("fileEdit.hideInvisibles", comment: "Hide Invisibles")
                             : NSLocalizedString("fileEdit.showInvisibles", comment: "Show Invisibles"))
+
+                        Button(action: {
+                            toggleLineNumbers()
+                        }) {
+                            Image(systemName: showLineNumbers ? "list.bullet.rectangle.portrait" : "list.number")
+                        }
+                        .accessibilityLabel(showLineNumbers
+                            ? NSLocalizedString("fileEdit.hideLineNumbers", comment: "Hide Line Numbers")
+                            : NSLocalizedString("fileEdit.showLineNumbers", comment: "Show Line Numbers"))
                     }
                     
                     // Content type toggle (Rich Text / Markdown) - not for poetry or drama projects
@@ -2438,9 +2464,27 @@ struct FileEditView: View {
         }
         #endif
     }
+
+    private func toggleLineNumbers() {
+        showLineNumbers.toggle()
+        UserDefaults.standard.set(showLineNumbers, forKey: Self.showLineNumbersDefaultsKey)
+    }
+
+    private func loadSavedLineNumberPreferenceIfNeeded() {
+        showLineNumbers = UserDefaults.standard.bool(forKey: Self.showLineNumbersDefaultsKey)
+    }
+
+    private func presentManuscriptAnalyst() {
+        // Ensure the analysis request uses the latest in-editor text,
+        // consistent across devices regardless of debounce timing.
+        flushPendingEditorChanges()
+        ManuscriptAnalystService.shared.clearReviewCache(for: file)
+        showManuscriptAnalyst = true
+    }
     
     private func setupOnAppear() {
         loadSavedEditorZoomScaleIfNeeded()
+        loadSavedLineNumberPreferenceIfNeeded()
 
         // Register stylesheet with provider for image caption rendering
         if let styleSheet = file.project?.styleSheet {

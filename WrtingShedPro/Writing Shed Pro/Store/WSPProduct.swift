@@ -18,7 +18,7 @@ enum WSPProduct: String, CaseIterable, Identifiable {
     case fictionWriter = "com.writingshedpro.fictionwriter"
     case dramaWriter = "com.writingshedpro.dramawriter"
     case allInBundle = "com.writingshedpro.allinbundle"
-    case manuscriptAnalystSubscription = "com.writingshedpro.analyst.monthly"
+    case manuscriptAnalystSubscription = "com.writingshedpro.manuscriptanalyst"
     
     var id: String { rawValue }
     

@@ -70,6 +70,12 @@ struct FormattedTextEditor: UIViewRepresentable {
     
     /// Whether to show invisible characters (spaces, tabs, paragraph marks, page breaks)
     var showInvisibles: Bool = false
+
+    /// Whether to show editor line numbers in the left gutter
+    var showLineNumbers: Bool = false
+
+    /// Width reserved for line number gutter
+    private let lineNumberGutterWidth: CGFloat = 56
     
     // MARK: - Configuration
     
@@ -99,6 +105,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         textViewCoordinator: TextViewCoordinator? = nil,
         project: Project? = nil,
         showInvisibles: Bool = false,
+        showLineNumbers: Bool = false,
         font: UIFont = .preferredFont(forTextStyle: .body),
         textColor: UIColor = .label,
         backgroundColor: UIColor = .systemBackground,
@@ -127,6 +134,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         self.textViewCoordinator = textViewCoordinator
         self.project = project
         self.showInvisibles = showInvisibles
+        self.showLineNumbers = showLineNumbers
         self.font = font
         self.textColor = textColor
         self.backgroundColor = backgroundColor
@@ -162,6 +170,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         // Pass project reference to layout manager for style information
         layoutManager.project = project
         layoutManager.showInvisibles = showInvisibles
+        layoutManager.showDocumentLineNumbers = showLineNumbers
         
         textStorage.addLayoutManager(layoutManager)
         layoutManager.addTextContainer(textContainer)
@@ -219,11 +228,14 @@ struct FormattedTextEditor: UIViewRepresentable {
         textView.textColor = .label
         textView.backgroundColor = backgroundColor
         
-        // Add extra left inset for paragraph numbers (Feature 016)
+        // Add extra left inset for paragraph numbering and optional line-number gutter
         var adjustedInset = textContainerInset
         // No extra margin on iPhone - text at left edge like original Writing Shed
         let numberMargin: CGFloat = UIDevice.current.userInterfaceIdiom == .phone ? 0 : 5
         adjustedInset.left += numberMargin
+        if showLineNumbers {
+            adjustedInset.left += lineNumberGutterWidth
+        }
         textView.textContainerInset = adjustedInset
         
         textView.isEditable = isEditable
@@ -418,10 +430,11 @@ struct FormattedTextEditor: UIViewRepresentable {
             }
         }
         
-        // Update show invisibles flag on layout manager
+        // Update line-number/invisibles flags on layout manager
         if let layoutManager = textView.layoutManager as? NumberingLayoutManager,
-           layoutManager.showInvisibles != showInvisibles {
+           (layoutManager.showInvisibles != showInvisibles || layoutManager.showDocumentLineNumbers != showLineNumbers) {
             layoutManager.showInvisibles = showInvisibles
+            layoutManager.showDocumentLineNumbers = showLineNumbers
             layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
         }
         
@@ -621,11 +634,14 @@ struct FormattedTextEditor: UIViewRepresentable {
         // Colors should come from the attributed string's .foregroundColor attribute
         textView.backgroundColor = backgroundColor
         
-        // Add extra left inset for paragraph numbers (Feature 016)
+        // Add extra left inset for paragraph numbering and optional line-number gutter
         var adjustedInset = textContainerInset
         // No extra margin on iPhone - text at left edge like original Writing Shed
         let numberMargin: CGFloat = UIDevice.current.userInterfaceIdiom == .phone ? 0 : 5
         adjustedInset.left += numberMargin
+        if showLineNumbers {
+            adjustedInset.left += lineNumberGutterWidth
+        }
         textView.textContainerInset = adjustedInset
         
         textView.isEditable = isEditable

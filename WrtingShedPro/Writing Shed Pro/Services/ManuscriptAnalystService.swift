@@ -7,6 +7,7 @@ final class ManuscriptAnalystService {
     static let shared = ManuscriptAnalystService()
 
     private var reviewCache: [String: ManuscriptReview] = [:]
+    private let cacheSchemaVersion = "v2"
     private let cloudFlareEndpoint = "https://wsp-support.writingshedpro.workers.dev/api/manuscript-analyst/review"
     
     // Soft cap tracking
@@ -28,7 +29,8 @@ final class ManuscriptAnalystService {
             throw ManuscriptAnalystError.subscriptionInactive
         }
 
-        let cacheKey = "file_\(textFile.id)"
+        let content = normalizeContentForAnalysis(textFile.currentContent)
+        let cacheKey = "\(cacheSchemaVersion)_file_\(textFile.id)_\(contentFingerprint(content))"
         if let cached = reviewCache[cacheKey] {
             return cached
         }
@@ -48,12 +50,17 @@ final class ManuscriptAnalystService {
             fictionClass: project.fictionClassRaw,
             analysisProfile: analysisProfile,
             fileName: textFile.name,
-            content: textFile.currentContent,
+            content: content,
             fileCount: 1
         )
 
         let response = try await callCloudFlareAPI(request)
-        let review = parseResponse(response, fileId: textFile.id, projectId: project.id)
+        let review = parseResponse(
+            response,
+            fileId: textFile.id,
+            projectId: project.id,
+            sourceContent: content
+        )
 
         // Cache the result
         reviewCache[cacheKey] = review
@@ -74,11 +81,6 @@ final class ManuscriptAnalystService {
             throw ManuscriptAnalystError.subscriptionInactive
         }
 
-        let cacheKey = "manuscript_\(project.id)"
-        if let cached = reviewCache[cacheKey] {
-            return cached
-        }
-
         let analysisProfile = determineAnalysisProfile(
             projectType: project.type,
             fictionClass: project.fictionClassRaw
@@ -88,6 +90,11 @@ final class ManuscriptAnalystService {
         let bodyFiles = assembleManuscriptContent(from: project)
         guard !bodyFiles.content.isEmpty else {
             throw ManuscriptAnalystError.noContentToAnalyze
+        }
+
+        let cacheKey = "\(cacheSchemaVersion)_manuscript_\(project.id)_\(contentFingerprint(bodyFiles.content))"
+        if let cached = reviewCache[cacheKey] {
+            return cached
         }
 
         let request = buildRequest(
@@ -101,7 +108,12 @@ final class ManuscriptAnalystService {
         )
 
         let response = try await callCloudFlareAPI(request)
-        let review = parseResponse(response, fileId: nil, projectId: project.id)
+        let review = parseResponse(
+            response,
+            fileId: nil,
+            projectId: project.id,
+            sourceContent: bodyFiles.content
+        )
 
         // Cache the result
         reviewCache[cacheKey] = review
@@ -114,14 +126,14 @@ final class ManuscriptAnalystService {
 
     /// Clear cached review for a text file.
     func clearReviewCache(for textFile: TextFile) {
-        let cacheKey = "file_\(textFile.id)"
-        reviewCache.removeValue(forKey: cacheKey)
+        let prefix = "\(cacheSchemaVersion)_file_\(textFile.id)_"
+        reviewCache = reviewCache.filter { !$0.key.hasPrefix(prefix) }
     }
 
     /// Clear cached review for a manuscript.
     func clearReviewCache(for project: Project) {
-        let cacheKey = "manuscript_\(project.id)"
-        reviewCache.removeValue(forKey: cacheKey)
+        let prefix = "\(cacheSchemaVersion)_manuscript_\(project.id)_"
+        reviewCache = reviewCache.filter { !$0.key.hasPrefix(prefix) }
     }
 
     /// Get current soft-cap state.
@@ -196,7 +208,7 @@ final class ManuscriptAnalystService {
         for folder in bodyFolders.sorted(by: { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }) {
             let files = (folder.textFiles ?? []).sorted(by: { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) })
             for file in files {
-                let content = file.currentContent
+                let content = normalizeContentForAnalysis(file.currentContent)
                 if !content.isEmpty {
                     combinedContent += "\n\n--- \(file.name) ---\n\n"
                     combinedContent += content
@@ -243,7 +255,8 @@ final class ManuscriptAnalystService {
     private func parseResponse(
         _ response: ManuscriptAnalystResponse,
         fileId: UUID?,
-        projectId: UUID
+        projectId: UUID,
+        sourceContent: String
     ) -> ManuscriptReview {
         let review = ManuscriptReview(
             reviewId: response.reviewId,
@@ -263,7 +276,11 @@ final class ManuscriptAnalystService {
                 suggestionId: suggestionResponse.id,
                 category: suggestionResponse.category,
                 severity: suggestionResponse.severity,
-                location: suggestionResponse.location,
+                location: reconcileLocation(
+                    normalizeLineLocation(suggestionResponse.location),
+                    observation: suggestionResponse.observation,
+                    sourceContent: sourceContent
+                ),
                 observation: suggestionResponse.observation,
                 suggestion: suggestionResponse.suggestion,
                 rationale: suggestionResponse.rationale
@@ -281,6 +298,105 @@ final class ManuscriptAnalystService {
         )
 
         return review
+    }
+
+    private func normalizeLineLocation(_ rawLocation: String?) -> String? {
+        guard let rawLocation else { return nil }
+        let trimmed = rawLocation.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return nil }
+
+        let pattern = #"(?i)line\s*(\d+)(?:\s*[-–]\s*(\d+))?"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)),
+              let firstRange = Range(match.range(at: 1), in: trimmed),
+              let firstValue = Int(trimmed[firstRange]) else {
+            return trimmed
+        }
+
+        if let secondRange = Range(match.range(at: 2), in: trimmed),
+           let secondValue = Int(trimmed[secondRange]) {
+            return "Line \(firstValue)-\(secondValue)"
+        }
+
+        return "Line \(firstValue)"
+    }
+
+    private func reconcileLocation(_ normalizedLocation: String?, observation: String, sourceContent: String) -> String? {
+        guard let quotedPhrase = extractQuotedPhrase(from: observation),
+              let inferredLine = inferLineNumber(forPhrase: quotedPhrase, in: sourceContent) else {
+            return normalizedLocation
+        }
+
+        if let normalizedLocation,
+           let existingLine = parseSingleLineNumber(from: normalizedLocation),
+           existingLine == inferredLine {
+            return normalizedLocation
+        }
+
+        return "Line \(inferredLine)"
+    }
+
+    private func extractQuotedPhrase(from text: String) -> String? {
+        let patterns = [#"'([^'\n]{3,160})'"#, #"\"([^\"\n]{3,160})\""#]
+
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern),
+                  let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+                  let phraseRange = Range(match.range(at: 1), in: text) else {
+                continue
+            }
+
+            let phrase = text[phraseRange].trimmingCharacters(in: .whitespacesAndNewlines)
+            if !phrase.isEmpty {
+                return phrase
+            }
+        }
+
+        return nil
+    }
+
+    private func inferLineNumber(forPhrase phrase: String, in sourceContent: String) -> Int? {
+        guard !phrase.isEmpty, !sourceContent.isEmpty else { return nil }
+
+        let sourceNSString = sourceContent as NSString
+        let phraseRange = NSRange(sourceContent.startIndex..., in: sourceContent)
+        let escaped = NSRegularExpression.escapedPattern(for: phrase)
+        guard let regex = try? NSRegularExpression(pattern: escaped, options: [.caseInsensitive]) else {
+            return nil
+        }
+
+        let matches = regex.matches(in: sourceContent, options: [], range: phraseRange)
+        guard matches.count == 1 else {
+            return nil
+        }
+
+        let location = matches[0].range.location
+        let prefix = sourceNSString.substring(to: location)
+        return prefix.components(separatedBy: .newlines).count
+    }
+
+    private func parseSingleLineNumber(from location: String) -> Int? {
+        let pattern = #"(?i)line\s*(\d+)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: location, range: NSRange(location.startIndex..., in: location)),
+              let lineRange = Range(match.range(at: 1), in: location) else {
+            return nil
+        }
+        return Int(location[lineRange])
+    }
+
+    private func contentFingerprint(_ content: String) -> String {
+        var hash: UInt64 = 1469598103934665603
+        for byte in content.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 1099511628211
+        }
+        return String(hash, radix: 16)
+    }
+
+    private func normalizeContentForAnalysis(_ content: String) -> String {
+        content.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
     }
 
     private func recordUsage(tokensUsed: Int) {

@@ -69,7 +69,7 @@
          </BuildableReference>
       </BuildableProductRunnable>
       <StoreKitConfigurationFileReference
-         identifier = "../../Products.storekit">
+         identifier = "../../Writing Shed Pro/Writing Shed Pro.storekit">
       </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction

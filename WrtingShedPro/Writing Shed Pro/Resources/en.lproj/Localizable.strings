@@ -1273,6 +1273,8 @@
 "fileEdit.switchToPaginationPreview.accessibility" = "Switch to Pagination Preview";
 "fileEdit.showInvisibles" = "Show Invisibles";
 "fileEdit.hideInvisibles" = "Hide Invisibles";
+"fileEdit.showLineNumbers" = "Show Line Numbers";
+"fileEdit.hideLineNumbers" = "Hide Line Numbers";
 "fileEdit.addComment.accessibility" = "Add Comment";
 "fileEdit.addFootnote.accessibility" = "Add Footnote";
 "fileEdit.undo.accessibility" = "Undo";

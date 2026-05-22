@@ -67,6 +67,17 @@ function normalizeAnalystMetadata(metadata) {
     };
 }
 
+function stableSeedFromString(value) {
+    // Deterministic 32-bit FNV-1a hash, clamped to signed positive int range.
+    let hash = 2166136261;
+    const text = String(value || "");
+    for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return Math.abs(hash >>> 0) % 2147483647;
+}
+
 function isRateLimited(ip) {
     const now = Date.now();
     const entry = rateLimitMap.get(ip);
@@ -172,6 +183,14 @@ async function handleManuscriptAnalystReview(request, env) {
     try {
         const systemPrompt = buildAnalystSystemPrompt(analysisProfile, projectType, fictionClass);
         const userPrompt = buildAnalystUserPrompt(content, safeMetadata, safeOptions, analysisProfile);
+        const stableSeed = stableSeedFromString([
+            analysisMode,
+            projectType,
+            fictionClass || "",
+            analysisProfile,
+            safeMetadata.fileName || "",
+            content,
+        ].join("|"));
 
         const startTime = Date.now();
 
@@ -184,7 +203,8 @@ async function handleManuscriptAnalystReview(request, env) {
             body: JSON.stringify({
                 model: "gpt-4o-mini",
                 max_tokens: 1800,
-                temperature: 0.3,
+                temperature: 0,
+                seed: stableSeed,
                 response_format: { type: "json_object" },
                 messages: [
                     {
@@ -350,13 +370,19 @@ You provide feedback in JSON format with the following structure:
       "id": "unique_id",
       "category": "category_name",
       "severity": "high|medium|low",
-      "location": "specific location or null",
+            "location": "Line N or Line N-M (must use source line numbers) or null",
       "observation": "what you noticed",
       "suggestion": "what to do about it",
       "rationale": "why this matters"
     }
   ]
-}`;
+}
+
+CRITICAL LINE-NUMBER RULES:
+- The user content is provided with explicit line-number prefixes in the form "0001 | text".
+- If you cite a location, you MUST use those exact numbers as "Line N" or "Line N-M".
+- Do not estimate or invent line numbers.
+- If no precise location applies, set "location" to null.`;
 
     if (analysisProfile === "poetry") {
         return basePrompt + `
@@ -424,7 +450,8 @@ function buildAnalystUserPrompt(content, metadata, options, analysisProfile) {
         if (metadata.wordCount) prompt += `[Word Count: ${metadata.wordCount}]\n`;
     }
     
-    prompt += `\n${content}\n\n`;
+    const numberedContent = addSourceLineNumbers(content || "");
+    prompt += `\nSource (line-numbered):\n${numberedContent}\n\n`;
     
     if (options?.focusAreas && options.focusAreas.length > 0) {
         prompt += `Focus particularly on: ${options.focusAreas.join(", ")}\n\n`;
@@ -433,6 +460,13 @@ function buildAnalystUserPrompt(content, metadata, options, analysisProfile) {
     prompt += `Provide structured feedback as JSON. Limit to ${options?.severity === "high" ? "high-severity" : "all"} issues unless severity is specified as 'all'. Do not provide rewritten text.`;
     
     return prompt;
+}
+
+function addSourceLineNumbers(content) {
+    const lines = String(content).replace(/\r\n?/g, "\n").split("\n");
+    return lines
+        .map((line, idx) => `${String(idx + 1).padStart(4, "0")} | ${line}`)
+        .join("\n");
 }
 
 function parseAnalysisResponse(text, analysisProfile) {
