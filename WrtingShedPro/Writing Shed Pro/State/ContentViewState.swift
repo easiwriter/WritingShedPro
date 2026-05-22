@@ -12,6 +12,8 @@ import Observation
 @Observable
 final class ContentViewState {
     private static let hideAllProjectsKey = "hideAllProjectsForDemos"
+    private static let resumeLastOpenedProjectKey = "resumeLastOpenedProjectOnLaunch"
+    private static let lastOpenedProjectIDKey = "lastOpenedProjectID"
 
     // Navigation
     var navigationPath = NavigationPath()
@@ -51,6 +53,22 @@ final class ContentViewState {
         }
     }
 
+    var shouldResumeLastOpenedProjectOnLaunch: Bool {
+        didSet {
+            UserDefaults.standard.set(shouldResumeLastOpenedProjectOnLaunch, forKey: Self.resumeLastOpenedProjectKey)
+        }
+    }
+
+    var lastOpenedProjectID: UUID? {
+        didSet {
+            if let lastOpenedProjectID {
+                UserDefaults.standard.set(lastOpenedProjectID.uuidString, forKey: Self.lastOpenedProjectIDKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.lastOpenedProjectIDKey)
+            }
+        }
+    }
+
     
     // Debug
     var showSyncDiagnostics = false
@@ -74,5 +92,22 @@ final class ContentViewState {
         }
 
         self.hideAllProjects = UserDefaults.standard.bool(forKey: Self.hideAllProjectsKey)
+
+        self.shouldResumeLastOpenedProjectOnLaunch = UserDefaults.standard.bool(forKey: Self.resumeLastOpenedProjectKey)
+        if let storedProjectID = UserDefaults.standard.string(forKey: Self.lastOpenedProjectIDKey),
+           let projectID = UUID(uuidString: storedProjectID) {
+            self.lastOpenedProjectID = projectID
+        } else {
+            self.lastOpenedProjectID = nil
+        }
+    }
+
+    func rememberOpenedProject(_ project: Project) {
+        lastOpenedProjectID = project.id
+        shouldResumeLastOpenedProjectOnLaunch = true
+    }
+
+    func clearProjectResumeBehavior() {
+        shouldResumeLastOpenedProjectOnLaunch = false
     }
 }

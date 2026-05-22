@@ -61,7 +61,11 @@ struct ContentView: View {
             onHandleImportMenu: handleImportMenu,
             onHandleJSONImport: handleJSONImport,
             onPrefetchProjectData: prefetchProjectData,
-            onRunMigrations: runMigrations
+            onRunMigrations: runMigrations,
+            onOpenProject: { project in
+                state.rememberOpenedProject(project)
+                state.navigationPath.append(project)
+            }
         )
         .overlay(alignment: .top) {
             VStack(spacing: 6) {

@@ -32,6 +32,7 @@ struct ContentViewBody: View {
     let onHandleJSONImport: (Result<[URL], Error>) -> Void
     let onPrefetchProjectData: () -> Void
     let onRunMigrations: () -> Void
+    let onOpenProject: (Project) -> Void
     
     @Environment(\.requestReview) var requestReview
     @Environment(\.modelContext) private var modelContext
@@ -63,7 +64,8 @@ struct ContentViewBody: View {
                     isEditMode: Binding(
                         get: { state.editMode == .active },
                         set: { state.editMode = $0 ? .active : .inactive }
-                    )
+                    ),
+                    onOpenProject: onOpenProject
                 )
                 // Only show Trash bin button if there are trashed projects
                 if shouldShowProjectTrashButton {
@@ -101,6 +103,16 @@ struct ContentViewBody: View {
                         }
                     }
                 }
+
+                restoreLastOpenedProjectIfNeeded()
+            }
+            .onChange(of: state.navigationPath.count) { oldValue, newValue in
+                if oldValue > 0 && newValue == 0 {
+                    state.clearProjectResumeBehavior()
+                }
+            }
+            .onChange(of: projects.count) { _, _ in
+                restoreLastOpenedProjectIfNeeded()
             }
             .onChange(of: projects.isEmpty) { _, isEmpty in
                 if isEmpty && state.editMode == .active {
@@ -178,5 +190,14 @@ struct ContentViewBody: View {
             state.htmlManualSection = section
             state.showHTMLManual = true
         }
+    }
+
+    private func restoreLastOpenedProjectIfNeeded() {
+        guard state.navigationPath.count == 0 else { return }
+        guard state.shouldResumeLastOpenedProjectOnLaunch else { return }
+        guard let projectID = state.lastOpenedProjectID,
+              let project = projects.first(where: { $0.id == projectID }) else { return }
+
+        state.navigationPath.append(project)
     }
 }

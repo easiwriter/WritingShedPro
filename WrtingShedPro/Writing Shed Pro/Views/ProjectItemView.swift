@@ -3,6 +3,7 @@ import SwiftData
 
 struct ProjectItemView: View {
     let project: Project
+    let onOpenTapped: () -> Void
     let onInfoTapped: () -> Void
     let onPageSetupTapped: () -> Void
     var onManageFormsTapped: (() -> Void)? = nil
@@ -59,27 +60,32 @@ struct ProjectItemView: View {
     
     var body: some View {
         HStack {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: "archivebox")
-                    .imageScale(.large)
-                    .foregroundStyle(.blue)
-                    .accessibilityHidden(true)
-                if isDuplicate {
-                    Image(systemName: "2.square.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.orange)
-                        .offset(x: 4, y: -4)
-                        .accessibilityLabel(NSLocalizedString("projectItem.duplicate", comment: "Duplicate project indicator"))
+            Button(action: onOpenTapped) {
+                HStack {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "archivebox")
+                            .imageScale(.large)
+                            .foregroundStyle(.blue)
+                            .accessibilityHidden(true)
+                        if isDuplicate {
+                            Image(systemName: "2.square.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.orange)
+                                .offset(x: 4, y: -4)
+                                .accessibilityLabel(NSLocalizedString("projectItem.duplicate", comment: "Duplicate project indicator"))
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(project.name ?? NSLocalizedString("projectItem.untitledProject", comment: "Untitled project"))
+                            .font(.headline)
+                            .lineLimit(.max)
+                        Text(projectTypeDisplayName)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-            }
-            
-            VStack(alignment: .leading, spacing: 0) {
-                Text(project.name ?? NSLocalizedString("projectItem.untitledProject", comment: "Untitled project"))
-                    .font(.headline)
-                    .lineLimit(.max)
-                Text(projectTypeDisplayName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                .contentShape(Rectangle())
             }
             
             Spacer()

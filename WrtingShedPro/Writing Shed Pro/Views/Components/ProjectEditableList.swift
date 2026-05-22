@@ -13,6 +13,7 @@ struct ProjectEditableList: View {
     let projects: [Project]
     @Binding var selectedSortOrder: SortOrder
     @Binding var isEditMode: Bool
+    let onOpenProject: (Project) -> Void
     @State private var selectedProjectForInfo: Project?
     @State private var selectedProjectForPageSetup: Project?
     @State private var showingManageForms = false
@@ -152,32 +153,31 @@ struct ProjectEditableList: View {
     }
 
     private func projectRow(_ project: Project) -> some View {
-        NavigationLink(value: project) {
-            ProjectItemView(
-                project: project,
-                onInfoTapped: {
-                    selectedProjectForInfo = project
-                },
-                onPageSetupTapped: {
-                    selectedProjectForPageSetup = project
-                },
-                onManageFormsTapped: project.type == .poetry ? {
-                    showingManageForms = true
-                } : nil,
-                onPoetrySettingsTapped: (project.type == .poetry || (project.type == .fiction && project.fictionClass == .verseNovel)) ? {
-                    showingPoetrySettings = true
-                } : nil,
-                onDuplicateTapped: {
-                    duplicateProject(project)
-                },
-                onExportTapped: {
-                    projectForExportOptions = project
-                },
-                isDuplicate: duplicateIDs.contains(project.id)
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint("Double tap to open project folders")
+        ProjectItemView(
+            project: project,
+            onOpenTapped: {
+                onOpenProject(project)
+            },
+            onInfoTapped: {
+                selectedProjectForInfo = project
+            },
+            onPageSetupTapped: {
+                selectedProjectForPageSetup = project
+            },
+            onManageFormsTapped: project.type == .poetry ? {
+                showingManageForms = true
+            } : nil,
+            onPoetrySettingsTapped: (project.type == .poetry || (project.type == .fiction && project.fictionClass == .verseNovel)) ? {
+                showingPoetrySettings = true
+            } : nil,
+            onDuplicateTapped: {
+                duplicateProject(project)
+            },
+            onExportTapped: {
+                projectForExportOptions = project
+            },
+            isDuplicate: duplicateIDs.contains(project.id)
+        )
         .listRowSeparator(.hidden)
         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
     }
