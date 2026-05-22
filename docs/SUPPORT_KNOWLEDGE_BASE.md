@@ -8,10 +8,29 @@ Extracted from the in-app user guide. For use by support agents answering user q
 
 - **Writing Shed Pro** is a professional creative writing app for iPhone, iPad, and Mac (Mac Catalyst).
 - **System requirements**: iOS 17+, iPadOS 17+, macOS 14 (Sonoma)+.
-- **Purchase model**: One-time in-app purchase (no subscription). Free trial with file limit.
+- **Purchase model**: Core app access is a one-time in-app purchase by project type. The optional Manuscript Analyst feature is a separate monthly subscription.
 - **Universal**: Same app across iPhone, iPad, and Mac. UI adapts to each platform.
 - **Data storage**: All projects stored in iCloud Drive. Auto-save. Works offline (changes queue for sync).
 - **Privacy**: The developer does not read, analyze, or share user content. Diagnostic logs never contain document content.
+
+### Manuscript Analyst (Optional Add-On)
+- **What it is**: AI-powered editorial feedback service for Writing Shed Pro content.
+- **What it does**: Reviews one file or an assembled manuscript and returns categorized suggestions (with severity, observation, suggestion, and rationale).
+- **What it does not do**: It does not auto-edit or rewrite user text.
+- **Coverage**: Poetry, Prose, Fiction, Drama, and Verse Novel with project-type-aware review profiles.
+- **Subscription**: Separate subscription from core app purchase. In current UI: first month free, then $5.99/month.
+- **Exact button location**:
+  - iPad/Mac editor: tap **Analyze** (text magnifying-glass icon) in the top-right toolbar.
+  - iPhone editor: tap **...** (ellipsis) then tap **Analyze**.
+  - File detail screen: tap **Analyze** (text magnifying-glass icon) in the top-right toolbar.
+- **After tapping**: analysis starts immediately. There is no separate "submit for analysis" step.
+- **Canonical support wording for "How do I analyze?"**:
+  1. Open the file you want to review.
+  2. Start analysis from the editor toolbar.
+      - iPad/Mac: Analyze button (top-right toolbar, text magnifying-glass icon).
+      - iPhone: ... (ellipsis) then Analyze.
+  3. Analysis starts immediately after tapping.
+  4. Review categorized suggestions when analysis completes.
 
 ---
 

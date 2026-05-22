@@ -27,6 +27,7 @@ struct HTMLManualView: View {
     
     /// Rendered attributed string for the current section
     @State private var attributedContent: AttributedString = AttributedString()
+    @State private var showAskQuestion = false
     
     init(section: String? = nil) {
         self.section = section
@@ -91,11 +92,23 @@ struct HTMLManualView: View {
             #endif
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showAskQuestion = true
+                    }
+                    label: {
+                        Text("Ask a question")
+                    }
+                }
+
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         dismiss()
                     }
                 }
+            }
+            .sheet(isPresented: $showAskQuestion) {
+                ContactSupportView(initialReportType: .question, presentationMode: .questionOnly)
             }
             .onAppear {
                 loadSection(currentSection)

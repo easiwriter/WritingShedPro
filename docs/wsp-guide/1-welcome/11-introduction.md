@@ -58,6 +58,6 @@ You can read straight through or jump to the sections most relevant to your need
 
 ## See Also
 - [Quick Start Guide](13-quick-start-guide.md) - Get writing in five minutes
-- [Creating Your First Project](../2-getting-started/22-creating-your-first-project.md)
+- [Creating Your First Project](../3-getting-started/22-creating-your-first-project.md)
 
 ---

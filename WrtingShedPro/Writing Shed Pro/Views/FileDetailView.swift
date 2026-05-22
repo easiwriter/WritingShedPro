@@ -63,7 +63,7 @@ struct FileDetailView: View {
                 Button {
                     showManuscriptAnalyst = true
                 } label: {
-                    Image(systemName: "sparkles")
+                    Label("Analyze", systemImage: "text.magnifyingglass")
                 }
                 .accessibilityLabel("Analyze with Manuscript Analyst")
             }
@@ -85,7 +85,7 @@ struct FileDetailView: View {
         } message: {
             Text(NSLocalizedString("fileDetail.deleteWarning", comment: "Delete warning"))
         }
-        .sheet(isPresented: $showManuscriptAnalyst) {
+        .fullScreenCover(isPresented: $showManuscriptAnalyst) {
             ManuscriptAnalystActionSheet(textFile: file)
         }
     }

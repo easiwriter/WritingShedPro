@@ -13,6 +13,59 @@ const RATE_LIMIT_MAX = 5;           // requests per window
 const RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
 
 const MAX_QUERY_LENGTH = 2000;
+const MAX_ANALYST_CONTENT_LENGTH = 120000;
+
+const ALLOWED_ANALYSIS_MODES = new Set(["file", "manuscript"]);
+const ALLOWED_PROJECT_TYPES = new Set(["fiction", "poetry", "drama", "prose"]);
+const ALLOWED_ANALYSIS_PROFILES = new Set([
+    "poetry",
+    "prose",
+    "fiction",
+    "shortFiction",
+    "drama",
+    "verseNovel",
+]);
+const ALLOWED_SEVERITY_FILTERS = new Set(["all", "high", "medium_high"]);
+
+function isValidSubscriptionTier(subscriptionTier) {
+    return typeof subscriptionTier === "string" && subscriptionTier.startsWith("analyst.monthly");
+}
+
+function isValidProfileForProjectType(analysisProfile, projectType, fictionClass) {
+    if (projectType === "poetry") return analysisProfile === "poetry";
+    if (projectType === "prose") return analysisProfile === "prose";
+    if (projectType === "drama") return analysisProfile === "drama";
+
+    if (projectType === "fiction") {
+        if (fictionClass === "verseNovel") return analysisProfile === "verseNovel";
+        if (fictionClass === "shortFiction") return analysisProfile === "shortFiction";
+        return analysisProfile === "fiction";
+    }
+
+    return false;
+}
+
+function normalizeAnalystOptions(options) {
+    const safeOptions = typeof options === "object" && options !== null ? options : {};
+    const severity = ALLOWED_SEVERITY_FILTERS.has(safeOptions.severity)
+        ? safeOptions.severity
+        : "all";
+    const focusAreas = Array.isArray(safeOptions.focusAreas)
+        ? safeOptions.focusAreas.filter((item) => typeof item === "string" && item.trim().length > 0)
+        : [];
+
+    return { severity, focusAreas };
+}
+
+function normalizeAnalystMetadata(metadata) {
+    const safeMetadata = typeof metadata === "object" && metadata !== null ? metadata : {};
+
+    return {
+        fileName: typeof safeMetadata.fileName === "string" ? safeMetadata.fileName.slice(0, 200) : undefined,
+        fileCount: Number.isInteger(safeMetadata.fileCount) ? safeMetadata.fileCount : undefined,
+        wordCount: Number.isInteger(safeMetadata.wordCount) ? safeMetadata.wordCount : undefined,
+    };
+}
 
 function isRateLimited(ip) {
     const now = Date.now();
@@ -81,18 +134,35 @@ async function handleManuscriptAnalystReview(request, env) {
 
     // Validate required fields
     const errors = [];
-    if (!analysisMode) errors.push("analysisMode");
-    if (!projectType) errors.push("projectType");
-    if (!analysisProfile) errors.push("analysisProfile");
-    if (!subscriptionTier) errors.push("subscriptionTier");
-    if (!content || content.trim().length === 0) errors.push("content");
+    if (!analysisMode || !ALLOWED_ANALYSIS_MODES.has(analysisMode)) errors.push("analysisMode");
+    if (!projectType || !ALLOWED_PROJECT_TYPES.has(projectType)) errors.push("projectType");
+    if (!analysisProfile || !ALLOWED_ANALYSIS_PROFILES.has(analysisProfile)) errors.push("analysisProfile");
+    if (!isValidSubscriptionTier(subscriptionTier)) errors.push("subscriptionTier");
+    if (typeof content !== "string" || content.trim().length === 0) errors.push("content");
 
     if (errors.length > 0) {
         return jsonResponse(
-            { error: `Missing required fields: ${errors.join(", ")}` },
+            { error: `Invalid or missing fields: ${errors.join(", ")}` },
             400
         );
     }
+
+    if (!isValidProfileForProjectType(analysisProfile, projectType, fictionClass)) {
+        return jsonResponse(
+            { error: "analysisProfile does not match projectType/fictionClass" },
+            400
+        );
+    }
+
+    if (content.length > MAX_ANALYST_CONTENT_LENGTH) {
+        return jsonResponse(
+            { error: `content exceeds ${MAX_ANALYST_CONTENT_LENGTH} characters` },
+            413
+        );
+    }
+
+    const safeMetadata = normalizeAnalystMetadata(metadata);
+    const safeOptions = normalizeAnalystOptions(options);
 
     const apiKey = env.LLM_API_KEY;
     if (!apiKey) {
@@ -101,7 +171,7 @@ async function handleManuscriptAnalystReview(request, env) {
 
     try {
         const systemPrompt = buildAnalystSystemPrompt(analysisProfile, projectType, fictionClass);
-        const userPrompt = buildAnalystUserPrompt(content, metadata, options, analysisProfile);
+        const userPrompt = buildAnalystUserPrompt(content, safeMetadata, safeOptions, analysisProfile);
 
         const startTime = Date.now();
 
@@ -266,6 +336,10 @@ function jsonResponse(body, status) {
 function buildAnalystSystemPrompt(analysisProfile, projectType, fictionClass) {
     const basePrompt = `You are an expert editorial assistant specializing in ${analysisProfile} writing. Your role is to provide constructive, specific feedback on writing samples.
 
+You must provide critique only. Do not rewrite or generate replacement passages for the user.
+
+Feedback should be practical and manual-edit oriented.
+
 You provide feedback in JSON format with the following structure:
 {
   "summary": "2-3 sentence overview of the writing's strengths and key areas for improvement",
@@ -288,35 +362,44 @@ You provide feedback in JSON format with the following structure:
         return basePrompt + `
 
 POETRY-SPECIFIC GUIDANCE:
-- Focus on: imagery, lineation, meter and rhythm, rhyme scheme, poetic forms, emotional resonance
-- Categories: Poetic Form & Lineation, Imagery & Language, Sound & Rhythm, Emotional Impact, Structure & Organization
+- Focus on: imagery, diction, lineation, rhythm and meter, stanza architecture, sonic texture, emotional coherence
+- Categories: Poetic Form & Lineation, Rhythm, Meter & Sound, Imagery & Precision, Structure & Organization, Emotional Coherence
 - Evaluate line breaks and their effectiveness
 - Comment on use of literary devices (metaphor, simile, alliteration, etc.)
-- Consider adherence to declared poetic form if applicable`;
+- Consider adherence to declared poetic form if applicable
+- De-emphasize plot/character diagnostics unless narrative elements are explicit`;
     } else if (analysisProfile === "prose") {
         return basePrompt + `
 
 PROSE-SPECIFIC GUIDANCE:
-- Focus on: clarity, sentence variety, paragraph structure, argument flow, readability
-- Categories: Clarity & Directness, Sentence Structure, Paragraph Development, Argument Flow, Style & Voice
+- Focus on: clarity, structure, transitions, voice consistency, exposition density, readability
+- Categories: Clarity & Language, Essay / Reflective Structure, Pacing & Structure, Tone & Voice, Engagement
 - Evaluate whether the writing communicates ideas effectively
 - Look for redundancy and opportunities for tightening
-- Consider reader engagement and pacing`;
+- Consider reader engagement and pacing
+- Do not force fiction-style character/plot analysis`;
     } else if (analysisProfile === "fiction") {
         return basePrompt + `
 
 FICTION-SPECIFIC GUIDANCE:
-- Focus on: plot structure, character development, pacing, dialogue, world-building
-- Categories: Plot & Structure, Character Development, Dialogue, Pacing, Narrative Voice
+- Focus on: plot logic, character motivation, scene effectiveness, pacing, tension, continuity, stakes, voice, POV control
+- Categories: Pacing & Structure, Character Development, Narrative Consistency, Tone & Voice, Engagement
 - Evaluate story momentum and tension
 - Assess character consistency and believability
 - Comment on show-vs-tell balance`;
+    } else if (analysisProfile === "shortFiction") {
+        return basePrompt + `
+
+SHORT FICTION-SPECIFIC GUIDANCE:
+- Focus on: compression, economy, payoff, scene intent, momentum, stakes
+- Categories: Pacing & Structure, Character Development, Narrative Consistency, Tone & Voice, Engagement
+- Weight concise execution and ending effectiveness more heavily than long-form pacing`;
     } else if (analysisProfile === "drama") {
         return basePrompt + `
 
 DRAMA-SPECIFIC GUIDANCE:
-- Focus on: scene dynamics, dialogue authenticity, stage directions, dramatic tension, character interaction
-- Categories: Scene Dynamics, Dialogue, Stage Directions, Character Interaction, Dramatic Tension
+- Focus on: scene dynamics, dialogue effectiveness, stage clarity, dramatic tension, objectives and escalation
+- Categories: Dramatic Function, Dialogue, Scene Dynamics, Character Development, Engagement
 - Evaluate stageable moments and technical feasibility
 - Assess dialogue patterns and subtext
 - Consider act/scene structure`;
@@ -324,8 +407,8 @@ DRAMA-SPECIFIC GUIDANCE:
         return basePrompt + `
 
 VERSE NOVEL-SPECIFIC GUIDANCE:
-- Focus on: narrative coherence, poetic craft, character through verse, sustained tension
-- Categories: Narrative Continuity, Poetic Craft, Character Voice, Verse Patterns, Dramatic Momentum
+- Focus on: narrative movement and poetic craft together, including continuity, scene clarity, lineation, imagery, rhythm, and compression
+- Categories: Narrative Consistency, Poetic Form & Lineation, Rhythm, Meter & Sound, Character Development, Engagement
 - Evaluate both prose storytelling AND poetic technique
 - Assess whether verse enhances or obstructs the story
 - Balance poem-level and narrative-level feedback`;
@@ -347,7 +430,7 @@ function buildAnalystUserPrompt(content, metadata, options, analysisProfile) {
         prompt += `Focus particularly on: ${options.focusAreas.join(", ")}\n\n`;
     }
     
-    prompt += `Provide structured feedback as JSON. Limit to ${options?.severity === "high" ? "high-severity" : "all"} issues unless severity is specified as 'all'.`;
+    prompt += `Provide structured feedback as JSON. Limit to ${options?.severity === "high" ? "high-severity" : "all"} issues unless severity is specified as 'all'. Do not provide rewritten text.`;
     
     return prompt;
 }

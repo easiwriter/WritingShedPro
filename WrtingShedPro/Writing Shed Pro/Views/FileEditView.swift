@@ -668,7 +668,7 @@ struct FileEditView: View {
         Button(action: {
             showManuscriptAnalyst = true
         }) {
-            Label("Analyze", systemImage: "sparkles")
+            Label("Analyze", systemImage: "text.magnifyingglass")
         }
         
         Divider()
@@ -1036,7 +1036,7 @@ struct FileEditView: View {
                     Button(action: {
                         showManuscriptAnalyst = true
                     }) {
-                        Image(systemName: "sparkles")
+                        Label("Analyze", systemImage: "text.magnifyingglass")
                     }
                     .accessibilityLabel("Analyze with Manuscript Analyst")
 
@@ -1939,7 +1939,7 @@ struct FileEditView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showManuscriptAnalyst) {
+            .fullScreenCover(isPresented: $showManuscriptAnalyst) {
                 ManuscriptAnalystActionSheet(textFile: file)
             }
             .sheet(item: $selectedPlotElement) { plotElement in

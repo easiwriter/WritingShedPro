@@ -82,35 +82,35 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 # Chapter directories in order — these match the folder names in docs/wsp-guide/
 CHAPTERS = [
     "1-welcome",
-    "2-getting-started",
-    "3-projects",
-    "4-writing",
-    "5-prose-features",
-    "6-poetry-features",
-    "7-fiction-features",
-    "8-drama-features",
-    "9-publishing",       # was "9-export" in some versions
-    "10-advanced-features",  # was "10-tools" in some versions
-    "11-reference",
-    "12-appendices",
-    "13-tutorials",
+    "2-tutorials",
+    "3-getting-started",
+    "4-projects",
+    "5-writing",
+    "6-prose-features",
+    "7-poetry-features",
+    "8-fiction-features",
+    "9-drama-features",
+    "10-publishing",
+    "11-advanced-features",
+    "12-reference",
+    "13-appendices",
 ]
 
 # Chapter display names for the TOC
 CHAPTER_NAMES = {
     "1-welcome": "1. Welcome",
-    "2-getting-started": "2. Getting Started",
-    "3-projects": "3. Projects",
-    "4-writing": "4. Writing",
-    "5-prose-features": "5. Prose Features",
-    "6-poetry-features": "6. Poetry Features",
-    "7-fiction-features": "7. Fiction Features",
-    "8-drama-features": "8. Drama Features",
-    "9-publishing": "9. Publishing",
-    "10-advanced-features": "10. Advanced Features",
-    "11-reference": "11. Reference",
-    "12-appendices": "12. Appendices",
-    "13-tutorials": "13. Tutorials",
+    "2-tutorials": "2. Tutorials",
+    "3-getting-started": "3. Getting Started",
+    "4-projects": "4. Projects",
+    "5-writing": "5. Writing",
+    "6-prose-features": "6. Prose Features",
+    "7-poetry-features": "7. Poetry Features",
+    "8-fiction-features": "8. Fiction Features",
+    "9-drama-features": "9. Drama Features",
+    "10-publishing": "10. Publishing",
+    "11-advanced-features": "11. Advanced Features",
+    "12-reference": "12. Reference",
+    "13-appendices": "13. Appendices",
 }
 
 

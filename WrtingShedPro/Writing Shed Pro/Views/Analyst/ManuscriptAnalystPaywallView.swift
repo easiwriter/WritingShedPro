@@ -14,7 +14,7 @@ struct ManuscriptAnalystPaywallView: View {
             VStack(spacing: 10) {
                 // Hero section
                 VStack(spacing: 12) {
-                    Image(systemName: "sparkles")
+                    Image(systemName: "text.magnifyingglass")
                         .font(.system(size: 48))
                         .foregroundStyle(.cyan)
                     
@@ -33,7 +33,7 @@ struct ManuscriptAnalystPaywallView: View {
 
                 // Features list
                 VStack(alignment: .leading, spacing: 8) {
-                    featureRow("sparkles", "Smart editorial suggestions tailored to your genre", .cyan)
+                    featureRow("text.magnifyingglass", "Smart editorial suggestions tailored to your genre", .cyan)
                     featureRow("chart.line", "Track writing improvements over time", .green)
                     featureRow("lightning.bolt", "Analyze entire manuscripts in seconds", .orange)
                     featureRow("brain.fill", "AI powered by Claude 3.5 Sonnet", .purple)
@@ -181,8 +181,4 @@ struct ManuscriptAnalystPaywallView: View {
             Spacer()
         }
     }
-}
-
-#Preview {
-    ManuscriptAnalystPaywallView()
 }

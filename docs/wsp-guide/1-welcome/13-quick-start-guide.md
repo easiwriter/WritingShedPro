@@ -13,7 +13,7 @@ When you first open Writing Shed Pro, you'll see an empty project list.
    - **Poetry** for poems and verse
    - **Fiction** for stories and novels — then choose **Novel**, **Short Fiction**, or **Verse Novel**
    - **Drama** for scripts and plays
-4. Optionally select a **story structure** for Fiction and Drama projects (Freeform, Three-Act, Monomyth, or Hero's Inner Journey). See [Fiction Mode Overview](../7-fiction-features/71-fiction-mode-overview.md) for details.
+4. Optionally select a **story structure** for Fiction and Drama projects (Freeform, Three-Act, Monomyth, or Hero's Inner Journey). See [Fiction Mode Overview](../8-fiction-features/71-fiction-mode-overview.md) for details.
 5. Choose a **stylesheet** to control formatting when you export or print. See [Stylesheet Editor](../10-tools/102-stylesheet-editor.md) for details.
 6. Tap **Create**
 
@@ -99,17 +99,17 @@ Files move between the Draft, Ready, and Set Aside folders automatically when yo
 
 You've learned the basics! Here's where to go next:
 
-- **[The Interface Tour](../2-getting-started/23-the-interface-tour.md)** – Explore all the views and controls
-- **[Text Formatting](../4-writing/42-text-formatting.md)** – Master styles and formatting
-- **[Poetry Mode Overview](../6-poetry-features/61-poetry-mode-overview.md)** – If you're a poet
-- **[Fiction Mode Overview](../7-fiction-features/71-fiction-mode-overview.md)** – If you're writing fiction
+- **[The Interface Tour](../3-getting-started/23-the-interface-tour.md)** – Explore all the views and controls
+- **[Text Formatting](../5-writing/42-text-formatting.md)** – Master styles and formatting
+- **[Poetry Mode Overview](../7-poetry-features/61-poetry-mode-overview.md)** – If you're a poet
+- **[Fiction Mode Overview](../8-fiction-features/71-fiction-mode-overview.md)** – If you're writing fiction
 
 ## Try Before You Buy
 
 Writing Shed Pro lets you explore the app and start writing before purchasing. You can create a project, add files, and use the full editor — when you reach the file limit, you'll be prompted to unlock the full version with a one-time in-app purchase. There's no subscription and no time limit on the trial.
 ## See Also
 - [Introduction](11-introduction.md)
-- [Creating Your First Project](../2-getting-started/22-creating-your-first-project.md)
-- [The Editor](../4-writing/41-the-editor.md)
+- [Creating Your First Project](../3-getting-started/22-creating-your-first-project.md)
+- [The Editor](../5-writing/41-the-editor.md)
 
 ---

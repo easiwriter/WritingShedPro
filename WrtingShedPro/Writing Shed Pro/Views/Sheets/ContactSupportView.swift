@@ -47,6 +47,11 @@ struct MailComposeView: UIViewControllerRepresentable {
 struct ContactSupportView: View {
     @Environment(\.dismiss) private var dismiss
 
+    enum PresentationMode {
+        case full
+        case questionOnly
+    }
+
     enum ReportType: String, CaseIterable, Identifiable {
         case bug = "Bug Report"
         case suggestion = "Suggestion"
@@ -54,7 +59,7 @@ struct ContactSupportView: View {
         var id: String { rawValue }
     }
 
-    @State private var reportType: ReportType = .bug
+    @State private var reportType: ReportType
     @State private var subject: String = ""
     @State private var details: String = ""
     @State private var stepsToReproduce: String = ""
@@ -73,8 +78,14 @@ struct ContactSupportView: View {
     @State private var challengeAnswer: String = ""
 
     @State private var supportService = SupportService()
+    private let presentationMode: PresentationMode
 
     private let supportEmail = "easiwriter@writing-shed.com"
+
+    init(initialReportType: ReportType = .bug, presentationMode: PresentationMode = .full) {
+        _reportType = State(initialValue: initialReportType)
+        self.presentationMode = presentationMode
+    }
 
     var body: some View {
         let clipboardString: String = "\(mailSubject)\n\n\(mailBody)"
@@ -82,7 +93,9 @@ struct ContactSupportView: View {
         
         NavigationStack {
             Form {
-                typePickerSection
+                if presentationMode == .full {
+                    typePickerSection
+                }
                 subjectSection
                 detailsSection
                 stepsSection
