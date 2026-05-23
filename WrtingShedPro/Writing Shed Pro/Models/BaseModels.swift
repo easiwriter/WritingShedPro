@@ -491,6 +491,7 @@ final class Version {
     var versionNumber: Int = 1
     var comment: String?
     var notes: String?
+    @Attribute(.externalStorage) var notesFormattedContent: Data?
     
     // MARK: - Text Formatting (Phase 005)
     /// Formatted content stored as RTF data

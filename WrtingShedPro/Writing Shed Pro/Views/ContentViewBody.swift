@@ -198,6 +198,6 @@ struct ContentViewBody: View {
         guard let projectID = state.lastOpenedProjectID,
               let project = projects.first(where: { $0.id == projectID }) else { return }
 
-        state.navigationPath.append(project)
+        state.showProject(project, rememberForResume: false)
     }
 }

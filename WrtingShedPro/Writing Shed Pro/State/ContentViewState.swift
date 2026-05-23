@@ -107,6 +107,16 @@ final class ContentViewState {
         shouldResumeLastOpenedProjectOnLaunch = true
     }
 
+    func showProject(_ project: Project, rememberForResume: Bool = true) {
+        if rememberForResume {
+            rememberOpenedProject(project)
+        }
+
+        var newPath = NavigationPath()
+        newPath.append(project)
+        navigationPath = newPath
+    }
+
     func clearProjectResumeBehavior() {
         shouldResumeLastOpenedProjectOnLaunch = false
     }

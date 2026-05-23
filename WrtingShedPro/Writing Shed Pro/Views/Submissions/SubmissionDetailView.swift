@@ -638,6 +638,7 @@ struct SubmissionDetailView: View {
             if let newVersion = newFile.currentVersion {
                 newVersion.comment = currentVersion.comment
                 newVersion.notes = currentVersion.notes
+                newVersion.notesFormattedContent = currentVersion.notesFormattedContent
             }
             
             if let refMetadata = currentVersion.referenceMetadataData,

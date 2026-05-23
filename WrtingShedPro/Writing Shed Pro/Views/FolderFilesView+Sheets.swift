@@ -279,6 +279,7 @@ extension FolderFilesView {
             if let newVersion = newFile.currentVersion {
                 newVersion.comment = currentVersion.comment
                 newVersion.notes = currentVersion.notes
+                newVersion.notesFormattedContent = currentVersion.notesFormattedContent
             }
             
             // Copy reference metadata if present

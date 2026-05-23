@@ -979,11 +979,17 @@ class JSONImportService {
         version.id = generateNewUUIDs ? UUID() : (UUID(uuidString: data.id) ?? UUID())
         version.createdDate = data.createdDate
         version.notes = data.notes
+        version.notesFormattedContent = nil
         
         // Decode formatted content from base64
         if let base64 = data.formattedContentBase64,
            let rtfData = Data(base64Encoded: base64) {
             version.formattedContent = rtfData
+        }
+
+        if let base64 = data.notesFormattedContentBase64,
+           let rtfData = Data(base64Encoded: base64) {
+            version.notesFormattedContent = rtfData
         }
         
         // Import comments

@@ -23,6 +23,7 @@ struct SwiftUIFormattingToolbar: View {
         case strikethrough
         case imageStyle
         case notes
+        case clearText
         case toggleKeyboard
         case numberedList
         case bulletedList
@@ -173,6 +174,12 @@ struct SwiftUIFormattingToolbar: View {
                 onFormatAction(.strikethrough)
             } label: {
                 Label(NSLocalizedString("toolbar.strikethrough", comment: "Strikethrough"), systemImage: "strikethrough")
+            }
+            Divider()
+            Button(role: .destructive) {
+                onFormatAction(.clearText)
+            } label: {
+                Label("Clear Text", systemImage: "eraser.fill")
             }
         } label: {
             Image(systemName: "bold.italic.underline")

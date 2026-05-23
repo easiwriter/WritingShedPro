@@ -63,8 +63,7 @@ struct ContentView: View {
             onPrefetchProjectData: prefetchProjectData,
             onRunMigrations: runMigrations,
             onOpenProject: { project in
-                state.rememberOpenedProject(project)
-                state.navigationPath.append(project)
+                state.showProject(project)
             }
         )
         .overlay(alignment: .top) {

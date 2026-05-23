@@ -744,6 +744,7 @@ struct CollectionDetailView: View {
             newVersion.referenceMetadataData = version.referenceMetadataData
             newVersion.comment = version.comment
             newVersion.notes = version.notes
+            newVersion.notesFormattedContent = version.notesFormattedContent
         }
 
         let maxOrder = (destinationFolder.textFiles ?? []).compactMap { $0.userOrder }.max() ?? -1

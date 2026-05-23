@@ -34,6 +34,9 @@ struct FileEditView: View {
     /// While set, saves are suppressed to avoid overwriting the phone's full content.
     @State private var hasMissingAttachments = false
     @State private var presentDeleteAlert = false
+    @State private var presentClearTextAlert = false
+    @State private var showClearTextToast = false
+    @State private var clearTextToastTask: Task<Void, Never>?
     @State private var isPerformingUndoRedo = false
     @State private var refreshTrigger = UUID()
     @State private var forceRefresh = false
@@ -154,6 +157,7 @@ struct FileEditView: View {
         case next
         case add
         case delete
+        case clear
     }
     
     init(file: TextFile) {
@@ -203,6 +207,11 @@ struct FileEditView: View {
                 icon: "trash.circle",
                 title: "Delete this version",
                 disabled: versionCount <= 1
+            ),
+            SUIToolbarItem(
+                icon: "eraser.fill",
+                title: "Clear text",
+                disabled: attributedContent.length == 0
             )
         ]
         
@@ -557,6 +566,8 @@ struct FileEditView: View {
                     }
                 case .notes:
                     showNotesEditor = true
+                case .clearText:
+                    presentClearTextAlert = true
                 case .toggleKeyboard:
                     if let textView = textViewCoordinator.textView {
                         if textView.isFirstResponder {
@@ -682,10 +693,18 @@ struct FileEditView: View {
             }
         }
 
-        Button(action: {
-            presentManuscriptAnalyst()
-        }) {
-            Label("Analyze", systemImage: "text.magnifyingglass")
+        if isPoetryProject {
+            Button(action: {
+                showPoetryFormPicker = true
+            }) {
+                Label(NSLocalizedString("poetryForm.changeForm", comment: "Change Form"), systemImage: "text.book.closed")
+            }
+        } else {
+            Button(action: {
+                presentManuscriptAnalyst()
+            }) {
+                Label("Analyze", systemImage: "text.magnifyingglass")
+            }
         }
         
         Divider()
@@ -695,15 +714,6 @@ struct FileEditView: View {
             showImagePicker()
         }) {
             Label("Insert Image", systemImage: "photo")
-        }
-        
-        // Change poetry form (poetry projects only)
-        if isPoetryProject {
-            Button(action: {
-                showPoetryFormPicker = true
-            }) {
-                Label(NSLocalizedString("poetryForm.changeForm", comment: "Change Form"), systemImage: "text.book.closed")
-            }
         }
         
         compactCommentsSubmenu()
@@ -952,26 +962,7 @@ struct FileEditView: View {
                     .keyboardShortcut("f", modifiers: .command)
                 }
                 
-                // Poetry form reference button (only for poetry projects)
                 if isPoetryProject {
-                    Button(action: {
-                        showPoetryFormReference = true
-                    }) {
-                        Image(systemName: "text.book.closed")
-                            .overlay(alignment: .topTrailing) {
-                                // Show badge hint when document is empty and has a structured form
-                                if attributedContent.length == 0,
-                                   let form = file.poetryForm,
-                                   form.id != PoetryForm.freeVerseId {
-                                    Circle()
-                                        .fill(Color.accentColor)
-                                        .frame(width: 8, height: 8)
-                                        .offset(x: 4, y: -4)
-                                }
-                            }
-                    }
-                    .accessibilityLabel(NSLocalizedString("poetryFormReference.formButtonAccessibility", comment: "Show poetry form reference"))
-                    
                     // Poetry metrics button with validation badge (English only - analysis requires CMU dictionary)
                     if isEnglishLocale {
                         Button(action: {
@@ -1013,6 +1004,13 @@ struct FileEditView: View {
                 // Undo/redo are more commonly used, so they're visible buttons
                 if isCompact {
                     if !isPaginationMode {
+                        Button(action: {
+                            presentManuscriptAnalyst()
+                        }) {
+                            Image(systemName: "text.magnifyingglass")
+                        }
+                        .accessibilityLabel("Analyze with Manuscript Analyst")
+
                         // Undo/redo as visible buttons on iPhone
                         Button(action: {
                             performUndo()
@@ -1691,6 +1689,18 @@ struct FileEditView: View {
                 }
             }
         }
+        .overlay(alignment: .top) {
+            if showClearTextToast {
+                Label("Text cleared", systemImage: "checkmark.circle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.green, in: Capsule())
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
         .sheet(isPresented: $showStylePicker, onDismiss: {
             // Force the text view to re-render after the style picker sheet dismisses.
             // reapplyAllStyles() may have run while the text view was behind the sheet,
@@ -1859,6 +1869,16 @@ struct FileEditView: View {
                         // and calling save would overwrite the new current version with the old content
                         // Force toolbar to re-render with updated version count
                         refreshTrigger = UUID()
+                    },
+                    secondaryButton: .cancel()
+                )
+            }
+            .alert(isPresented: $presentClearTextAlert) {
+                Alert(
+                    title: Text("Clear Text?"),
+                    message: Text("This will remove all text from this file version."),
+                    primaryButton: .destructive(Text("Clear")) {
+                        clearCurrentTextContent()
                     },
                     secondaryButton: .cancel()
                 )
@@ -7934,6 +7954,57 @@ struct FileEditView: View {
             refreshTrigger = UUID()
         case .delete:
             presentDeleteAlert = true
+        case .clear:
+            presentClearTextAlert = true
+        }
+    }
+
+    private func clearCurrentTextContent() {
+        let bodyAttributes: [NSAttributedString.Key: Any]
+        if let project = file.project {
+            bodyAttributes = TextFormatter.getTypingAttributes(
+                forStyleNamed: UIFont.TextStyle.body.rawValue,
+                project: project,
+                context: modelContext
+            )
+        } else {
+            bodyAttributes = [
+                .font: UIFont.preferredFont(forTextStyle: .body),
+                .foregroundColor: UIColor.label
+            ]
+        }
+
+        let clearedContent = NSAttributedString(string: "", attributes: bodyAttributes)
+
+        textViewCoordinator.modifyTypingAttributes { textView in
+            textView.attributedText = clearedContent
+            textView.typingAttributes = bodyAttributes
+            textView.selectedRange = NSRange(location: 0, length: 0)
+        }
+
+        attributedContent = clearedContent
+        previousContent = ""
+        previousAttributedContent = clearedContent
+        selectedRange = NSRange(location: 0, length: 0)
+
+        saveDebounceTimer?.invalidate()
+        saveDebounceTimer = nil
+
+        saveChanges()
+        saveUndoState()
+        refreshTrigger = UUID()
+
+        clearTextToastTask?.cancel()
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showClearTextToast = true
+        }
+
+        clearTextToastTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_600_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showClearTextToast = false
+            }
         }
     }
     
