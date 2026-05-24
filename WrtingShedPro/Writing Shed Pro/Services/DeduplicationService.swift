@@ -39,6 +39,7 @@ class DeduplicationService {
 
     /// A lightweight record of a permanently deleted project.
     private struct Tombstone: Codable {
+        let projectID: UUID?
         let normalizedName: String
         let typeRaw: String?
         let deletedAt: Date
@@ -49,12 +50,16 @@ class DeduplicationService {
     static func recordTombstone(for project: Project) {
         guard let key = normalizedNameKey(for: project.name) else { return }
         var tombstones = loadTombstones()
-        // Avoid duplicating an existing tombstone for the same name+type
-        tombstones.removeAll { $0.normalizedName == key && $0.typeRaw == project.typeRaw }
-        tombstones.append(Tombstone(normalizedName: key, typeRaw: project.typeRaw, deletedAt: Date()))
+        // Avoid duplicating an existing tombstone for the same project UUID.
+        // Also prune legacy name+type tombstones so the new UUID tombstone becomes canonical.
+        tombstones.removeAll {
+            ($0.projectID != nil && $0.projectID == project.id) ||
+            ($0.projectID == nil && $0.normalizedName == key && $0.typeRaw == project.typeRaw)
+        }
+        tombstones.append(Tombstone(projectID: project.id, normalizedName: key, typeRaw: project.typeRaw, deletedAt: Date()))
         saveTombstones(tombstones)
         #if DEBUG
-        print("🪦 [DeduplicationService] Recorded tombstone for '\(project.name ?? "?")' (type=\(project.typeRaw ?? "nil"))")
+        print("🪦 [DeduplicationService] Recorded tombstone for '\(project.name ?? "?")' id=\(project.id) (type=\(project.typeRaw ?? "nil"))")
         #endif
     }
 
@@ -132,11 +137,16 @@ class DeduplicationService {
         var skippedActiveCount = 0
         for project in allProjects {
             guard let nameKey = normalizedNameKey(for: project.name) else { continue }
-            let isZombie = tombstones.contains {
-                $0.normalizedName == nameKey && $0.typeRaw == project.typeRaw
+            // Prefer UUID tombstones when available. This is a safe exact match and
+            // allows deleting resurrected zombies even if CloudKit marks them active.
+            let idMatchedZombie = tombstones.contains { $0.projectID == project.id }
+            let legacyNameMatchedZombie = tombstones.contains {
+                $0.projectID == nil && $0.normalizedName == nameKey && $0.typeRaw == project.typeRaw
             }
-            if isZombie {
-                if !project.isTrashed {
+            if idMatchedZombie || legacyNameMatchedZombie {
+                // Legacy name-based tombstones are less specific. Keep the safety guard
+                // and only auto-delete if the matched record is already trashed.
+                if !idMatchedZombie && !project.isTrashed {
                     skippedActiveCount += 1
                     #if DEBUG
                     print("🪦 [DeduplicationService] ⚠️ Matched tombstone but skipped ACTIVE project '\(project.name ?? "?")' id=\(project.id) [Zombie Safety]")
@@ -144,7 +154,8 @@ class DeduplicationService {
                     continue
                 }
                 #if DEBUG
-                print("🪦 [DeduplicationService] 🗑️  DELETING ZOMBIE: '\(project.name ?? "?")' id=\(project.id) (matched tombstone for '\(nameKey)') [Zombie]")
+                let matchType = idMatchedZombie ? "id" : "legacy-name"
+                print("🪦 [DeduplicationService] 🗑️  DELETING ZOMBIE: '\(project.name ?? "?")' id=\(project.id) (matched tombstone via \(matchType), key='\(nameKey)') [Zombie]")
                 #endif
                 context.delete(project)
                 deletedCount += 1
@@ -284,13 +295,14 @@ class DeduplicationService {
 
     @MainActor
     static func permanentlyDeleteProjectFamily(_ project: Project, context: ModelContext) {
-        // Record tombstone BEFORE deleting so we can catch CloudKit zombies
-        recordTombstone(for: project)
         #if DEBUG
         let projectName = project.name ?? "<nil>"
         print("🗑️  PERMANENTLY DELETING PROJECT FAMILY: '\(projectName)' id=\(project.id)")
         #endif
         for candidate in syncedDuplicateFamily(for: project, context: context) {
+            // Record a tombstone for each concrete row being deleted so CloudKit
+            // re-imports of any family member can be recognized by UUID.
+            recordTombstone(for: candidate)
             #if DEBUG
             let candidateName = candidate.name ?? "<nil>"
             print("   ↳ deleting candidate: '\(candidateName)' id=\(candidate.id) [Permanent Delete]")

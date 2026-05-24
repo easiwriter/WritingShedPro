@@ -14,6 +14,8 @@ const RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
 
 const MAX_QUERY_LENGTH = 2000;
 const MAX_ANALYST_CONTENT_LENGTH = 120000;
+const ANALYST_CACHE_VERSION = "v1";
+const ANALYST_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 const ALLOWED_ANALYSIS_MODES = new Set(["file", "manuscript"]);
 const ALLOWED_PROJECT_TYPES = new Set(["fiction", "poetry", "drama", "prose"]);
@@ -76,6 +78,14 @@ function stableSeedFromString(value) {
         hash = Math.imul(hash, 16777619);
     }
     return Math.abs(hash >>> 0) % 2147483647;
+}
+
+async function sha256Hex(value) {
+    const encoded = new TextEncoder().encode(String(value || ""));
+    const digest = await crypto.subtle.digest("SHA-256", encoded);
+    return Array.from(new Uint8Array(digest))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
 }
 
 function isRateLimited(ip) {
@@ -183,6 +193,31 @@ async function handleManuscriptAnalystReview(request, env) {
     try {
         const systemPrompt = buildAnalystSystemPrompt(analysisProfile, projectType, fictionClass);
         const userPrompt = buildAnalystUserPrompt(content, safeMetadata, safeOptions, analysisProfile);
+        const cacheFingerprint = await sha256Hex(JSON.stringify({
+            v: ANALYST_CACHE_VERSION,
+            analysisMode,
+            projectType,
+            fictionClass: fictionClass || null,
+            analysisProfile,
+            content,
+            metadata: safeMetadata,
+            options: safeOptions,
+        }));
+        const cacheURL = new URL(request.url);
+        cacheURL.searchParams.set("cache", ANALYST_CACHE_VERSION);
+        cacheURL.searchParams.set("key", cacheFingerprint);
+        const cacheKey = new Request(cacheURL.toString(), { method: "GET" });
+        const cachedResponse = await caches.default.match(cacheKey);
+        if (cachedResponse) {
+            return new Response(cachedResponse.body, {
+                status: cachedResponse.status,
+                headers: {
+                    ...Object.fromEntries(cachedResponse.headers.entries()),
+                    "X-Analyst-Cache": "HIT",
+                },
+            });
+        }
+
         const stableSeed = stableSeedFromString([
             analysisMode,
             projectType,
@@ -239,7 +274,7 @@ async function handleManuscriptAnalystReview(request, env) {
         // Parse the analysis response
         const analysis = parseAnalysisResponse(analysisText, analysisProfile);
 
-        return jsonResponse(
+        const response = jsonResponse(
             {
                 status: "success",
                 timestamp: new Date().toISOString(),
@@ -259,8 +294,15 @@ async function handleManuscriptAnalystReview(request, env) {
                     softCapState: calculateSoftCapState(tokensUsed, subscriptionTier),
                 },
             },
-            200
+            200,
+            {
+                "Cache-Control": `public, max-age=${ANALYST_CACHE_TTL_SECONDS}`,
+                "X-Analyst-Cache": "MISS",
+            }
         );
+
+        await caches.default.put(cacheKey, response.clone());
+        return response;
     } catch (err) {
         console.error("Manuscript analyst request failed:", err);
         return jsonResponse({ error: "Analysis service temporarily unavailable" }, 502);
@@ -343,12 +385,13 @@ async function handleSupport(request, env) {
     }
 }
 
-function jsonResponse(body, status) {
+function jsonResponse(body, status, extraHeaders = {}) {
     return new Response(JSON.stringify(body), {
         status,
         headers: {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
+            ...extraHeaders,
         },
     });
 }
@@ -360,9 +403,21 @@ You must provide critique only. Do not rewrite or generate replacement passages 
 
 Feedback should be practical and manual-edit oriented.
 
+Treat every claim as an editorial reading, not an objective verdict.
+
+Do not present subjective value judgments as settled facts. Prefer grounded language such as "may", "might", "could", "seems", "suggests", or "reads as" when discussing effect or quality.
+
+Anchor every suggestion in observable textual evidence. Quote a brief phrase from the source in the observation or rationale when possible.
+
+Only mark something as high severity when it clearly interferes with comprehension, coherence, or stated intent. If a point is debatable, taste-based, or subtle, prefer medium or low severity.
+
+Do not manufacture balance. If the writing is strong in an area, say so plainly. If a concern is uncertain, admit the uncertainty.
+
+Avoid contradictory judgments about the same passage unless you explicitly explain the tension as an interpretive ambiguity.
+
 You provide feedback in JSON format with the following structure:
 {
-  "summary": "2-3 sentence overview of the writing's strengths and key areas for improvement",
+    "summary": "2-3 sentence editorial reading of the writing's strengths and possible areas for revision",
   "sentiment": "encouraging|mixed|critical",
   "focusAreas": ["area1", "area2", "area3"],
   "suggestions": [
@@ -371,9 +426,9 @@ You provide feedback in JSON format with the following structure:
       "category": "category_name",
       "severity": "high|medium|low",
             "location": "Line N or Line N-M (must use source line numbers) or null",
-      "observation": "what you noticed",
-      "suggestion": "what to do about it",
-      "rationale": "why this matters"
+            "observation": "an evidence-grounded editorial reading of what you noticed",
+            "suggestion": "a possible revision focus or craft experiment",
+            "rationale": "why this may matter for reader experience or authorial intent"
     }
   ]
 }
@@ -382,7 +437,13 @@ CRITICAL LINE-NUMBER RULES:
 - The user content is provided with explicit line-number prefixes in the form "0001 | text".
 - If you cite a location, you MUST use those exact numbers as "Line N" or "Line N-M".
 - Do not estimate or invent line numbers.
-- If no precise location applies, set "location" to null.`;
+- If no precise location applies, set "location" to null.
+
+OUTPUT QUALITY RULES:
+- Keep the summary concise, specific, and non-grandiose.
+- Focus areas must be supported by the actual suggestions you provide.
+- Prefer fewer, better-supported suggestions over a long list of weak ones.
+- Never imply that your reading is the only valid reading of the text.`;
 
     if (analysisProfile === "poetry") {
         return basePrompt + `

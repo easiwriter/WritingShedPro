@@ -615,6 +615,7 @@ struct PoetryFormPickerSheet: View {
     @State private var formsByCategory: [PoetryFormCategory: [PoetryForm]] = [:]
     @State private var categories: [PoetryFormCategory] = []
     @State private var showingFormEditor = false
+    @State private var showingFormReference = false
     @State private var showingDeleteConfirmation = false
     @State private var formToDelete: PoetryForm?
     @State private var deleteAffectedFilesCount = 0
@@ -665,6 +666,13 @@ struct PoetryFormPickerSheet: View {
                         dismiss()
                     }
                 }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("View") {
+                        showingFormReference = true
+                    }
+                    .disabled(referenceForm == nil)
+                }
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("poetryFormPicker.save", comment: "Save")) {
@@ -694,6 +702,11 @@ struct PoetryFormPickerSheet: View {
                     saveNewCustomForm(form)
                 }
             )
+        }
+        .sheet(isPresented: $showingFormReference) {
+            if let form = referenceForm {
+                PoetryFormReference(form: form)
+            }
         }
         .confirmationDialog(
             NSLocalizedString("poetryForms.delete.title", comment: "Delete Form?"),
@@ -831,5 +844,9 @@ struct PoetryFormPickerSheet: View {
         }
         
         return parts.joined(separator: " • ")
+    }
+
+    private var referenceForm: PoetryForm? {
+        selectedForm ?? file.poetryForm ?? service.getFreeVerse()
     }
 }

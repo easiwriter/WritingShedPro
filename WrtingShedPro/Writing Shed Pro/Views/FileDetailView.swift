@@ -61,6 +61,7 @@ struct FileDetailView: View {
 
             ToolbarItem(placement: .primaryAction) {
                 Button {
+                    ManuscriptAnalystService.shared.clearReviewCache(for: file)
                     showManuscriptAnalyst = true
                 } label: {
                     Label("Analyze", systemImage: "text.magnifyingglass")
