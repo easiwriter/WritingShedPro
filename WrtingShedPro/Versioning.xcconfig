@@ -1,0 +1,3 @@
+// Shared version settings for the host app and WSPQuickLook extension.
+CURRENT_PROJECT_VERSION = 102
+MARKETING_VERSION = 8

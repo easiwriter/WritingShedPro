@@ -157,7 +157,6 @@ struct FileEditView: View {
         case next
         case add
         case delete
-        case clear
     }
     
     init(file: TextFile) {
@@ -207,11 +206,6 @@ struct FileEditView: View {
                 icon: "trash.circle",
                 title: "Delete this version",
                 disabled: versionCount <= 1
-            ),
-            SUIToolbarItem(
-                icon: "eraser.fill",
-                title: "Clear text",
-                disabled: attributedContent.length == 0
             )
         ]
         
@@ -7954,8 +7948,6 @@ struct FileEditView: View {
             refreshTrigger = UUID()
         case .delete:
             presentDeleteAlert = true
-        case .clear:
-            presentClearTextAlert = true
         }
     }
 

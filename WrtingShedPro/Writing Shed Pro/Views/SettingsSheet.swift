@@ -11,6 +11,7 @@ import StoreKit
 struct SettingsSheet: View {
     @Binding var isPresented: Bool
     var state: ContentViewState
+    let projects: [Project]
     let onImport: () -> Void
     let onSyncNow: () -> Void
     
@@ -53,10 +54,10 @@ struct SettingsSheet: View {
                     }
 
                     Button {
-                        state.hideAllProjects.toggle()
+                        state.toggleProjectVisibilityMode(using: projects)
                     } label: {
                         Label(
-                            state.hideAllProjects ? "Show All Projects" : "Hide All Projects",
+                            state.hideAllProjects ? "Show Hidden Projects" : "Hide Existing Projects",
                             systemImage: state.hideAllProjects ? "eye" : "eye.slash"
                         )
                     }

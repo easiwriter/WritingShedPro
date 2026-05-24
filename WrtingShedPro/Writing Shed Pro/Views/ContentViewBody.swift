@@ -45,14 +45,13 @@ struct ContentViewBody: View {
     }
 
     private var activeProjects: [Project] {
-        guard !state.hideAllProjects else { return [] }
         return DeduplicationService.presentedProjects(
-            from: projects.filter { !$0.isTrashed }
+            from: projects.filter { !$0.isTrashed && !state.isProjectHidden($0.id) }
         )
     }
 
     private var shouldShowProjectTrashButton: Bool {
-        !state.hideAllProjects && !trashedProjects.isEmpty
+        !trashedProjects.isEmpty
     }
 
     var body: some View {
@@ -135,6 +134,7 @@ struct ContentViewBody: View {
                 SettingsSheet(
                     isPresented: $state.showSettings,
                     state: state,
+                    projects: projects,
                     onImport: onHandleImportMenu,
                     onSyncNow: onSyncNow
                 )
@@ -196,7 +196,8 @@ struct ContentViewBody: View {
         guard state.navigationPath.count == 0 else { return }
         guard state.shouldResumeLastOpenedProjectOnLaunch else { return }
         guard let projectID = state.lastOpenedProjectID,
-              let project = projects.first(where: { $0.id == projectID }) else { return }
+              let project = projects.first(where: { $0.id == projectID }),
+              !state.isProjectHidden(project.id) else { return }
 
         state.showProject(project, rememberForResume: false)
     }

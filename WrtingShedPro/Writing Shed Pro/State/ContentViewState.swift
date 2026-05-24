@@ -12,6 +12,7 @@ import Observation
 @Observable
 final class ContentViewState {
     private static let hideAllProjectsKey = "hideAllProjectsForDemos"
+    private static let hiddenProjectIDsKey = "hiddenProjectIDsForDemos"
     private static let resumeLastOpenedProjectKey = "resumeLastOpenedProjectOnLaunch"
     private static let lastOpenedProjectIDKey = "lastOpenedProjectID"
 
@@ -47,10 +48,17 @@ final class ContentViewState {
     var htmlManualSection: String? = nil  // Anchor to scroll to in the HTML guide
 
     // Demo mode
-    var hideAllProjects: Bool {
+    private(set) var hiddenProjectIDs: Set<UUID> {
         didSet {
-            UserDefaults.standard.set(hideAllProjects, forKey: Self.hideAllProjectsKey)
+            let encoded = hiddenProjectIDs.map(\.uuidString)
+            UserDefaults.standard.set(encoded, forKey: Self.hiddenProjectIDsKey)
+            // Keep legacy key in sync so old flows don't regress.
+            UserDefaults.standard.set(!hiddenProjectIDs.isEmpty, forKey: Self.hideAllProjectsKey)
         }
+    }
+
+    var hideAllProjects: Bool {
+        !hiddenProjectIDs.isEmpty
     }
 
     var shouldResumeLastOpenedProjectOnLaunch: Bool {
@@ -91,7 +99,11 @@ final class ContentViewState {
             self.selectedSortOrder = .byName
         }
 
-        self.hideAllProjects = UserDefaults.standard.bool(forKey: Self.hideAllProjectsKey)
+        if let storedHiddenIDs = UserDefaults.standard.array(forKey: Self.hiddenProjectIDsKey) as? [String] {
+            self.hiddenProjectIDs = Set(storedHiddenIDs.compactMap(UUID.init(uuidString:)))
+        } else {
+            self.hiddenProjectIDs = []
+        }
 
         self.shouldResumeLastOpenedProjectOnLaunch = UserDefaults.standard.bool(forKey: Self.resumeLastOpenedProjectKey)
         if let storedProjectID = UserDefaults.standard.string(forKey: Self.lastOpenedProjectIDKey),
@@ -119,5 +131,25 @@ final class ContentViewState {
 
     func clearProjectResumeBehavior() {
         shouldResumeLastOpenedProjectOnLaunch = false
+    }
+
+    func hideExistingProjects(from projects: [Project]) {
+        hiddenProjectIDs = Set(projects.filter { !$0.isTrashed }.map(\.id))
+    }
+
+    func showAllProjects() {
+        hiddenProjectIDs.removeAll()
+    }
+
+    func toggleProjectVisibilityMode(using projects: [Project]) {
+        if hideAllProjects {
+            showAllProjects()
+        } else {
+            hideExistingProjects(from: projects)
+        }
+    }
+
+    func isProjectHidden(_ projectID: UUID) -> Bool {
+        hiddenProjectIDs.contains(projectID)
     }
 }

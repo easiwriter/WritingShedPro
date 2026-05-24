@@ -36,7 +36,7 @@ extension TextFile {
         
         // currentVersionIndex is in sorted space - use it directly
         // Display as 1-based for user (index 0 = "Version 1")
-        return "Version \(currentVersionIndex + 1) of \(versions.count)"
+        return "v\(currentVersionIndex + 1)/\(versions.count)"
     }
     
     /// Change version by offset (-1 for previous, +1 for next)
