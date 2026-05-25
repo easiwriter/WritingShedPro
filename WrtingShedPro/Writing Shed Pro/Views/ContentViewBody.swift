@@ -39,6 +39,7 @@ struct ContentViewBody: View {
     
 
     @State private var showProjectTrash = false
+    @State private var didProcessLaunchProjectRestore = false
 
     private var trashedProjects: [Project] {
         projects.filter { $0.isTrashed == true }
@@ -104,11 +105,6 @@ struct ContentViewBody: View {
                 }
 
                 restoreLastOpenedProjectIfNeeded()
-            }
-            .onChange(of: state.navigationPath.count) { oldValue, newValue in
-                if oldValue > 0 && newValue == 0 {
-                    state.clearProjectResumeBehavior()
-                }
             }
             .onChange(of: projects.count) { _, _ in
                 restoreLastOpenedProjectIfNeeded()
@@ -193,12 +189,21 @@ struct ContentViewBody: View {
     }
 
     private func restoreLastOpenedProjectIfNeeded() {
+        guard !didProcessLaunchProjectRestore else { return }
+
         guard state.navigationPath.count == 0 else { return }
-        guard state.shouldResumeLastOpenedProjectOnLaunch else { return }
+        guard state.autoOpenLastProjectOnLaunch else {
+            didProcessLaunchProjectRestore = true
+            return
+        }
         guard let projectID = state.lastOpenedProjectID,
               let project = projects.first(where: { $0.id == projectID }),
-              !state.isProjectHidden(project.id) else { return }
+              !state.isProjectHidden(project.id) else {
+            didProcessLaunchProjectRestore = true
+            return
+        }
 
         state.showProject(project, rememberForResume: false)
+        didProcessLaunchProjectRestore = true
     }
 }

@@ -2053,17 +2053,24 @@ struct SceneListView: View {
 
 struct SceneRowView: View {
     let scene: StoryScene
+
+    private var sceneIconName: String {
+        if scene.project?.type == .drama {
+            return "theatermasks"
+        }
+        if scene.project?.fictionClass == .verseNovel {
+            return "music.note.list"
+        }
+        return "film"
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
-                // Scene number
-                if let userOrder = scene.userOrder {
-                    Text("\(userOrder + 1).")
-                        .font(.callout)
-                        .foregroundColor(.secondary)
-                        .frame(width: 30, alignment: .leading)
-                }
+                Image(systemName: sceneIconName)
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    .frame(width: 22, alignment: .leading)
                 
                 Text(scene.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
                     .font(.body)

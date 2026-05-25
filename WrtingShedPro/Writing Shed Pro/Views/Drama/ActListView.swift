@@ -364,17 +364,15 @@ struct ActRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
-                // Act number
-                if let userOrder = act.userOrder {
-                    Text(String(format: NSLocalizedString("drama.act.number", comment: "Act X"), userOrder + 1))
-                        .font(.callout)
-                        .foregroundColor(.secondary)
-                }
+                Image(systemName: "theatermasks")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    .frame(width: 22, alignment: .leading)
+
+                Text(act.name ?? NSLocalizedString("drama.untitled", comment: "Untitled"))
+                    .font(.body)
+                    .fontWeight(.semibold)
             }
-            
-            Text(act.name ?? NSLocalizedString("drama.untitled", comment: "Untitled"))
-                .font(.body)
-                .fontWeight(.semibold)
             
             // Synopsis preview
             if let synopsis = act.synopsis, !synopsis.isEmpty {

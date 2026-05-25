@@ -645,15 +645,15 @@ struct ChapterListView: View {
 struct ChapterRowView: View {
     let chapter: Chapter
     var fictionClass: FictionClass = .novel
-    
-    private var itemNumberFormat: String {
+
+    private var chapterIconName: String {
         switch fictionClass {
         case .novel:
-            return NSLocalizedString("fiction.chapter.number", comment: "Chapter X")
+            return "book.closed"
         case .shortFiction:
-            return NSLocalizedString("fiction.story.number", comment: "Story X")
+            return "doc.text"
         case .verseNovel:
-            return NSLocalizedString("fiction.book.number", comment: "Book X")
+            return "text.book.closed"
         }
     }
     
@@ -671,17 +671,15 @@ struct ChapterRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
-                // Chapter/Story/Book number
-                if let userOrder = chapter.userOrder {
-                    Text(String(format: itemNumberFormat, userOrder + 1))
-                        .font(.callout)
-                        .foregroundColor(.secondary)
-                }
+                Image(systemName: chapterIconName)
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    .frame(width: 22, alignment: .leading)
+
+                Text(chapter.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
+                    .font(.body)
+                    .fontWeight(.semibold)
             }
-            
-            Text(chapter.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
-                .font(.body)
-                .fontWeight(.semibold)
             
             // Summary preview
             if let synopsis = chapter.synopsis, !synopsis.isEmpty {
@@ -709,17 +707,6 @@ struct BookRowView: View {
     let book: Book
     var fictionClass: FictionClass = .verseNovel
 
-    private var itemNumberFormat: String {
-        switch fictionClass {
-        case .novel:
-            return NSLocalizedString("fiction.chapter.number", comment: "Chapter X")
-        case .shortFiction:
-            return NSLocalizedString("fiction.story.number", comment: "Story X")
-        case .verseNovel:
-            return NSLocalizedString("fiction.book.number", comment: "Book X")
-        }
-    }
-
     private var sceneCountFormat: String {
         switch fictionClass {
         case .novel:
@@ -734,16 +721,15 @@ struct BookRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
-                if let userOrder = book.userOrder {
-                    Text(String(format: itemNumberFormat, userOrder + 1))
-                        .font(.callout)
-                        .foregroundColor(.secondary)
-                }
-            }
+                Image(systemName: "text.book.closed")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    .frame(width: 22, alignment: .leading)
 
-            Text(book.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
-                .font(.body)
-                .fontWeight(.semibold)
+                Text(book.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
+                    .font(.body)
+                    .fontWeight(.semibold)
+            }
 
             if let synopsis = book.synopsis, !synopsis.isEmpty {
                 Text(synopsis)

@@ -13,7 +13,7 @@ import Observation
 final class ContentViewState {
     private static let hideAllProjectsKey = "hideAllProjectsForDemos"
     private static let hiddenProjectIDsKey = "hiddenProjectIDsForDemos"
-    private static let resumeLastOpenedProjectKey = "resumeLastOpenedProjectOnLaunch"
+    private static let autoOpenLastProjectOnLaunchKey = "autoOpenLastProjectOnLaunch"
     private static let lastOpenedProjectIDKey = "lastOpenedProjectID"
 
     // Navigation
@@ -61,9 +61,9 @@ final class ContentViewState {
         !hiddenProjectIDs.isEmpty
     }
 
-    var shouldResumeLastOpenedProjectOnLaunch: Bool {
+    var autoOpenLastProjectOnLaunch: Bool {
         didSet {
-            UserDefaults.standard.set(shouldResumeLastOpenedProjectOnLaunch, forKey: Self.resumeLastOpenedProjectKey)
+            UserDefaults.standard.set(autoOpenLastProjectOnLaunch, forKey: Self.autoOpenLastProjectOnLaunchKey)
         }
     }
 
@@ -105,7 +105,7 @@ final class ContentViewState {
             self.hiddenProjectIDs = []
         }
 
-        self.shouldResumeLastOpenedProjectOnLaunch = UserDefaults.standard.bool(forKey: Self.resumeLastOpenedProjectKey)
+        self.autoOpenLastProjectOnLaunch = UserDefaults.standard.bool(forKey: Self.autoOpenLastProjectOnLaunchKey)
         if let storedProjectID = UserDefaults.standard.string(forKey: Self.lastOpenedProjectIDKey),
            let projectID = UUID(uuidString: storedProjectID) {
             self.lastOpenedProjectID = projectID
@@ -116,21 +116,19 @@ final class ContentViewState {
 
     func rememberOpenedProject(_ project: Project) {
         lastOpenedProjectID = project.id
-        shouldResumeLastOpenedProjectOnLaunch = true
     }
 
     func showProject(_ project: Project, rememberForResume: Bool = true) {
-        if rememberForResume {
-            rememberOpenedProject(project)
-        }
+        // Reset first so reopening the same project always pushes a fresh route.
+        navigationPath = NavigationPath()
 
         var newPath = NavigationPath()
         newPath.append(project)
         navigationPath = newPath
-    }
 
-    func clearProjectResumeBehavior() {
-        shouldResumeLastOpenedProjectOnLaunch = false
+        if rememberForResume {
+            rememberOpenedProject(project)
+        }
     }
 
     func hideExistingProjects(from projects: [Project]) {

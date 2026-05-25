@@ -28,6 +28,13 @@ struct SettingsSheet: View {
                     } label: {
                         Label("About Writing Shed Pro", systemImage: "info.circle")
                     }
+
+                    Toggle(isOn: Binding(
+                        get: { state.autoOpenLastProjectOnLaunch },
+                        set: { state.autoOpenLastProjectOnLaunch = $0 }
+                    )) {
+                        Label("Auto-open last project on launch", systemImage: "arrowshape.turn.up.right")
+                    }
                     
                     Button {
                         isPresented = false
