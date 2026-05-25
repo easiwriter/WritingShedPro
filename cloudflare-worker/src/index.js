@@ -525,6 +525,13 @@ function buildAnalystUserPrompt(content, metadata, options, analysisProfile) {
 
 function addSourceLineNumbers(content) {
     const lines = String(content).replace(/\r\n?/g, "\n").split("\n");
+
+    // If content is already line-numbered (e.g. "0001 | ..."), keep it as-is.
+    const firstNonEmpty = lines.find((line) => line.trim().length > 0);
+    if (firstNonEmpty && /^\s*\d{3,6}\s\|/.test(firstNonEmpty)) {
+        return lines.join("\n");
+    }
+
     return lines
         .map((line, idx) => `${String(idx + 1).padStart(4, "0")} | ${line}`)
         .join("\n");
