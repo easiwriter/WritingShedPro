@@ -9,6 +9,7 @@
 import SwiftUI
 import SwiftData
 import ToolbarSUI
+import UniformTypeIdentifiers
 
 /// Editor view for drama scene content with DML support
 /// Provides Source, Formatted, and Print Preview modes
@@ -95,6 +96,18 @@ struct DramaSceneEditorView: View {
     
     /// Show project plot outline
     @State private var showProjectPlot = false
+
+    /// Selected source for raw drama analysis
+    @State private var rawDramaAnalysisRequest: RawDramaAnalysisRequest?
+
+    /// Show file picker for raw drama analysis
+    @State private var showRawDramaFilePicker = false
+
+    /// Analysis error message for import/selection failures
+    @State private var dramaAnalysisErrorMessage: String?
+
+    /// Show analysis error alert
+    @State private var showDramaAnalysisError = false
     
     /// Selected plot element to show in detail sheet
     @State private var selectedPlotElement: PlotElement?
@@ -201,6 +214,16 @@ struct DramaSceneEditorView: View {
         .sheet(item: $selectedLocation) { location in
             LocationQuickView(location: location)
         }
+        .sheet(item: $rawDramaAnalysisRequest) { request in
+            RawDramaAnalystActionSheet(project: project, input: request.input)
+        }
+        .fileImporter(
+            isPresented: $showRawDramaFilePicker,
+            allowedContentTypes: Self.rawDramaImportTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            handleRawDramaFileSelection(result)
+        }
         .alert(
             NSLocalizedString("fileEdit.deleteVersionTitle", comment: "Delete Version?"),
             isPresented: $showDeleteVersionAlert
@@ -221,8 +244,20 @@ struct DramaSceneEditorView: View {
         } message: {
             Text(printErrorMessage ?? NSLocalizedString("print.error.unknown", comment: "Unknown error"))
         }
+        .alert("Analysis Error", isPresented: $showDramaAnalysisError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(dramaAnalysisErrorMessage ?? "Unable to open the selected file.")
+        }
         .upgradePrompt(reason: $upgradePromptReason)
     }
+
+    private static let rawDramaImportTypes: [UTType] = [
+        .plainText,
+        UTType(filenameExtension: "dml") ?? .plainText,
+        UTType(filenameExtension: "txt") ?? .plainText,
+        UTType(filenameExtension: "fdx") ?? .plainText
+    ]
     
     // MARK: - Navigation Toolbar Content
     
@@ -365,6 +400,25 @@ struct DramaSceneEditorView: View {
                     .foregroundColor(validationErrors.isEmpty ? .secondary : .yellow)
             }
             .accessibilityLabel(NSLocalizedString("drama.validate", comment: "Validate Script"))
+
+            Menu {
+                Button {
+                    rawDramaAnalysisRequest = RawDramaAnalysisRequest(
+                        input: .text(content: sourceText, fileName: file.name)
+                    )
+                } label: {
+                    Label("Analyze Current Text", systemImage: "doc.text.magnifyingglass")
+                }
+
+                Button {
+                    showRawDramaFilePicker = true
+                } label: {
+                    Label("Analyze Raw Text File", systemImage: "folder.badge.plus")
+                }
+            } label: {
+                Image(systemName: "text.magnifyingglass")
+            }
+            .accessibilityLabel("Analyze with Manuscript Analyst")
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
@@ -782,6 +836,21 @@ struct DramaSceneEditorView: View {
         }
         #endif
         showValidationErrors = true
+    }
+
+    private func handleRawDramaFileSelection(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            rawDramaAnalysisRequest = RawDramaAnalysisRequest(input: .file(url: url))
+        case .failure(let error):
+            let nsError = error as NSError
+            if nsError.domain == NSCocoaErrorDomain && nsError.code == NSUserCancelledError {
+                return
+            }
+            dramaAnalysisErrorMessage = error.localizedDescription
+            showDramaAnalysisError = true
+        }
     }
 }
 

@@ -29,14 +29,17 @@ final class ManuscriptAnalystService {
             throw ManuscriptAnalystError.subscriptionInactive
         }
 
-        let content = normalizeContentForAnalysis(textFile.currentContent)
+        guard let project = textFile.project else {
+            throw ManuscriptAnalystError.projectNotFound
+        }
+
+        let content = normalizeContentForAnalysis(
+            textFile.currentContent,
+            projectType: project.type
+        )
         let cacheKey = "\(cacheSchemaVersion)_file_\(textFile.id)_\(contentFingerprint(content))"
         if let cached = reviewCache[cacheKey] {
             return cached
-        }
-
-        guard let project = textFile.project else {
-            throw ManuscriptAnalystError.projectNotFound
         }
 
         let analysisProfile = determineAnalysisProfile(
@@ -124,6 +127,60 @@ final class ManuscriptAnalystService {
         return review
     }
 
+    /// Review raw drama text that is not tied to a persisted TextFile.
+    func reviewRawDramaText(
+        _ rawText: String,
+        fileName: String = "Raw Drama",
+        projectId: UUID? = nil
+    ) async throws -> ManuscriptReview {
+        guard EntitlementManager.shared.isManuscriptAnalystSubscriptionActive() else {
+            throw ManuscriptAnalystError.subscriptionInactive
+        }
+
+        let content = normalizeContentForAnalysis(rawText, projectType: .drama)
+        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw ManuscriptAnalystError.noContentToAnalyze
+        }
+
+        let cacheKey = "\(cacheSchemaVersion)_raw_drama_\(contentFingerprint(fileName + "|" + content))"
+        if let cached = reviewCache[cacheKey] {
+            return cached
+        }
+
+        let request = buildRequest(
+            analysisMode: "file",
+            projectType: ProjectType.drama.rawValue,
+            fictionClass: nil,
+            analysisProfile: "drama",
+            fileName: fileName,
+            content: content,
+            fileCount: 1
+        )
+
+        let response = try await callCloudFlareAPI(request)
+        let review = parseResponse(
+            response,
+            fileId: nil,
+            projectId: projectId ?? UUID(),
+            sourceContent: content
+        )
+
+        reviewCache[cacheKey] = review
+        recordUsage(tokensUsed: response.metadata.tokensUsed)
+
+        return review
+    }
+
+    /// Review a raw drama text file (for example .txt/.dml) without importing it first.
+    func reviewRawDramaFile(
+        at url: URL,
+        projectId: UUID? = nil
+    ) async throws -> ManuscriptReview {
+        let fileName = url.deletingPathExtension().lastPathComponent
+        let content = try readRawDramaTextFile(at: url)
+        return try await reviewRawDramaText(content, fileName: fileName, projectId: projectId)
+    }
+
     /// Clear cached review for a text file.
     func clearReviewCache(for textFile: TextFile) {
         let prefix = "\(cacheSchemaVersion)_file_\(textFile.id)_"
@@ -208,7 +265,10 @@ final class ManuscriptAnalystService {
         for folder in bodyFolders.sorted(by: { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }) {
             let files = (folder.textFiles ?? []).sorted(by: { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) })
             for file in files {
-                let content = normalizeContentForAnalysis(file.currentContent)
+                let content = normalizeContentForAnalysis(
+                    file.currentContent,
+                    projectType: project.type
+                )
                 if !content.isEmpty {
                     combinedContent += "\n\n--- \(file.name) ---\n\n"
                     combinedContent += content
@@ -394,9 +454,60 @@ final class ManuscriptAnalystService {
         return String(hash, radix: 16)
     }
 
-    private func normalizeContentForAnalysis(_ content: String) -> String {
-        content.replacingOccurrences(of: "\r\n", with: "\n")
+    private func normalizeContentForAnalysis(_ content: String, projectType: ProjectType) -> String {
+        let normalized = content
+            .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
+
+        if projectType == .drama {
+            return addDramaLineNumbers(normalized)
+        }
+
+        return normalized
+    }
+
+    private func addDramaLineNumbers(_ content: String) -> String {
+        guard !content.isEmpty else { return content }
+
+        let lines = content.components(separatedBy: "\n")
+
+        // Avoid double-numbering if content already appears line-numbered.
+        if let firstNonEmptyLine = lines.first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }),
+           firstNonEmptyLine.range(of: #"^\s*\d{3,6}\s\|"#, options: .regularExpression) != nil {
+            return content
+        }
+
+        return lines.enumerated()
+            .map { index, line in
+                let number = String(format: "%04d", index + 1)
+                return "\(number) | \(line)"
+            }
+            .joined(separator: "\n")
+    }
+
+    private func readRawDramaTextFile(at url: URL) throws -> String {
+        let hasSecurityScope = url.startAccessingSecurityScopedResource()
+        defer {
+            if hasSecurityScope {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        let data = try Data(contentsOf: url)
+        if let utf8 = String(data: data, encoding: .utf8) {
+            return utf8
+        }
+        if let utf16 = String(data: data, encoding: .utf16) {
+            return utf16
+        }
+        if let utf16LE = String(data: data, encoding: .utf16LittleEndian) {
+            return utf16LE
+        }
+        if let utf16BE = String(data: data, encoding: .utf16BigEndian) {
+            return utf16BE
+        }
+
+        throw ManuscriptAnalystError.fileReadError("Unable to decode this text file. Please use UTF-8 or UTF-16 encoding.")
     }
 
     private func recordUsage(tokensUsed: Int) {
@@ -424,6 +535,7 @@ enum ManuscriptAnalystError: LocalizedError {
     case invalidResponse
     case apiError(String)
     case networkError(Error)
+    case fileReadError(String)
 
     var errorDescription: String? {
         switch self {
@@ -441,6 +553,8 @@ enum ManuscriptAnalystError: LocalizedError {
             return String(format: NSLocalizedString("analyst.error.apiError", comment: "API error: %@"), message)
         case .networkError(let error):
             return String(format: NSLocalizedString("analyst.error.network", comment: "Network error: %@"), error.localizedDescription)
+        case .fileReadError(let message):
+            return message
         }
     }
 }
