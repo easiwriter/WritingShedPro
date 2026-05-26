@@ -652,55 +652,47 @@ class NumberingLayoutManager: NSLayoutManager {
     }
 
     /// Draw line numbers on the left margin for regular editor documents.
-    /// Counts every paragraph line (including blank lines) to align with analyst references.
+    /// Counts rendered visual lines (line fragments), including wrapped and blank lines.
     private func drawDocumentLineNumbers(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
-        guard let textStorage = textStorage,
-              let textContainer = textContainers.first else {
+        guard textStorage != nil, textContainers.first != nil else {
             return
         }
 
-        let visibleCharRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
-        let text = textStorage.string as NSString
-        let fullRange = NSRange(location: 0, length: textStorage.length)
-
-        var paragraphLineNumbers: [Int: Int] = [:]
-        var lineNumber = 0
-
-        text.enumerateSubstrings(in: fullRange, options: .byParagraphs) { _, paragraphRange, _, _ in
-            lineNumber += 1
-            paragraphLineNumbers[paragraphRange.location] = lineNumber
+        // Empty editor still displays line 1.
+        if numberOfGlyphs == 0 {
+            let defaultLineHeight = UIFont.preferredFont(forTextStyle: .body).lineHeight
+            let emptyRect = CGRect(x: 0, y: 0, width: 100, height: defaultLineHeight)
+            drawDocumentLineNumber(1, at: origin, lineFragmentRect: emptyRect)
+            return
         }
 
-        text.enumerateSubstrings(in: fullRange, options: .byParagraphs) { [weak self] _, paragraphRange, _, _ in
-            guard let self = self else { return }
+        let visibleGlyphStart = glyphsToShow.location
+        let visibleGlyphEnd = glyphsToShow.location + glyphsToShow.length
+        let fullGlyphRange = NSRange(location: 0, length: numberOfGlyphs)
 
-            let paragraphEnd = paragraphRange.location + paragraphRange.length
-            let visibleEnd = visibleCharRange.location + visibleCharRange.length
-            let isVisible = (paragraphRange.location < visibleEnd) && (paragraphEnd > visibleCharRange.location)
+        var lineNumber = 1
 
-            guard isVisible,
-                  let lineNum = paragraphLineNumbers[paragraphRange.location] else {
+        enumerateLineFragments(forGlyphRange: fullGlyphRange) { [weak self] lineFragmentRect, _, _, fragmentGlyphRange, stop in
+            guard let self = self else {
+                stop.pointee = true
                 return
             }
 
-            let glyphRange = self.glyphRange(forCharacterRange: paragraphRange, actualCharacterRange: nil)
-            guard glyphRange.length > 0 else { return }
+            let fragmentStart = fragmentGlyphRange.location
+            let fragmentEnd = fragmentGlyphRange.location + fragmentGlyphRange.length
 
-            let lineFragmentRect = self.lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
-            self.drawDocumentLineNumber(lineNum, at: origin, lineFragmentRect: lineFragmentRect)
-        }
-
-        // Show a trailing line number for an empty last paragraph after a final newline.
-        if text.hasSuffix("\n") {
-            let trailingLine = lineNumber + 1
-            if textStorage.length > 0 {
-                let lastGlyphRange = glyphRange(forCharacterRange: NSRange(location: textStorage.length - 1, length: 1), actualCharacterRange: nil)
-                if lastGlyphRange.length > 0 {
-                    let lastRect = lineFragmentRect(forGlyphAt: lastGlyphRange.location, effectiveRange: nil)
-                    let trailingRect = CGRect(x: 0, y: lastRect.origin.y + lastRect.height, width: lastRect.width, height: lastRect.height)
-                    drawDocumentLineNumber(trailingLine, at: origin, lineFragmentRect: trailingRect)
-                }
+            if fragmentEnd <= visibleGlyphStart {
+                lineNumber += 1
+                return
             }
+
+            if fragmentStart >= visibleGlyphEnd {
+                stop.pointee = true
+                return
+            }
+
+            self.drawDocumentLineNumber(lineNumber, at: origin, lineFragmentRect: lineFragmentRect)
+            lineNumber += 1
         }
     }
 
