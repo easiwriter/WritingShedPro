@@ -460,10 +460,59 @@ final class ManuscriptAnalystService {
             .replacingOccurrences(of: "\r", with: "\n")
 
         if projectType == .drama {
-            return addDramaLineNumbers(normalized)
+            let structuredDrama = preprocessDramaContentForAnalysis(normalized)
+            return addDramaLineNumbers(structuredDrama)
         }
 
         return normalized
+    }
+
+    /// Convert raw DML into lightweight semantic lines for analysis while preserving
+    /// one-to-one source line mapping. This helps the model interpret drama structure
+    /// without changing reported line references.
+    private func preprocessDramaContentForAnalysis(_ content: String) -> String {
+        guard !content.isEmpty else { return content }
+
+        let document = DramaMarkupParser.shared.parse(content)
+        guard !document.elements.isEmpty else { return content }
+
+        var elementsByLine: [Int: DMLElement] = [:]
+        for element in document.elements {
+            elementsByLine[element.lineNumber] = element
+        }
+
+        let lines = content.components(separatedBy: "\n")
+        let structuredLines = lines.enumerated().map { index, fallbackLine in
+            let lineNumber = index + 1
+            guard let element = elementsByLine[lineNumber] else {
+                return fallbackLine
+            }
+
+            switch element.type {
+            case .sceneHeading:
+                return "[SCENE] \(element.content)"
+            case .locationMeta:
+                return "[LOCATION] \(element.content)"
+            case .timeMeta:
+                return "[TIME] \(element.content)"
+            case .action:
+                return "[ACTION] \(element.content)"
+            case .transition:
+                return "[TRANSITION] \(element.content)"
+            case .character:
+                return "[CHARACTER] \(element.content)"
+            case .parenthetical:
+                return "[PARENTHETICAL] \(element.content)"
+            case .dialogue:
+                return "[DIALOGUE] \(element.content)"
+            case .note:
+                return "[NOTE] \(element.noteText ?? element.content)"
+            case .blank:
+                return ""
+            }
+        }
+
+        return structuredLines.joined(separator: "\n")
     }
 
     private func addDramaLineNumbers(_ content: String) -> String {
