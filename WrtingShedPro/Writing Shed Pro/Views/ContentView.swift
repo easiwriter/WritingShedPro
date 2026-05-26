@@ -345,6 +345,7 @@ struct ContentView: View {
         }
         for project in sortedUnordered {
             project.userOrder = nextOrder
+            project.modifiedDate = Date()
             nextOrder += 1
             changedCount += 1
         }

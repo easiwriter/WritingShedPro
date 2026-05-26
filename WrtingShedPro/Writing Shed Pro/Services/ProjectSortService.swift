@@ -59,6 +59,7 @@ struct ProjectSortService {
         // Update userOrder property for all projects based on new positions
         for (index, project) in reorderedProjects.enumerated() {
             project.userOrder = index
+            project.modifiedDate = Date()
         }
         
         return reorderedProjects

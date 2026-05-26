@@ -157,6 +157,12 @@ final class CloudKitSyncThrottler {
     /// stale and unblock watchdog recovery nudges.
     private let maxInProgressEventAge: TimeInterval = 600
 
+    /// Secondary stale detection for wedged sessions: if an in-progress event
+    /// has been open for at least this long AND there has been no CloudKit
+    /// activity for `minInProgressInactivityForClear`, clear it proactively.
+    private let minInProgressAgeForInactivityClear: TimeInterval = 120
+    private let minInProgressInactivityForClear: TimeInterval = 90
+
     /// Longer timeout after a sync database reset, since full zone re-imports
     /// can take 15-30 minutes for large databases.
     private let maxInProgressEventAgeAfterReset: TimeInterval = 1800
@@ -279,6 +285,10 @@ final class CloudKitSyncThrottler {
     
     /// Timer to clear syncing state after quiet period
     private var quietTimer: Timer?
+
+    /// Periodic watchdog that clears stale in-progress CloudKit events even
+    /// when no caller is actively polling `hasActiveCloudKitEvent`.
+    private var staleEventCleanupTimer: Timer?
     
     /// Cancellables for Combine subscriptions
     private var cancellables = Set<AnyCancellable>()
@@ -291,6 +301,7 @@ final class CloudKitSyncThrottler {
         setupBurstDetection()
         setupCloudKitEventTracking()
         setupMirroringResetTracking()
+        setupStaleEventCleanupTimer()
     }
     
     /// Pending event count accumulated on background threads, flushed to main periodically
@@ -435,6 +446,16 @@ final class CloudKitSyncThrottler {
         lastObservedActivityTime = nil
         isPostReset = false
         recentCloudKitEvents = []
+    }
+
+    /// Run stale import/export cleanup periodically so a missing `ended` event
+    /// cannot wedge the app forever.
+    private func setupStaleEventCleanupTimer() {
+        staleEventCleanupTimer?.invalidate()
+        staleEventCleanupTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.clearStaleInProgressEventsIfNeeded()
+        }
     }
 
     func clearRecentCloudKitEvents() {
@@ -645,10 +666,18 @@ final class CloudKitSyncThrottler {
         let now = Date()
         var cleared: [String] = []
         let staleAge = isPostReset ? maxInProgressEventAgeAfterReset : maxInProgressEventAge
+        let lastActivity = lastObservedActivityTime ?? lastSyncTime
 
         if importInProgress,
-           let started = importStartTime,
-           now.timeIntervalSince(started) > staleAge {
+           let started = importStartTime {
+            let eventAge = now.timeIntervalSince(started)
+            let inactivity = now.timeIntervalSince(lastActivity ?? started)
+            let shouldClearForAge = eventAge > staleAge
+            let shouldClearForInactivity = !isPostReset &&
+                eventAge > minInProgressAgeForInactivityClear &&
+                inactivity > minInProgressInactivityForClear
+
+            if shouldClearForAge || shouldClearForInactivity {
             importInProgress = false
             importStartTime = nil
             importCompleted = true
@@ -658,24 +687,33 @@ final class CloudKitSyncThrottler {
                 type: "import",
                 phase: "timeout",
                 status: "stale-cleared",
-                message: "No end event after \(Int(staleAge))s — consecutiveImportFailures=\(consecutiveImportFailures)"
+                message: "No end event (age=\(Int(eventAge))s, inactivity=\(Int(inactivity))s) — consecutiveImportFailures=\(consecutiveImportFailures)"
             )
             scheduleAutoResetIfNeeded()
             cleared.append("import")
+            }
         }
 
         if exportInProgress,
-           let started = exportStartTime,
-           now.timeIntervalSince(started) > staleAge {
+           let started = exportStartTime {
+            let eventAge = now.timeIntervalSince(started)
+            let inactivity = now.timeIntervalSince(lastActivity ?? started)
+            let shouldClearForAge = eventAge > staleAge
+            let shouldClearForInactivity = !isPostReset &&
+                eventAge > minInProgressAgeForInactivityClear &&
+                inactivity > minInProgressInactivityForClear
+
+            if shouldClearForAge || shouldClearForInactivity {
             exportInProgress = false
             exportStartTime = nil
             appendCloudKitEvent(
                 type: "export",
                 phase: "timeout",
                 status: "stale-cleared",
-                message: "No end event after \(Int(staleAge))s"
+                message: "No end event (age=\(Int(eventAge))s, inactivity=\(Int(inactivity))s)"
             )
             cleared.append("export")
+            }
         }
 
         if !cleared.isEmpty {
@@ -825,6 +863,7 @@ final class CloudKitSyncThrottler {
     
     deinit {
         quietTimer?.invalidate()
+        staleEventCleanupTimer?.invalidate()
         cancellables.removeAll()
     }
 }

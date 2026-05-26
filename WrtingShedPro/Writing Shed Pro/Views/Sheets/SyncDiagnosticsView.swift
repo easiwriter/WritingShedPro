@@ -297,6 +297,10 @@ struct SyncDiagnosticsView: View {
         lines.append("- Version: \(versionCount)")
         lines.append("- PoetryCollection: \(collectionCount)")
 
+        // Inline notes payload diagnostics (helps catch oversized text fields).
+        lines.append("")
+        lines.append(contentsOf: notesPayloadLines())
+
         // Pending CloudKit exports from ANSCKRECORDMETADATA
         lines.append("")
         lines.append(contentsOf: pendingExportLines())
@@ -1451,6 +1455,69 @@ struct SyncDiagnosticsView: View {
             }
         }
         sqlite3_finalize(stmt)
+
+        return lines
+    }
+
+    /// Summarize notes payload sizes stored inline in SwiftData tables.
+    /// Useful when diagnosing sync failures suspected to be caused by large pasted notes.
+    private func notesPayloadLines() -> [String] {
+        var lines: [String] = []
+        lines.append("Notes Payloads (inline text):")
+
+        let storeURL = URL.documentsDirectory.appending(path: "writingshed.sqlite")
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(storeURL.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK,
+              let db = db else {
+            lines.append("- (could not open store)")
+            return lines
+        }
+        defer { sqlite3_close(db) }
+
+        struct PayloadMetric {
+            let label: String
+            let sql: String
+        }
+
+        let warningThreshold = 50_000
+        let metrics: [PayloadMetric] = [
+            PayloadMetric(
+                label: "Project.notes",
+                sql: "SELECT IFNULL(MAX(LENGTH(ZNOTES)),0), IFNULL(SUM(CASE WHEN LENGTH(ZNOTES) > \(warningThreshold) THEN 1 ELSE 0 END),0) FROM ZPROJECT;"
+            ),
+            PayloadMetric(
+                label: "Publication.notes",
+                sql: "SELECT IFNULL(MAX(LENGTH(ZNOTES)),0), IFNULL(SUM(CASE WHEN LENGTH(ZNOTES) > \(warningThreshold) THEN 1 ELSE 0 END),0) FROM ZPUBLICATION;"
+            ),
+            PayloadMetric(
+                label: "Submission.notes",
+                sql: "SELECT IFNULL(MAX(LENGTH(ZNOTES)),0), IFNULL(SUM(CASE WHEN LENGTH(ZNOTES) > \(warningThreshold) THEN 1 ELSE 0 END),0) FROM ZSUBMISSION;"
+            ),
+            PayloadMetric(
+                label: "SubmittedFile.statusNotes",
+                sql: "SELECT IFNULL(MAX(LENGTH(ZSTATUSNOTES)),0), IFNULL(SUM(CASE WHEN LENGTH(ZSTATUSNOTES) > \(warningThreshold) THEN 1 ELSE 0 END),0) FROM ZSUBMITTEDFILE;"
+            ),
+            PayloadMetric(
+                label: "Version.notes",
+                sql: "SELECT IFNULL(MAX(LENGTH(ZNOTES)),0), IFNULL(SUM(CASE WHEN LENGTH(ZNOTES) > \(warningThreshold) THEN 1 ELSE 0 END),0) FROM ZVERSION;"
+            )
+        ]
+
+        for metric in metrics {
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, metric.sql, -1, &stmt, nil) == SQLITE_OK {
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    let maxLength = sqlite3_column_int(stmt, 0)
+                    let oversizedCount = sqlite3_column_int(stmt, 1)
+                    lines.append("- \(metric.label): max=\(maxLength) chars, >\(warningThreshold)=\(oversizedCount)")
+                } else {
+                    lines.append("- \(metric.label): (no rows)")
+                }
+            } else {
+                lines.append("- \(metric.label): (query failed)")
+            }
+            sqlite3_finalize(stmt)
+        }
 
         return lines
     }

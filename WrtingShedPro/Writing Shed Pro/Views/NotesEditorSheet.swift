@@ -16,6 +16,7 @@ struct NotesEditorSheet: View {
     @State private var attributedNotes = NSAttributedString(string: "")
     @State private var selectedRange = NSRange(location: 0, length: 0)
     @StateObject private var textViewCoordinator = TextViewCoordinator()
+    private let maxFormattedNotesBytes = 64_000
     
     var body: some View {
         NavigationView {
@@ -84,8 +85,63 @@ struct NotesEditorSheet: View {
 
     private func persistNotes(_ notes: NSAttributedString) {
         attributedNotes = notes
-        version.notes = notes.string.isEmpty ? nil : notes.string
-        version.notesFormattedContent = notes.string.isEmpty ? nil : AttributedStringSerializer.encode(notes)
+        let plainText = notes.string.trimmingCharacters(in: .whitespacesAndNewlines)
+        version.notes = plainText.isEmpty ? nil : notes.string
+
+        if plainText.isEmpty {
+            version.notesFormattedContent = nil
+        } else if shouldPersistFormattedNotes(notes) {
+            let encoded = AttributedStringSerializer.encode(notes)
+            if encoded.count <= maxFormattedNotesBytes {
+                version.notesFormattedContent = encoded
+            } else {
+                // Fallback to plain text only to avoid oversized/fragile rich payload sync issues.
+                version.notesFormattedContent = nil
+            }
+        } else {
+            // Fallback to plain text only to avoid oversized/fragile rich payload sync issues.
+            version.notesFormattedContent = nil
+        }
+
+        // Ensure notes edits produce CloudKit-visible activity on the owning file.
+        version.textFile?.modifiedDate = Date()
+        if version.modelContext != nil {
+            WriteCoalescer.shared?.requestSave()
+        }
+    }
+
+    private func shouldPersistFormattedNotes(_ notes: NSAttributedString) -> Bool {
+        guard notes.length > 0 else { return false }
+
+        let bodyFont = UIFont.preferredFont(forTextStyle: .body)
+        var hasRichFormatting = false
+        notes.enumerateAttributes(in: NSRange(location: 0, length: notes.length)) { attrs, _, stop in
+            if attrs[.attachment] != nil || attrs[.link] != nil {
+                hasRichFormatting = true
+                stop.pointee = true
+                return
+            }
+
+            if let font = attrs[.font] as? UIFont {
+                let traits = font.fontDescriptor.symbolicTraits
+                let usesRichTraits = traits.contains(.traitBold) || traits.contains(.traitItalic)
+                let customSize = abs(font.pointSize - bodyFont.pointSize) > 0.1
+                if usesRichTraits || customSize {
+                    hasRichFormatting = true
+                    stop.pointee = true
+                    return
+                }
+            }
+
+            if let paragraphStyle = attrs[.paragraphStyle] as? NSParagraphStyle,
+               paragraphStyle.alignment != .natural,
+               paragraphStyle.alignment != .left {
+                hasRichFormatting = true
+                stop.pointee = true
+            }
+        }
+
+        return hasRichFormatting
     }
 
     private func clearNotes() {
