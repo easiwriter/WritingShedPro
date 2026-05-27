@@ -305,8 +305,8 @@ struct CommentsListView: View {
     // MARK: - Actions
     
     private func loadComments() {
-        // Access comments directly from version relationship
-        comments = (version.comments ?? [])
+        comments = CommentManager.shared
+            .getComments(forVersion: version, context: modelContext)
             .filter { !$0.isDeleted }
             .sorted { $0.createdAt > $1.createdAt }
     }

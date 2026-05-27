@@ -10,6 +10,7 @@ import SwiftData
 
 struct SubmissionPickerView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     
     let project: Project
     let filesToSubmit: [TextFile]?
@@ -147,6 +148,7 @@ struct SubmissionPickerView: View {
 
     private func selectPublication(_ publication: Publication) {
         onPublicationSelected(publication, resolvedSubmissionName, expectedDate(for: publication), selectedReminderDate)
+        dismiss()
     }
 
     @ViewBuilder
@@ -235,6 +237,7 @@ struct SubmissionPickerView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button("button.cancel") {
                     onCancel()
+                    dismiss()
                 }
             }
         }
@@ -253,6 +256,7 @@ struct SubmissionPickerView: View {
 /// View for creating a new publication during submission flow
 struct NewPublicationForSubmissionView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     
     let project: Project
     let filesToSubmit: [TextFile]?
@@ -355,6 +359,7 @@ struct NewPublicationForSubmissionView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button("button.cancel") {
                     onCancel()
+                    dismiss()
                 }
             }
             
@@ -430,6 +435,7 @@ struct NewPublicationForSubmissionView: View {
         
         // Notify parent to create submission
         onPublicationCreated(publication)
+        dismiss()
     }
     
     private func hasDuplicateName(_ name: String) -> Bool {

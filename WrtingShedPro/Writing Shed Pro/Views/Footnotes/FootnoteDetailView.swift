@@ -15,6 +15,7 @@ struct FootnoteDetailView: View {
     // MARK: - Environment
     
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     
     // MARK: - Properties
     
@@ -88,6 +89,7 @@ struct FootnoteDetailView: View {
                 // Done button
                 Button(action: {
                     onClose?()
+                    dismiss()
                 }) {
                     Text("Done")
                         .fontWeight(.medium)
@@ -228,5 +230,6 @@ struct FootnoteDetailView: View {
     private func deleteFootnote() {
         FootnoteManager.shared.deleteFootnote(footnote, context: modelContext)
         onDelete?()
+        dismiss()
     }
 }

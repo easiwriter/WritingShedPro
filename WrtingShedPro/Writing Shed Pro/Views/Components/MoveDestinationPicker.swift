@@ -113,6 +113,7 @@ struct MoveDestinationPicker: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "")) {
                         onCancel()
+                        dismiss()
                     }
                 }
             }

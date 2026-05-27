@@ -15,6 +15,7 @@ struct CommentDetailView: View {
     // MARK: - Environment
     
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     
     // MARK: - Properties
     
@@ -80,6 +81,7 @@ struct CommentDetailView: View {
                 // Done button
                 Button(action: {
                     onClose?()
+                    dismiss()
                 }) {
                     Text("Done")
                         .fontWeight(.medium)
@@ -203,5 +205,6 @@ struct CommentDetailView: View {
     private func deleteComment() {
         CommentManager.shared.deleteComment(comment, context: modelContext)
         onDelete?(comment)
+        dismiss()
     }
 }

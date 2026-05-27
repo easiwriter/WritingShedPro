@@ -9,6 +9,7 @@
 import SwiftUI
 
 struct SupportResponseView: View {
+    @Environment(\.dismiss) private var dismiss
     let responseText: String
     let onDismiss: () -> Void
     let onAskDeveloper: () -> Void
@@ -34,6 +35,7 @@ struct SupportResponseView: View {
                 HStack(spacing: 16) {
                     Button {
                         onDismiss()
+                        dismiss()
                     } label: {
                         Label(
                             NSLocalizedString("support.response.thisHelped", comment: ""),

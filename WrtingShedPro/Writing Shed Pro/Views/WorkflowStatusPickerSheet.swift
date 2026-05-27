@@ -9,6 +9,7 @@ import SwiftUI
 
 /// Sheet for selecting a new workflow status for files
 struct WorkflowStatusPickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
     
     let files: [TextFile]
     let onStatusSelected: (WorkflowStatus) -> Void
@@ -22,6 +23,7 @@ struct WorkflowStatusPickerSheet: View {
                     ForEach(WorkflowStatus.allCases.filter { $0 != .published }, id: \.self) { status in
                         Button {
                             onStatusSelected(status)
+                            dismiss()
                         } label: {
                             HStack {
                                 Image(systemName: status.systemImage)
@@ -57,6 +59,7 @@ struct WorkflowStatusPickerSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
                         onCancel()
+                        dismiss()
                     }
                 }
             }

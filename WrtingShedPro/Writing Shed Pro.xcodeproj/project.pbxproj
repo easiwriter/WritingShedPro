@@ -11,7 +11,7 @@
 		D78F5BA22FBEFC14005ED3FB /* Writing Shed Pro.storekit in Resources */ = {isa = PBXBuildFile; fileRef = D78F5BA12FBEFC14005ED3FB /* Writing Shed Pro.storekit */; };
 		D79879872F2F4874007DE592 /* StoreKitManager in Frameworks */ = {isa = PBXBuildFile; productRef = D79879862F2F4874007DE592 /* StoreKitManager */; };
 		D7B1F4D72EACFFE400B7F3C8 /* ToolbarSUI in Frameworks */ = {isa = PBXBuildFile; productRef = D7B1F4D62EACFFE400B7F3C8 /* ToolbarSUI */; };
-		D7QLEXT012F05000000000001 /* WSPQuickLook.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D7QLEXT002F05000000000001 /* WSPQuickLook.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D7QLEXT012F05000000000001 /* WSPQuickLook.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D7QLEXT002F05000000000001 /* WSPQuickLook.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */

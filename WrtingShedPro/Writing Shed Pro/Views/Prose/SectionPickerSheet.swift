@@ -126,6 +126,7 @@ struct SectionPickerSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
                         onCancel()
+                        dismiss()
                     }
                 }
             }

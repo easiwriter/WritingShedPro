@@ -5729,17 +5729,29 @@ struct FileEditView: View {
     }
     
     private func removeCommentMarker(_ comment: CommentModel) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot remove comment marker: no text view")
+            #endif
+            return
+        }
+
         // Set flag to bypass undo stack - comment deletion is not undoable (consistent with notes/glossary/footnotes)
         isPerformingUndoRedo = true
-        
-        // Remove the comment marker from text (called when comment is deleted from detail view)
-        attributedContent = CommentInsertionHelper.removeComment(
-            from: attributedContent,
+
+        // Remove the comment marker from the live text view so saveChanges() does not persist the stale marker back.
+        let updatedContent = CommentInsertionHelper.removeComment(
+            from: textView.attributedText ?? attributedContent,
             commentID: comment.attachmentID
         )
-        
-        // Save
-        saveChanges()
+
+        textView.attributedText = updatedContent
+        file.currentVersion?.attributedContent = updatedContent
+        previousContent = updatedContent.string
+        file.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave()
+        attributedContent = updatedContent
+
         #if DEBUG
         print("💬 Comment marker removed: \(comment.attachmentID)")
         #endif
@@ -5890,7 +5902,9 @@ struct FileEditView: View {
             return
         }
         
-        let allComments = currentVersion.comments ?? []
+        let allComments = CommentManager.shared
+            .getComments(forVersion: currentVersion, context: modelContext)
+            .filter { !$0.isDeleted }
         
         guard !allComments.isEmpty else {
             #if DEBUG
@@ -8379,8 +8393,11 @@ struct FileEditView: View {
 
         guard let freshContent = freshVersion.attributedContent else { return }
 
-        // Only reload if content actually differs
-        guard freshContent.string != attributedContent.string else {
+        // Only reload if content actually differs (check attributes too — e.g. underline removal
+        // changes no plain text but the formatted attributes are different).
+        let plainTextSame = freshContent.string == attributedContent.string
+        let attributesSame = plainTextSame && freshContent.isEqual(to: attributedContent)
+        guard !attributesSame else {
             #if DEBUG
             print("⬇️ [Remote Refresh] Content unchanged for '\(file.name)' — no reload needed")
             #endif

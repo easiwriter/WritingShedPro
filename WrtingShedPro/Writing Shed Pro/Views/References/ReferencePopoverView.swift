@@ -83,6 +83,7 @@ struct ReferencePopoverView: View {
             // Close button
             Button(action: {
                 onClose?()
+                dismiss()
             }) {
                 Image(systemName: "xmark.circle.fill")
                     .foregroundColor(.secondary)

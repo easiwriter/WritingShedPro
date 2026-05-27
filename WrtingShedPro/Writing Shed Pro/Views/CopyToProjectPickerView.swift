@@ -4,6 +4,7 @@ import SwiftData
 /// Picker view for selecting a destination project when copying files between projects.
 /// Only shows projects of the same type as the source, excluding the source project.
 struct CopyToProjectPickerView: View {
+    @Environment(\.dismiss) private var dismiss
     let sourceProject: Project
     let filesToCopy: [TextFile]
     let onProjectSelected: (Project) -> Void
@@ -46,6 +47,7 @@ struct CopyToProjectPickerView: View {
                             ForEach(eligibleProjects) { project in
                                 Button {
                                     onProjectSelected(project)
+                                    dismiss()
                                 } label: {
                                     HStack {
                                         VStack(alignment: .leading, spacing: 4) {
@@ -78,6 +80,7 @@ struct CopyToProjectPickerView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
                         onCancel()
+                        dismiss()
                     }
                 }
             }
