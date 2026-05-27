@@ -80,8 +80,7 @@ struct CommentDetailView: View {
                 
                 // Done button
                 Button(action: {
-                    onClose?()
-                    dismiss()
+                    closeView()
                 }) {
                     Text("Done")
                         .fontWeight(.medium)
@@ -204,7 +203,16 @@ struct CommentDetailView: View {
     
     private func deleteComment() {
         CommentManager.shared.deleteComment(comment, context: modelContext)
-        onDelete?(comment)
         dismiss()
+        DispatchQueue.main.async {
+            onDelete?(comment)
+        }
+    }
+
+    private func closeView() {
+        dismiss()
+        DispatchQueue.main.async {
+            onClose?()
+        }
     }
 }

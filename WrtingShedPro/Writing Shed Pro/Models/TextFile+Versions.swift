@@ -171,15 +171,17 @@ extension TextFile {
         print("   sorted versions: \(sortedVersions.map { "v\($0.versionNumber)" })")
         #endif
         
-        guard currentVersionIndex >= 0 && currentVersionIndex < sortedVersions.count else { 
+        var deleteIndex = currentVersionIndex
+        if deleteIndex < 0 || deleteIndex >= sortedVersions.count {
             #if DEBUG
-            print("   ❌ currentVersionIndex out of bounds")
+            print("   ⚠️ currentVersionIndex out of bounds; clamping to latest version")
             #endif
-            return 
+            deleteIndex = max(0, sortedVersions.count - 1)
+            currentVersionIndex = deleteIndex
         }
         
         // Get the actual version object to delete
-        let versionToDelete = sortedVersions[currentVersionIndex]
+        let versionToDelete = sortedVersions[deleteIndex]
         
         #if DEBUG
         print("   versionToDelete: v\(versionToDelete.versionNumber) (id: \(versionToDelete.id))")
@@ -199,6 +201,15 @@ extension TextFile {
             print("   ✅ Removed version at index \(actualIndex) and deleted from store (will flush immediately)")
             print("   remaining versions: \(self.versions?.map { "v\($0.versionNumber)" } ?? [])")
             #endif
+        } else if let fallbackIndex = self.versions?.firstIndex(where: { $0.versionNumber == versionToDelete.versionNumber }) {
+            #if DEBUG
+            print("   ⚠️ Could not match by id, using versionNumber fallback at index \(fallbackIndex)")
+            #endif
+            let fallbackVersion = self.versions?[fallbackIndex]
+            self.versions?.remove(at: fallbackIndex)
+            if let fallbackVersion {
+                self.modelContext?.delete(fallbackVersion)
+            }
         } else {
             #if DEBUG
             print("   ❌ Could not find version in array")

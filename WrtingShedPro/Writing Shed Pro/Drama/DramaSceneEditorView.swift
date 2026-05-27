@@ -9,7 +9,6 @@
 import SwiftUI
 import SwiftData
 import ToolbarSUI
-import UniformTypeIdentifiers
 
 /// Editor view for drama scene content with DML support
 /// Provides Source, Formatted, and Print Preview modes
@@ -25,6 +24,24 @@ struct DramaSceneEditorView: View {
     
     @Bindable var file: TextFile
     let project: Project
+
+    #if DEBUG
+    private func logVersionDiagnostics(_ context: String) {
+        let rawVersions = file.versions ?? []
+        let sortedVersions = rawVersions.sorted { $0.versionNumber < $1.versionNumber }
+        let rawLabels = rawVersions.map { "v\($0.versionNumber):\($0.id.uuidString.prefix(8))" }
+        let sortedLabels = sortedVersions.map { "v\($0.versionNumber):\($0.id.uuidString.prefix(8))" }
+        let current = file.currentVersion
+        let sortedIndex = sortedVersions.firstIndex(where: { $0.id == current?.id })
+        print("🧪 [DramaVersionDelete] \(context)")
+        print("   file: \(file.name)")
+        print("   file.currentVersionIndex: \(file.currentVersionIndex)")
+        print("   raw count: \(rawVersions.count) raw: \(rawLabels)")
+        print("   sorted count: \(sortedVersions.count) sorted: \(sortedLabels)")
+        print("   current version: \(current?.versionNumber ?? -1) id: \(current?.id.uuidString.prefix(8) ?? "nil")")
+        print("   current sorted index: \(sortedIndex.map(String.init) ?? "nil")")
+    }
+    #endif
     
     // MARK: - State
     
@@ -99,15 +116,6 @@ struct DramaSceneEditorView: View {
 
     /// Selected source for raw drama analysis
     @State private var rawDramaAnalysisRequest: RawDramaAnalysisRequest?
-
-    /// Show file picker for raw drama analysis
-    @State private var showRawDramaFilePicker = false
-
-    /// Analysis error message for import/selection failures
-    @State private var dramaAnalysisErrorMessage: String?
-
-    /// Show analysis error alert
-    @State private var showDramaAnalysisError = false
     
     /// Selected plot element to show in detail sheet
     @State private var selectedPlotElement: PlotElement?
@@ -215,22 +223,24 @@ struct DramaSceneEditorView: View {
             LocationQuickView(location: location)
         }
         .sheet(item: $rawDramaAnalysisRequest) { request in
-            RawDramaAnalystActionSheet(project: project, input: request.input)
-        }
-        .fileImporter(
-            isPresented: $showRawDramaFilePicker,
-            allowedContentTypes: Self.rawDramaImportTypes,
-            allowsMultipleSelection: false
-        ) { result in
-            handleRawDramaFileSelection(result)
+            RawDramaAnalystActionSheet(project: project, content: request.content, fileName: request.fileName)
         }
         .alert(
             NSLocalizedString("fileEdit.deleteVersionTitle", comment: "Delete Version?"),
             isPresented: $showDeleteVersionAlert
         ) {
             Button(NSLocalizedString("contentView.delete", comment: "Delete"), role: .destructive) {
+                #if DEBUG
+                logVersionDiagnostics("before file.deleteVersion()")
+                #endif
                 file.deleteVersion()
+                #if DEBUG
+                logVersionDiagnostics("after file.deleteVersion() before loadContent()")
+                #endif
                 loadContent()
+                #if DEBUG
+                logVersionDiagnostics("after loadContent()")
+                #endif
             }
             Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
         } message: {
@@ -244,20 +254,8 @@ struct DramaSceneEditorView: View {
         } message: {
             Text(printErrorMessage ?? NSLocalizedString("print.error.unknown", comment: "Unknown error"))
         }
-        .alert("Analysis Error", isPresented: $showDramaAnalysisError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(dramaAnalysisErrorMessage ?? "Unable to open the selected file.")
-        }
         .upgradePrompt(reason: $upgradePromptReason)
     }
-
-    private static let rawDramaImportTypes: [UTType] = [
-        .plainText,
-        UTType(filenameExtension: "dml") ?? .plainText,
-        UTType(filenameExtension: "txt") ?? .plainText,
-        UTType(filenameExtension: "fdx") ?? .plainText
-    ]
     
     // MARK: - Navigation Toolbar Content
     
@@ -343,6 +341,9 @@ struct DramaSceneEditorView: View {
             label: file.versionLabel(),
             items: versionItems
         ) { action in
+            #if DEBUG
+            logVersionDiagnostics("toolbar action=\(action)")
+            #endif
             handleVersionAction(action)
         }
         .padding(.horizontal, 8)
@@ -362,6 +363,9 @@ struct DramaSceneEditorView: View {
             loadContent()
             try? modelContext.save()
         case 3: // Delete
+            #if DEBUG
+            logVersionDiagnostics("about to present delete alert")
+            #endif
             showDeleteVersionAlert = true
         default:
             break
@@ -401,20 +405,11 @@ struct DramaSceneEditorView: View {
             }
             .accessibilityLabel(NSLocalizedString("drama.validate", comment: "Validate Script"))
 
-            Menu {
-                Button {
-                    rawDramaAnalysisRequest = RawDramaAnalysisRequest(
-                        input: .text(content: sourceText, fileName: file.name)
-                    )
-                } label: {
-                    Label("Analyze Current Text", systemImage: "doc.text.magnifyingglass")
-                }
-
-                Button {
-                    showRawDramaFilePicker = true
-                } label: {
-                    Label("Analyze Raw Text File", systemImage: "folder.badge.plus")
-                }
+            Button {
+                rawDramaAnalysisRequest = RawDramaAnalysisRequest(
+                    content: sourceText,
+                    fileName: file.name
+                )
             } label: {
                 Image(systemName: "text.magnifyingglass")
             }
@@ -452,6 +447,7 @@ struct DramaSceneEditorView: View {
     /// Source mode: plain text editor for DML
     private var sourceEditor: some View {
         DMLTextEditor(
+            project: project,
             text: $sourceText,
             selectedRange: $selectedRange,
             onUndoManagerReady: { undoManager in
@@ -836,21 +832,6 @@ struct DramaSceneEditorView: View {
         }
         #endif
         showValidationErrors = true
-    }
-
-    private func handleRawDramaFileSelection(_ result: Result<[URL], Error>) {
-        switch result {
-        case .success(let urls):
-            guard let url = urls.first else { return }
-            rawDramaAnalysisRequest = RawDramaAnalysisRequest(input: .file(url: url))
-        case .failure(let error):
-            let nsError = error as NSError
-            if nsError.domain == NSCocoaErrorDomain && nsError.code == NSUserCancelledError {
-                return
-            }
-            dramaAnalysisErrorMessage = error.localizedDescription
-            showDramaAnalysisError = true
-        }
     }
 }
 

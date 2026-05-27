@@ -88,8 +88,7 @@ struct FootnoteDetailView: View {
                 
                 // Done button
                 Button(action: {
-                    onClose?()
-                    dismiss()
+                    closeView()
                 }) {
                     Text("Done")
                         .fontWeight(.medium)
@@ -229,7 +228,16 @@ struct FootnoteDetailView: View {
     
     private func deleteFootnote() {
         FootnoteManager.shared.deleteFootnote(footnote, context: modelContext)
-        onDelete?()
         dismiss()
+        DispatchQueue.main.async {
+            onDelete?()
+        }
+    }
+
+    private func closeView() {
+        dismiss()
+        DispatchQueue.main.async {
+            onClose?()
+        }
     }
 }

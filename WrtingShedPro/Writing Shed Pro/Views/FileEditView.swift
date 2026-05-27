@@ -1849,23 +1849,32 @@ struct FileEditView: View {
                     secondaryButton: .cancel()
                 )
             }
-            .alert(isPresented: $presentDeleteAlert) {
-                Alert(
-                    title: Text(NSLocalizedString("fileEdit.deleteVersionTitle", comment: "Delete Version?")),
-                    message: Text(NSLocalizedString("fileEdit.deleteVersionMessage", comment: "Please confirm that you want to delete this version")),
-                    primaryButton: .destructive(Text(NSLocalizedString("contentView.delete", comment: "Delete"))) {
-                        #if DEBUG
-                        print("📝 Delete version confirmed, deleting...")
-                        #endif
-                        file.deleteVersion()
-                        loadCurrentVersion()
-                        // NOTE: Do NOT call saveChanges() here - the editor still has the deleted version's content
-                        // and calling save would overwrite the new current version with the old content
-                        // Force toolbar to re-render with updated version count
-                        refreshTrigger = UUID()
-                    },
-                    secondaryButton: .cancel()
-                )
+            .confirmationDialog(
+                NSLocalizedString("fileEdit.deleteVersionTitle", comment: "Delete Version?"),
+                isPresented: $presentDeleteAlert,
+                titleVisibility: .visible
+            ) {
+                Button(NSLocalizedString("contentView.delete", comment: "Delete"), role: .destructive) {
+                    #if DEBUG
+                    print("📝 Delete version confirmed, deleting...")
+                    logVersionDiagnostics("before file.deleteVersion()")
+                    #endif
+                    file.deleteVersion()
+                    #if DEBUG
+                    logVersionDiagnostics("after file.deleteVersion() before loadCurrentVersion()")
+                    #endif
+                    loadCurrentVersion()
+                    #if DEBUG
+                    logVersionDiagnostics("after loadCurrentVersion()")
+                    #endif
+                    // NOTE: Do NOT call saveChanges() here - the editor still has the deleted version's content
+                    // and calling save would overwrite the new current version with the old content
+                    // Force toolbar to re-render with updated version count
+                    refreshTrigger = UUID()
+                }
+                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
+            } message: {
+                Text(NSLocalizedString("fileEdit.deleteVersionMessage", comment: "Please confirm that you want to delete this version"))
             }
             .alert(isPresented: $presentClearTextAlert) {
                 Alert(
@@ -7952,11 +7961,31 @@ struct FileEditView: View {
     
     // MARK: - Version Management
 
+    #if DEBUG
+    private func logVersionDiagnostics(_ context: String) {
+        let rawVersions = file.versions ?? []
+        let sortedVersions = rawVersions.sorted { $0.versionNumber < $1.versionNumber }
+        let rawLabels = rawVersions.map { "v\($0.versionNumber):\($0.id.uuidString.prefix(8))" }
+        let sortedLabels = sortedVersions.map { "v\($0.versionNumber):\($0.id.uuidString.prefix(8))" }
+        let current = file.currentVersion
+        let sortedIndex = sortedVersions.firstIndex(where: { $0.id == current?.id })
+        print("🧪 [VersionDelete] \(context)")
+        print("   file: \(file.name)")
+        print("   file.currentVersionIndex: \(file.currentVersionIndex)")
+        print("   ui currentVersionIndex state: \(currentVersionIndex)")
+        print("   raw count: \(rawVersions.count) raw: \(rawLabels)")
+        print("   sorted count: \(sortedVersions.count) sorted: \(sortedLabels)")
+        print("   current version: \(current?.versionNumber ?? -1) id: \(current?.id.uuidString.prefix(8) ?? "nil")")
+        print("   current sorted index: \(sortedIndex.map(String.init) ?? "nil")")
+    }
+    #endif
+
     
     private func handleVersionAction(_ action: VersionAction) {
         #if DEBUG
         print("📝 handleVersionAction called with action: \(action) (rawValue: \(action.rawValue))")
         print("   Version count: \(file.versions?.count ?? 0)")
+        logVersionDiagnostics("toolbar action received")
         #endif
         switch action {
         case .previous:
@@ -7972,6 +8001,9 @@ struct FileEditView: View {
             // Force UI refresh to update delete button state
             refreshTrigger = UUID()
         case .delete:
+            #if DEBUG
+            logVersionDiagnostics("about to present delete alert")
+            #endif
             presentDeleteAlert = true
         }
     }
