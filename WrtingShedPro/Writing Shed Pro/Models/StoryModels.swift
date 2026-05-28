@@ -172,6 +172,48 @@ enum ThreeActStage: String, Codable, CaseIterable {
     }
 }
 
+/// Commonly used character role set for Three-Act projects
+enum ThreeActCharacterRole: String, Codable, CaseIterable {
+    case protagonist
+    case antagonist
+    case ally
+    case mentor
+    case skeptic
+    case trickster
+
+    var localizedName: String {
+        switch self {
+        case .protagonist:
+            return "Protagonist"
+        case .antagonist:
+            return "Antagonist"
+        case .ally:
+            return "Ally"
+        case .mentor:
+            return "Mentor"
+        case .skeptic:
+            return "Skeptic"
+        case .trickster:
+            return "Trickster"
+        }
+    }
+
+    static func fromStoredRole(_ storedRole: String?) -> ThreeActCharacterRole? {
+        guard let trimmed = storedRole?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+
+        let normalized = trimmed.lowercased()
+        if let direct = ThreeActCharacterRole(rawValue: normalized) {
+            return direct
+        }
+
+        return ThreeActCharacterRole.allCases.first {
+            $0.localizedName.localizedCaseInsensitiveCompare(trimmed) == .orderedSame
+        }
+    }
+}
+
 /// Plot structure options - monomyth or act-based
 /// @available(*, deprecated, message: "Use StoryStructure instead")
 enum PlotStructure: String, Codable, CaseIterable {
@@ -680,7 +722,7 @@ final class ProseSection {
 final class Character {
     var id: UUID = UUID()
     var name: String?
-    var role: String?  // Character's role in the story (protagonist, love interest, etc.)
+    var role: String?  // Character's role in the story (free text or ThreeActCharacterRole raw value)
     var archetypeRaw: String?  // Only used when monomyth enabled (Vogler archetypes)
     var pearsonArchetypeRaw: String?  // Legacy field retained for old imports
     var history: String?  // Character's background/history
@@ -750,6 +792,23 @@ final class Character {
                 archetypes = []
             }
         }
+    }
+
+    /// Canonical Three-Act role when `role` matches the standard set.
+    var threeActRole: ThreeActCharacterRole? {
+        get { ThreeActCharacterRole.fromStoredRole(role) }
+        set { role = newValue?.rawValue }
+    }
+
+    /// User-facing role name; maps canonical Three-Act raw values to localized labels.
+    var roleDisplayName: String? {
+        if let mapped = threeActRole {
+            return mapped.localizedName
+        }
+        guard let trimmed = role?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
     }
     
     /// All selected Vogler archetypes (stored as comma-separated in archetypeRaw)

@@ -25,9 +25,14 @@ struct CharacterDetailView: View {
     @State private var isEditing = false
     @State private var editName: String = ""
     @State private var editRole: String = ""
+    @State private var selectedThreeActRole: ThreeActCharacterRole?
     @State private var editArchetypes: Set<CharacterArchetype> = []
     @State private var editDetails: String = ""
     @State private var showDeleteConfirmation = false
+
+    private var usesThreeActRoleSet: Bool {
+        character.project?.storyStructure == .threeAct
+    }
     
     // MARK: - Body
     
@@ -92,7 +97,7 @@ struct CharacterDetailView: View {
                 Text(character.name ?? "-")
             }
             
-            if let role = character.role, !role.isEmpty {
+            if let role = character.roleDisplayName {
                 LabeledContent(NSLocalizedString("fiction.character.role", comment: "Role")) {
                     Text(role)
                 }
@@ -173,7 +178,18 @@ struct CharacterDetailView: View {
         // Basic Info
         Section {
             TextField(NSLocalizedString("fiction.character.name", comment: "Name"), text: $editName)
-            TextField(NSLocalizedString("fiction.character.role", comment: "Role"), text: $editRole)
+            if usesThreeActRoleSet {
+                Picker(NSLocalizedString("fiction.character.role", comment: "Role"), selection: $selectedThreeActRole) {
+                    Text(NSLocalizedString("fiction.characters.unassigned", comment: "Unassigned"))
+                        .tag(nil as ThreeActCharacterRole?)
+                    ForEach(ThreeActCharacterRole.allCases, id: \.self) { roleOption in
+                        Text(roleOption.localizedName)
+                            .tag(Optional(roleOption))
+                    }
+                }
+            } else {
+                TextField(NSLocalizedString("fiction.character.role", comment: "Role"), text: $editRole)
+            }
         } header: {
             Text(NSLocalizedString("fiction.character.section.basic", comment: "Basic Info"))
         }
@@ -223,7 +239,8 @@ struct CharacterDetailView: View {
     
     private func startEditing() {
         editName = character.name ?? ""
-        editRole = character.role ?? ""
+        editRole = character.roleDisplayName ?? ""
+        selectedThreeActRole = character.threeActRole
         editArchetypes = Set(character.archetypes)
         editDetails = consolidatedCharacterDetails()
         isEditing = true
@@ -231,7 +248,12 @@ struct CharacterDetailView: View {
     
     private func saveChanges() {
         character.name = editName.trimmingCharacters(in: .whitespacesAndNewlines)
-        character.role = editRole.isEmpty ? nil : editRole
+        if usesThreeActRoleSet {
+            character.threeActRole = selectedThreeActRole
+        } else {
+            let trimmed = editRole.trimmingCharacters(in: .whitespacesAndNewlines)
+            character.role = trimmed.isEmpty ? nil : trimmed
+        }
         character.archetypes = Array(editArchetypes)
         character.pearsonArchetypeRaw = nil
         character.history = editDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : editDetails

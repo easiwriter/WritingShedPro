@@ -180,7 +180,7 @@ struct CharacterRowView: View {
                 .font(.body)
                 .fontWeight(.semibold)
             
-            if let role = character.role, !role.isEmpty {
+            if let role = character.roleDisplayName {
                 Text(role)
                     .font(.callout)
                     .foregroundColor(.secondary)

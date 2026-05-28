@@ -204,7 +204,7 @@ struct SceneDetailView: View {
                 ForEach(characters.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { character in
                     HStack {
                         Text(character.name ?? "")
-                        if let role = character.role {
+                        if let role = character.roleDisplayName {
                             Text("(\(role))")
                                 .font(.caption)
                                 .foregroundColor(.secondary)

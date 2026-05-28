@@ -24,6 +24,7 @@ struct AddCharacterSheet: View {
     
     @State private var name: String = ""
     @State private var role: String = ""
+    @State private var selectedThreeActRole: ThreeActCharacterRole?
     @State private var selectedArchetypes: Set<CharacterArchetype> = []
     @State private var details: String = ""
     @State private var showErrorAlert = false
@@ -33,6 +34,10 @@ struct AddCharacterSheet: View {
     
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var usesThreeActRoleSet: Bool {
+        project.storyStructure == .threeAct
     }
     
     // MARK: - Body
@@ -44,9 +49,21 @@ struct AddCharacterSheet: View {
                 Section {
                     TextField(NSLocalizedString("fiction.character.name", comment: "Name"), text: $name)
                         .accessibilityLabel(NSLocalizedString("fiction.character.name.accessibility", comment: "Character name"))
-                    
-                    TextField(NSLocalizedString("fiction.character.role", comment: "Role"), text: $role)
+
+                    if usesThreeActRoleSet {
+                        Picker(NSLocalizedString("fiction.character.role", comment: "Role"), selection: $selectedThreeActRole) {
+                            Text(NSLocalizedString("fiction.characters.unassigned", comment: "Unassigned"))
+                                .tag(nil as ThreeActCharacterRole?)
+                            ForEach(ThreeActCharacterRole.allCases, id: \.self) { roleOption in
+                                Text(roleOption.localizedName)
+                                    .tag(Optional(roleOption))
+                            }
+                        }
                         .accessibilityLabel(NSLocalizedString("fiction.character.role.accessibility", comment: "Character role"))
+                    } else {
+                        TextField(NSLocalizedString("fiction.character.role", comment: "Role"), text: $role)
+                            .accessibilityLabel(NSLocalizedString("fiction.character.role.accessibility", comment: "Character role"))
+                    }
                 } header: {
                     Text(NSLocalizedString("fiction.character.section.basic", comment: "Basic Info"))
                 }
@@ -131,7 +148,7 @@ struct AddCharacterSheet: View {
         
         let character = Character(
             name: trimmedName,
-            role: role.isEmpty ? nil : role,
+            role: resolvedRoleValue(),
             archetypes: Array(selectedArchetypes),
             history: details.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : details,
             looks: nil,
@@ -149,5 +166,13 @@ struct AddCharacterSheet: View {
             errorMessage = error.localizedDescription
             showErrorAlert = true
         }
+    }
+
+    private func resolvedRoleValue() -> String? {
+        if usesThreeActRoleSet {
+            return selectedThreeActRole?.rawValue
+        }
+        let trimmed = role.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

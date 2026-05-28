@@ -46,13 +46,15 @@ Before writing a word, sketch your main characters. This helps you stay consiste
 4. Tap **Create**
 
 ### Create Supporting Characters
-Repeat for 2–3 more characters:
+Repeat for 4–5 more characters so you cover the core role set:
 
 | Name | Role | Key Trait |
 |------|------|-----------|
 | **Marco** | Mentor | Wise old guide, knows the mountain's secrets |
 | **Dr. Strand** | Antagonist | Geologist who wants to mine the glass deposits |
-| **Lucia** | Ally | Elena's childhood friend, skeptic turned believer |
+| **Lucia** | Ally | Elena's childhood friend who chooses loyalty when stakes rise |
+| **Inez** | Skeptic | Practical council member who challenges every mountain myth |
+| **Tomas** | Trickster | Charismatic scavenger whose jokes and schemes expose hidden truths |
 
 **Tip**: You don't need every character before you start writing. Add new ones as the story reveals them.
 

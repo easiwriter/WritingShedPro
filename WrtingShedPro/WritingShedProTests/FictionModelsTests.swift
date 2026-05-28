@@ -72,6 +72,25 @@ final class FictionModelsTests: XCTestCase {
     }
     
     // MARK: - CharacterArchetype Tests
+
+    func testThreeActCharacterRoleCount() {
+        XCTAssertEqual(ThreeActCharacterRole.allCases.count, 6)
+    }
+
+    func testThreeActCharacterRoleRawValues() {
+        XCTAssertEqual(ThreeActCharacterRole.protagonist.rawValue, "protagonist")
+        XCTAssertEqual(ThreeActCharacterRole.antagonist.rawValue, "antagonist")
+        XCTAssertEqual(ThreeActCharacterRole.ally.rawValue, "ally")
+        XCTAssertEqual(ThreeActCharacterRole.mentor.rawValue, "mentor")
+        XCTAssertEqual(ThreeActCharacterRole.skeptic.rawValue, "skeptic")
+        XCTAssertEqual(ThreeActCharacterRole.trickster.rawValue, "trickster")
+    }
+
+    func testCharacterThreeActRoleParsesLegacyDisplayValue() {
+        let character = Character(name: "Elena", role: "Protagonist")
+        XCTAssertEqual(character.threeActRole, .protagonist)
+        XCTAssertEqual(character.roleDisplayName, ThreeActCharacterRole.protagonist.localizedName)
+    }
     
     func testCharacterArchetypeCount() {
         XCTAssertEqual(CharacterArchetype.allCases.count, 8)
