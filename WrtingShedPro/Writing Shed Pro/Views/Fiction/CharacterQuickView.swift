@@ -14,6 +14,10 @@ struct CharacterQuickView: View {
     @Environment(\.dismiss) private var dismiss
     
     let character: Character
+
+    private var roleText: String? {
+        character.roleDisplayName
+    }
     
     private var hasDetails: Bool {
         !consolidatedDetails.isEmpty
@@ -34,9 +38,8 @@ struct CharacterQuickView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Archetype section
-                    if let archetype = character.archetype {
-                        archetypeSection(archetype)
+                    if let roleText {
+                        roleSection(roleText)
                     }
                     
                     // Character details section
@@ -45,7 +48,7 @@ struct CharacterQuickView: View {
                     }
                     
                     // Show message if no content
-                    if character.archetype == nil && !hasDetails {
+                    if roleText == nil && !hasDetails {
                         noContentMessage
                     }
                 }
@@ -65,19 +68,15 @@ struct CharacterQuickView: View {
         .presentationDetents([.medium, .large])
     }
     
-    private func archetypeSection(_ archetype: CharacterArchetype) -> some View {
+    private func roleSection(_ roleText: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(NSLocalizedString("fiction.character.archetype", comment: "Archetype"))
+            Text(NSLocalizedString("fiction.character.role", comment: "Role"))
                 .font(.headline)
                 .foregroundStyle(.secondary)
             
-            Text(archetype.localizedName)
+            Text(roleText)
                 .font(.title3)
                 .fontWeight(.medium)
-            
-            Text(archetype.description)
-                .font(.body)
-                .foregroundStyle(.secondary)
         }
     }
     
@@ -101,7 +100,7 @@ struct CharacterQuickView: View {
         ContentUnavailableView(
             NSLocalizedString("fiction.character.noDetails.title", comment: "No Details"),
             systemImage: "person.fill",
-            description: Text(NSLocalizedString("fiction.character.noDetails.message", comment: "No details or archetype has been added for this character."))
+            description: Text(NSLocalizedString("fiction.character.noDetails.message", comment: "No role or details have been added for this character."))
         )
     }
 }

@@ -15,6 +15,13 @@ import UniformTypeIdentifiers
 /// - Bottom toolbar for multi-select actions
 /// - Confirmation dialog with Delete (to trash) and Delete Forever options
 struct SceneListView: View {
+
+    static func sceneFolderName(for project: Project) -> String {
+        if project.type == .fiction && project.fictionClass == .verseNovel {
+            return "Episodes"
+        }
+        return "Scenes"
+    }
     
     // MARK: - Environment
     
@@ -251,10 +258,15 @@ struct SceneListView: View {
         guard let pageSetup = project.pageSetup else { return false }
         return pageSetup.hasHeaders || pageSetup.hasFooters
     }
+
+    /// Source folder name for scene/episode files.
+    private var scenesFolderName: String {
+        Self.sceneFolderName(for: project)
+    }
     
     /// Get the scenes folder at project level
     private var scenesFolder: Folder? {
-        project.folders?.first { $0.name == "Scenes" }
+        project.folders?.first { $0.name == scenesFolderName }
     }
     
     /// Get scene files for search
@@ -574,6 +586,23 @@ struct SceneListView: View {
             // Multi-file search across all scene files
             if let folder = scenesFolder {
                 MultiFileSearchView(folder: folder, files: sceneFiles)
+            } else {
+                NavigationStack {
+                    ContentUnavailableView {
+                        Label(NSLocalizedString("multiFileSearch.folderMissing.title", comment: "Folder missing"), systemImage: "folder.badge.questionmark")
+                    } description: {
+                        Text(String(format: NSLocalizedString("multiFileSearch.folderMissing.message", comment: "Could not find expected folder"), scenesFolderName))
+                    }
+                    .navigationTitle(NSLocalizedString("multiFileSearch.title", comment: "Search"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(NSLocalizedString("button.close", comment: "Close")) {
+                                showSearchView = false
+                            }
+                        }
+                    }
+                }
             }
         }
         .sheet(isPresented: $showHeaderFooterEditor) {

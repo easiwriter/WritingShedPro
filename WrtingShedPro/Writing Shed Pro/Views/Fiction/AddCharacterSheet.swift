@@ -24,8 +24,7 @@ struct AddCharacterSheet: View {
     
     @State private var name: String = ""
     @State private var role: String = ""
-    @State private var selectedThreeActRole: ThreeActCharacterRole?
-    @State private var selectedArchetypes: Set<CharacterArchetype> = []
+    @State private var selectedStructuredRoleRaw: String = ""
     @State private var details: String = ""
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
@@ -36,8 +35,12 @@ struct AddCharacterSheet: View {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private var usesThreeActRoleSet: Bool {
-        project.storyStructure == .threeAct
+    private var usesStructuredRoleSet: Bool {
+        project.storyStructure != .freeform
+    }
+
+    private var structuredRoleOptions: [CharacterRoleOption] {
+        project.storyStructure.characterRoleOptions
     }
     
     // MARK: - Body
@@ -50,15 +53,16 @@ struct AddCharacterSheet: View {
                     TextField(NSLocalizedString("fiction.character.name", comment: "Name"), text: $name)
                         .accessibilityLabel(NSLocalizedString("fiction.character.name.accessibility", comment: "Character name"))
 
-                    if usesThreeActRoleSet {
-                        Picker(NSLocalizedString("fiction.character.role", comment: "Role"), selection: $selectedThreeActRole) {
+                    if usesStructuredRoleSet {
+                        Picker(NSLocalizedString("fiction.character.role", comment: "Role"), selection: $selectedStructuredRoleRaw) {
                             Text(NSLocalizedString("fiction.characters.unassigned", comment: "Unassigned"))
-                                .tag(nil as ThreeActCharacterRole?)
-                            ForEach(ThreeActCharacterRole.allCases, id: \.self) { roleOption in
+                                .tag("")
+                            ForEach(structuredRoleOptions) { roleOption in
                                 Text(roleOption.localizedName)
-                                    .tag(Optional(roleOption))
+                                    .tag(roleOption.rawValue)
                             }
                         }
+                        .pickerStyle(.menu)
                         .accessibilityLabel(NSLocalizedString("fiction.character.role.accessibility", comment: "Character role"))
                     } else {
                         TextField(NSLocalizedString("fiction.character.role", comment: "Role"), text: $role)
@@ -66,40 +70,6 @@ struct AddCharacterSheet: View {
                     }
                 } header: {
                     Text(NSLocalizedString("fiction.character.section.basic", comment: "Basic Info"))
-                }
-                
-                // Archetype (optional)
-                Section {
-                    ForEach(CharacterArchetype.allCases, id: \.self) { archetype in
-                        Button {
-                            if selectedArchetypes.contains(archetype) {
-                                selectedArchetypes.remove(archetype)
-                            } else {
-                                selectedArchetypes.insert(archetype)
-                            }
-                        } label: {
-                            HStack {
-                                Text(archetype.localizedName)
-                                    .foregroundColor(.primary)
-                                Spacer()
-                                if selectedArchetypes.contains(archetype) {
-                                    Image(systemName: "checkmark")
-                                        .foregroundColor(.accentColor)
-                                }
-                            }
-                        }
-                    }
-                    
-                    if !selectedArchetypes.isEmpty {
-                        let sorted = selectedArchetypes.sorted { $0.rawValue < $1.rawValue }
-                        Text(sorted.map { $0.localizedName }.joined(separator: ", "))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                } header: {
-                    Text(NSLocalizedString("fiction.character.section.archetype", comment: "Archetype"))
-                } footer: {
-                    Text(NSLocalizedString("fiction.character.archetype.footer", comment: "Archetypes help structure your story"))
                 }
                 
                 // Character Details
@@ -149,7 +119,6 @@ struct AddCharacterSheet: View {
         let character = Character(
             name: trimmedName,
             role: resolvedRoleValue(),
-            archetypes: Array(selectedArchetypes),
             history: details.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : details,
             looks: nil,
             traits: nil,
@@ -169,8 +138,9 @@ struct AddCharacterSheet: View {
     }
 
     private func resolvedRoleValue() -> String? {
-        if usesThreeActRoleSet {
-            return selectedThreeActRole?.rawValue
+        if usesStructuredRoleSet {
+            let trimmed = selectedStructuredRoleRaw.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
         }
         let trimmed = role.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed

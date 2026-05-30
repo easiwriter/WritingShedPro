@@ -170,6 +170,12 @@ final class CloudKitSyncThrottler {
     /// Set to true after a mirroring reset; cleared after the first successful import.
     /// While true, the stale-timeout uses `maxInProgressEventAgeAfterReset`.
     private(set) var isPostReset: Bool = false
+
+    /// Timestamp of the most recent mirroring reset (will/did-reset).
+    private(set) var lastMirroringResetTime: Date?
+
+    /// Ensures reset-to-first-import latency is logged once per reset episode.
+    private var didLogFirstImportLatencyAfterReset: Bool = false
     
     /// Record that CloudKit returned a rate-limit or service-unavailable error.
     /// `retryAfterSeconds` comes from the CKError userInfo.
@@ -445,6 +451,8 @@ final class CloudKitSyncThrottler {
         lastSyncTime = nil
         lastObservedActivityTime = nil
         isPostReset = false
+        lastMirroringResetTime = nil
+        didLogFirstImportLatencyAfterReset = false
         recentCloudKitEvents = []
     }
 
@@ -507,6 +515,23 @@ final class CloudKitSyncThrottler {
                     typeLabel = "import"
                     if event.endDate == nil {
                         self.markImportStarted()
+
+                        if self.isPostReset,
+                           !self.didLogFirstImportLatencyAfterReset,
+                           let resetTime = self.lastMirroringResetTime {
+                            let latency = max(0, Date().timeIntervalSince(resetTime))
+                            self.didLogFirstImportLatencyAfterReset = true
+                            self.appendCloudKitEvent(
+                                type: "mirroring",
+                                phase: "first-import-started",
+                                status: "latency",
+                                message: "resetToFirstImportStart=\(Int(latency))s"
+                            )
+                            #if DEBUG
+                            print("📈 [CloudKitSyncThrottler] Mirroring reset -> first import start latency: \(Int(latency))s")
+                            #endif
+                        }
+
                         self.appendCloudKitEvent(
                             type: typeLabel,
                             phase: "started",
@@ -630,7 +655,7 @@ final class CloudKitSyncThrottler {
     }
 
     private func handleMirroringReset(notification: Notification, phase: String) {
-        DispatchQueue.main.async {
+        let applyReset = {
             let reasonValue = notification.userInfo?["NSCloudKitMirroringDelegateResetReasonKey"]
             let reasonText = String(describing: reasonValue ?? "unknown")
 
@@ -640,6 +665,8 @@ final class CloudKitSyncThrottler {
             self.importStartTime = nil
             self.exportStartTime = nil
             self.isPostReset = true
+            self.lastMirroringResetTime = Date()
+            self.didLogFirstImportLatencyAfterReset = false
 
             self.appendCloudKitEvent(
                 type: "mirroring",
@@ -655,6 +682,14 @@ final class CloudKitSyncThrottler {
                 print("🔄 [CloudKitSyncThrottler] Mirroring reset (\(phase)). reason=\(reasonText)")
             }
             #endif
+        }
+
+        // Apply reset state immediately to minimize race windows where callers
+        // read stale flags right after a reset notification is posted.
+        if Thread.isMainThread {
+            applyReset()
+        } else {
+            DispatchQueue.main.sync(execute: applyReset)
         }
     }
 
@@ -890,6 +925,17 @@ extension CloudKitSyncThrottler {
     /// Test hook: simulate receiving an export start event.
     func _testMarkExportStarted(at date: Date) {
         markExportStarted(now: date)
+    }
+
+    /// Test hook: directly invoke mirroring reset handling.
+    func _testHandleMirroringReset(phase: String = "did-reset", reason: String = "test") {
+        let userInfo: [AnyHashable: Any] = ["NSCloudKitMirroringDelegateResetReasonKey": reason]
+        let notification = Notification(
+            name: NSNotification.Name("NSCloudKitMirroringDelegateDidResetSyncNotificationName"),
+            object: nil,
+            userInfo: userInfo
+        )
+        handleMirroringReset(notification: notification, phase: phase)
     }
 }
 #endif

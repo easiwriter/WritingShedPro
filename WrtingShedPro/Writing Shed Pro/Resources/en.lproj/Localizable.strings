@@ -514,6 +514,7 @@
 "projectDetail.browseFoldersAccessibility" = "Browse project folders";
 "projectDetail.infoAccessibility" = "Project information and settings";
 "projectDetail.menuAccessibility" = "Project options";
+"projectDetail.openSettingsHint" = "Open project settings";
 
 /* ProjectItemView */
 "projectItem.untitledProject" = "Untitled Project";
@@ -2113,11 +2114,16 @@
 "threeAct.actOne.description" = "Introduce characters, setting, and conflict";
 "threeAct.actTwo.description" = "Develop conflict, raise stakes, build tension";
 "threeAct.actThree.description" = "Resolve conflict and conclude the story";
+"threeAct.role.protagonist" = "Protagonist";
+"threeAct.role.antagonist" = "Antagonist";
+"threeAct.role.ally" = "Ally";
+"threeAct.role.mentor" = "Mentor";
+"threeAct.role.skeptic" = "Skeptic";
+"threeAct.role.trickster" = "Trickster";
 
 // Add Project / Project Detail - Story Structure
 "addProject.storyStructure" = "Story Structure";
 "addProject.storyStructureAccessibility" = "Select the story structure for your project";
-"projectDetail.storyStructure" = "Story Structure";
 
 
 // Editor Scene Details
@@ -2264,6 +2270,9 @@
 "manuscript.error.noBodyMatterFiles" = "No body matter files to submit";
 "manuscript.export.formatTitle" = "Export Format";
 "manuscript.share.formatTitle" = "Share Format";
+"multiFileSearch.folderMissing.title" = "Folder Not Found";
+"multiFileSearch.folderMissing.message" = "Could not find the %@ folder for search.";
+"multiFileSearch.title" = "Search";
 "plotStructure.fiveAct" = "5-Act Structure";
 "plotStructure.freeform" = "Freeform";
 "plotStructure.monomyth" = "Hero's Journey";
@@ -2895,6 +2904,10 @@
 "support.response.title" = "Support Response";
 "support.response.thisHelped" = "This Helped";
 "support.response.askDeveloper" = "Ask Developer";
+"support.section.syncDiagnostics" = "Sync Diagnostics";
+"support.syncDiagnostics.include" = "Include sync diagnostics in email";
+"support.syncDiagnostics.footer" = "Adds CloudKit sync state and inventory summary to help diagnose sync issues.";
+"support.syncDiagnostics.header" = "Sync Diagnostics Snapshot";
 
 // MARK: - Sync Status
 "sync.status.healthy" = "All synced";

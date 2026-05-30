@@ -214,6 +214,44 @@ enum ThreeActCharacterRole: String, Codable, CaseIterable {
     }
 }
 
+struct CharacterRoleOption: Identifiable, Hashable {
+    let rawValue: String
+    let localizedName: String
+
+    var id: String { rawValue }
+}
+
+extension StoryStructure {
+    /// Role options shown in structured projects.
+    var characterRoleOptions: [CharacterRoleOption] {
+        switch self {
+        case .freeform:
+            return []
+        case .threeAct:
+            return ThreeActCharacterRole.allCases.map {
+                CharacterRoleOption(rawValue: $0.rawValue, localizedName: $0.localizedName)
+            }
+        case .monomythVogler:
+            return CharacterArchetype.allCases.map {
+                CharacterRoleOption(rawValue: $0.rawValue, localizedName: $0.localizedName)
+            }
+        }
+    }
+
+    func localizedCharacterRoleName(for storedRole: String?) -> String? {
+        guard let trimmed = storedRole?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        if let option = characterRoleOptions.first(where: {
+            $0.rawValue.caseInsensitiveCompare(trimmed) == .orderedSame
+                || $0.localizedName.caseInsensitiveCompare(trimmed) == .orderedSame
+        }) {
+            return option.localizedName
+        }
+        return trimmed
+    }
+}
+
 /// Plot structure options - monomyth or act-based
 /// @available(*, deprecated, message: "Use StoryStructure instead")
 enum PlotStructure: String, Codable, CaseIterable {
@@ -722,7 +760,7 @@ final class ProseSection {
 final class Character {
     var id: UUID = UUID()
     var name: String?
-    var role: String?  // Character's role in the story (free text or ThreeActCharacterRole raw value)
+    var role: String?  // Single source of truth for the character's role
     var archetypeRaw: String?  // Only used when monomyth enabled (Vogler archetypes)
     var pearsonArchetypeRaw: String?  // Legacy field retained for old imports
     var history: String?  // Character's background/history
@@ -802,8 +840,8 @@ final class Character {
 
     /// User-facing role name; maps canonical Three-Act raw values to localized labels.
     var roleDisplayName: String? {
-        if let mapped = threeActRole {
-            return mapped.localizedName
+        if let projectStructure = project?.storyStructure {
+            return projectStructure.localizedCharacterRoleName(for: role)
         }
         guard let trimmed = role?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
             return nil

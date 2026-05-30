@@ -110,6 +110,6 @@ enum WSPProduct: String, CaseIterable, Identifiable {
     
     /// Individual modules (excludes bundle)
     static var individualModules: [WSPProduct] {
-        allCases.filter { !$0.isBundle }
+        allCases.filter { $0.projectType != nil }
     }
 }

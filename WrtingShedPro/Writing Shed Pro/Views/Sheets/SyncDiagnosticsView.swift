@@ -201,11 +201,22 @@ struct SyncDiagnosticsView: View {
     }
 
     private func cloudKitEventRow(_ event: CloudKitEventLogEntry) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        let isResetLatencyEvent = event.type == "mirroring"
+            && event.phase == "first-import-started"
+            && event.status == "latency"
+
+        return VStack(alignment: .leading, spacing: 2) {
             HStack {
-                Text("\(event.type) · \(event.phase) · \(event.status)")
-                    .font(.caption)
-                    .fontWeight(.semibold)
+                if isResetLatencyEvent {
+                    Label("\(event.type) · \(event.phase) · \(event.status)", systemImage: "timer")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.orange)
+                } else {
+                    Text("\(event.type) · \(event.phase) · \(event.status)")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                }
                 Spacer()
                 Text(event.timestamp.formatted(date: .omitted, time: .standard))
                     .font(.caption2)
@@ -216,10 +227,17 @@ struct SyncDiagnosticsView: View {
                 Text(event.message)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(isResetLatencyEvent ? 3 : 2)
             }
         }
         .padding(.vertical, 2)
+        .padding(.horizontal, isResetLatencyEvent ? 6 : 0)
+        .background(
+            isResetLatencyEvent
+                ? Color.orange.opacity(0.12)
+                : Color.clear
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private func diagnosticsSnapshotText() -> String {

@@ -25,13 +25,16 @@ struct CharacterDetailView: View {
     @State private var isEditing = false
     @State private var editName: String = ""
     @State private var editRole: String = ""
-    @State private var selectedThreeActRole: ThreeActCharacterRole?
-    @State private var editArchetypes: Set<CharacterArchetype> = []
+    @State private var selectedStructuredRoleRaw: String = ""
     @State private var editDetails: String = ""
     @State private var showDeleteConfirmation = false
 
-    private var usesThreeActRoleSet: Bool {
-        character.project?.storyStructure == .threeAct
+    private var usesStructuredRoleSet: Bool {
+        (character.project?.storyStructure ?? .freeform) != .freeform
+    }
+
+    private var structuredRoleOptions: [CharacterRoleOption] {
+        (character.project?.storyStructure ?? .freeform).characterRoleOptions
     }
     
     // MARK: - Body
@@ -106,23 +109,6 @@ struct CharacterDetailView: View {
             Text(NSLocalizedString("fiction.character.section.basic", comment: "Basic Info"))
         }
         
-        // Archetypes (Vogler)
-        if !character.archetypes.isEmpty {
-            Section {
-                ForEach(character.archetypes, id: \.self) { archetype in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(archetype.localizedName)
-                            .font(.body)
-                        Text(archetype.description)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            } header: {
-                Text(NSLocalizedString("fiction.character.section.archetype", comment: "Archetype"))
-            }
-        }
-        
         // Character Details
         let detailsText = consolidatedCharacterDetails()
         if !detailsText.isEmpty {
@@ -178,52 +164,21 @@ struct CharacterDetailView: View {
         // Basic Info
         Section {
             TextField(NSLocalizedString("fiction.character.name", comment: "Name"), text: $editName)
-            if usesThreeActRoleSet {
-                Picker(NSLocalizedString("fiction.character.role", comment: "Role"), selection: $selectedThreeActRole) {
+            if usesStructuredRoleSet {
+                Picker(NSLocalizedString("fiction.character.role", comment: "Role"), selection: $selectedStructuredRoleRaw) {
                     Text(NSLocalizedString("fiction.characters.unassigned", comment: "Unassigned"))
-                        .tag(nil as ThreeActCharacterRole?)
-                    ForEach(ThreeActCharacterRole.allCases, id: \.self) { roleOption in
+                        .tag("")
+                    ForEach(structuredRoleOptions) { roleOption in
                         Text(roleOption.localizedName)
-                            .tag(Optional(roleOption))
+                            .tag(roleOption.rawValue)
                     }
                 }
+                .pickerStyle(.menu)
             } else {
                 TextField(NSLocalizedString("fiction.character.role", comment: "Role"), text: $editRole)
             }
         } header: {
             Text(NSLocalizedString("fiction.character.section.basic", comment: "Basic Info"))
-        }
-        
-        // Archetypes
-        Section {
-            ForEach(CharacterArchetype.allCases, id: \.self) { archetype in
-                Button {
-                    if editArchetypes.contains(archetype) {
-                        editArchetypes.remove(archetype)
-                    } else {
-                        editArchetypes.insert(archetype)
-                    }
-                } label: {
-                    HStack {
-                        Text(archetype.localizedName)
-                            .foregroundColor(.primary)
-                        Spacer()
-                        if editArchetypes.contains(archetype) {
-                            Image(systemName: "checkmark")
-                                .foregroundColor(.accentColor)
-                        }
-                    }
-                }
-            }
-            
-            if !editArchetypes.isEmpty {
-                let sorted = editArchetypes.sorted { $0.rawValue < $1.rawValue }
-                Text(sorted.map { $0.localizedName }.joined(separator: ", "))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        } header: {
-            Text(NSLocalizedString("fiction.character.section.archetype", comment: "Archetype"))
         }
         
         // Character Details
@@ -240,21 +195,21 @@ struct CharacterDetailView: View {
     private func startEditing() {
         editName = character.name ?? ""
         editRole = character.roleDisplayName ?? ""
-        selectedThreeActRole = character.threeActRole
-        editArchetypes = Set(character.archetypes)
+        selectedStructuredRoleRaw = character.role ?? ""
         editDetails = consolidatedCharacterDetails()
         isEditing = true
     }
     
     private func saveChanges() {
         character.name = editName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if usesThreeActRoleSet {
-            character.threeActRole = selectedThreeActRole
+        if usesStructuredRoleSet {
+            let trimmed = selectedStructuredRoleRaw.trimmingCharacters(in: .whitespacesAndNewlines)
+            character.role = trimmed.isEmpty ? nil : trimmed
         } else {
             let trimmed = editRole.trimmingCharacters(in: .whitespacesAndNewlines)
             character.role = trimmed.isEmpty ? nil : trimmed
         }
-        character.archetypes = Array(editArchetypes)
+        character.archetypeRaw = nil
         character.pearsonArchetypeRaw = nil
         character.history = editDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : editDetails
         character.looks = nil

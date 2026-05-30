@@ -547,7 +547,7 @@ class JSONExportService {
                 id: character.id.uuidString,
                 name: character.name,
                 role: character.role,
-                archetypeRaw: character.archetypeRaw,
+                archetypeRaw: nil,
                 history: character.history,
                 looks: character.looks,
                 traits: character.traits,

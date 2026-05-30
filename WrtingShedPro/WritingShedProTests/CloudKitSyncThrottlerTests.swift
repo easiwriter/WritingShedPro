@@ -45,26 +45,15 @@ final class CloudKitSyncThrottlerTests: XCTestCase {
         throttler._testSetImportInProgress(startedAt: Date())
         throttler._testSetExportInProgress(startedAt: Date())
 
-        let expectation = expectation(description: "Mirroring reset clears in-progress flags")
+        throttler._testHandleMirroringReset(reason: "ServerChangeTokenExpired")
 
-        NotificationCenter.default.post(
-            name: NSNotification.Name("NSCloudKitMirroringDelegateDidResetSyncNotificationName"),
-            object: nil,
-            userInfo: ["NSCloudKitMirroringDelegateResetReasonKey": "ServerChangeTokenExpired"]
-        )
+        XCTAssertFalse(throttler.importInProgress)
+        XCTAssertFalse(throttler.exportInProgress)
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            XCTAssertFalse(throttler.importInProgress)
-            XCTAssertFalse(throttler.exportInProgress)
-
-            let resetEvent = throttler.recentCloudKitEvents.first {
-                $0.type == "mirroring" && $0.phase == "did-reset" && $0.status == "reset"
-            }
-            XCTAssertNotNil(resetEvent)
-            expectation.fulfill()
+        let resetEvent = throttler.recentCloudKitEvents.first {
+            $0.type == "mirroring" && $0.phase == "did-reset" && $0.status == "reset"
         }
-
-        wait(for: [expectation], timeout: 1.0)
+        XCTAssertNotNil(resetEvent)
     }
 
     func testRepeatedImportStartDoesNotResetOriginalStartTime() {
@@ -126,69 +115,34 @@ final class CloudKitSyncThrottlerTests: XCTestCase {
     func testMirroringResetSetsIsPostReset() {
         let throttler = CloudKitSyncThrottler.shared
 
-        let expectation = expectation(description: "Mirroring reset sets isPostReset")
+        throttler._testHandleMirroringReset(reason: "ManualReset")
 
-        NotificationCenter.default.post(
-            name: NSNotification.Name("NSCloudKitMirroringDelegateDidResetSyncNotificationName"),
-            object: nil,
-            userInfo: ["NSCloudKitMirroringDelegateResetReasonKey": "ManualReset"]
-        )
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            XCTAssertTrue(throttler.isPostReset)
-            expectation.fulfill()
-        }
-
-        wait(for: [expectation], timeout: 1.0)
+        XCTAssertTrue(throttler.isPostReset)
     }
 
     func testResetClearsIsPostReset() {
         let throttler = CloudKitSyncThrottler.shared
 
-        let expectation = expectation(description: "Reset clears isPostReset")
-
         // First set it via mirroring reset
-        NotificationCenter.default.post(
-            name: NSNotification.Name("NSCloudKitMirroringDelegateDidResetSyncNotificationName"),
-            object: nil,
-            userInfo: [:]
-        )
+        throttler._testHandleMirroringReset()
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            XCTAssertTrue(throttler.isPostReset)
-            throttler.reset()
-            XCTAssertFalse(throttler.isPostReset)
-            expectation.fulfill()
-        }
-
-        wait(for: [expectation], timeout: 1.0)
+        throttler.reset()
+        XCTAssertFalse(throttler.isPostReset)
     }
 
     func testPostResetUsesLongerStaleTimeout() {
         let throttler = CloudKitSyncThrottler.shared
 
-        let expectation = expectation(description: "Post-reset uses longer timeout")
-
         // Trigger mirroring reset to set isPostReset
-        NotificationCenter.default.post(
-            name: NSNotification.Name("NSCloudKitMirroringDelegateDidResetSyncNotificationName"),
-            object: nil,
-            userInfo: [:]
-        )
+        throttler._testHandleMirroringReset()
+        XCTAssertTrue(throttler.isPostReset)
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            XCTAssertTrue(throttler.isPostReset)
+        // Set import started 1200s ago (> 600s normal, < 1800s post-reset)
+        throttler._testSetImportInProgress(startedAt: Date().addingTimeInterval(-1200))
 
-            // Set import started 1200s ago (> 600s normal, < 1800s post-reset)
-            throttler._testSetImportInProgress(startedAt: Date().addingTimeInterval(-1200))
-
-            // With isPostReset=true, 1200s < 1800s threshold → should stay active
-            let active = throttler.hasActiveCloudKitEvent
-            XCTAssertTrue(active, "1200s should not trigger stale timeout during post-reset (threshold is 1800s)")
-            XCTAssertTrue(throttler.importInProgress)
-            expectation.fulfill()
-        }
-
-        wait(for: [expectation], timeout: 1.0)
+        // With isPostReset=true, 1200s < 1800s threshold → should stay active
+        let active = throttler.hasActiveCloudKitEvent
+        XCTAssertTrue(active, "1200s should not trigger stale timeout during post-reset (threshold is 1800s)")
+        XCTAssertTrue(throttler.importInProgress)
     }
 }

@@ -87,9 +87,35 @@ final class FictionModelsTests: XCTestCase {
     }
 
     func testCharacterThreeActRoleParsesLegacyDisplayValue() {
+        let project = Project(name: "Role Test", type: .fiction)
+        project.storyStructure = .threeAct
+
         let character = Character(name: "Elena", role: "Protagonist")
+        character.project = project
+
         XCTAssertEqual(character.threeActRole, .protagonist)
         XCTAssertEqual(character.roleDisplayName, ThreeActCharacterRole.protagonist.localizedName)
+    }
+
+    func testCharacterRoleDisplayNameUsesFreeformText() {
+        let project = Project(name: "Freeform Role", type: .fiction)
+        project.storyStructure = .freeform
+
+        let character = Character(name: "Alex", role: "Lead Detective")
+        character.project = project
+
+        XCTAssertNil(character.threeActRole)
+        XCTAssertEqual(character.roleDisplayName, "Lead Detective")
+    }
+
+    func testCharacterRoleDisplayNameUsesMonomythRoleOptions() {
+        let project = Project(name: "Monomyth Role", type: .fiction)
+        project.storyStructure = .monomythVogler
+
+        let character = Character(name: "Guide", role: "mentor")
+        character.project = project
+
+        XCTAssertEqual(character.roleDisplayName, CharacterArchetype.mentor.localizedName)
     }
     
     func testCharacterArchetypeCount() {

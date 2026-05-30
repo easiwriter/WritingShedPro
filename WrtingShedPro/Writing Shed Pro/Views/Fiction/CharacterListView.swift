@@ -34,31 +34,6 @@ struct CharacterListView: View {
         }
     }
     
-    // Group characters by archetype
-    private var charactersByArchetype: [(archetype: CharacterArchetype?, characters: [Character])] {
-        var grouped: [CharacterArchetype?: [Character]] = [:]
-        
-        for character in sortedCharacters {
-            let archetype = character.archetype
-            grouped[archetype, default: []].append(character)
-        }
-        
-        // Sort: archetypes first (in order), then nil (unassigned) last
-        var result: [(CharacterArchetype?, [Character])] = []
-        
-        for archetype in CharacterArchetype.allCases {
-            if let chars = grouped[archetype], !chars.isEmpty {
-                result.append((archetype, chars))
-            }
-        }
-        
-        if let unassigned = grouped[nil], !unassigned.isEmpty {
-            result.append((nil, unassigned))
-        }
-        
-        return result
-    }
-    
     // MARK: - Body
     
     var body: some View {
@@ -105,30 +80,20 @@ struct CharacterListView: View {
     
     private var characterList: some View {
         List {
-            ForEach(charactersByArchetype, id: \.archetype) { group in
-                Section {
-                    ForEach(group.characters) { character in
-                        CharacterRowView(character: character)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                selectedCharacter = character
-                            }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button(role: .destructive) {
-                                    characterToDelete = character
-                                    showDeleteConfirmation = true
-                                } label: {
-                                    Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
-                                }
-                            }
+            ForEach(sortedCharacters) { character in
+                CharacterRowView(character: character)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        selectedCharacter = character
                     }
-                } header: {
-                    if let archetype = group.archetype {
-                        Text(archetype.localizedName)
-                    } else {
-                        Text(NSLocalizedString("fiction.characters.unassigned", comment: "Unassigned"))
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            characterToDelete = character
+                            showDeleteConfirmation = true
+                        } label: {
+                            Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
+                        }
                     }
-                }
             }
         }
         .listStyle(.insetGrouped)
@@ -185,31 +150,8 @@ struct CharacterRowView: View {
                     .font(.callout)
                     .foregroundColor(.secondary)
             }
-            
-            if let archetype = character.archetype {
-                HStack(spacing: 4) {
-                    Image(systemName: archetypeIcon(for: archetype))
-                        .font(.footnote)
-                    Text(archetype.localizedName)
-                        .font(.footnote)
-                }
-                .foregroundColor(.blue)
-            }
         }
             .padding(.vertical, 2)
             .frame(maxWidth: .infinity, alignment: .leading)
-    }
-    
-    private func archetypeIcon(for archetype: CharacterArchetype) -> String {
-        switch archetype {
-        case .hero: return "star.fill"
-        case .mentor: return "book.fill"
-        case .herald: return "megaphone.fill"
-        case .thresholdGuardian: return "shield.fill"
-        case .shapeshifter: return "arrow.triangle.2.circlepath"
-        case .shadow: return "moon.fill"
-        case .ally: return "person.2.fill"
-        case .trickster: return "theatermasks.fill"
-        }
     }
 }

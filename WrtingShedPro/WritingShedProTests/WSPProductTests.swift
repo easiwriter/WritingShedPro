@@ -18,16 +18,18 @@ final class WSPProductTests: XCTestCase {
         XCTAssertEqual(WSPProduct.fictionWriter.rawValue, "com.writingshedpro.fictionwriter")
         XCTAssertEqual(WSPProduct.dramaWriter.rawValue, "com.writingshedpro.dramawriter")
         XCTAssertEqual(WSPProduct.allInBundle.rawValue, "com.writingshedpro.allinbundle")
+        XCTAssertEqual(WSPProduct.manuscriptAnalystSubscription.rawValue, "com.writingshedpro.manuscriptanalyst")
     }
     
     func testAllProductIDsContainsAllProducts() {
         let allIDs = WSPProduct.allProductIDs
-        XCTAssertEqual(allIDs.count, 5)
+        XCTAssertEqual(allIDs.count, 6)
         XCTAssertTrue(allIDs.contains(WSPProduct.proseWriter.rawValue))
         XCTAssertTrue(allIDs.contains(WSPProduct.poetryWriter.rawValue))
         XCTAssertTrue(allIDs.contains(WSPProduct.fictionWriter.rawValue))
         XCTAssertTrue(allIDs.contains(WSPProduct.dramaWriter.rawValue))
         XCTAssertTrue(allIDs.contains(WSPProduct.allInBundle.rawValue))
+        XCTAssertTrue(allIDs.contains(WSPProduct.manuscriptAnalystSubscription.rawValue))
     }
     
     // MARK: - Project Type Mapping Tests
@@ -41,6 +43,7 @@ final class WSPProductTests: XCTestCase {
     
     func testBundleHasNoProjectType() {
         XCTAssertNil(WSPProduct.allInBundle.projectType)
+        XCTAssertNil(WSPProduct.manuscriptAnalystSubscription.projectType)
     }
     
     func testProductForProjectType() {
@@ -58,6 +61,7 @@ final class WSPProductTests: XCTestCase {
         XCTAssertEqual(WSPProduct.fictionWriter.displayName, "Fiction Writer")
         XCTAssertEqual(WSPProduct.dramaWriter.displayName, "Drama Writer")
         XCTAssertEqual(WSPProduct.allInBundle.displayName, "All-in Bundle")
+        XCTAssertEqual(WSPProduct.manuscriptAnalystSubscription.displayName, "Manuscript Analyst")
     }
     
     func testShortDescriptions() {
@@ -66,6 +70,7 @@ final class WSPProductTests: XCTestCase {
         XCTAssertFalse(WSPProduct.fictionWriter.shortDescription.isEmpty)
         XCTAssertFalse(WSPProduct.dramaWriter.shortDescription.isEmpty)
         XCTAssertFalse(WSPProduct.allInBundle.shortDescription.isEmpty)
+        XCTAssertFalse(WSPProduct.manuscriptAnalystSubscription.shortDescription.isEmpty)
     }
     
     func testIconNames() {
@@ -74,6 +79,7 @@ final class WSPProductTests: XCTestCase {
         XCTAssertEqual(WSPProduct.fictionWriter.iconName, "book")
         XCTAssertEqual(WSPProduct.dramaWriter.iconName, "theatermasks")
         XCTAssertEqual(WSPProduct.allInBundle.iconName, "star.circle.fill")
+        XCTAssertEqual(WSPProduct.manuscriptAnalystSubscription.iconName, "sparkles")
     }
     
     // MARK: - Bundle Detection Tests
@@ -84,6 +90,7 @@ final class WSPProductTests: XCTestCase {
         XCTAssertFalse(WSPProduct.fictionWriter.isBundle)
         XCTAssertFalse(WSPProduct.dramaWriter.isBundle)
         XCTAssertTrue(WSPProduct.allInBundle.isBundle)
+        XCTAssertFalse(WSPProduct.manuscriptAnalystSubscription.isBundle)
     }
     
     func testIndividualModulesExcludesBundle() {
@@ -107,6 +114,6 @@ final class WSPProductTests: XCTestCase {
     // MARK: - CaseIterable Tests
     
     func testAllCasesCount() {
-        XCTAssertEqual(WSPProduct.allCases.count, 5)
+        XCTAssertEqual(WSPProduct.allCases.count, 6)
     }
 }

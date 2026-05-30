@@ -251,7 +251,7 @@ final class TextFileVersionTests: XCTestCase {
     
     func testVersionLabelFormat() {
         let label = testFile.versionLabel()
-        XCTAssertEqual(label, "Version 1 of 1", "Single version should show 'Version 1 of 1'")
+        XCTAssertEqual(label, "v1/1", "Single version should show compact label format")
     }
     
     func testVersionLabelUpdatesWithMultipleVersions() {
@@ -261,6 +261,6 @@ final class TextFileVersionTests: XCTestCase {
         testFile.currentVersionIndex = 1
         let label = testFile.versionLabel()
         
-        XCTAssertEqual(label, "Version 2 of 3", "Should show current position")
+        XCTAssertEqual(label, "v2/3", "Should show current position in compact label format")
     }
 }

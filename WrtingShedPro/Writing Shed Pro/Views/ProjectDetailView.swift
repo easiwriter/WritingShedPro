@@ -14,6 +14,17 @@ struct ProjectDetailView: View {
     var body: some View {
         // Main content: FolderListView
         FolderListView(project: project)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showProjectInfo = true
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .accessibilityLabel(NSLocalizedString("projectItem.projectOptions", comment: "Project options menu"))
+                .accessibilityHint(NSLocalizedString("projectDetail.openSettingsHint", comment: "Open project settings"))
+            }
+        }
         .sheet(isPresented: $showProjectInfo) {
             ProjectInfoSheet(
                 project: project,
@@ -92,13 +103,20 @@ struct ProjectInfoSheet: View {
         .onAppear { initializeFields() }
         .onChange(of: project.id) { oldValue, newValue in initializeFields() }
         .onChange(of: allStyleSheets) { _, _ in
-            // If the selected stylesheet was deleted, fall back to default
-            if let selected = selectedStyleSheet, !allStyleSheets.contains(where: { $0.id == selected.id }) {
-                if let defaultSheet = StyleSheetService.getDefaultStyleSheet(context: modelContext) {
-                    selectedStyleSheet = defaultSheet
-                    project.styleSheet = defaultSheet
-                }
-            }
+            handleStyleSheetListChange()
+        }
+    }
+
+    private func handleStyleSheetListChange() {
+        // If the selected stylesheet was deleted, fall back to default.
+        guard let selected = selectedStyleSheet,
+              !allStyleSheets.contains(where: { $0.id == selected.id }) else {
+            return
+        }
+
+        if let defaultSheet = StyleSheetService.getDefaultStyleSheet(context: modelContext) {
+            selectedStyleSheet = defaultSheet
+            project.styleSheet = defaultSheet
         }
     }
     
@@ -168,8 +186,6 @@ struct ProjectInfoSheet: View {
                 Divider()
                 
                 stylesheetPicker
-                
-                storyStructureSection
                 
                 Divider()
                 
@@ -283,29 +299,6 @@ struct ProjectInfoSheet: View {
             }
             .accessibilityLabel(NSLocalizedString("projectDetail.stylesheet", comment: "Stylesheet picker"))
             .accessibilityHint(NSLocalizedString("projectDetail.stylesheetAccessibility", comment: "Stylesheet picker hint"))
-        }
-    }
-    
-    @ViewBuilder
-    private var storyStructureSection: some View {
-        if project.type == .fiction || project.type == .drama {
-            Divider()
-            
-            Picker(NSLocalizedString("projectDetail.storyStructure", comment: "Story structure picker"), selection: Binding(
-                get: { project.storyStructure },
-                set: { project.storyStructure = $0 }
-            )) {
-                ForEach(StoryStructure.userFacingCases, id: \.self) { structure in
-                    Text(structure.localizedName).tag(structure)
-                }
-            }
-            .accessibilityLabel(NSLocalizedString("projectDetail.storyStructure", comment: "Story structure picker"))
-            
-            if project.storyStructure != .freeform {
-                Text(project.storyStructure.description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
     }
     
