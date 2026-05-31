@@ -28,6 +28,7 @@ struct HTMLManualView: View {
     /// Rendered attributed string for the current section
     @State private var attributedContent: AttributedString = AttributedString()
     @State private var showAskQuestion = false
+    @State private var selectedTutorialVideo: TutorialVideo?
     
     init(section: String? = nil) {
         self.section = section
@@ -70,6 +71,15 @@ struct HTMLManualView: View {
                                     currentSection = sectionId
                                     return .handled
                                 }
+                                if url.scheme == "wspvideo" {
+                                    let rawID = url.absoluteString
+                                        .replacingOccurrences(of: "wspvideo:", with: "")
+                                        .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                                    if let tutorial = TutorialVideoCatalog.video(for: rawID) {
+                                        selectedTutorialVideo = tutorial
+                                        return .handled
+                                    }
+                                }
                                 // External links open in Safari
                                 return .systemAction
                             })
@@ -109,6 +119,9 @@ struct HTMLManualView: View {
             }
             .sheet(isPresented: $showAskQuestion) {
                 ContactSupportView(initialReportType: .question, presentationMode: .questionOnly)
+            }
+            .fullScreenCover(item: $selectedTutorialVideo) { tutorial in
+                TutorialVideoPlayerSheet(video: tutorial)
             }
             .onAppear {
                 loadSection(currentSection)
