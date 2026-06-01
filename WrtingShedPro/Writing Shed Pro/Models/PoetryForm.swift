@@ -105,6 +105,7 @@ struct PoetryForm: Identifiable, Codable, Hashable {
 enum PoetryFormCategory: String, Codable, CaseIterable {
     case japanese = "Japanese"
     case rhymed = "Rhymed"
+    case structured = "Structured"
     case metered = "Metered"
     case free = "Free"
     case custom = "Custom"
@@ -117,9 +118,10 @@ enum PoetryFormCategory: String, Codable, CaseIterable {
         switch self {
         case .japanese: return 0
         case .rhymed: return 1
-        case .metered: return 2
-        case .free: return 3
-        case .custom: return 4
+        case .structured: return 2
+        case .metered: return 3
+        case .free: return 4
+        case .custom: return 5
         }
     }
 }

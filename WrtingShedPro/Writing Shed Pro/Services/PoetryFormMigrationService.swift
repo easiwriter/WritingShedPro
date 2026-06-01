@@ -16,7 +16,15 @@ struct PoetryFormMigrationService {
     // MARK: - UserDefaults Keys
     
     private static let migrationVersionKey = "poetryFormMigrationVersion"
-    private static let currentMigrationVersion = 4  // Added Senryū, Spenserian Sonnet, Rondeau, Ballade, Cywydd, Englyn, Heroic Couplets, Prose Poetry, Concrete Poetry, Crown of Sonnets
+    private static let currentMigrationVersion = 7  // Correct Sestina category/metadata
+
+    private static let removedPredefinedFormIDs: Set<UUID> = [
+        UUID(uuidString: "00000000-0000-0000-0000-000000000019")!, // Senryū
+        UUID(uuidString: "00000000-0000-0000-0000-000000000023")!, // Cywydd
+        UUID(uuidString: "00000000-0000-0000-0000-000000000024")!  // Englyn
+    ]
+
+    private static let sestinaFormID = UUID(uuidString: "00000000-0000-0000-0000-000000000012")!
     
     // MARK: - Public Methods
     
@@ -251,6 +259,72 @@ struct PoetryFormMigrationService {
             }
         }
     }
+
+    /// Remove predefined forms that are no longer offered
+    /// - Parameter modelContext: The SwiftData context to use
+    static func removeDeprecatedPredefinedForms(modelContext: ModelContext) {
+        let descriptor = FetchDescriptor<PoetryFormModel>(
+            predicate: #Predicate { $0.isPredefined == true }
+        )
+
+        do {
+            let predefinedForms = try modelContext.fetch(descriptor)
+            let formsToDelete = predefinedForms.filter { removedPredefinedFormIDs.contains($0.id) }
+
+            guard !formsToDelete.isEmpty else {
+                return
+            }
+
+            for form in formsToDelete {
+                modelContext.delete(form)
+            }
+
+            try modelContext.save()
+
+            #if DEBUG
+            print("[PoetryFormMigration] ✅ Removed \(formsToDelete.count) deprecated predefined forms")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[PoetryFormMigration] ❌ Failed to remove deprecated predefined forms: \(error)")
+            #endif
+        }
+    }
+
+    /// Update existing predefined Sestina records to match current spec.
+    /// Sestina uses rotating end-words and should not enforce rhymeScheme checks.
+    static func updateSestinaPredefinedSpec(modelContext: ModelContext) {
+        let descriptor = FetchDescriptor<PoetryFormModel>(
+            predicate: #Predicate { $0.id == sestinaFormID && $0.isPredefined == true }
+        )
+
+        do {
+            guard let sestina = try modelContext.fetch(descriptor).first else { return }
+
+            var didChange = false
+            if sestina.rhymeScheme != nil {
+                sestina.rhymeScheme = nil
+                didChange = true
+            }
+
+            if sestina.categoryRaw != PoetryFormCategory.structured.rawValue {
+                sestina.categoryRaw = PoetryFormCategory.structured.rawValue
+                didChange = true
+            }
+
+            if didChange {
+                sestina.modifiedDate = Date()
+                try modelContext.save()
+                #if DEBUG
+                print("[PoetryFormMigration] ✅ Updated predefined Sestina spec (category + no rhymeScheme)")
+                #endif
+            }
+        } catch {
+            #if DEBUG
+            print("[PoetryFormMigration] ❌ Failed to update Sestina spec: \(error)")
+            #endif
+        }
+    }
     
     // MARK: - Private Methods
     
@@ -274,9 +348,23 @@ struct PoetryFormMigrationService {
             #endif
             // resetPredefinedForms already calls seedPredefinedForms internally
             resetPredefinedForms(modelContext: modelContext)
+
+        case 4:
+            // Version 5: Remove deprecated predefined forms from existing databases
+            removeDeprecatedPredefinedForms(modelContext: modelContext)
+
+        case 5:
+            // Version 6: Correct Sestina predefined metadata (no rhymeScheme)
+            updateSestinaPredefinedSpec(modelContext: modelContext)
+
+        case 6:
+            // Version 7: Ensure Sestina category is Structured
+            updateSestinaPredefinedSpec(modelContext: modelContext)
             
         default:
             // Future versions: add incremental migrations here
+            removeDeprecatedPredefinedForms(modelContext: modelContext)
+            updateSestinaPredefinedSpec(modelContext: modelContext)
             addMissingPredefinedForms(modelContext: modelContext)
         }
     }

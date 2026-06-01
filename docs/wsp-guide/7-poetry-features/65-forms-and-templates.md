@@ -39,12 +39,6 @@ Templates show structure—they don't enforce it. You can:
 - **Structure**: Haiku-like opening + emotional reflection
 - **Special**: Pivot line creates shift
 
-### Senryū
-- **Lines**: 3
-- **Syllables**: 5-7-5
-- **Subject**: Human nature, humor, irony
-- **Special**: Haiku structure, different focus
-
 ### Cinquain
 - **Lines**: 5
 - **Syllables**: 2-4-6-8-2 (22 total)
@@ -100,19 +94,6 @@ Templates show structure—they don't enforce it. You can:
 - **Lines**: 8
 - **Rhyme**: ABaAabAB
 - **Special**: Lines 1, 4, 7 identical; Lines 2, 8 identical
-
-## Welsh Forms
-
-### Cywydd
-- **Lines**: Couplets
-- **Syllables**: 7 per line
-- **Rhyme**: One stressed, one unstressed per couplet
-- **Special**: Complex sound patterns (cynghanedd)
-
-### Englyn
-- **Lines**: 4
-- **Syllables**: 30 total (10-6-7-7 traditional)
-- **Special**: Pivot in first line
 
 ## English Forms
 

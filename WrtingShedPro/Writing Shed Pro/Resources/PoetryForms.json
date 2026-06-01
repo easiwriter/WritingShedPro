@@ -134,12 +134,12 @@
   {
     "id": "00000000-0000-0000-0000-000000000012",
     "name": "Sestina",
-    "category": "Rhymed",
+    "category": "Structured",
     "lineCount": 39,
     "syllablePattern": null,
-    "rhymeScheme": "ABCDEF rotating end-words",
+    "rhymeScheme": null,
     "meterPattern": null,
-    "description": "Complex form with six 6-line stanzas and a 3-line envoi. Six end-words rotate through a fixed pattern. The same six words end lines throughout.",
+    "description": "Complex form with six 6-line stanzas and a 3-line envoi. Six end-words rotate through a fixed pattern. This form uses lexical repetition rather than end-rhyme.",
     "templateContent": "Stanza 1: Lines end with words A, B, C, D, E, F\nStanza 2: Lines end with words F, A, E, B, D, C\nStanza 3: Lines end with words C, F, D, A, B, E\nStanza 4: Lines end with words E, C, B, F, A, D\nStanza 5: Lines end with words D, E, A, C, F, B\nStanza 6: Lines end with words B, D, F, E, C, A\n\nEnvoi (3 lines): Contains all six words\n  Line 1 middle: B, end: E\n  Line 2 middle: D, end: C\n  Line 3 middle: F, end: A",
     "isCustom": false
   },
@@ -216,18 +216,6 @@
     "isCustom": false
   },
   {
-    "id": "00000000-0000-0000-0000-000000000019",
-    "name": "Senryū",
-    "category": "Japanese",
-    "lineCount": 3,
-    "syllablePattern": [5, 7, 5],
-    "rhymeScheme": null,
-    "meterPattern": null,
-    "description": "Japanese form identical in structure to haiku (5-7-5 syllables) but focused on human nature, humor, and irony rather than nature and seasons. Often satirical or witty.",
-    "templateContent": "Line 1 (5 syllables) - human observation\nLine 2 (7 syllables) - development\nLine 3 (5 syllables) - ironic twist or insight",
-    "isCustom": false
-  },
-  {
     "id": "00000000-0000-0000-0000-000000000020",
     "name": "Sonnet (Spenserian)",
     "category": "Metered",
@@ -261,30 +249,6 @@
     "meterPattern": null,
     "description": "French form with three 8-line stanzas and a 4-line envoi. Each stanza ends with the same refrain line. Only three rhymes throughout. The envoi traditionally addresses a patron or prince.",
     "templateContent": "Stanza 1 (8 lines):\nLine 1 (A)\nLine 2 (B)\nLine 3 (A)\nLine 4 (B)\nLine 5 (B)\nLine 6 (C)\nLine 7 (B)\nLine 8 (C) - REFRAIN\n\nStanza 2 (8 lines):\nLine 9 (A)\nLine 10 (B)\nLine 11 (A)\nLine 12 (B)\nLine 13 (B)\nLine 14 (C)\nLine 15 (B)\nLine 16 (C) - REFRAIN\n\nStanza 3 (8 lines):\nLine 17 (A)\nLine 18 (B)\nLine 19 (A)\nLine 20 (B)\nLine 21 (B)\nLine 22 (C)\nLine 23 (B)\nLine 24 (C) - REFRAIN\n\nEnvoi (4 lines):\nLine 25 (B) - 'Prince' or address\nLine 26 (C)\nLine 27 (B)\nLine 28 (C) - REFRAIN",
-    "isCustom": false
-  },
-  {
-    "id": "00000000-0000-0000-0000-000000000023",
-    "name": "Cywydd",
-    "category": "Rhymed",
-    "lineCount": null,
-    "syllablePattern": [7, 7],
-    "rhymeScheme": "AA BB CC...",
-    "meterPattern": null,
-    "description": "Traditional Welsh form written in rhyming couplets of 7 syllables per line. One rhyme in each couplet is stressed, the other unstressed. Often features cynghanedd (complex consonant patterns).",
-    "templateContent": "Line 1 (7 syllables) - stressed rhyme\nLine 2 (7 syllables) - unstressed rhyme\n\nLine 3 (7 syllables) - stressed rhyme\nLine 4 (7 syllables) - unstressed rhyme\n\n[Continue couplets as needed]\n\nNote: Traditional cywydd uses cynghanedd\n(consonant harmony) for internal sound patterns.",
-    "isCustom": false
-  },
-  {
-    "id": "00000000-0000-0000-0000-000000000024",
-    "name": "Englyn",
-    "category": "Rhymed",
-    "lineCount": 4,
-    "syllablePattern": [10, 6, 7, 7],
-    "rhymeScheme": "AABB",
-    "meterPattern": null,
-    "description": "Traditional Welsh form of 4 lines with 30 syllables total (10-6-7-7). Features a pivot point in the first line where the rhyme and sense break. The main rhyme appears at the end of lines 1, 2, and 4.",
-    "templateContent": "Line 1 (10 syllables) - pivot after syllable 7, end rhymes with lines 2 & 4\nLine 2 (6 syllables) - rhymes with line 1\nLine 3 (7 syllables) - links meaning\nLine 4 (7 syllables) - rhymes with lines 1 & 2",
     "isCustom": false
   },
   {

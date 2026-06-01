@@ -237,6 +237,7 @@ struct ResponsivePoetryFormCard: View {
         switch form.category {
         case .japanese: return .orange
         case .rhymed: return .purple
+        case .structured: return .mint
         case .metered: return .blue
         case .free: return .green
         case .custom: return .gray

@@ -60,7 +60,6 @@ Writing Shed Pro includes templates for 30+ traditional forms:
 ### Short Forms
 - **Haiku** (5-7-5 syllables)
 - **Tanka** (5-7-5-7-7 syllables)
-- **Senryū** (5-7-5 syllables, human nature focus)
 
 ### Sonnets
 - **Shakespearean** (ABAB CDCD EFEF GG)

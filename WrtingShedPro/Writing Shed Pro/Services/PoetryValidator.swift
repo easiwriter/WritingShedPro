@@ -151,7 +151,11 @@ final class PoetryValidator {
         
         // Validate rhyme scheme (form-specific)
         if let scheme = form.rhymeScheme, !scheme.isEmpty {
-            issues.append(contentsOf: validateRhymeScheme(lines: numberedLines, scheme: scheme, form: form))
+            let isEndWordForm = form.name.lowercased() == "sestina" ||
+                scheme.lowercased().contains("rotating end-words")
+            if !isEndWordForm {
+                issues.append(contentsOf: validateRhymeScheme(lines: numberedLines, scheme: scheme, form: form))
+            }
         }
         
         // Special validation for specific forms
@@ -321,15 +325,62 @@ final class PoetryValidator {
     // MARK: - Rhyme Scheme Validation
     
     private func validateRhymeScheme(lines: [(lineNumber: Int, text: String)], scheme: String, form: PoetryForm) -> [LineValidationIssue] {
+        let schemeOptions = parseRhymeSchemeOptions(scheme)
+        guard !schemeOptions.isEmpty else { return [] }
+
+        // Evaluate all allowed scheme options (e.g., "ABAB or ABCB") and keep the best fit.
+        var bestIssues: [LineValidationIssue] = []
+        var foundBest = false
+
+        for option in schemeOptions {
+            let optionIssues = validateRhymeSchemeOption(lines: lines, schemeLetters: option)
+
+            if optionIssues.isEmpty {
+                return []
+            }
+
+            if !foundBest || optionIssues.count < bestIssues.count {
+                bestIssues = optionIssues
+                foundBest = true
+            }
+        }
+
+        return bestIssues
+    }
+
+    private func parseRhymeSchemeOptions(_ scheme: String) -> [[Swift.Character]] {
+        let normalized = scheme.uppercased().replacingOccurrences(of: "\n", with: " ")
+
+        var rawOptions = [normalized]
+        for separator in [" OR ", "/", "|"] {
+            rawOptions = rawOptions.flatMap { $0.components(separatedBy: separator) }
+        }
+
+        let options = rawOptions.compactMap { raw -> [Swift.Character]? in
+            let withoutComment = raw.components(separatedBy: "(").first ?? raw
+            let letters = withoutComment.filter { $0.isLetter }
+            return letters.isEmpty ? nil : Array(letters)
+        }
+
+        if options.isEmpty {
+            let letters = normalized.filter { $0.isLetter }
+            return letters.isEmpty ? [] : [Array(letters)]
+        }
+
+        return options
+    }
+
+    private func validateRhymeSchemeOption(
+        lines: [(lineNumber: Int, text: String)],
+        schemeLetters: [Swift.Character]
+    ) -> [LineValidationIssue] {
         var issues: [LineValidationIssue] = []
-        
-        // Parse rhyme scheme - extract letters only
-        let schemeLetters = scheme.uppercased().filter { $0.isLetter }
+
         guard !schemeLetters.isEmpty else { return issues }
-        
+
         // Get end words (last word of each line)
         let endWords = lines.map { getLastWord(from: $0.text) }
-        
+
         // Build expected rhyme groups
         var rhymeGroups: [Swift.Character: [Int]] = [:]
         for (index, letter) in schemeLetters.enumerated() {
@@ -337,37 +388,29 @@ final class PoetryValidator {
                 rhymeGroups[letter, default: []].append(index)
             }
         }
-        
+
         // Check that lines in the same rhyme group actually rhyme
         for (letter, lineIndices) in rhymeGroups {
             guard lineIndices.count > 1 else { continue }
-            
+
             let firstIndex = lineIndices[0]
             let firstWord = endWords[firstIndex]
-            
+
             for otherIndex in lineIndices.dropFirst() {
                 guard otherIndex < endWords.count else { continue }
                 let otherWord = endWords[otherIndex]
-                
+
                 let rhymeResult = checkRhyme(firstWord, otherWord)
-                
+
                 switch rhymeResult {
                 case .perfect:
                     // Perfect rhyme - no issue
                     break
-                    
+
                 case .slant:
-                    // Slant rhyme - warning (not error)
-                    let line = lines[otherIndex]
-                    issues.append(LineValidationIssue(
-                        lineNumber: line.lineNumber,
-                        lineText: line.text,
-                        issueType: .rhymeScheme,
-                        message: String(format: NSLocalizedString("poetryValidator.slantRhyme", comment: "Slant rhyme detected"), String(letter), firstWord),
-                        expected: "Perfect rhyme with '\(firstWord)' (\(letter))",
-                        actual: "Slant rhyme: '\(otherWord)'"
-                    ))
-                    
+                    // Slant rhyme is accepted for scheme matching.
+                    break
+
                 case .none:
                     // No rhyme - error
                     let line = lines[otherIndex]
@@ -382,7 +425,7 @@ final class PoetryValidator {
                 }
             }
         }
-        
+
         return issues
     }
     
@@ -449,34 +492,57 @@ final class PoetryValidator {
         // Check envoi (last 3 lines) - each should contain 2 of the key words
         let envoiStart = 36
         if lines.count >= 39 {
-            // Envoi pattern: Line 1 has B in middle, E at end
-            //               Line 2 has D in middle, C at end
-            //               Line 3 has F in middle, A at end
-            let envoiEnds = [
-                (4, "E"),  // Line 37 ends with E
-                (2, "C"),  // Line 38 ends with C
-                (0, "A")   // Line 39 ends with A
+            // Common envoi pairing variants:
+            // 1) BE / DC / FA
+            // 2) EC / BA / DF
+            let envoiPairingOptions: [[(Int, Int)]] = [
+                [(1, 4), (3, 2), (5, 0)],
+                [(4, 2), (1, 0), (3, 5)]
             ]
-            
-            for (i, (wordIndex, wordLetter)) in envoiEnds.enumerated() {
-                let lineIndex = envoiStart + i
-                guard lineIndex < lines.count else { break }
-                
-                let line = lines[lineIndex]
-                let actualEndWord = getLastWord(from: line.text).lowercased()
-                let expectedEndWord = keyWords[wordIndex]
-                
-                if !wordsMatch(actualEndWord, expectedEndWord) {
-                    issues.append(LineValidationIssue(
-                        lineNumber: line.lineNumber,
-                        lineText: line.text,
-                        issueType: .endWord,
-                        message: String(format: NSLocalizedString("poetryValidator.wrongEndWord", comment: "Wrong end word"), wordLetter, expectedEndWord),
-                        expected: "'\(expectedEndWord)' (\(wordLetter))",
-                        actual: "'\(actualEndWord)'"
-                    ))
+
+            var bestEnvoiIssues: [LineValidationIssue] = []
+            var foundBest = false
+
+            for pairing in envoiPairingOptions {
+                var pairingIssues: [LineValidationIssue] = []
+
+                for (i, (firstWordIndex, secondWordIndex)) in pairing.enumerated() {
+                    let lineIndex = envoiStart + i
+                    guard lineIndex < lines.count else { break }
+
+                    let line = lines[lineIndex]
+                    let expectedFirst = keyWords[firstWordIndex]
+                    let expectedSecond = keyWords[secondWordIndex]
+                    let lineWords = extractNormalizedWords(from: line.text)
+
+                    let hasFirst = lineWords.contains { wordsMatch($0, expectedFirst) }
+                    let hasSecond = lineWords.contains { wordsMatch($0, expectedSecond) }
+
+                    if !hasFirst || !hasSecond {
+                        pairingIssues.append(LineValidationIssue(
+                            lineNumber: line.lineNumber,
+                            lineText: line.text,
+                            issueType: .endWord,
+                            message: NSLocalizedString("poetryValidator.wrongEndWord", comment: "Wrong end word"),
+                            expected: "Contains both '\(expectedFirst)' and '\(expectedSecond)'",
+                            actual: "\(lineWords.joined(separator: ", "))"
+                        ))
+                    }
+                }
+
+                if pairingIssues.isEmpty {
+                    bestEnvoiIssues = []
+                    foundBest = true
+                    break
+                }
+
+                if !foundBest || pairingIssues.count < bestEnvoiIssues.count {
+                    bestEnvoiIssues = pairingIssues
+                    foundBest = true
                 }
             }
+
+            issues.append(contentsOf: bestEnvoiIssues)
         }
         
         return issues
@@ -548,6 +614,13 @@ final class PoetryValidator {
             .map { $0.trimmingCharacters(in: .punctuationCharacters) }
             .filter { !$0.isEmpty }
         return words.last ?? ""
+    }
+
+    /// Extract normalized words from a line for containment checks.
+    private func extractNormalizedWords(from line: String) -> [String] {
+        line.components(separatedBy: .whitespacesAndNewlines)
+            .map { $0.trimmingCharacters(in: .punctuationCharacters).lowercased() }
+            .filter { !$0.isEmpty }
     }
     
     /// Check if two words rhyme (uses CMU dictionary with heuristic fallback)
@@ -731,6 +804,19 @@ final class PoetryValidator {
                 break
             }
         }
+
+        // Handle common silent-e endings (e.g., "alone"), where final 'e' is not pronounced.
+        if lastVowelIndex == chars.count - 1,
+           chars.count >= 3,
+           chars[lastVowelIndex] == "e",
+           !vowels.contains(chars[lastVowelIndex - 1]) {
+            for i in stride(from: lastVowelIndex - 1, through: 0, by: -1) {
+                if vowels.contains(chars[i]) {
+                    lastVowelIndex = i
+                    break
+                }
+            }
+        }
         
         // If no vowel found, use whole word
         guard lastVowelIndex >= 0 else {
@@ -775,6 +861,14 @@ final class PoetryValidator {
         
         // ea/ee sound the same when long e (as in "sea" / "see")
         normalized = normalized.replacingOccurrences(of: "ea", with: "ee")
+
+        // Long-o ending variants (alone/stone/phone often rhyme with own/known/mown).
+        if normalized.hasSuffix("one") {
+            let shortOExceptions: Set<String> = ["one", "none", "done", "gone", "won", "someone", "anyone", "everyone", "noone"]
+            if !shortOExceptions.contains(w) {
+                normalized = String(normalized.dropLast(3)) + "own"
+            }
+        }
         
         // Handle s/z at end (sounds similar in rhymes)
         if normalized.hasSuffix("s") || normalized.hasSuffix("z") {
