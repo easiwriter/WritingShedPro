@@ -2,18 +2,15 @@ import SwiftUI
 
 struct RawDramaAnalysisRequest: Identifiable {
     let id = UUID()
-    let input: RawDramaAnalysisInput
+    let content: String
+    let fileName: String
 }
 
-enum RawDramaAnalysisInput {
-    case text(content: String, fileName: String)
-    case file(url: URL)
-}
-
-/// Runs Manuscript Analyst on raw drama text or a selected text file.
+/// Runs Manuscript Analyst on the current drama text.
 struct RawDramaAnalystActionSheet: View {
     let project: Project
-    let input: RawDramaAnalysisInput
+    let content: String
+    let fileName: String
 
     @State private var isLoading = false
     @State private var hasStartedAnalysis = false
@@ -41,21 +38,17 @@ struct RawDramaAnalystActionSheet: View {
                 hasStartedAnalysis = true
                 performAnalysis()
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                    .disabled(isLoading)
-                }
-            }
             .sheet(isPresented: $showPaywall) {
-                ManuscriptAnalystPaywallView(onSubscribe: {
-                    showPaywall = false
-                    performAnalysis()
-                })
+                ManuscriptAnalystPaywallView(
+                    onCancel: {
+                        showPaywall = false
+                        dismiss()
+                    },
+                    onSubscribe: {
+                        showPaywall = false
+                        performAnalysis()
+                    }
+                )
             }
             .alert("Analysis Error", isPresented: $showError) {
                 Button("OK") { dismiss() }
@@ -91,21 +84,11 @@ struct RawDramaAnalystActionSheet: View {
             isLoading = true
             do {
                 let service = ManuscriptAnalystService.shared
-                let result: ManuscriptReview
-
-                switch input {
-                case .text(let content, let fileName):
-                    result = try await service.reviewRawDramaText(
-                        content,
-                        fileName: fileName,
-                        projectId: project.id
-                    )
-                case .file(let url):
-                    result = try await service.reviewRawDramaFile(
-                        at: url,
-                        projectId: project.id
-                    )
-                }
+                let result = try await service.reviewRawDramaText(
+                    content,
+                    fileName: fileName,
+                    projectId: project.id
+                )
 
                 withAnimation(.easeInOut(duration: 0.3)) {
                     review = result
@@ -116,7 +99,7 @@ struct RawDramaAnalystActionSheet: View {
                 showError = true
                 isLoading = false
             } catch {
-                error = error.localizedDescription
+                self.error = error.localizedDescription
                 showError = true
                 isLoading = false
             }

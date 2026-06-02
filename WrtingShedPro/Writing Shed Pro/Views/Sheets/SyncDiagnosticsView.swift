@@ -47,6 +47,7 @@ struct SyncDiagnosticsView: View {
     @State private var showResetSyncConfirmation = false
     @State private var syncResetScheduled = false
     @State private var showDeleteZoneConfirmation = false
+    @State private var showClearStuckFlagsConfirmation = false
     @State private var zoneDeleteStatus: String = ""
     @State private var zoneWasDeletedThisSession = false
     @State private var reexportStatus: String = ""
@@ -82,6 +83,14 @@ struct SyncDiagnosticsView: View {
                 Button("OK") { }
             } message: {
                 Text(repairMessage)
+            }
+            .alert("Clear Stuck Sync Flags?", isPresented: $showClearStuckFlagsConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Clear") {
+                    syncThrottler.clearInProgressFlagsForDiagnostics(reason: "sync-diagnostics")
+                }
+            } message: {
+                Text("This only clears in-memory import/export in-progress flags when CloudKit misses end events. It does not delete or reset any data.")
             }
         }
     }
@@ -166,6 +175,24 @@ struct SyncDiagnosticsView: View {
                 }
             }
 
+            if let lastMirroring = syncThrottler.lastMirroringEventTime {
+                LabeledContent("Last Mirroring Event") {
+                    Text(lastMirroring.formatted(date: .omitted, time: .standard))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if hasLikelyStaleInProgressFlags {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text("Import/export flag appears stale (no recent mirroring end event)")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+                .padding(.vertical, 2)
+            }
+
             if let rateLimitedUntil = syncThrottler.rateLimitedUntil {
                 LabeledContent("Rate Limited Until") {
                     Text(rateLimitedUntil.formatted(date: .omitted, time: .standard))
@@ -194,10 +221,32 @@ struct SyncDiagnosticsView: View {
                 copyDiagnosticsSnapshot()
             }
 
+            Button("Copy Full Diagnostics Snapshot") {
+                copyDiagnosticsSnapshot(includeVerboseInventory: true)
+            }
+
             Button("Clear Event Timeline") {
                 syncThrottler.clearRecentCloudKitEvents()
             }
+
+            if hasLikelyStaleInProgressFlags {
+                Button("Clear Stuck Sync Flags") {
+                    showClearStuckFlagsConfirmation = true
+                }
+            }
         }
+    }
+
+    private var hasLikelyStaleInProgressFlags: Bool {
+        guard syncThrottler.importInProgress || syncThrottler.exportInProgress else { return false }
+        guard !syncThrottler.isSyncing else { return false }
+
+        let reference = syncThrottler.lastMirroringEventTime
+            ?? syncThrottler.importStartTime
+            ?? syncThrottler.exportStartTime
+            ?? Date()
+
+        return Date().timeIntervalSince(reference) > 20
     }
 
     private func cloudKitEventRow(_ event: CloudKitEventLogEntry) -> some View {
@@ -240,12 +289,13 @@ struct SyncDiagnosticsView: View {
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
-    private func diagnosticsSnapshotText() -> String {
+    private func diagnosticsSnapshotText(includeVerboseInventory: Bool = false) -> String {
         _ = syncThrottler.hasActiveCloudKitEvent
         let now = Date()
         var lines: [String] = []
         lines.append("CloudKit Diagnostics Snapshot")
         lines.append("Generated: \(now.formatted(date: .complete, time: .standard))")
+        lines.append("verbosity: \(includeVerboseInventory ? "full" : "compact")")
         lines.append("isSyncing: \(syncThrottler.isSyncing)")
         lines.append("remoteEventsTotal: \(syncThrottler.totalSyncEventCount)")
         lines.append("currentBurstCount: \(syncThrottler.syncEventCount)")
@@ -263,6 +313,7 @@ struct SyncDiagnosticsView: View {
         lines.append("autoResetScheduled: \(syncThrottler.autoResetScheduled)")
         lines.append("isPostReset: \(syncThrottler.isPostReset)")
         lines.append("lastRemoteEvent: \(syncThrottler.lastSyncTime?.formatted(date: .omitted, time: .standard) ?? "nil")")
+        lines.append("lastMirroringEvent: \(syncThrottler.lastMirroringEventTime?.formatted(date: .omitted, time: .standard) ?? "nil")")
             if let importStart = syncThrottler.importStartTime {
                 lines.append("importAgeSeconds: \(Int(Date().timeIntervalSince(importStart)))")
             } else {
@@ -277,15 +328,20 @@ struct SyncDiagnosticsView: View {
         lines.append("manualKickPausedUntil: \(syncThrottler.manualKickPausedUntil?.formatted(date: .omitted, time: .standard) ?? "nil")")
         lines.append("recentCloudKitEvents:")
 
-        for event in syncThrottler.recentCloudKitEvents.prefix(25) {
+        let eventLimit = includeVerboseInventory ? 25 : 12
+        for event in syncThrottler.recentCloudKitEvents.prefix(eventLimit) {
             let msg = event.message.isEmpty ? "" : " — \(event.message)"
             lines.append("- \(event.timestamp.formatted(date: .omitted, time: .standard)) | \(event.type) | \(event.phase) | \(event.status)\(msg)")
         }
 
+        if !includeVerboseInventory && syncThrottler.recentCloudKitEvents.count > eventLimit {
+            lines.append("- (truncated to \(eventLimit) events; use full snapshot for complete timeline)")
+        }
+
         lines.append("")
-        lines.append(contentsOf: projectInventoryLines())
+        lines.append(contentsOf: projectInventoryLines(includeDetails: includeVerboseInventory, includeNaPoVariantSearch: includeVerboseInventory))
         lines.append("")
-        lines.append(contentsOf: publicationInventoryLines())
+        lines.append(contentsOf: publicationInventoryLines(includeDetails: includeVerboseInventory))
 
         let tombstones = DeduplicationService.tombstoneDescriptions()
         lines.append("")
@@ -326,25 +382,31 @@ struct SyncDiagnosticsView: View {
         return lines.joined(separator: "\n")
     }
 
-    private func copyDiagnosticsSnapshot() {
-        let snapshot = diagnosticsSnapshotText()
+    private func copyDiagnosticsSnapshot(includeVerboseInventory: Bool = false) {
+        let snapshot = diagnosticsSnapshotText(includeVerboseInventory: includeVerboseInventory)
 
         #if canImport(UIKit)
         UIPasteboard.general.string = snapshot
         #endif
 
-        syncForceStatus = "✅ Diagnostics snapshot copied to clipboard"
+        syncForceStatus = includeVerboseInventory
+            ? "✅ Full diagnostics snapshot copied to clipboard"
+            : "✅ Diagnostics snapshot copied to clipboard"
     }
 
-    private func projectInventoryLines() -> [String] {
+    private func projectInventoryLines(includeDetails: Bool = true, includeNaPoVariantSearch: Bool = true) -> [String] {
         let formatter = ISO8601DateFormatter()
         var lines: [String] = []
         lines.append("Project Inventory")
 
         let queryProjects = sortedProjectsForInventory(projects)
         lines.append("Source: @Query (main context cache)")
-        for project in queryProjects {
-            lines.append(projectInventoryLine(project, formatter: formatter))
+        if includeDetails {
+            for project in queryProjects {
+                lines.append(projectInventoryLine(project, formatter: formatter))
+            }
+        } else {
+            lines.append("- count=\(queryProjects.count)")
         }
 
         lines.append("")
@@ -352,8 +414,12 @@ struct SyncDiagnosticsView: View {
         let freshContext = ModelContext(modelContext.container)
         let descriptor = FetchDescriptor<Project>()
         let storeProjects = sortedProjectsForInventory((try? freshContext.fetch(descriptor)) ?? [])
-        for project in storeProjects {
-            lines.append(projectInventoryLine(project, formatter: formatter))
+        if includeDetails {
+            for project in storeProjects {
+                lines.append(projectInventoryLine(project, formatter: formatter))
+            }
+        } else {
+            lines.append("- count=\(storeProjects.count)")
         }
 
         let queryNameByID = Dictionary(uniqueKeysWithValues: queryProjects.map { ($0.id, $0.name ?? "") })
@@ -369,19 +435,21 @@ struct SyncDiagnosticsView: View {
             lines.append("  - id=\(id.uuidString) | @Query='\(queryNameByID[id] ?? "")' | Store='\(storeNameByID[id] ?? "")'")
         }
 
-        // Search for NaPoWriMo variants to diagnose the name collision issue
-        lines.append("")
-        lines.append("Diagnostic: Search for NaPoWriMo variants")
-        let allStoredProjects = (try? freshContext.fetch(FetchDescriptor<Project>())) ?? []
-        let napoVariants = allStoredProjects.filter { 
-            let name = $0.name ?? ""
-            return name.lowercased().contains("napo")
-        }
-        if napoVariants.isEmpty {
-            lines.append("- No projects with 'napo' in name found")
-        } else {
-            for project in napoVariants.sorted(by: { ($0.name ?? "") < ($1.name ?? "") }) {
-                lines.append("- FOUND: name='\(project.name ?? "?")' | id=\(project.id.uuidString) | trashed=\(project.isTrashed) | created=\(project.creationDate?.formatted() ?? "?")")
+        // Keep this focused diagnostic only in full snapshots.
+        if includeNaPoVariantSearch {
+            lines.append("")
+            lines.append("Diagnostic: Search for NaPoWriMo variants")
+            let allStoredProjects = (try? freshContext.fetch(FetchDescriptor<Project>())) ?? []
+            let napoVariants = allStoredProjects.filter {
+                let name = $0.name ?? ""
+                return name.lowercased().contains("napo")
+            }
+            if napoVariants.isEmpty {
+                lines.append("- No projects with 'napo' in name found")
+            } else {
+                for project in napoVariants.sorted(by: { ($0.name ?? "") < ($1.name ?? "") }) {
+                    lines.append("- FOUND: name='\(project.name ?? "?")' | id=\(project.id.uuidString) | trashed=\(project.isTrashed) | created=\(project.creationDate?.formatted() ?? "?")")
+                }
             }
         }
 
@@ -407,15 +475,19 @@ struct SyncDiagnosticsView: View {
         return "- name=\(project.name ?? "Untitled") | id=\(project.id.uuidString) | type=\(project.type.rawValue) | trashed=\(project.isTrashed) | userOrder=\(project.userOrder.map(String.init) ?? "nil") | created=\(created) | modified=\(modified) | deleted=\(deleted) | folders=\(folderCount)"
     }
 
-    private func publicationInventoryLines() -> [String] {
+    private func publicationInventoryLines(includeDetails: Bool = true) -> [String] {
         let formatter = ISO8601DateFormatter()
         var lines: [String] = []
         lines.append("Publication Inventory")
 
         let queryPublications = sortedPublicationsForInventory(publications)
         lines.append("Source: @Query (main context cache)")
-        for publication in queryPublications {
-            lines.append(publicationInventoryLine(publication, formatter: formatter))
+        if includeDetails {
+            for publication in queryPublications {
+                lines.append(publicationInventoryLine(publication, formatter: formatter))
+            }
+        } else {
+            lines.append("- count=\(queryPublications.count)")
         }
 
         lines.append("")
@@ -423,8 +495,12 @@ struct SyncDiagnosticsView: View {
         let freshContext = ModelContext(modelContext.container)
         let descriptor = FetchDescriptor<Publication>()
         let storePublications = sortedPublicationsForInventory((try? freshContext.fetch(descriptor)) ?? [])
-        for publication in storePublications {
-            lines.append(publicationInventoryLine(publication, formatter: formatter))
+        if includeDetails {
+            for publication in storePublications {
+                lines.append(publicationInventoryLine(publication, formatter: formatter))
+            }
+        } else {
+            lines.append("- count=\(storePublications.count)")
         }
 
         let queryNameByID = Dictionary(uniqueKeysWithValues: queryPublications.map { ($0.id, $0.name) })

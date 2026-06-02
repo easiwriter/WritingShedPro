@@ -61,11 +61,22 @@ function normalizeAnalystOptions(options) {
 
 function normalizeAnalystMetadata(metadata) {
     const safeMetadata = typeof metadata === "object" && metadata !== null ? metadata : {};
+    const poetryFormName = typeof safeMetadata.poetryFormName === "string"
+        ? safeMetadata.poetryFormName.slice(0, 120)
+        : undefined;
+    const poetryFormRequirementsSummary = typeof safeMetadata.poetryFormRequirementsSummary === "string"
+        ? safeMetadata.poetryFormRequirementsSummary.slice(0, 500)
+        : undefined;
 
     return {
         fileName: typeof safeMetadata.fileName === "string" ? safeMetadata.fileName.slice(0, 200) : undefined,
         fileCount: Number.isInteger(safeMetadata.fileCount) ? safeMetadata.fileCount : undefined,
         wordCount: Number.isInteger(safeMetadata.wordCount) ? safeMetadata.wordCount : undefined,
+        poetryFormName,
+        poetryFormRequirementsSummary,
+        preservePoetryForm: typeof safeMetadata.preservePoetryForm === "boolean"
+            ? safeMetadata.preservePoetryForm
+            : undefined,
     };
 }
 
@@ -191,7 +202,7 @@ async function handleManuscriptAnalystReview(request, env) {
     }
 
     try {
-        const systemPrompt = buildAnalystSystemPrompt(analysisProfile, projectType, fictionClass);
+        const systemPrompt = buildAnalystSystemPrompt(analysisProfile, projectType, fictionClass, safeMetadata);
         const userPrompt = buildAnalystUserPrompt(content, safeMetadata, safeOptions, analysisProfile);
         const cacheFingerprint = await sha256Hex(JSON.stringify({
             v: ANALYST_CACHE_VERSION,
@@ -396,7 +407,7 @@ function jsonResponse(body, status, extraHeaders = {}) {
     });
 }
 
-function buildAnalystSystemPrompt(analysisProfile, projectType, fictionClass) {
+function buildAnalystSystemPrompt(analysisProfile, projectType, fictionClass, metadata) {
     const basePrompt = `You are an expert editorial assistant specializing in ${analysisProfile} writing. Your role is to provide constructive, specific feedback on writing samples.
 
 You must provide critique only. Do not rewrite or generate replacement passages for the user.
@@ -446,6 +457,19 @@ OUTPUT QUALITY RULES:
 - Never imply that your reading is the only valid reading of the text.`;
 
     if (analysisProfile === "poetry") {
+        const preserveForm = metadata?.preservePoetryForm === true;
+        const declaredForm = metadata?.poetryFormName && metadata.poetryFormName.trim().length > 0
+            ? metadata.poetryFormName.trim()
+            : null;
+        const formConstraintBlock = preserveForm
+            ? `
+- FORM SAFETY RULE (MANDATORY): Do not suggest edits that would break the poem's current form.
+- Preserve the existing line count, stanza count, refrain positions, and fixed structural pattern unless the user explicitly asks to change form.
+- Prefer within-line revisions (diction, syntax, imagery, sound) over structural rewrites.
+- Do not suggest adding/removing/reordering full lines or stanzas when a fixed form is declared.
+- If the only possible improvement appears form-breaking, mark it as low severity and offer a form-preserving alternative.`
+            : "";
+
         return basePrompt + `
 
 POETRY-SPECIFIC GUIDANCE:
@@ -454,7 +478,8 @@ POETRY-SPECIFIC GUIDANCE:
 - Evaluate line breaks and their effectiveness
 - Comment on use of literary devices (metaphor, simile, alliteration, etc.)
 - Consider adherence to declared poetic form if applicable
-- De-emphasize plot/character diagnostics unless narrative elements are explicit`;
+- De-emphasize plot/character diagnostics unless narrative elements are explicit${declaredForm ? `
+- Declared form: ${declaredForm}` : ""}${formConstraintBlock}`;
     } else if (analysisProfile === "prose") {
         return basePrompt + `
 
@@ -509,6 +534,15 @@ function buildAnalystUserPrompt(content, metadata, options, analysisProfile) {
     if (metadata) {
         if (metadata.fileName) prompt += `[File: ${metadata.fileName}]\n`;
         if (metadata.wordCount) prompt += `[Word Count: ${metadata.wordCount}]\n`;
+        if (analysisProfile === "poetry") {
+            if (metadata.poetryFormName) prompt += `[Declared Poetry Form: ${metadata.poetryFormName}]\n`;
+            if (metadata.poetryFormRequirementsSummary) {
+                prompt += `[Form Requirements: ${metadata.poetryFormRequirementsSummary}]\n`;
+            }
+            if (metadata.preservePoetryForm === true) {
+                prompt += `[Constraint: Suggest revisions that preserve the existing poetic form.]\n`;
+            }
+        }
     }
     
     const numberedContent = addSourceLineNumbers(content || "");

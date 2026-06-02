@@ -9,6 +9,7 @@
 
 import SwiftUI
 import MessageUI
+import SwiftData
 
 // MARK: - Mail Compose Representable
 
@@ -46,6 +47,7 @@ struct MailComposeView: UIViewControllerRepresentable {
 
 struct ContactSupportView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     enum PresentationMode {
         case full
@@ -71,6 +73,8 @@ struct ContactSupportView: View {
     @State private var showValidationAlert = false
     @State private var validationMessage = ""
     @State private var showSupportResponse = false
+    @State private var includeSyncDiagnostics = true
+    @State private var diagnosticsSnapshot = ""
 
     // Robot-check: simple arithmetic challenge
     @State private var challengeA: Int = Int.random(in: 2...9)
@@ -101,6 +105,7 @@ struct ContactSupportView: View {
                 stepsSection
                 robotCheckSection
                 deviceInfoSection
+                syncDiagnosticsSection
                 privacyNoticeSection
             }
             .navigationTitle(NSLocalizedString("support.title", comment: ""))
@@ -275,6 +280,16 @@ struct ContactSupportView: View {
         }
     }
 
+    private var syncDiagnosticsSection: some View {
+        Section {
+            Toggle(NSLocalizedString("support.syncDiagnostics.include", comment: ""), isOn: $includeSyncDiagnostics)
+        } header: {
+            Text(NSLocalizedString("support.section.syncDiagnostics", comment: ""))
+        } footer: {
+            Text(NSLocalizedString("support.syncDiagnostics.footer", comment: ""))
+        }
+    }
+
     private var robotCheckSection: some View {
         Section {
             HStack {
@@ -310,6 +325,13 @@ struct ContactSupportView: View {
             return
         }
 
+        // Only questions go through the AI support flow.
+        // Bug reports and suggestions should go directly to developer contact.
+        guard reportType == .question else {
+            openEmailFlow()
+            return
+        }
+
         // Submit to support service
         Task {
             await supportService.submitQuery(
@@ -329,11 +351,22 @@ struct ContactSupportView: View {
     }
 
     private func openEmailFlow() {
+        prepareDiagnosticsSnapshotIfNeeded()
+
         if MFMailComposeViewController.canSendMail() {
             showMailCompose = true
         } else {
             showMailUnavailable = true
         }
+    }
+
+    private func prepareDiagnosticsSnapshotIfNeeded() {
+        guard includeSyncDiagnostics else {
+            diagnosticsSnapshot = ""
+            return
+        }
+
+        diagnosticsSnapshot = SupportDiagnosticsSnapshotBuilder.buildSnapshot(modelContext: modelContext)
     }
 
     // MARK: - Mail Content
@@ -374,6 +407,21 @@ struct ContactSupportView: View {
         App Version: \(appVersion)
         """
 
+        if includeSyncDiagnostics {
+            let snapshot = diagnosticsSnapshot.isEmpty
+                ? SupportDiagnosticsSnapshotBuilder.buildSnapshot(modelContext: modelContext)
+                : diagnosticsSnapshot
+
+            body += """
+
+
+            ----------------------------
+            \(NSLocalizedString("support.syncDiagnostics.header", comment: ""))
+            ----------------------------
+            \(snapshot)
+            """
+        }
+
         return body
     }
 
@@ -386,6 +434,11 @@ struct ContactSupportView: View {
     }
 
     private var deviceInfo: String {
-        "\(UIDevice.current.model) — \(UIDevice.current.systemName) \(UIDevice.current.systemVersion)"
+        #if targetEnvironment(macCatalyst)
+        let osVersion = ProcessInfo.processInfo.operatingSystemVersion
+        return "Mac (Catalyst) — macOS \(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)"
+        #else
+        return "\(UIDevice.current.model) — \(UIDevice.current.systemName) \(UIDevice.current.systemVersion)"
+        #endif
     }
 }

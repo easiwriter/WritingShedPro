@@ -20,6 +20,7 @@
       }
     },
     {
+      "enabled" : false,
       "target" : {
         "containerPath" : "container:Writing Shed Pro.xcodeproj",
         "identifier" : "D76ABF672F260E6F002D8588",

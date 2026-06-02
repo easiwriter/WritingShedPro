@@ -8,10 +8,14 @@ final class SyllableCounterTests: XCTestCase {
     
     override func setUp() {
         super.setUp()
+        PoetryPreferences.shared.englishDialect = .american
         sut = SyllableCounter.shared
+        sut.clearCache()
     }
     
     override func tearDown() {
+        PoetryPreferences.shared.englishDialect = .american
+        sut?.clearCache()
         sut = nil
         super.tearDown()
     }
@@ -243,5 +247,17 @@ final class SyllableCounterTests: XCTestCase {
     func testConsonantOnly() {
         // "Hmm" should still return at least 1
         XCTAssertEqual(sut.countSyllables(in: "shh"), 1)
+    }
+
+    // MARK: - British Dialect Regression
+
+    func testBritishDialectUsesDictionaryForKnownWords() {
+        PoetryPreferences.shared.englishDialect = .british
+        sut.clearCache()
+
+        XCTAssertEqual(sut.countSyllables(in: "Beyond"), 2)
+        XCTAssertEqual(sut.countSyllables(in: "Carrying"), 3)
+        XCTAssertEqual(sut.countSyllables(inLine: "Beyond the hills"), 4)
+        XCTAssertEqual(sut.countSyllables(inLine: "Carrying questions through the night"), 8)
     }
 }

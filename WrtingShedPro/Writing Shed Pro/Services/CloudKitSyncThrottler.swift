@@ -83,6 +83,10 @@ final class CloudKitSyncThrottler {
     /// timing than `lastSyncTime` alone.
     private(set) var lastObservedActivityTime: Date?
 
+    /// Most recent mirroring delegate event activity (setup/import/export/mirroring).
+    /// Unlike `lastObservedActivityTime`, this excludes generic remote-change noise.
+    private(set) var lastMirroringEventTime: Date?
+
     /// Most recent CloudKit import/export/setup events for diagnostics UI.
     /// Bounded list to avoid unbounded memory growth.
     private(set) var recentCloudKitEvents: [CloudKitEventLogEntry] = []
@@ -160,8 +164,8 @@ final class CloudKitSyncThrottler {
     /// Secondary stale detection for wedged sessions: if an in-progress event
     /// has been open for at least this long AND there has been no CloudKit
     /// activity for `minInProgressInactivityForClear`, clear it proactively.
-    private let minInProgressAgeForInactivityClear: TimeInterval = 120
-    private let minInProgressInactivityForClear: TimeInterval = 90
+    private let minInProgressAgeForInactivityClear: TimeInterval = 90
+    private let minInProgressInactivityForClear: TimeInterval = 60
 
     /// Longer timeout after a sync database reset, since full zone re-imports
     /// can take 15-30 minutes for large databases.
@@ -450,6 +454,7 @@ final class CloudKitSyncThrottler {
         manualKickPausedUntil = nil
         lastSyncTime = nil
         lastObservedActivityTime = nil
+        lastMirroringEventTime = nil
         isPostReset = false
         lastMirroringResetTime = nil
         didLogFirstImportLatencyAfterReset = false
@@ -468,6 +473,57 @@ final class CloudKitSyncThrottler {
 
     func clearRecentCloudKitEvents() {
         recentCloudKitEvents = []
+    }
+
+    /// Diagnostics-only recovery hook: clear stale in-progress flags manually
+    /// when CloudKit fails to send matching end events.
+    /// This does not reset any database state or CloudKit metadata.
+    func clearInProgressFlagsForDiagnostics(reason: String = "manual") {
+        let clearFlags = {
+            let now = Date()
+            var cleared: [String] = []
+
+            if self.importInProgress {
+                let age = self.importStartTime.map { Int(now.timeIntervalSince($0)) } ?? 0
+                self.importInProgress = false
+                self.importStartTime = nil
+                self.importCompleted = true
+                self.importSucceeded = false
+                self.appendCloudKitEvent(
+                    type: "import",
+                    phase: "manual-clear",
+                    status: "diagnostics",
+                    message: "Cleared stuck import flag (age=\(age)s, reason=\(reason))"
+                )
+                cleared.append("import")
+            }
+
+            if self.exportInProgress {
+                let age = self.exportStartTime.map { Int(now.timeIntervalSince($0)) } ?? 0
+                self.exportInProgress = false
+                self.exportStartTime = nil
+                self.appendCloudKitEvent(
+                    type: "export",
+                    phase: "manual-clear",
+                    status: "diagnostics",
+                    message: "Cleared stuck export flag (age=\(age)s, reason=\(reason))"
+                )
+                cleared.append("export")
+            }
+
+            if !cleared.isEmpty {
+                self.lastObservedActivityTime = now
+                #if DEBUG
+                print("🧰 [CloudKitSyncThrottler] Diagnostics cleared in-progress flag(s): \(cleared.joined(separator: ", "))")
+                #endif
+            }
+        }
+
+        if Thread.isMainThread {
+            clearFlags()
+        } else {
+            DispatchQueue.main.async(execute: clearFlags)
+        }
     }
 
     /// Clear only the transport-failure backoff state, leaving event history and
@@ -701,12 +757,12 @@ final class CloudKitSyncThrottler {
         let now = Date()
         var cleared: [String] = []
         let staleAge = isPostReset ? maxInProgressEventAgeAfterReset : maxInProgressEventAge
-        let lastActivity = lastObservedActivityTime ?? lastSyncTime
+        let lastMirroringActivity = lastMirroringEventTime
 
         if importInProgress,
            let started = importStartTime {
             let eventAge = now.timeIntervalSince(started)
-            let inactivity = now.timeIntervalSince(lastActivity ?? started)
+            let inactivity = now.timeIntervalSince(lastMirroringActivity ?? started)
             let shouldClearForAge = eventAge > staleAge
             let shouldClearForInactivity = !isPostReset &&
                 eventAge > minInProgressAgeForInactivityClear &&
@@ -732,7 +788,7 @@ final class CloudKitSyncThrottler {
         if exportInProgress,
            let started = exportStartTime {
             let eventAge = now.timeIntervalSince(started)
-            let inactivity = now.timeIntervalSince(lastActivity ?? started)
+            let inactivity = now.timeIntervalSince(lastMirroringActivity ?? started)
             let shouldClearForAge = eventAge > staleAge
             let shouldClearForInactivity = !isPostReset &&
                 eventAge > minInProgressAgeForInactivityClear &&
@@ -762,10 +818,12 @@ final class CloudKitSyncThrottler {
     }
 
     private func appendCloudKitEvent(type: String, phase: String, status: String, message: String) {
-        lastObservedActivityTime = Date()
+        let now = Date()
+        lastObservedActivityTime = now
+        lastMirroringEventTime = now
         recentCloudKitEvents.insert(
             CloudKitEventLogEntry(
-                timestamp: Date(),
+                timestamp: now,
                 type: type,
                 phase: phase,
                 status: status,

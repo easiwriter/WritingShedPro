@@ -56,6 +56,30 @@ final class ProjectPresentationDeduplicationTests: XCTestCase {
         )
     }
 
+    @MainActor func testZombieCleanupSkipsActiveProjectEvenWithMatchingUUIDTombstone() throws {
+        defer { DeduplicationService.clearAllTombstones() }
+
+        let project = Project(name: "Poem Shed", type: .poetry)
+        let schema = Schema([Project.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let context = ModelContext(container)
+
+        context.insert(project)
+        try context.save()
+
+        DeduplicationService.recordTombstone(for: project)
+
+        let deleted = DeduplicationService.deleteZombieProjects(context: context)
+
+        XCTAssertEqual(deleted, 0)
+
+        let descriptor = FetchDescriptor<Project>()
+        let remaining = try context.fetch(descriptor)
+        XCTAssertEqual(remaining.count, 1)
+        XCTAssertEqual(remaining.first?.name, "Poem Shed")
+    }
+
     @MainActor func testSyncedDuplicateFamilyMatchesSameNameTypeAndCreationDate() throws {
         let creationDate = Date(timeIntervalSince1970: 1_710_000_000)
         let original = Project(name: "The Republic of Heaven", type: .poetry, creationDate: creationDate)

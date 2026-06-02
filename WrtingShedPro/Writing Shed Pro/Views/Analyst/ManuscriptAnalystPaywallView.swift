@@ -4,6 +4,7 @@ import StoreKit
 /// Paywall view for the Manuscript Analyst subscription service.
 struct ManuscriptAnalystPaywallView: View {
     @Environment(\.dismiss) private var dismiss
+    var onCancel: (() -> Void)?
     @State private var isPurchasing = false
     @State private var showTrialTerms = false
     @State private var purchaseError: String?
@@ -71,6 +72,10 @@ struct ManuscriptAnalystPaywallView: View {
                     .padding(12)
                     .background(Color(.systemBackground))
                     .cornerRadius(8)
+
+                    Text("Includes AI-powered editorial feedback for one manuscript or file at a time. Billed monthly after the free first month until cancelled.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 4)
 
@@ -95,8 +100,8 @@ struct ManuscriptAnalystPaywallView: View {
                     }
                     .disabled(isPurchasing)
 
-                    Button(action: { dismiss() }) {
-                        Text("Maybe Later")
+                    Button(action: { cancelFlow() }) {
+                        Text("Cancel")
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .foregroundStyle(.cyan)
@@ -111,12 +116,21 @@ struct ManuscriptAnalystPaywallView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+
+                HStack(spacing: 16) {
+                    Link("Terms of Use", destination: URL(string: "https://writingshedpro.com/terms")!)
+                    Text("•")
+                        .foregroundStyle(.secondary)
+                    Link("Privacy Policy", destination: URL(string: "https://writingshedpro.com/privacy")!)
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
             }
             .padding()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(action: { dismiss() }) {
+                    Button(action: { cancelFlow() }) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
                     }
@@ -135,6 +149,14 @@ struct ManuscriptAnalystPaywallView: View {
             } message: {
                 Text(purchaseError ?? "")
             }
+        }
+    }
+
+    private func cancelFlow() {
+        if let onCancel {
+            onCancel()
+        } else {
+            dismiss()
         }
     }
 

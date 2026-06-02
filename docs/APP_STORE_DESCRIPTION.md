@@ -59,3 +59,11 @@ A comprehensive built-in user guide with tutorials walks you through everything 
 
 **TRY IT FREE**
 Explore every project type at no cost — with limited use (one project and one file per type). When you're ready, unlock full capabilities by genre — Prose Writer, Poetry Writer, Fiction Writer, Drama Writer — or get everything with the All-in Bundle.
+
+## Legal
+
+Terms of Use (EULA): https://writingshedpro.com/terms
+
+Privacy Policy: https://writingshedpro.com/privacy
+
+Apple Standard EULA: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/

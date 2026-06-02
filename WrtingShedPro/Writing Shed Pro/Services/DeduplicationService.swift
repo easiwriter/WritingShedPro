@@ -144,9 +144,10 @@ class DeduplicationService {
                 $0.projectID == nil && $0.normalizedName == nameKey && $0.typeRaw == project.typeRaw
             }
             if idMatchedZombie || legacyNameMatchedZombie {
-                // Legacy name-based tombstones are less specific. Keep the safety guard
-                // and only auto-delete if the matched record is already trashed.
-                if !idMatchedZombie && !project.isTrashed {
+                // Never auto-delete active projects. CloudKit can transiently
+                // resurrect a record during sync, and the tombstone may be stale.
+                // Only auto-delete records that are already trashed.
+                if !project.isTrashed {
                     skippedActiveCount += 1
                     #if DEBUG
                     print("🪦 [DeduplicationService] ⚠️ Matched tombstone but skipped ACTIVE project '\(project.name ?? "?")' id=\(project.id) [Zombie Safety]")

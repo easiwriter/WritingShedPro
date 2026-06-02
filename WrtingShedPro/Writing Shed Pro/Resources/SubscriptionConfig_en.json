@@ -1,0 +1,30 @@
+{
+  "title": "Manuscript Analyst",
+  "subtitle": "AI-Powered Editorial Feedback",
+  "trialText": "First month free, then £5.99/month. Cancel anytime.",
+  "featureSections": [
+    {
+      "heading": "What You Get",
+      "features": [
+        "Smart editorial suggestions tailored to your genre",
+        "Track writing improvements over time",
+        "Analyse entire manuscripts in seconds",
+        "AI powered by Claude 3.5 Sonnet"
+      ]
+    }
+  ],
+  "productGroups": [
+    {
+      "heading": "Subscription",
+      "layout": "vertical",
+      "products": [
+        {
+          "productIDs": ["com.writingshedpro.manuscriptanalyst"],
+          "titleSource": "storeProduct",
+          "descriptionSource": "storeProduct"
+        }
+      ]
+    }
+  ],
+  "showRestoreButton": true
+}

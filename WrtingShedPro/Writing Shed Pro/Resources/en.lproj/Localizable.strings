@@ -514,7 +514,6 @@
 "projectDetail.browseFoldersAccessibility" = "Browse project folders";
 "projectDetail.infoAccessibility" = "Project information and settings";
 "projectDetail.menuAccessibility" = "Project options";
-"projectDetail.openSettingsHint" = "Open project settings";
 
 /* ProjectItemView */
 "projectItem.untitledProject" = "Untitled Project";
@@ -2270,9 +2269,6 @@
 "manuscript.error.noBodyMatterFiles" = "No body matter files to submit";
 "manuscript.export.formatTitle" = "Export Format";
 "manuscript.share.formatTitle" = "Share Format";
-"multiFileSearch.folderMissing.title" = "Folder Not Found";
-"multiFileSearch.folderMissing.message" = "Could not find the %@ folder for search.";
-"multiFileSearch.title" = "Search";
 "plotStructure.fiveAct" = "5-Act Structure";
 "plotStructure.freeform" = "Freeform";
 "plotStructure.monomyth" = "Hero's Journey";

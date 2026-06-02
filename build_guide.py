@@ -113,6 +113,21 @@ CHAPTER_NAMES = {
     "13-appendices": "13. Appendices",
 }
 
+# Optional external links appended at the end of a chapter list in the TOC.
+# Each tuple is (label, href).
+CHAPTER_EXTRA_LINKS = {
+    "2-tutorials": [
+        (
+            "Video Tutorials: Writing Shed Pro Reel",
+            "wspvideo:writing-shed-pro-reel",
+        ),
+        (
+            "Video Tutorials: Tutorial 1",
+            "wspvideo:tutorial-1",
+        )
+    ]
+}
+
 
 def get_section_files(chapter_dir: str) -> list[tuple[str, str]]:
     """
@@ -202,6 +217,12 @@ def build_toc(all_sections: dict[str, list[tuple[str, str, str]]]) -> str:
         toc += "<ul>\n"
         for section_id, title, _ in sections:
             toc += f'<li><a href="#{section_id}">{title}</a></li>\n'
+        extra_links = CHAPTER_EXTRA_LINKS.get(chapter_dir, [])
+        if extra_links:
+            # Blank line before externally curated links to make them stand out.
+            toc += "\n"
+            for label, href in extra_links:
+                toc += f'<li><a href="{href}">{label}</a></li>\n'
         toc += "</ul>\n\n"
 
     return toc

@@ -1,0 +1,181 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "A4CED0F2",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "79.99",
+      "familyShareable" : true,
+      "internalID" : "6758569572",
+      "localizations" : [
+        {
+          "description" : "Access to prose, poetry, fiction and drama modules",
+          "displayName" : "All In Bundle",
+          "locale" : "en_GB"
+        }
+      ],
+      "productID" : "com.writingshedpro.allinbundle",
+      "referenceName" : "All-in Bundle",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "34.99",
+      "familyShareable" : false,
+      "internalID" : "6758569505",
+      "localizations" : [
+        {
+          "description" : "Write film scripts and plays",
+          "displayName" : "Drama Writer",
+          "locale" : "en_GB"
+        }
+      ],
+      "productID" : "com.writingshedpro.dramawriter",
+      "referenceName" : "Drama Writer",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "29.99",
+      "familyShareable" : false,
+      "internalID" : "6758569423",
+      "localizations" : [
+        {
+          "description" : "Write novels and short fiction",
+          "displayName" : "Fiction Writer",
+          "locale" : "en_GB"
+        }
+      ],
+      "productID" : "com.writingshedpro.fictionwriter",
+      "referenceName" : "Fiction Writer",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "19.99",
+      "familyShareable" : false,
+      "internalID" : "6758569451",
+      "localizations" : [
+        {
+          "description" : "Write poems for poetry collections and pamphlets",
+          "displayName" : "Poetry Writer",
+          "locale" : "en_GB"
+        }
+      ],
+      "productID" : "com.writingshedpro.poetrywriter",
+      "referenceName" : "Poetry Writer",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "24.99",
+      "familyShareable" : false,
+      "internalID" : "6758569394",
+      "localizations" : [
+        {
+          "description" : "Write essays, technical and non-fiction work",
+          "displayName" : "Prose Writer",
+          "locale" : "en_GB"
+        }
+      ],
+      "productID" : "com.writingshedpro.prosewriter",
+      "referenceName" : "Prose Writer",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6747890719",
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_developerTeamID" : "SK6C3MP32D",
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 801045528.31926501,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21735702",
+      "localizations" : [
+        {
+          "description" : "",
+          "displayName" : "WSP Plans",
+          "locale" : "en_GB"
+        }
+      ],
+      "name" : "WSP Plans",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "billingPlans" : [
+            {
+              "billingPlanType" : "BILLED_UPFRONT",
+              "commitmentDisplayPrice" : "5.99",
+              "displayPrice" : "5.99",
+              "internalID" : "6771675601_BILLED_UPFRONT",
+              "isEnabled" : true
+            }
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "5.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6771675601",
+          "introductoryOffer" : {
+            "billingPlanType" : "BILLED_UPFRONT",
+            "internalID" : "7A47C933",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1M"
+          },
+          "introductoryOffers" : [
+            {
+              "billingPlanType" : "BILLED_UPFRONT",
+              "internalID" : "7A47C933",
+              "numberOfPeriods" : 1,
+              "paymentMode" : "free",
+              "subscriptionPeriod" : "P1M"
+            }
+          ],
+          "localizations" : [
+            {
+              "description" : "Produces critical analysis of written text",
+              "displayName" : "Manuscript Analyst",
+              "locale" : "en_GB"
+            }
+          ],
+          "productID" : "com.writingshedpro.manuscriptanalyst",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Manuscript Analyst",
+          "subscriptionGroupID" : "21735702",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 5,
+    "minor" : 0
+  }
+}

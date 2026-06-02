@@ -17,10 +17,13 @@ struct AnalystReviewView: View {
     @State private var showCopyToast: Bool = false
     @State private var copyToastTask: Task<Void, Never>?
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
+                headerBar
+
                 // Header: Summary & Sentiment
                 headerSection
                 
@@ -57,8 +60,6 @@ struct AnalystReviewView: View {
                 }
             }
             .padding(.vertical)
-            .navigationTitle("Review Suggestions")
-            .navigationBarTitleDisplayMode(.inline)
             .overlay(alignment: .top) {
                 if showCopyToast {
                     Label("Copied", systemImage: "checkmark.circle.fill")
@@ -71,38 +72,65 @@ struct AnalystReviewView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Picker("Sort", selection: $sortBy) {
-                            ForEach(SortOption.allCases, id: \.self) { option in
-                                Label(option.label, systemImage: option.icon).tag(option)
-                            }
-                        }
-                        Divider()
-                        Button(action: { useLargeText.toggle() }) {
-                            Label(
-                                useLargeText ? "Standard Text" : "Larger Text",
-                                systemImage: useLargeText ? "textformat.size.smaller" : "textformat.size.larger"
-                            )
-                        }
-                        Divider()
-                        Button(action: { isArchived.toggle() }) {
-                            Label(
-                                isArchived ? "Show All" : "Hide Addressed",
-                                systemImage: isArchived ? "archivebox" : "archivebox.fill"
-                            )
-                        }
-                        Divider()
-                        Button(action: copyFullReviewToClipboard) {
-                            Label("Copy Full Review", systemImage: "doc.on.doc")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
+        }
+    }
+
+    private var headerBar: some View {
+        HStack {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .imageScale(.large)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            Text("Review Suggestions")
+                .font(.title3)
+                .fontWeight(.semibold)
+
+            Spacer()
+
+            Menu {
+                Picker("Sort", selection: $sortBy) {
+                    ForEach(SortOption.allCases, id: \.self) { option in
+                        Label(option.label, systemImage: option.icon).tag(option)
                     }
                 }
+                Divider()
+                Button(action: { useLargeText.toggle() }) {
+                    Label(
+                        useLargeText ? "Standard Text" : "Larger Text",
+                        systemImage: useLargeText ? "textformat.size.smaller" : "textformat.size.larger"
+                    )
+                }
+                Divider()
+                Button(action: { isArchived.toggle() }) {
+                    Label(
+                        isArchived ? "Show All" : "Hide Addressed",
+                        systemImage: isArchived ? "archivebox" : "archivebox.fill"
+                    )
+                }
+                Divider()
+                Button(action: copyFullReviewToClipboard) {
+                    Label("Copy Full Review", systemImage: "doc.on.doc")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .imageScale(.large)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
 
     // MARK: - Sections

@@ -107,6 +107,9 @@ struct ManuscriptAnalystRequest: Codable {
         let fileCount: Int
         let wordCount: Int
         let documentationVersion: String
+        let poetryFormName: String?
+        let poetryFormRequirementsSummary: String?
+        let preservePoetryForm: Bool?
     }
 }
 

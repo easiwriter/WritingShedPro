@@ -9,10 +9,6 @@ final class SyllableCounter {
     
     static let shared = SyllableCounter()
     
-    private init() {
-        loadExceptions()
-    }
-    
     // MARK: - Properties
     
     /// Dictionary of words with known syllable counts that don't follow standard rules
@@ -24,7 +20,28 @@ final class SyllableCounter {
     
     /// Maximum cache size to prevent memory issues
     private let maxCacheSize = 10_000
-    
+
+    /// Observer for dialect changes so cached counts stay accurate per dialect
+    private var dialectObserver: NSObjectProtocol?
+
+    private init() {
+        loadExceptions()
+
+        dialectObserver = NotificationCenter.default.addObserver(
+            forName: .dialectDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.clearCache()
+        }
+    }
+
+    deinit {
+        if let observer = dialectObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+
     // MARK: - Public API
     
     /// Count syllables in a single word
@@ -57,6 +74,12 @@ final class SyllableCounter {
     
     /// Internal method to compute syllables (without caching)
     private func computeSyllables(in cleanWord: String) -> Int {
+
+        // In British mode, prefer pronunciation dictionary counts for better accuracy.
+        if PoetryPreferences.shared.englishDialect == .british,
+           let dictionaryCount = CMUDictionary.shared.syllableCount(for: cleanWord) {
+            return dictionaryCount
+        }
         
         // Handle pure numbers - convert to spoken form syllables
         if let number = Int(cleanWord) {

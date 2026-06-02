@@ -8,15 +8,28 @@
 import SwiftUI
 import UIKit
 
-/// A text editor for DML source that tracks cursor position
+/// A text editor for DML source that tracks cursor position and shows line numbers.
 struct DMLTextEditor: UIViewRepresentable {
+    let project: Project
     @Binding var text: String
     @Binding var selectedRange: NSRange
     var onUndoManagerReady: ((UndoManager?) -> Void)?
     var onTextViewReady: ((UITextView) -> Void)?
     
+    private let lineNumberGutterWidth: CGFloat = 56
+    
     func makeUIView(context: Context) -> UITextView {
-        let textView = UITextView()
+        let textStorage = NSTextStorage()
+        let layoutManager = NumberingLayoutManager()
+        let textContainer = NSTextContainer(size: .zero)
+
+        layoutManager.project = project
+        layoutManager.showDocumentLineNumbers = true
+
+        textStorage.addLayoutManager(layoutManager)
+        layoutManager.addTextContainer(textContainer)
+
+        let textView = UITextView(frame: .zero, textContainer: textContainer)
         textView.delegate = context.coordinator
         textView.font = UIFont(name: "Courier", size: 14) ?? .monospacedSystemFont(ofSize: 14, weight: .regular)
         textView.backgroundColor = .clear
@@ -24,8 +37,11 @@ struct DMLTextEditor: UIViewRepresentable {
         textView.autocapitalizationType = .none
         textView.smartQuotesType = .no
         textView.smartDashesType = .no
+        textView.textContainer.lineFragmentPadding = 0
+        textView.textContainerInset = UIEdgeInsets(top: 8, left: 8 + lineNumberGutterWidth, bottom: 8, right: 8)
         textView.text = text
         textView.selectedRange = selectedRange
+        textView.layoutManager.allowsNonContiguousLayout = false
         
         // Store reference in coordinator
         context.coordinator.textView = textView
@@ -50,6 +66,14 @@ struct DMLTextEditor: UIViewRepresentable {
             if previousRange.location <= text.count {
                 uiView.selectedRange = previousRange
             }
+            uiView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: max(1, text.count)))
+            uiView.setNeedsDisplay()
+        }
+
+        if let layoutManager = uiView.layoutManager as? NumberingLayoutManager,
+           layoutManager.showDocumentLineNumbers != true {
+            layoutManager.showDocumentLineNumbers = true
+            layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: uiView.textStorage.length))
         }
         
         // Update selection if it changed externally (e.g., after insertion)

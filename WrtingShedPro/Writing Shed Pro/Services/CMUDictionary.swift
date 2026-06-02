@@ -251,6 +251,23 @@ final class CMUDictionary {
         let normalized = normalizeWord(word.trimmingCharacters(in: .punctuationCharacters))
         return pronunciations[normalized] != nil
     }
+
+    /// Get syllable count for a word from dictionary pronunciation data.
+    /// - Parameter word: The word to analyze
+    /// - Returns: Syllable count from the primary pronunciation, or nil if not found
+    func syllableCount(for word: String) -> Int? {
+        guard let pronunciation = primaryPronunciation(for: word) else {
+            return nil
+        }
+
+        let count = pronunciation.reduce(into: 0) { result, phoneme in
+            if phoneme.isVowel {
+                result += 1
+            }
+        }
+
+        return count > 0 ? count : nil
+    }
     
     /// Get the rhyming portion of a word (from last stressed vowel to end)
     /// - Parameter word: The word to get rhyme ending for

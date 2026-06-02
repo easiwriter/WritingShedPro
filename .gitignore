@@ -44,3 +44,6 @@ coverage/
 cloudflare-worker/node_modules/
 *.xcappdata
 *.xcappdata/
+
+# Media assets
+*.mp4

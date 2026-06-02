@@ -14,17 +14,6 @@ struct ProjectDetailView: View {
     var body: some View {
         // Main content: FolderListView
         FolderListView(project: project)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showProjectInfo = true
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-                .accessibilityLabel(NSLocalizedString("projectItem.projectOptions", comment: "Project options menu"))
-                .accessibilityHint(NSLocalizedString("projectDetail.openSettingsHint", comment: "Open project settings"))
-            }
-        }
         .sheet(isPresented: $showProjectInfo) {
             ProjectInfoSheet(
                 project: project,

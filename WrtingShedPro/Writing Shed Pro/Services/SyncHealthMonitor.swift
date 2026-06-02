@@ -204,54 +204,12 @@ final class SyncHealthMonitor {
         print("🔄 [SyncHealthMonitor] Recovery attempt \(recoveryAttempts)")
         #endif
 
-        switch recoveryAttempts {
-        case 1:
-            // Attempt 1: Just wait — stall may self-resolve within 2 min.
-            #if DEBUG
-            print("⏳ [SyncHealthMonitor] Attempt 1: waiting for self-resolution")
-            #endif
-        case 2:
-            // Attempt 2: Nudge NSPersistentCloudKitContainer by doing a no-op save.
-            // This pokes the framework into re-checking its export queue.
-            #if DEBUG
-            print("⏳ [SyncHealthMonitor] Attempt 2: nudging export via context save")
-            #endif
-            nudgeExport()
-        default:
-            // Attempt 3+: Schedule database reset on next launch.
-            #if DEBUG
-            print("🔄 [SyncHealthMonitor] Attempt \(recoveryAttempts): scheduling DB reset")
-            #endif
-            throttler.scheduleAutoResetIfNeeded()
-        }
-    }
-
-    /// Perform a minimal modelContext.save() to nudge NSPersistentCloudKitContainer
-    /// into retrying any pending exports. Only fires once per stall episode (attempt 2).
-    private func nudgeExport() {
-        guard let container = modelContainer else {
-            #if DEBUG
-            print("⚠️ [SyncHealthMonitor] No modelContainer — cannot nudge export")
-            #endif
-            return
-        }
-        guard !throttler.isRateLimited else {
-            #if DEBUG
-            print("⏸️ [SyncHealthMonitor] Rate-limited — skipping nudge")
-            #endif
-            return
-        }
-        let context = ModelContext(container)
-        do {
-            try context.save()
-            #if DEBUG
-            print("✅ [SyncHealthMonitor] Nudge save completed — pending exports should retry")
-            #endif
-        } catch {
-            #if DEBUG
-            print("⚠️ [SyncHealthMonitor] Nudge save failed: \(error)")
-            #endif
-        }
+        // SAFETY: Hard-disable all active interventions.
+        // We do not nudge exports and we do not schedule auto-reset from here.
+        // NSPersistentCloudKitContainer should recover naturally without app-driven writes.
+        #if DEBUG
+        print("⏸️ [SyncHealthMonitor] Active recovery interventions disabled (observation-only)")
+        #endif
     }
 
     private func transition(to newState: SyncHealthState) {

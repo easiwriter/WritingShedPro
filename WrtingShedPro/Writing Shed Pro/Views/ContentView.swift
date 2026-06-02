@@ -50,6 +50,10 @@ struct ContentView: View {
     @State private var syncRecoveryBannerTask: Task<Void, Never>?
 
     @State private var offlinePurchaseBannerDismissed = false
+
+    /// SAFETY SWITCH: hard-disable app-driven sync mutations during reconcile/watchdog.
+    /// This keeps CloudKit flow observation-only and avoids local write storms.
+    private let disableRiskySyncMutationPaths = true
     
     var body: some View {
         ContentViewBody(
@@ -319,6 +323,13 @@ struct ContentView: View {
     /// set by the user on another device and synced via CloudKit. Overwriting
     /// causes a ping-pong effect where each device renumbers independently.
     private func autoNormalizeProjectOrderIfNeeded() {
+        guard !disableRiskySyncMutationPaths else {
+            #if DEBUG
+            print("⏸️ [ContentView] autoNormalizeProjectOrderIfNeeded disabled (safety mode)")
+            #endif
+            return
+        }
+
         let throttler = CloudKitSyncThrottler.shared
         guard !throttler.hasActiveCloudKitEvent && !throttler.isSyncing else { return }
         guard throttler.importCompleted else { return }
@@ -406,9 +417,15 @@ struct ContentView: View {
     ///   a) the active project count differs, OR
     ///   b) any project's name in @Query doesn't match what's in the store.
     private func reconcileProjectListIfNeeded() {
+        if disableRiskySyncMutationPaths {
+            #if DEBUG
+            print("⏸️ [ContentView] Reconcile safety mode: skipping local delete/repair mutations")
+            #endif
+        }
+
         // Only run zombie cleanup when exports can actually propagate — otherwise
         // we generate local deletes that queue exports and deepen rate-limiting.
-        if !CloudKitSyncThrottler.shared.isRateLimited {
+        if !disableRiskySyncMutationPaths && !CloudKitSyncThrottler.shared.isRateLimited {
             let zombies = DeduplicationService.deleteZombieProjects(context: modelContext)
             if zombies > 0 {
                 #if DEBUG
@@ -628,6 +645,13 @@ struct ContentView: View {
     }
 
     private func performAutomaticDedupIfSafe(reason: String) {
+        guard !disableRiskySyncMutationPaths else {
+            #if DEBUG
+            print("⏸️ [ContentView] performAutomaticDedupIfSafe disabled via \(reason) (safety mode)")
+            #endif
+            return
+        }
+
         let throttler = CloudKitSyncThrottler.shared
         guard scenePhase == .active else { return }
         guard !throttler.isRateLimited else { return }
@@ -651,6 +675,13 @@ struct ContentView: View {
     }
 
     private func performPostImportRepairIfSafe(reason: String) {
+        guard !disableRiskySyncMutationPaths else {
+            #if DEBUG
+            print("⏸️ [ContentView] performPostImportRepairIfSafe disabled via \(reason) (safety mode)")
+            #endif
+            return
+        }
+
         let throttler = CloudKitSyncThrottler.shared
         guard scenePhase == .active else { return }
         guard throttler.importCompleted && throttler.importSucceeded else { return }

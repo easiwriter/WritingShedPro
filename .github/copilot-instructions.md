@@ -104,4 +104,9 @@ if folder.project == nil && folder.parentFolder == nil {
 - Use existing keys where possible (e.g. `common.cancel`, `common.done`, `fiction.untitled`)
 - Group new keys under a `// MARK: -` comment section
 - Keys that exist without a Localizable.strings entry will display the raw key text at runtime
+
+## Git Media Policy
+**CRITICAL: Do not commit MP4 files**
+- Exclude all `.mp4` assets from git commits by default
+- If a video must be shared, use external hosting or Git LFS instead of normal git
 <!-- MANUAL ADDITIONS END -->

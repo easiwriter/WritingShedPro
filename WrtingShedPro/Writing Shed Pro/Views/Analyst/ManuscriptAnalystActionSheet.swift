@@ -30,21 +30,17 @@ struct ManuscriptAnalystActionSheet: View {
                 hasStartedAnalysis = true
                 performAnalysis()
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                    .disabled(isLoading)
-                }
-            }
             .sheet(isPresented: $showPaywall) {
-                ManuscriptAnalystPaywallView(onSubscribe: {
-                    showPaywall = false
-                    performAnalysis()
-                })
+                ManuscriptAnalystPaywallView(
+                    onCancel: {
+                        showPaywall = false
+                        dismiss()
+                    },
+                    onSubscribe: {
+                        showPaywall = false
+                        performAnalysis()
+                    }
+                )
             }
             .alert("Analysis Error", isPresented: $showError, presenting: error) { _ in
                 Button("OK") { dismiss() }
