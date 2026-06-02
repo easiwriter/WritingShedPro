@@ -173,6 +173,8 @@ struct StoreView: View {
                 )
             }
             
+
+            analystSubscriptionSection
             // Hint to see individual options
             if !EntitlementManager.shared.hasBundle {
                 Button {
@@ -229,6 +231,28 @@ struct StoreView: View {
                         onRedeemCode: { presentOfferCodeRedemption() }
                     )
                 }
+            }
+
+            analystSubscriptionSection
+        }
+    }
+
+    @ViewBuilder
+    private var analystSubscriptionSection: some View {
+        if let analystProduct = product(for: .manuscriptAnalystSubscription) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Manuscript Analyst")
+                    .font(.headline)
+
+                ModuleCardView(
+                    wspProduct: .manuscriptAnalystSubscription,
+                    storeProduct: analystProduct,
+                    isPurchased: EntitlementManager.shared.isManuscriptAnalystSubscriptionActive(),
+                    isHighlighted: highlightedProduct == .manuscriptAnalystSubscription,
+                    isLoading: purchaseInProgress == analystProduct.id,
+                    onPurchase: { await purchase(analystProduct) },
+                    onRedeemCode: { presentOfferCodeRedemption() }
+                )
             }
         }
     }

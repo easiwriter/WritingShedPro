@@ -33,8 +33,13 @@ final class ManuscriptAnalystService {
             throw ManuscriptAnalystError.projectNotFound
         }
 
+        let rawContent = textFile.currentContent
+        guard !rawContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw ManuscriptAnalystError.noContentToAnalyze
+        }
+
         let content = normalizeContentForAnalysis(
-            textFile.currentContent,
+            rawContent,
             projectType: project.type
         )
         let cacheKey = "\(cacheSchemaVersion)_file_\(textFile.id)_\(contentFingerprint(content))"
@@ -54,7 +59,8 @@ final class ManuscriptAnalystService {
             analysisProfile: analysisProfile,
             fileName: textFile.name,
             content: content,
-            fileCount: 1
+            fileCount: 1,
+            poetryFormContext: poetryFormContext(for: textFile, projectType: project.type)
         )
 
         let response = try await callCloudFlareAPI(request)
@@ -107,7 +113,8 @@ final class ManuscriptAnalystService {
             analysisProfile: analysisProfile,
             fileName: project.name ?? "Untitled Manuscript",
             content: bodyFiles.content,
-            fileCount: bodyFiles.fileCount
+            fileCount: bodyFiles.fileCount,
+            poetryFormContext: manuscriptPoetryFormContext(for: project)
         )
 
         let response = try await callCloudFlareAPI(request)
@@ -154,7 +161,8 @@ final class ManuscriptAnalystService {
             analysisProfile: "drama",
             fileName: fileName,
             content: content,
-            fileCount: 1
+            fileCount: 1,
+            poetryFormContext: nil
         )
 
         let response = try await callCloudFlareAPI(request)
@@ -220,6 +228,66 @@ final class ManuscriptAnalystService {
         }
     }
 
+    private struct PoetryFormContext {
+        let poetryFormName: String?
+        let poetryFormRequirementsSummary: String?
+        let preservePoetryForm: Bool
+    }
+
+    private func poetryFormContext(for textFile: TextFile, projectType: ProjectType) -> PoetryFormContext? {
+        guard projectType == .poetry else { return nil }
+
+        if let form = textFile.poetryForm {
+            let preserve = form.id != PoetryForm.freeVerseId
+            return PoetryFormContext(
+                poetryFormName: form.name,
+                poetryFormRequirementsSummary: form.requirementsSummary,
+                preservePoetryForm: preserve
+            )
+        }
+
+        guard let rawName = textFile.poetryFormName?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawName.isEmpty else {
+            return nil
+        }
+
+        let preserve = rawName.caseInsensitiveCompare("Free Verse") != .orderedSame
+        return PoetryFormContext(
+            poetryFormName: rawName,
+            poetryFormRequirementsSummary: nil,
+            preservePoetryForm: preserve
+        )
+    }
+
+    private func manuscriptPoetryFormContext(for project: Project) -> PoetryFormContext? {
+        guard project.type == .poetry else { return nil }
+
+        let bodyFolders = project.folders?.filter { FolderCapabilityService.isContentFolder($0) } ?? []
+        var fixedFormContexts: [PoetryFormContext] = []
+
+        for folder in bodyFolders {
+            for file in folder.textFiles ?? [] {
+                guard let context = poetryFormContext(for: file, projectType: .poetry),
+                      context.preservePoetryForm else {
+                    continue
+                }
+                fixedFormContexts.append(context)
+            }
+        }
+
+        guard !fixedFormContexts.isEmpty else { return nil }
+
+        if fixedFormContexts.count == 1 {
+            return fixedFormContexts[0]
+        }
+
+        return PoetryFormContext(
+            poetryFormName: "Multiple fixed forms",
+            poetryFormRequirementsSummary: "This manuscript includes poems in multiple fixed forms. Keep each poem's line and stanza structure intact.",
+            preservePoetryForm: true
+        )
+    }
+
     private func buildRequest(
         analysisMode: String,
         projectType: String,
@@ -227,14 +295,18 @@ final class ManuscriptAnalystService {
         analysisProfile: String,
         fileName: String,
         content: String,
-        fileCount: Int
+        fileCount: Int,
+        poetryFormContext: PoetryFormContext?
     ) -> ManuscriptAnalystRequest {
         let wordCount = content.split(separator: " ").count
         let metadata = ManuscriptAnalystRequest.RequestMetadata(
             fileName: fileName,
             fileCount: fileCount,
             wordCount: wordCount,
-            documentationVersion: "1.0"
+            documentationVersion: "1.0",
+            poetryFormName: poetryFormContext?.poetryFormName,
+            poetryFormRequirementsSummary: poetryFormContext?.poetryFormRequirementsSummary,
+            preservePoetryForm: poetryFormContext?.preservePoetryForm
         )
         let options = AnalysisOptions(
             focusAreas: nil,
