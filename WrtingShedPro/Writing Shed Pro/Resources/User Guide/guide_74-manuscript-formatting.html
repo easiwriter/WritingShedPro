@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="74-manuscript-formatting"></a>
+
+<h1 id="manuscript-formatting-fiction">Manuscript Formatting (Fiction)</h1>
+<p>This guide covers how Writing Shed Pro assembles fiction project content into a manuscript for export. Each fiction class has its own assembly model. For general manuscript structure (front matter, back matter), see <a href="guide:36-manuscript-structure">Manuscript Structure</a>.</p>
+<h2 id="how-fiction-manuscripts-are-assembled">How Fiction Manuscripts Are Assembled</h2>
+<h3 id="novel">Novel</h3>
+<ol>
+<li>Chapters are assembled in chapter order</li>
+<li>Scenes within each chapter are combined in scene order</li>
+<li>Chapter headings are inserted between chapters</li>
+<li>The result is a single, continuous manuscript</li>
+</ol>
+<h3 id="verse-novel">Verse Novel</h3>
+<ol>
+<li>Books are assembled in book order</li>
+<li>Episodes within each book are combined in episode order</li>
+<li>Poetry formatting (line breaks, stanza breaks, indentation) is preserved</li>
+<li>The result is a continuous verse manuscript</li>
+</ol>
+<h3 id="short-fiction">Short Fiction</h3>
+<ol>
+<li>Scenes are assembled in scene order</li>
+<li>Scene breaks are inserted between scenes</li>
+<li>The result is a complete story</li>
+</ol>
+<h3 id="what-gets-included">What Gets Included</h3>
+<p>By default, all scenes are included. You can exclude individual scenes:</p>
+<ol>
+<li>Open the scene's context menu</li>
+<li>Toggle <strong>Include in Manuscript</strong> off</li>
+<li>The scene stays in your project but is skipped during assembly</li>
+</ol>
+<p>This is useful for deleted scenes you want to keep, alternate versions, or notes.</p>
+<h2 id="previewing-the-manuscript">Previewing the Manuscript</h2>
+<p>Before exporting:</p>
+<ol>
+<li>Open the <strong>Manuscript</strong> view</li>
+<li>Check chapter/book breaks appear correctly</li>
+<li>Verify scene order within each chapter</li>
+<li>Review formatting</li>
+<li>Confirm no unwanted scenes are included</li>
+</ol>
+<h2 id="chapter-headings">Chapter Headings</h2>
+<p>Control how chapter headings appear in the manuscript:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Example Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Number only</strong></td>
+<td>Chapter 1</td>
+</tr>
+<tr>
+<td><strong>Title only</strong></td>
+<td>The Storm</td>
+</tr>
+<tr>
+<td><strong>Number and title</strong></td>
+<td>Chapter 1: The Storm</td>
+</tr>
+<tr>
+<td><strong>Custom format</strong></td>
+<td>I — The Storm</td>
+</tr>
+</tbody>
+</table>
+<h3 id="setting-chapter-headings">Setting Chapter Headings</h3>
+<ol>
+<li>Open <strong>Export Options</strong> or <strong>Project Settings</strong></li>
+<li>Find <strong>Chapter Heading Style</strong></li>
+<li>Choose your preferred option</li>
+</ol>
+<p>For Verse Novels, book headings follow the same options (e.g., "Book I", "Book I: Origins").</p>
+<h2 id="scene-breaks">Scene Breaks</h2>
+<p>When scenes transition within a chapter, control the separator:</p>
+<table>
+<thead>
+<tr>
+<th>Break Style</th>
+<th>Appearance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Page Break</strong></td>
+<td>Each scene starts on a new page</td>
+</tr>
+<tr>
+<td><strong>Section Mark</strong></td>
+<td>Centred symbol (e.g., * * * or §) between scenes</td>
+</tr>
+<tr>
+<td><strong>Double Space</strong></td>
+<td>Extra blank line between scenes</td>
+</tr>
+<tr>
+<td><strong>None</strong></td>
+<td>Scenes flow together with no visible break</td>
+</tr>
+</tbody>
+</table>
+<p>For most fiction, <strong>Section Mark</strong> (e.g., * * *) is the standard scene break convention. <strong>Page Break</strong> is more common between chapters than between scenes.</p>
+<h2 id="first-paragraph-style">First Paragraph Style</h2>
+<p>The first paragraph of a chapter or scene can have special formatting:</p>
+<table>
+<thead>
+<tr>
+<th>Style</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>No indent</strong></td>
+<td>Traditional — first paragraph is flush left</td>
+</tr>
+<tr>
+<td><strong>Drop cap</strong></td>
+<td>Decorative large initial letter</td>
+</tr>
+<tr>
+<td><strong>Standard indent</strong></td>
+<td>Same indent as all other paragraphs</td>
+</tr>
+</tbody>
+</table>
+<p>Most publishers expect <strong>no indent</strong> for the first paragraph after a chapter heading or scene break.</p>
+<h2 id="footnote-numbering">Footnote Numbering</h2>
+<p>Choose how footnotes are numbered across the manuscript:</p>
+<ul>
+<li><strong>Per File</strong>: Numbering restarts in each scene</li>
+<li><strong>Continuous</strong>: Sequential numbering across the entire manuscript</li>
+</ul>
+<h2 id="industry-standard-manuscript-format">Industry Standard Manuscript Format</h2>
+<p>For submissions to agents and publishers, standard manuscript format is expected:</p>
+<h3 id="typical-requirements">Typical Requirements</h3>
+<ul>
+<li>Double-spaced text</li>
+<li>12pt Courier or Times New Roman</li>
+<li>1-inch (2.54 cm) margins</li>
+<li>Header with author name, title, and page number</li>
+<li>Word count on the first page</li>
+<li>Scene breaks indicated with # or * * *</li>
+</ul>
+<h3 id="applying-standard-format">Applying Standard Format</h3>
+<ol>
+<li>Configure your <strong>Stylesheet</strong> for manuscript style (double-spaced, standard font)</li>
+<li>Set <strong>Page Setup</strong> for Letter or A4 paper with 1-inch margins</li>
+<li>Set scene break style to <strong>Section Mark</strong></li>
+<li>Export to PDF or RTF</li>
+</ol>
+<h2 id="formatting-for-different-purposes">Formatting for Different Purposes</h2>
+<h3 id="agentpublisher-submission">Agent/Publisher Submission</h3>
+<ul>
+<li>Standard manuscript format (above)</li>
+<li>Clean, professional appearance</li>
+<li>Follow specific submission guidelines if provided</li>
+</ul>
+<h3 id="beta-readers">Beta Readers</h3>
+<ul>
+<li>Easy-to-read formatting</li>
+<li>Include page numbers</li>
+<li>PDF for consistency across devices</li>
+</ul>
+<h3 id="self-publishing">Self-Publishing</h3>
+<ul>
+<li>A starting point — further formatting will be needed</li>
+<li>Platform-specific requirements vary (Kindle, IngramSpark, etc.)</li>
+</ul>
+<h3 id="personal-review">Personal Review</h3>
+<ul>
+<li>Your preference</li>
+<li>Consider larger text for proofing</li>
+<li>Print a paper copy for marking up</li>
+</ul>
+<h2 id="export-formats">Export Formats</h2>
+<p>Fiction manuscripts can be exported in all available formats:</p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PDF</strong></td>
+<td>Submissions, sharing, print — looks identical everywhere</td>
+</tr>
+<tr>
+<td><strong>RTF</strong></td>
+<td>Editor collaboration — editable in Word</td>
+</tr>
+<tr>
+<td><strong>HTML</strong></td>
+<td>Web publishing, online sharing</td>
+</tr>
+<tr>
+<td><strong>Markdown</strong></td>
+<td>Plain text archives, version control</td>
+</tr>
+</tbody>
+</table>
+<p>See <a href="guide:91-export-options">Export Options</a> for full details.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="scenes-out-of-order">Scenes Out of Order</h3>
+<ul>
+<li>Check scene order within the chapter</li>
+<li>Verify chapter order in the Chapters list</li>
+<li>Review in the manuscript preview</li>
+</ul>
+<h3 id="missing-scenes">Missing Scenes</h3>
+<ul>
+<li>Ensure scenes are assigned to chapters (Novel and Verse Novel)</li>
+<li>Ensure scenes have the correct workflow status</li>
+<li>Check that <strong>Include in Manuscript</strong> is toggled on</li>
+</ul>
+<h3 id="chapter-breaks-wrong">Chapter Breaks Wrong</h3>
+<ul>
+<li>Check chapter heading settings</li>
+<li>Ensure chapters are defined and ordered correctly</li>
+<li>Review in pagination view</li>
+</ul>
+<h3 id="formatting-issues">Formatting Issues</h3>
+<ul>
+<li>Review your stylesheet settings</li>
+<li>Check paragraph styles are applied correctly</li>
+<li>Verify page setup settings</li>
+</ul>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:71-fiction-mode-overview">Fiction Mode Overview</a></li>
+<li><a href="guide:72-organizing-your-fiction">Organizing Your Fiction</a></li>
+<li><a href="guide:73-scene-organization">Scene Organization</a></li>
+<li><a href="guide:36-manuscript-structure">Manuscript Structure</a></li>
+<li><a href="guide:91-export-options">Export Options</a></li>
+<li><a href="guide:92-pdf-export">PDF Export</a></li>
+</ul>
+
+<p class="back-to-top"><a href="guide:00-toc">↑ Back to Contents</a></p>
+<hr>
+</body>
+</html>

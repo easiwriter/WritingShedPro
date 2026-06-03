@@ -171,6 +171,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         layoutManager.project = project
         layoutManager.showInvisibles = showInvisibles
         layoutManager.showDocumentLineNumbers = showLineNumbers
+        layoutManager.drawDocumentExtraLineInBackground = false
         
         textStorage.addLayoutManager(layoutManager)
         layoutManager.addTextContainer(textContainer)
@@ -709,6 +710,17 @@ struct FormattedTextEditor: UIViewRepresentable {
             }
             return bodyStyleAttributesFallback()
         }
+
+        private func refreshLineNumberDisplay(in textView: UITextView, from location: Int) {
+            let invalidateStart = max(0, location)
+            let invalidateLength = max(1, textView.textStorage.length - invalidateStart)
+            let invalidateRange = NSRange(location: invalidateStart, length: invalidateLength)
+
+            textView.layoutManager.invalidateLayout(forCharacterRange: invalidateRange, actualCharacterRange: nil)
+            textView.layoutManager.ensureLayout(for: textView.textContainer)
+            textView.layoutManager.invalidateDisplay(forCharacterRange: invalidateRange)
+            textView.setNeedsDisplay()
+        }
         
         init(_ parent: FormattedTextEditor) {
             self.parent = parent
@@ -791,14 +803,7 @@ struct FormattedTextEditor: UIViewRepresentable {
                             }
                         }
                         
-                        // Force layout manager to redraw numbers from insertion point
-                        textView.setNeedsDisplay()
-                        if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
-                            // PERFORMANCE FIX: Only invalidate from the insertion point onwards
-                            let invalidateStart = max(0, range.location - 1)
-                            let invalidateRange = NSRange(location: invalidateStart, length: textView.textStorage.length - invalidateStart)
-                            layoutManager.invalidateDisplay(forCharacterRange: invalidateRange)
-                        }
+                        refreshLineNumberDisplay(in: textView, from: range.location - 1)
                         
                         // Notify delegate of text change manually since we handled it
                         self.textViewDidChange(textView)
@@ -839,13 +844,7 @@ struct FormattedTextEditor: UIViewRepresentable {
                             }
                         }
                         
-                        textView.setNeedsDisplay()
-                        if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
-                            // PERFORMANCE FIX: Only invalidate from the insertion point onwards
-                            let invalidateStart = max(0, range.location - 1)
-                            let invalidateRange = NSRange(location: invalidateStart, length: textView.textStorage.length - invalidateStart)
-                            layoutManager.invalidateDisplay(forCharacterRange: invalidateRange)
-                        }
+                        refreshLineNumberDisplay(in: textView, from: range.location - 1)
                         
                         self.textViewDidChange(textView)
                         return false
@@ -875,14 +874,7 @@ struct FormattedTextEditor: UIViewRepresentable {
                         }
                     }
                     
-                    // Force layout manager to redraw numbers from insertion point
-                    textView.setNeedsDisplay()
-                    if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
-                        // PERFORMANCE FIX: Only invalidate from the insertion point onwards
-                        let invalidateStart = max(0, range.location - 1)
-                        let invalidateRange = NSRange(location: invalidateStart, length: textView.textStorage.length - invalidateStart)
-                        layoutManager.invalidateDisplay(forCharacterRange: invalidateRange)
-                    }
+                    refreshLineNumberDisplay(in: textView, from: range.location - 1)
                     
                     self.textViewDidChange(textView)
                     return false
@@ -930,14 +922,7 @@ struct FormattedTextEditor: UIViewRepresentable {
                                     // Notify delegate of text change
                                     self.textViewDidChange(textView)
                                     
-                                    // Force layout redraw from deletion point
-                                    textView.setNeedsDisplay()
-                                    if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
-                                        // PERFORMANCE FIX: Only invalidate from deletion point onwards
-                                        let invalidateStart = max(0, range.location - 1)
-                                        let invalidateRange = NSRange(location: invalidateStart, length: textView.textStorage.length - invalidateStart)
-                                        layoutManager.invalidateDisplay(forCharacterRange: invalidateRange)
-                                    }
+                                    refreshLineNumberDisplay(in: textView, from: range.location - 1)
                                     
                                     return false // We handled the deletion
                                 }
@@ -1768,6 +1753,9 @@ struct FormattedTextEditor: UIViewRepresentable {
 
 /// Custom UITextView subclass to support inputAccessoryView
 private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
+    private let documentLineNumberWidth: CGFloat = 56
+    private let documentLineNumberFontSize: CGFloat = 14
+
     var customAccessoryView: UIView?
     var isImageSelected: Bool = false
     var shouldHideSystemFormattingMenu: Bool = false
@@ -2272,6 +2260,58 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             recalculateSelectionBorder()
         }
     }
+
+    private func drawDocumentLineNumber(_ lineNumber: Int, at lineFragmentRect: CGRect) {
+        let numberString = "\(lineNumber)" as NSString
+        let numberAttributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.monospacedDigitSystemFont(ofSize: documentLineNumberFontSize, weight: .regular),
+            .foregroundColor: UIColor.secondaryLabel
+        ]
+
+        let numberSize = numberString.size(withAttributes: numberAttributes)
+        let numberRect = CGRect(
+            x: textContainerInset.left - documentLineNumberWidth + 6,
+            y: textContainerInset.top + lineFragmentRect.origin.y + (lineFragmentRect.height - numberSize.height) / 2,
+            width: documentLineNumberWidth - 10,
+            height: numberSize.height
+        )
+
+        numberString.draw(in: numberRect, withAttributes: numberAttributes)
+    }
+
+    private func drawEditorExtraLineNumberIfNeeded(in rect: CGRect, using layoutManager: NumberingLayoutManager) {
+        guard layoutManager.showDocumentLineNumbers,
+              !layoutManager.isPaginatedView,
+              layoutManager.extraLineFragmentTextContainer === textContainer else {
+            return
+        }
+
+        if textStorage.length == 0 {
+            let emptyRect = layoutManager.extraLineFragmentRect.isEmpty
+                ? CGRect(x: 0, y: 0, width: 100, height: UIFont.preferredFont(forTextStyle: .body).lineHeight)
+                : layoutManager.extraLineFragmentRect
+            drawDocumentLineNumber(1, at: emptyRect)
+            return
+        }
+
+        let extraRect = layoutManager.extraLineFragmentRect
+        guard !extraRect.isEmpty else {
+            return
+        }
+
+        let translatedExtraRect = extraRect.offsetBy(dx: textContainerInset.left, dy: textContainerInset.top)
+        guard translatedExtraRect.intersects(rect) else {
+            return
+        }
+
+        var lineNumber = 1
+        let fullGlyphRange = NSRange(location: 0, length: layoutManager.numberOfGlyphs)
+        layoutManager.enumerateLineFragments(forGlyphRange: fullGlyphRange) { _, _, _, _, _ in
+            lineNumber += 1
+        }
+
+        drawDocumentLineNumber(lineNumber, at: extraRect)
+    }
     
     // Custom drawing for empty document numbering (Feature 016)
     override func draw(_ rect: CGRect) {
@@ -2280,6 +2320,10 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         #if DEBUG
         print("🎨 CustomTextView.draw() called, textStorage.length: \(textStorage.length)")
         #endif
+
+        if let numberingLayoutManager = layoutManager as? NumberingLayoutManager {
+            drawEditorExtraLineNumberIfNeeded(in: rect, using: numberingLayoutManager)
+        }
         
         // For empty documents (or documents with only invisible chars like zero-width space),
         // draw the number based on either the typingAttributes or the current style

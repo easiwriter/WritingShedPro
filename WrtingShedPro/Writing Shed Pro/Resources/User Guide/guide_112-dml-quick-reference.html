@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="112-dml-quick-reference"></a>
+
+<h1 id="dml-quick-reference">DML Quick Reference</h1>
+<p>Quick reference for Drama Markup Language (DML) used in Drama projects.</p>
+<h2 id="basic-structure">Basic Structure</h2>
+<pre><code># ACT ONE
+
+## Scene 1
+
+INT. COFFEE SHOP - DAY
+
+&gt; The shop is busy. EMMA, 30s, sits at a corner table.
+
+EMMA
+(nervously)
+Is this seat taken?
+
+DAVID
+No, please. Sit.
+
+&gt; He gestures to the empty chair.
+</code></pre>
+<h2 id="element-prefixes">Element Prefixes</h2>
+<table>
+<thead>
+<tr>
+<th>Prefix</th>
+<th>Element</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#</code></td>
+<td>Act heading</td>
+<td><code># ACT ONE</code></td>
+</tr>
+<tr>
+<td><code>##</code></td>
+<td>Scene heading</td>
+<td><code>## Scene 1</code></td>
+</tr>
+<tr>
+<td>(none)</td>
+<td>Scene heading (Film)</td>
+<td><code>INT. OFFICE - DAY</code></td>
+</tr>
+<tr>
+<td>(none)</td>
+<td>Character name</td>
+<td><code>DAVID</code></td>
+</tr>
+<tr>
+<td><code>&gt;</code></td>
+<td>Action/Stage direction</td>
+<td><code>&gt; She exits.</code></td>
+</tr>
+<tr>
+<td><code>()</code></td>
+<td>Parenthetical</td>
+<td><code>(softly)</code></td>
+</tr>
+<tr>
+<td>(none)</td>
+<td>Dialogue</td>
+<td>Plain text after character name</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scene-headings">Scene Headings</h2>
+<h3 id="film-format">Film Format</h3>
+<pre><code>INT. LOCATION - TIME
+EXT. LOCATION - TIME
+INT./EXT. LOCATION - TIME
+</code></pre>
+<p>Examples:</p>
+<pre><code>INT. LIVING ROOM - NIGHT
+EXT. BEACH - SUNSET
+INT./EXT. CAR - DAY
+</code></pre>
+<h3 id="stage-format">Stage Format</h3>
+<pre><code>## Scene 1
+## Scene 2: The Reveal
+</code></pre>
+<h2 id="character-names">Character Names</h2>
+<p>Write in ALL CAPS on their own line:</p>
+<pre><code>EMMA
+DAVID
+DOCTOR MILLER
+VOICE (O.S.)
+</code></pre>
+<h3 id="character-extensions">Character Extensions</h3>
+<pre><code>EMMA (V.O.)      Voice over
+EMMA (O.S.)      Off screen
+EMMA (CONT'D)    Continuing
+EMMA (O.C.)      Off camera
+</code></pre>
+<h2 id="dialogue">Dialogue</h2>
+<p>Plain text following a character name:</p>
+<pre><code>EMMA
+I never thought I'd see you again.
+</code></pre>
+<p>Multi-line:</p>
+<pre><code>DAVID
+You know, I've been thinking about that day.
+The way the light came through the window.
+It changed everything for me.
+</code></pre>
+<h2 id="parentheticals">Parentheticals</h2>
+<p>In parentheses, on their own line:</p>
+<pre><code>EMMA
+(hesitant)
+Are you sure about this?
+
+DAVID
+(laughing, then serious)
+No. But when has that ever stopped us?
+</code></pre>
+<h2 id="action-lines">Action Lines</h2>
+<p>Prefix with <code>&gt;</code>:</p>
+<pre><code>&gt; She sets down her coffee cup.
+
+&gt; DAVID enters through the front door. He's soaking wet.
+
+&gt; Beat.
+
+&gt; They stare at each other.
+</code></pre>
+<h2 id="transitions">Transitions</h2>
+<p>Film transitions:</p>
+<pre><code>CUT TO:
+DISSOLVE TO:
+FADE OUT.
+FADE IN:
+SMASH CUT TO:
+</code></pre>
+<h2 id="special-elements">Special Elements</h2>
+<h3 id="montage">Montage</h3>
+<pre><code>MONTAGE:
+
+&gt; EMMA jogs through the park.
+
+&gt; DAVID works late at the office.
+
+&gt; EMMA stares at her phone.
+
+END MONTAGE.
+</code></pre>
+<h3 id="flashback">Flashback</h3>
+<pre><code>FLASHBACK:
+
+INT. CHILDHOOD HOME - DAY (1995)
+
+&gt; Young EMMA opens a gift.
+
+END FLASHBACK.
+</code></pre>
+<h3 id="intercut">Intercut</h3>
+<pre><code>INTERCUT - PHONE CONVERSATION
+
+INT. EMMA'S APARTMENT - NIGHT
+
+EMMA
+Where are you?
+
+INT. AIRPORT - CONTINUOUS
+
+DAVID
+About to board. I'll be home soon.
+</code></pre>
+<h2 id="song-lyrics-stage">Song Lyrics (Stage)</h2>
+<pre><code>EMMA
+(singing)
+♪ When the morning comes around
+♪ And the sky is turning gold
+♪ I'll remember what we found
+♪ And the stories left untold ♪
+</code></pre>
+<h2 id="stage-directions-stage">Stage Directions (Stage)</h2>
+<p>Detailed directions for stage:</p>
+<pre><code>&gt; SL: Sofa and coffee table. SR: Kitchen counter with stools. 
+&gt; UC: Large window showing city skyline (projected).
+</code></pre>
+<p>Abbreviations:
+- SL: Stage Left
+- SR: Stage Right
+- UC: Upstage Center
+- DC: Downstage Center</p>
+<h2 id="common-patterns">Common Patterns</h2>
+<h3 id="character-introduction">Character Introduction</h3>
+<pre><code>&gt; EMMA (30s, nervous energy, vintage dress) enters with a stack of files.
+</code></pre>
+<h3 id="quick-dialogue-exchange">Quick Dialogue Exchange</h3>
+<pre><code>EMMA
+Did you take it?
+
+DAVID
+Take what?
+
+EMMA
+You know what.
+</code></pre>
+<h3 id="dramatic-pause">Dramatic Pause</h3>
+<pre><code>DAVID
+I think we should—
+
+&gt; Long pause.
+
+DAVID (CONT'D)
+—never mind.
+</code></pre>
+<h2 id="film-vs-stage-output">Film vs Stage Output</h2>
+<p>Same DML produces different formatting:</p>
+<h3 id="film-output">Film Output</h3>
+<ul>
+<li>Scene headings in CAPS</li>
+<li>Technical transitions</li>
+<li>Camera-oriented terminology</li>
+</ul>
+<h3 id="stage-output">Stage Output</h3>
+<ul>
+<li>Act/Scene structure emphasized</li>
+<li>Stage direction styling</li>
+<li>Theatre conventions</li>
+</ul>
+<h2 id="common-mistakes">Common Mistakes</h2>
+<table>
+<thead>
+<tr>
+<th>Wrong</th>
+<th>Right</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Emma</code> (lowercase)</td>
+<td><code>EMMA</code></td>
+</tr>
+<tr>
+<td><code>She exits</code> (no prefix)</td>
+<td><code>&gt; She exits.</code></td>
+</tr>
+<tr>
+<td><code>[softly]</code></td>
+<td><code>(softly)</code></td>
+</tr>
+<tr>
+<td><code>ACT 1</code></td>
+<td><code># ACT ONE</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="tips">Tips</h2>
+<ol>
+<li><strong>Character names</strong>: Always CAPS</li>
+<li><strong>Action lines</strong>: Always start with <code>&gt;</code></li>
+<li><strong>Keep it simple</strong>: Don't over-format</li>
+<li><strong>Preview often</strong>: Check both Film and Stage output</li>
+<li><strong>Consistency</strong>: Same format throughout</li>
+</ol>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:84-dml-reference">DML Reference</a></li>
+<li><a href="guide:82-script-formatting">Script Formatting</a></li>
+<li><a href="guide:83-film-vs-stage">Film vs Stage</a></li>
+</ul>
+
+<p class="back-to-top"><a href="guide:00-toc">↑ Back to Contents</a></p>
+<hr>
+</body>
+</html>

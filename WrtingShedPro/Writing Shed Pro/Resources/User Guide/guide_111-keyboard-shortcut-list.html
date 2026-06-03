@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="111-keyboard-shortcut-list"></a>
+
+<h1 id="keyboard-shortcut-list">Keyboard Shortcut List</h1>
+<p>A complete reference of keyboard shortcuts available in Writing Shed Pro. Works on Mac and iPad with external keyboard.</p>
+<h2 id="file-operations">File Operations</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>⌘N</td>
+<td>New file</td>
+</tr>
+<tr>
+<td>⌘S</td>
+<td>Force save/sync</td>
+</tr>
+<tr>
+<td>⌘W</td>
+<td>Close file</td>
+</tr>
+</tbody>
+</table>
+<h2 id="edit-operations">Edit Operations</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>⌘Z</td>
+<td>Undo</td>
+</tr>
+<tr>
+<td>⌘⇧Z</td>
+<td>Redo</td>
+</tr>
+<tr>
+<td>⌘X</td>
+<td>Cut</td>
+</tr>
+<tr>
+<td>⌘C</td>
+<td>Copy</td>
+</tr>
+<tr>
+<td>⌘V</td>
+<td>Paste</td>
+</tr>
+<tr>
+<td>⌘A</td>
+<td>Select all</td>
+</tr>
+<tr>
+<td>⌫ (Delete)</td>
+<td>Delete selection or character left</td>
+</tr>
+<tr>
+<td>⌦ (Forward Delete)</td>
+<td>Delete character right</td>
+</tr>
+</tbody>
+</table>
+<h2 id="text-formatting">Text Formatting</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>⌘B</td>
+<td>Bold</td>
+</tr>
+<tr>
+<td>⌘I</td>
+<td>Italic</td>
+</tr>
+<tr>
+<td>⌘U</td>
+<td>Underline</td>
+</tr>
+</tbody>
+</table>
+<h2 id="styles">Styles</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>⌘⌥0</td>
+<td>Apply Body style</td>
+</tr>
+<tr>
+<td>⌘⌥1</td>
+<td>Apply Heading 1</td>
+</tr>
+<tr>
+<td>⌘⌥2</td>
+<td>Apply Heading 2</td>
+</tr>
+<tr>
+<td>⌘⌥3</td>
+<td>Apply Heading 3</td>
+</tr>
+</tbody>
+</table>
+<h2 id="find-and-replace">Find and Replace</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>⌘F</td>
+<td>Open Find</td>
+</tr>
+<tr>
+<td>⌘G</td>
+<td>Find next</td>
+</tr>
+<tr>
+<td>⌘⇧G</td>
+<td>Find previous</td>
+</tr>
+<tr>
+<td>⌘⌥F</td>
+<td>Open Find and Replace</td>
+</tr>
+<tr>
+<td>Esc</td>
+<td>Close Find/Replace</td>
+</tr>
+</tbody>
+</table>
+<h2 id="navigation">Navigation</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>⌘↑</td>
+<td>Go to document start</td>
+</tr>
+<tr>
+<td>⌘↓</td>
+<td>Go to document end</td>
+</tr>
+<tr>
+<td>⌘←</td>
+<td>Go to line start</td>
+</tr>
+<tr>
+<td>⌘→</td>
+<td>Go to line end</td>
+</tr>
+<tr>
+<td>⌥←</td>
+<td>Move word left</td>
+</tr>
+<tr>
+<td>⌥→</td>
+<td>Move word right</td>
+</tr>
+<tr>
+<td>⌥↑</td>
+<td>Move paragraph up</td>
+</tr>
+<tr>
+<td>⌥↓</td>
+<td>Move paragraph down</td>
+</tr>
+<tr>
+<td>⇞ (Page Up)</td>
+<td>Scroll up one screen</td>
+</tr>
+<tr>
+<td>⇟ (Page Down)</td>
+<td>Scroll down one screen</td>
+</tr>
+</tbody>
+</table>
+<h2 id="selection">Selection</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>⇧ + any arrow</td>
+<td>Extend selection in that direction</td>
+</tr>
+<tr>
+<td>⌘⇧←</td>
+<td>Select to line start</td>
+</tr>
+<tr>
+<td>⌘⇧→</td>
+<td>Select to line end</td>
+</tr>
+<tr>
+<td>⌘⇧↑</td>
+<td>Select to document start</td>
+</tr>
+<tr>
+<td>⌘⇧↓</td>
+<td>Select to document end</td>
+</tr>
+<tr>
+<td>⌥⇧←</td>
+<td>Select word left</td>
+</tr>
+<tr>
+<td>⌥⇧→</td>
+<td>Select word right</td>
+</tr>
+<tr>
+<td>⌥⇧↑</td>
+<td>Select paragraph up</td>
+</tr>
+<tr>
+<td>⌥⇧↓</td>
+<td>Select paragraph down</td>
+</tr>
+<tr>
+<td>⌘A</td>
+<td>Select all</td>
+</tr>
+</tbody>
+</table>
+<h2 id="zoom">Zoom</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>⌘+ or ⌘=</td>
+<td>Zoom in</td>
+</tr>
+<tr>
+<td>⌘-</td>
+<td>Zoom out</td>
+</tr>
+<tr>
+<td>⌘0</td>
+<td>Reset zoom to 100%</td>
+</tr>
+</tbody>
+</table>
+<h2 id="text-entry">Text Entry</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Return</td>
+<td>New paragraph</td>
+</tr>
+<tr>
+<td>⇧Return</td>
+<td>Line break (soft return)</td>
+</tr>
+<tr>
+<td>Tab</td>
+<td>Insert tab (in code/tables)</td>
+</tr>
+<tr>
+<td>⌘⇧C</td>
+<td>Insert comment</td>
+</tr>
+<tr>
+<td>⌘⇧X</td>
+<td>Add index entry</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lists-and-indentation">Lists and Indentation</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tab</td>
+<td>Increase list indent (create sub-list)</td>
+</tr>
+<tr>
+<td>⇧Tab</td>
+<td>Decrease list indent (promote item)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Notes:</strong>
+- Tab/Shift+Tab work when cursor is in a list item
+- Sub-lists use different numbering: 1→a→i for numbers, •→◦→▪ for bullets<br />
+- Sub-list numbering restarts when you return to a higher level
+- Shift+Tab at Level 1 exits the list (applies Body style)</p>
+<h2 id="gestures-touch">Gestures (Touch)</h2>
+<h3 id="iphone">iPhone</h3>
+<table>
+<thead>
+<tr>
+<th>Gesture</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shake</td>
+<td>Undo</td>
+</tr>
+<tr>
+<td>Three-finger swipe left</td>
+<td>Undo</td>
+</tr>
+<tr>
+<td>Three-finger swipe right</td>
+<td>Redo</td>
+</tr>
+<tr>
+<td>Double-tap word</td>
+<td>Select word</td>
+</tr>
+<tr>
+<td>Triple-tap</td>
+<td>Select paragraph</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ipad">iPad</h3>
+<table>
+<thead>
+<tr>
+<th>Gesture</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Three-finger swipe left</td>
+<td>Undo</td>
+</tr>
+<tr>
+<td>Three-finger swipe right</td>
+<td>Redo</td>
+</tr>
+<tr>
+<td>Double-tap word</td>
+<td>Select word</td>
+</tr>
+<tr>
+<td>Triple-tap</td>
+<td>Select paragraph</td>
+</tr>
+<tr>
+<td>Pinch</td>
+<td>Zoom in/out</td>
+</tr>
+<tr>
+<td>Two-finger tap</td>
+<td>Secondary click (context menu)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="mac-trackpad">Mac (Trackpad)</h3>
+<table>
+<thead>
+<tr>
+<th>Gesture</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two-finger tap</td>
+<td>Secondary click</td>
+</tr>
+<tr>
+<td>Pinch</td>
+<td>Zoom in/out</td>
+</tr>
+<tr>
+<td>Force click</td>
+<td>Look up definition</td>
+</tr>
+</tbody>
+</table>
+<h2 id="quick-reference-card">Quick Reference Card</h2>
+<p>Cut this out and keep it handy:</p>
+<pre><code>ESSENTIALS
+⌘Z Undo    ⌘⇧Z Redo    ⌘F Find
+⌘B Bold    ⌘I Italic   ⌘U Underline
+⌘C Copy    ⌘V Paste    ⌘X Cut
+
+NAVIGATION
+⌘↑ Top     ⌘↓ Bottom
+⌥← Word left    ⌥→ Word right
+
+ZOOM
+⌘+ In     ⌘- Out     ⌘0 Reset
+</code></pre>
+<h2 id="key-symbol-legend">Key Symbol Legend</h2>
+<table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Key Name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>⌘</td>
+<td>Command</td>
+</tr>
+<tr>
+<td>⌥</td>
+<td>Option (Alt)</td>
+</tr>
+<tr>
+<td>⇧</td>
+<td>Shift</td>
+</tr>
+<tr>
+<td>⌃</td>
+<td>Control</td>
+</tr>
+<tr>
+<td>⌫</td>
+<td>Delete (Backspace)</td>
+</tr>
+<tr>
+<td>⌦</td>
+<td>Forward Delete</td>
+</tr>
+<tr>
+<td>↩</td>
+<td>Return</td>
+</tr>
+<tr>
+<td>⎋</td>
+<td>Escape</td>
+</tr>
+<tr>
+<td>⇞</td>
+<td>Page Up</td>
+</tr>
+<tr>
+<td>⇟</td>
+<td>Page Down</td>
+</tr>
+<tr>
+<td>↑↓←→</td>
+<td>Arrow keys</td>
+</tr>
+</tbody>
+</table>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:05-keyboard-shortcuts">Keyboard Shortcuts</a></li>
+<li><a href="guide:41-the-editor">The Editor</a></li>
+</ul>
+
+<p class="back-to-top"><a href="guide:00-toc">↑ Back to Contents</a></p>
+<hr>
+</body>
+</html>

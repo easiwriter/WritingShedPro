@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="113-troubleshooting"></a>
+
+<h1 id="troubleshooting">Troubleshooting</h1>
+<p>Solutions to common issues in Writing Shed Pro.</p>
+<h2 id="sync-issues">Sync Issues</h2>
+<h3 id="files-not-syncing">Files Not Syncing</h3>
+<p><strong>Symptoms</strong>: Changes on one device don't appear on another.</p>
+<p><strong>Solutions</strong>:
+1. Check internet connection on both devices
+2. Ensure iCloud is enabled in Settings
+3. Wait a few minutes—sync isn't instant
+4. Force quit and reopen the app
+5. Check iCloud storage isn't full
+6. Verify same Apple ID on both devices</p>
+<h3 id="sync-conflicts">Sync Conflicts</h3>
+<p><strong>Symptoms</strong>: Message about conflicts; duplicate files.</p>
+<p><strong>Solutions</strong>:
+1. Review both versions
+2. Keep the correct one
+3. Delete the duplicate
+4. In future, wait for sync before switching devices</p>
+<h3 id="unable-to-sync-error">"Unable to Sync" Error</h3>
+<p><strong>Solutions</strong>:
+1. Check internet connection
+2. Check iCloud status at apple.com/support/systemstatus
+3. Sign out and back into iCloud
+4. Restart device
+5. Wait and try again later</p>
+<h2 id="app-performance">App Performance</h2>
+<h3 id="app-running-slowly">App Running Slowly</h3>
+<p><strong>Solutions</strong>:
+1. Close other apps
+2. Restart the app
+3. Restart your device
+4. Check available storage space
+5. Large projects may need more time</p>
+<h3 id="app-crashes">App Crashes</h3>
+<p><strong>Solutions</strong>:
+1. Update to latest app version
+2. Update iOS/macOS
+3. Restart device
+4. If persists, contact support with steps to reproduce</p>
+<h3 id="app-wont-open">App Won't Open</h3>
+<p><strong>Solutions</strong>:
+1. Force quit and try again
+2. Restart device
+3. Check for app updates
+4. Reinstall the app (your data is in iCloud)</p>
+<h2 id="editing-issues">Editing Issues</h2>
+<h3 id="text-not-appearing">Text Not Appearing</h3>
+<p><strong>Solutions</strong>:
+1. Check zoom level (⌘0 to reset)
+2. Check text color vs background color
+3. Scroll to cursor position
+4. Force quit and reopen</p>
+<h3 id="formatting-lost">Formatting Lost</h3>
+<p><strong>Solutions</strong>:
+1. Undo (⌘Z) immediately
+2. Check file version history
+3. Formatting might be in style, not inline</p>
+<h3 id="undo-not-working">Undo Not Working</h3>
+<p><strong>Solutions</strong>:
+1. Undo has limits—can't undo everything
+2. After save/close, undo resets
+3. Check file versions for recovery</p>
+<h3 id="cursor-jumping">Cursor Jumping</h3>
+<p><strong>Solutions</strong>:
+1. May be auto-scroll behavior
+2. Check for accidental touches
+3. Disable autocorrect if it's interfering</p>
+<h2 id="export-and-print-issues">Export and Print Issues</h2>
+<h3 id="pdf-looks-wrong">PDF Looks Wrong</h3>
+<p><strong>Solutions</strong>:
+1. Check Page Setup settings
+2. Preview in Pagination View before export
+3. Check font availability
+4. Try different export options</p>
+<h3 id="print-problems">Print Problems</h3>
+<p><strong>Solutions</strong>:
+1. Check printer is connected
+2. Check paper size matches Page Setup
+3. Check printer margins
+4. Try Print to PDF first to verify</p>
+<h3 id="export-fails">Export Fails</h3>
+<p><strong>Solutions</strong>:
+1. Check available storage
+2. Try exporting to a different location
+3. Check permissions on destination folder
+4. Try smaller file/fewer pages</p>
+<h2 id="icloud-issues">iCloud Issues</h2>
+<h3 id="cant-enable-icloud">Can't Enable iCloud</h3>
+<p><strong>Solutions</strong>:
+1. Sign into iCloud in device Settings
+2. Ensure iCloud Drive is enabled
+3. Ensure app is allowed to use iCloud
+4. Check iCloud storage isn't full</p>
+<h3 id="files-missing">Files Missing</h3>
+<p><strong>Solutions</strong>:
+1. Check Trash within app
+2. Check Recently Deleted in Files app
+3. Check iCloud Drive in Files app
+4. Files may still be downloading</p>
+<h3 id="files-stuck-downloading">Files Stuck Downloading</h3>
+<p><strong>Solutions</strong>:
+1. Tap to force download
+2. Check internet connection
+3. Check iCloud storage
+4. Wait—large files take time</p>
+<h2 id="poetry-features">Poetry Features</h2>
+<h3 id="syllable-count-wrong">Syllable Count Wrong</h3>
+<p><strong>Solutions</strong>:
+1. Check word pronunciation
+2. Custom words may need dictionary additions
+3. Some words have multiple valid counts
+4. Trust your ear for edge cases</p>
+<h3 id="rhyme-not-detected">Rhyme Not Detected</h3>
+<p><strong>Solutions</strong>:
+1. Check spelling of both words
+2. Some rhymes are imperfect/slant
+3. Proper nouns may not be in dictionary
+4. Regional pronunciation differences</p>
+<h2 id="fiction-features">Fiction Features</h2>
+<h3 id="scenes-not-linking">Scenes Not Linking</h3>
+<p><strong>Solutions</strong>:
+1. Check both scene and plot element exist
+2. Link from scene settings
+3. Save after making links</p>
+<h3 id="word-count-wrong">Word Count Wrong</h3>
+<p><strong>Solutions</strong>:
+1. Count may exclude certain text
+2. Check settings for what's counted
+3. Footnotes/comments may be separate</p>
+<h2 id="drama-features">Drama Features</h2>
+<h3 id="dml-not-formatting">DML Not Formatting</h3>
+<p><strong>Solutions</strong>:
+1. Check prefix syntax (<code>&gt;</code> for action, etc.)
+2. Character names must be ALL CAPS
+3. Check for extra spaces
+4. View in Preview to debug</p>
+<h3 id="output-format-wrong">Output Format Wrong</h3>
+<p><strong>Solutions</strong>:
+1. Check Film vs Stage setting
+2. Settings are per-project
+3. Toggle and toggle back if stuck</p>
+<h2 id="recovery">Recovery</h2>
+<h3 id="lost-work">Lost Work</h3>
+<p><strong>Solutions</strong>:
+1. Check undo history
+2. Check file versions (if available)
+3. Check other devices for synced versions
+4. Check Time Machine backup (Mac)
+5. iCloud keeps some file versions</p>
+<h3 id="deleted-file-recovery">Deleted File Recovery</h3>
+<ol>
+<li>Check Trash in app</li>
+<li>Empty Trash must be confirmed</li>
+<li>iCloud may retain deleted files briefly</li>
+<li>Contact Apple Support for iCloud recovery</li>
+</ol>
+<h2 id="getting-more-help">Getting More Help</h2>
+<h3 id="before-contacting-support">Before Contacting Support</h3>
+<p>Collect this information:
+- Device model and OS version
+- App version
+- Steps to reproduce issue
+- Screenshots or screen recordings
+- Error messages (exact text)</p>
+<h3 id="contact-methods">Contact Methods</h3>
+<ul>
+<li>In-app: Settings → Support</li>
+<li>Email: support@example.com</li>
+<li>Website: example.com/support</li>
+</ul>
+<h3 id="known-issues">Known Issues</h3>
+<p>Check the app's website for known issues and workarounds.</p>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:114-faq">FAQ</a></li>
+<li><a href="guide:115-contact-support">Contact Support</a></li>
+<li><a href="guide:24-icloud-sync">iCloud Sync</a></li>
+</ul>
+
+<p class="back-to-top"><a href="guide:00-toc">↑ Back to Contents</a></p>
+<hr>
+</body>
+</html>

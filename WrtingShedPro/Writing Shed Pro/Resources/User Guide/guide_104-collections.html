@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="104-collections"></a>
+
+<h1 id="poetry-collections">Poetry Collections</h1>
+<p>Poetry Collections let you group related poems together as first-class entities in your Poetry project. Each collection has its own name, synopsis, and list of linked poems, and can be included in your manuscript's body matter for export.</p>
+<h2 id="what-are-poetry-collections">What Are Poetry Collections?</h2>
+<p>A Poetry Collection is a dedicated grouping of poems for a specific purpose:
+- Poems for a chapbook
+- A submission package
+- A themed reading set
+- Any curated grouping you need</p>
+<h3 id="collections-vs-folders">Collections vs Folders</h3>
+<table>
+<thead>
+<tr>
+<th>Folders</th>
+<th>Poetry Collections</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Poems live in one folder</td>
+<td>Poems can belong to multiple collections</td>
+</tr>
+<tr>
+<td>Moving poems changes location</td>
+<td>Adding to a collection doesn't move the poem</td>
+</tr>
+<tr>
+<td>Physical organization</td>
+<td>Virtual grouping with metadata</td>
+</tr>
+<tr>
+<td>Hierarchical</td>
+<td>Flat (each collection is independent)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="where-collections-appear">Where Collections Appear</h2>
+<p>Collections are available <strong>only in Poetry projects</strong>. Access them through the dedicated <strong>Collections</strong> folder in the project sidebar.</p>
+<p><strong>Note</strong>: Fiction and Drama projects use chapters, books, or acts to organize their content. The Collections folder is not available in those project types.</p>
+<h2 id="creating-a-collection">Creating a Collection</h2>
+<h3 id="from-the-collections-folder">From the Collections Folder</h3>
+<ol>
+<li>Open the <strong>Collections</strong> folder</li>
+<li>Tap <strong>+</strong></li>
+<li>Enter a collection name</li>
+<li>Optionally add a synopsis</li>
+<li>Tap <strong>Create</strong></li>
+</ol>
+<h3 id="when-adding-poems">When Adding Poems</h3>
+<ol>
+<li>Select poems in the Poems folder</li>
+<li>Choose <strong>Add to Collection...</strong></li>
+<li>Select <strong>Create New Collection</strong></li>
+<li>Enter a name</li>
+</ol>
+<h2 id="adding-poems-to-collections">Adding Poems to Collections</h2>
+<h3 id="from-the-poems-folder-multiple-poems">From the Poems Folder (Multiple Poems)</h3>
+<ol>
+<li>Tap <strong>Edit</strong> in the Poems folder</li>
+<li>Select multiple poems</li>
+<li>Tap <strong>Add to Collection</strong></li>
+<li>Choose the collection</li>
+</ol>
+<h3 id="drag-and-drop-ipadmac">Drag and Drop (iPad/Mac)</h3>
+<ul>
+<li>Drag poems to the Collections folder</li>
+<li>Drop on a specific collection</li>
+</ul>
+<h2 id="viewing-collection-contents">Viewing Collection Contents</h2>
+<ol>
+<li>Open the Collections folder</li>
+<li>Tap a collection</li>
+<li>See all poems in the collection</li>
+</ol>
+<h3 id="what-you-see">What You See</h3>
+<ul>
+<li>Poem titles</li>
+<li>Word counts</li>
+<li>Last modified date</li>
+</ul>
+<h2 id="removing-poems-from-collections">Removing Poems from Collections</h2>
+<ol>
+<li>Open the collection</li>
+<li>Select the poem(s) to remove</li>
+<li>Tap <strong>Remove from Collection</strong></li>
+</ol>
+<p>The poem isn't deleted—it just leaves this collection.</p>
+<h2 id="renaming-collections">Renaming Collections</h2>
+<ol>
+<li>Open the Collections folder</li>
+<li>Tap <strong>Edit</strong></li>
+<li>Select the collection</li>
+<li>Tap <strong>Rename</strong></li>
+<li>Enter the new name</li>
+<li>Tap <strong>Rename</strong></li>
+</ol>
+<h2 id="deleting-collections">Deleting Collections</h2>
+<ol>
+<li>Swipe left on the collection</li>
+<li>Tap <strong>Delete</strong></li>
+<li>Confirm</li>
+</ol>
+<p><strong>Note</strong>: Deleting a collection doesn't delete the poems. They remain in the Poems folder.</p>
+<h2 id="body-matter-integration">Body Matter Integration</h2>
+<p>Poetry Collections can be included in your manuscript's body matter for export and assembly:</p>
+<h3 id="adding-to-body-matter">Adding to Body Matter</h3>
+<ol>
+<li>Open the <strong>Manuscript</strong> folder</li>
+<li>Navigate to <strong>Body Matter</strong></li>
+<li>Add collections (and/or individual poems) to body matter</li>
+<li>Reorder items as needed</li>
+</ol>
+<h3 id="how-assembly-works">How Assembly Works</h3>
+<ul>
+<li>Collections in body matter are assembled in their body matter order</li>
+<li>Within each collection, poems are assembled in their collection order</li>
+<li>Individual poems not in any collection can also be added to body matter</li>
+<li>This gives you full control over the manuscript structure</li>
+</ul>
+<h3 id="why-this-matters">Why This Matters</h3>
+<ul>
+<li>Organize a chapbook with themed sections (each section is a collection)</li>
+<li>Control the exact reading order for export</li>
+<li>Mix collections and standalone poems in your manuscript</li>
+</ul>
+<h2 id="using-collections-for-submissions">Using Collections for Submissions</h2>
+<p>Collections integrate with the submission system:</p>
+<h3 id="workflow">Workflow</h3>
+<ol>
+<li>Create a collection for your submission</li>
+<li>Add the poems you want to submit</li>
+<li>Review and organize</li>
+<li>Submit the collection to a publication</li>
+<li>Track the submission status</li>
+</ol>
+<h3 id="benefits">Benefits</h3>
+<ul>
+<li>Clear record of what was submitted</li>
+<li>Easy to submit the same group elsewhere</li>
+<li>Collections maintain their poem list independently</li>
+</ul>
+<h2 id="collection-best-practices">Collection Best Practices</h2>
+<h3 id="naming">Naming</h3>
+<p>Use clear, descriptive names:
+- "Spring 2026 Contest Entry"
+- "Nature Poems Chapbook"
+- "Anthology Submission"</p>
+<h3 id="regular-review">Regular Review</h3>
+<ul>
+<li>Remove poems no longer relevant</li>
+<li>Delete obsolete collections</li>
+<li>Update collection synopses</li>
+</ul>
+<h3 id="avoid-duplication">Avoid Duplication</h3>
+<p>Instead of copying poems:
+- Add the same poem to multiple collections
+- Each collection references the poem
+- Edits to the poem appear everywhere</p>
+<h2 id="common-use-cases">Common Use Cases</h2>
+<h3 id="poetry-chapbook">Poetry Chapbook</h3>
+<p>Collect poems for a chapbook, add the collection to body matter, arrange in reading order, and export as a complete manuscript.</p>
+<h3 id="contest-entry">Contest Entry</h3>
+<p>Group poems meeting contest criteria. Submit the collection and track the submission status.</p>
+<h3 id="reading-selection">Reading Selection</h3>
+<p>Assemble poems for a live reading. Order them for performance flow.</p>
+<h3 id="themed-group">Themed Group</h3>
+<p>Collect all poems about nature, all sonnets, all work from a particular period, etc.</p>
+<h2 id="migration-from-version-10">Migration from Version 1.0</h2>
+<p>If you're upgrading from version 1.0, your existing collections are automatically migrated to the new Poetry Collection model. The migration:
+- Converts old submission-based collections to dedicated PoetryCollection entities
+- Preserves all poem links
+- Removes the Collections folder from non-Poetry projects (Fiction, Short Fiction)</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="poem-not-showing-in-collection">Poem Not Showing in Collection</h3>
+<ul>
+<li>Verify the poem was added</li>
+<li>Check if the poem was deleted (it might be in Trash)</li>
+<li>Restore from Trash if needed</li>
+</ul>
+<h3 id="cant-find-collections-folder">Can't Find Collections Folder</h3>
+<ul>
+<li>Collections are only available in Poetry projects</li>
+<li>If you're in a Fiction or Drama project, use chapters, books, or acts instead</li>
+</ul>
+<h3 id="cant-add-to-collection">Can't Add to Collection</h3>
+<ul>
+<li>Ensure the poem exists in the Poems folder</li>
+<li>Check that the collection exists</li>
+</ul>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:35-organizing-your-work">Organizing Your Work</a></li>
+<li><a href="guide:95-submission-tracking">Submission Tracking</a></li>
+<li><a href="guide:34-folders-and-files">Folders and Files</a></li>
+<li><a href="guide:61-poetry-mode-overview">Poetry Mode Overview</a></li>
+<li><a href="guide:36-manuscript-structure">Manuscript Structure</a></li>
+</ul>
+
+<p class="back-to-top"><a href="guide:00-toc">↑ Back to Contents</a></p>
+<hr>
+</body>
+</html>

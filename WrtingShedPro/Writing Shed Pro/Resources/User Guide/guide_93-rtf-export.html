@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="93-rtf-export"></a>
+
+<h1 id="rtf-export">RTF Export</h1>
+<p>RTF (Rich Text Format) produces editable documents compatible with most word processors. Use RTF when you need recipients to be able to edit the content.</p>
+<h2 id="why-rtf">Why RTF?</h2>
+<h3 id="advantages">Advantages</h3>
+<ul>
+<li><strong>Editable</strong>: Recipients can make changes</li>
+<li><strong>Compatible</strong>: Opens in Word, Pages, Google Docs, etc.</li>
+<li><strong>Standard</strong>: Long-established format</li>
+<li><strong>Lightweight</strong>: Smaller than some alternatives</li>
+</ul>
+<h3 id="when-to-use-rtf">When to Use RTF</h3>
+<ul>
+<li>Sending to editors who need to make changes</li>
+<li>Collaboration requiring editing</li>
+<li>Importing into other applications</li>
+<li>When PDF isn't accepted</li>
+</ul>
+<h2 id="exporting-to-rtf">Exporting to RTF</h2>
+<h3 id="single-file">Single File</h3>
+<ol>
+<li>Open the file</li>
+<li>Tap the <strong>Share</strong> or <strong>Export</strong> button</li>
+<li>Select <strong>Export as RTF</strong></li>
+<li>Choose where to save or how to share</li>
+</ol>
+<h3 id="multiple-files">Multiple Files</h3>
+<ol>
+<li>Open the collection, submission, or project</li>
+<li>Select files to export</li>
+<li>Choose <strong>RTF</strong></li>
+<li>Files export (possibly as separate files or combined)</li>
+</ol>
+<h2 id="whats-preserved-in-rtf">What's Preserved in RTF</h2>
+<h3 id="fully-preserved">Fully Preserved</h3>
+<ul>
+<li>Text content</li>
+<li>Bold, italic, underline, strikethrough</li>
+<li>Font family and size</li>
+<li>Paragraph alignment</li>
+<li>Line spacing</li>
+<li>Basic colors</li>
+</ul>
+<h3 id="usually-preserved">Usually Preserved</h3>
+<ul>
+<li>Images (may resize)</li>
+<li>Footnotes (may format differently)</li>
+<li>Paragraph spacing</li>
+<li>Indentation</li>
+</ul>
+<h3 id="may-vary">May Vary</h3>
+<ul>
+<li>Complex styles</li>
+<li>Advanced typography</li>
+<li>Exact pagination</li>
+<li>Headers/footers</li>
+</ul>
+<h2 id="rtf-limitations">RTF Limitations</h2>
+<p>RTF is an interchange format, not a final format:</p>
+<h3 id="appearance-may-differ">Appearance May Differ</h3>
+<ul>
+<li>Different apps render RTF differently</li>
+<li>Pagination won't match exactly</li>
+<li>Fonts may substitute if unavailable</li>
+</ul>
+<h3 id="feature-differences">Feature Differences</h3>
+<ul>
+<li>Some formatting options don't translate</li>
+<li>Complex layouts may simplify</li>
+<li>App-specific features are lost</li>
+</ul>
+<h3 id="its-a-starting-point">It's a Starting Point</h3>
+<p>Recipients may need to:
+- Adjust formatting
+- Set up page layout
+- Apply their own styles</p>
+<h2 id="working-with-recipients">Working with Recipients</h2>
+<h3 id="communicate-expectations">Communicate Expectations</h3>
+<ul>
+<li>Let editors know it's RTF</li>
+<li>Mention if specific formatting matters</li>
+<li>Be flexible about final appearance</li>
+</ul>
+<h3 id="provide-context">Provide Context</h3>
+<ul>
+<li>Include any special instructions</li>
+<li>Note if fonts need to be installed</li>
+<li>Explain any unusual formatting</li>
+</ul>
+<h3 id="accept-changes">Accept Changes</h3>
+<p>RTF is for editing. The document will likely change.</p>
+<h2 id="rtf-vs-pdf">RTF vs PDF</h2>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>RTF</th>
+<th>PDF</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Editable</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Appearance</td>
+<td>Varies</td>
+<td>Fixed</td>
+</tr>
+<tr>
+<td>File size</td>
+<td>Smaller</td>
+<td>Larger</td>
+</tr>
+<tr>
+<td>Features</td>
+<td>Some lost</td>
+<td>All preserved</td>
+</tr>
+<tr>
+<td>Use case</td>
+<td>Collaboration</td>
+<td>Final output</td>
+</tr>
+</tbody>
+</table>
+<h3 id="choose-rtf-when">Choose RTF When:</h3>
+<ul>
+<li>Editors need to make changes</li>
+<li>Importing to another tool</li>
+<li>File size is critical</li>
+<li>PDF isn't an option</li>
+</ul>
+<h3 id="choose-pdf-when">Choose PDF When:</h3>
+<ul>
+<li>Appearance must be exact</li>
+<li>Submitting final work</li>
+<li>Protecting content</li>
+<li>Professional presentation</li>
+</ul>
+<h2 id="troubleshooting-rtf">Troubleshooting RTF</h2>
+<h3 id="formatting-looks-wrong">Formatting Looks Wrong</h3>
+<ul>
+<li>Different apps interpret RTF differently</li>
+<li>Try opening in a different app</li>
+<li>Accept that some variation is normal</li>
+</ul>
+<h3 id="images-missing">Images Missing</h3>
+<ul>
+<li>RTF image support varies</li>
+<li>Check export settings</li>
+<li>Try re-inserting images</li>
+</ul>
+<h3 id="file-wont-open">File Won't Open</h3>
+<ul>
+<li>Check the app supports RTF</li>
+<li>Try a different RTF viewer</li>
+<li>File may be corrupted—re-export</li>
+</ul>
+<h3 id="fonts-dont-match">Fonts Don't Match</h3>
+<ul>
+<li>Fonts must be installed on recipient's device</li>
+<li>RTF substitutes if fonts are missing</li>
+<li>Consider using common fonts (Times, Arial)</li>
+</ul>
+<h2 id="alternatives-to-rtf">Alternatives to RTF</h2>
+<p>If RTF doesn't meet your needs:</p>
+<h3 id="docx">DOCX</h3>
+<ul>
+<li>Better Word compatibility</li>
+<li>More features preserved</li>
+<li>Larger files</li>
+<li>(May be available in future updates)</li>
+</ul>
+<h3 id="plain-text">Plain Text</h3>
+<ul>
+<li>Maximum compatibility</li>
+<li>No formatting</li>
+<li>Smallest files</li>
+</ul>
+<h3 id="pdf">PDF</h3>
+<ul>
+<li>For final output</li>
+<li>Not editable</li>
+<li>Exact appearance</li>
+</ul>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:91-export-options">Export Options</a></li>
+<li><a href="guide:92-pdf-export">PDF Export</a></li>
+<li><a href="guide:94-printing">Printing</a></li>
+</ul>
+
+<p class="back-to-top"><a href="guide:00-toc">↑ Back to Contents</a></p>
+<hr>
+</body>
+</html>

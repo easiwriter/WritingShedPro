@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="62-syllable-counting"></a>
+
+<h1 id="syllable-counting">Syllable Counting</h1>
+<p>Syllable counting is essential for many poetry forms. Writing Shed Pro provides automatic syllable counting to help you maintain proper meter and form requirements.</p>
+<h2 id="understanding-syllable-counts">Understanding Syllable Counts</h2>
+<p>Many poetry forms require specific syllable counts:
+- <strong>Haiku</strong>: 5-7-5 syllables
+- <strong>Tanka</strong>: 5-7-5-7-7 syllables
+- <strong>Limerick</strong>: Variable, roughly 8-8-5-5-8</p>
+<p>Writing Shed Pro counts syllables automatically, displaying the count for each line.</p>
+<h2 id="viewing-syllable-counts">Viewing Syllable Counts</h2>
+<p>When editing a poem with a syllable-based form:</p>
+<ol>
+<li>Syllable counts appear at the right edge of each line</li>
+<li>Counts update as you type</li>
+<li>Compare against your form's requirements</li>
+</ol>
+<h3 id="visual-indicators">Visual Indicators</h3>
+<ul>
+<li>Numbers show the syllable count</li>
+<li>Colors may indicate match/mismatch with form requirements</li>
+<li>Form reference panel shows expected counts</li>
+</ul>
+<h2 id="how-syllable-counting-works">How Syllable Counting Works</h2>
+<p>Writing Shed Pro uses a sophisticated syllable counting algorithm:</p>
+<h3 id="pronunciation-dictionaries">Pronunciation Dictionaries</h3>
+<ul>
+<li><strong>CMU Dictionary</strong>: Standard American English pronunciations</li>
+<li><strong>British Dictionary</strong>: UK English pronunciations with different stress patterns</li>
+<li>Provides accurate syllable counts for known words</li>
+</ul>
+<h3 id="selecting-your-dialect">Selecting Your Dialect</h3>
+<p>Writing Shed Pro supports both American and British English pronunciation:</p>
+<ol>
+<li>Tap <strong>Settings</strong> (⚙️) in the main menu</li>
+<li>Open <strong>Poetry Settings</strong></li>
+<li>Select <strong>Pronunciation</strong> → Choose <strong>US</strong> or <strong>UK</strong></li>
+</ol>
+<p>This affects:
+- Syllable counting (some words have different syllable counts)
+- Stress pattern analysis
+- Rhyme detection</p>
+<h4 id="key-differences">Key Differences</h4>
+<table>
+<thead>
+<tr>
+<th>Word</th>
+<th>American</th>
+<th>British</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>secretary</td>
+<td>4 syllables</td>
+<td>3 syllables</td>
+</tr>
+<tr>
+<td>laboratory</td>
+<td>5 syllables</td>
+<td>4 syllables</td>
+</tr>
+<tr>
+<td>advertisement</td>
+<td>ad-ver-TISE-ment</td>
+<td>ad-VER-tis-ment</td>
+</tr>
+<tr>
+<td>controversy</td>
+<td>CON-tro-ver-sy</td>
+<td>con-TROV-er-sy</td>
+</tr>
+</tbody>
+</table>
+<h3 id="fallback-algorithm">Fallback Algorithm</h3>
+<p>For words not in the dictionary:
+- Estimates based on vowel patterns
+- Handles most cases well
+- May vary from your intended pronunciation</p>
+<h2 id="accuracy-considerations">Accuracy Considerations</h2>
+<p>Syllable counting is an estimate, not absolute truth:</p>
+<h3 id="variables-in-english">Variables in English</h3>
+<ul>
+<li>Regional pronunciation differs</li>
+<li>Poetic license allows variation</li>
+<li>Some words have multiple valid pronunciations</li>
+</ul>
+<h3 id="examples-of-variation">Examples of Variation</h3>
+<ul>
+<li>"Fire": 1 or 2 syllables?</li>
+<li>"Every": 2 or 3 syllables?</li>
+<li>"Comfortable": 3 or 4 syllables?</li>
+</ul>
+<h3 id="your-ear-is-final">Your Ear is Final</h3>
+<p>The count is a guide. If you hear 3 syllables, use 3—regardless of what the tool says.</p>
+<h2 id="syllable-counting-tips">Syllable Counting Tips</h2>
+<h3 id="trust-but-verify">Trust but Verify</h3>
+<p>Use the count as a starting point, then read aloud to confirm.</p>
+<h3 id="watch-for-problem-words">Watch for Problem Words</h3>
+<p>Learn which words the algorithm misses in your vocabulary.</p>
+<h3 id="consider-elision">Consider Elision</h3>
+<p>In poetry, syllables can be elided (combined):
+- "O'er" for "over"
+- "E'en" for "even"
+- Write as you intend to read</p>
+<h3 id="compound-words">Compound Words</h3>
+<p>The algorithm handles most compounds, but check unusual ones.</p>
+<h2 id="working-with-syllable-counts">Working with Syllable Counts</h2>
+<h3 id="adjusting-line-length">Adjusting Line Length</h3>
+<p>If a line is too long:
+- Find a shorter synonym
+- Restructure the phrase
+- Consider elision</p>
+<p>If a line is too short:
+- Add modifiers
+- Choose longer synonyms
+- Expand the imagery</p>
+<h3 id="maintaining-form">Maintaining Form</h3>
+<p>For strict forms like haiku:
+1. Write your thought
+2. Check the count
+3. Adjust word choices
+4. Verify by reading aloud</p>
+<h3 id="breaking-form">Breaking Form</h3>
+<p>Sometimes a line needs an extra syllable for the right word. Many poets prioritize meaning over strict count. Know the rules, then decide when to break them.</p>
+<h2 id="syllables-and-meter">Syllables and Meter</h2>
+<p>Syllable count differs from meter:
+- <strong>Syllables</strong>: How many beats
+- <strong>Meter</strong>: Which beats are stressed</p>
+<p>For metered verse, see <a href="guide:64-verse-highlighting">Verse Highlighting</a> for stress pattern analysis.</p>
+<h3 id="example">Example</h3>
+<p>"To be or not to be" has 6 syllables with alternating stress (iambic trimeter):</p>
+<pre><code>to BE or NOT to BE
+˘  ´  ˘  ´   ˘  ´
+</code></pre>
+<h2 id="disabling-syllable-counts">Disabling Syllable Counts</h2>
+<p>If you find the counts distracting:
+1. Toggle off syllable display in poem settings
+2. Re-enable when needed for checking</p>
+<p>The feature is there to help—use it when helpful, hide it when not.</p>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:61-poetry-mode-overview">Poetry Mode Overview</a></li>
+<li><a href="guide:64-verse-highlighting">Verse Highlighting</a></li>
+<li><a href="guide:65-forms-and-templates">Forms and Templates</a></li>
+</ul>
+
+<p class="back-to-top"><a href="guide:00-toc">↑ Back to Contents</a></p>
+<hr>
+</body>
+</html>

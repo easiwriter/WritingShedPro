@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="51-prose-mode-overview"></a>
+
+<h1 id="prose-mode-overview">Prose Mode Overview</h1>
+<p>Prose projects are the most flexible project type in Writing Shed Pro. They're designed for essays, articles, blog posts, technical documentation, and any writing that doesn't require the specialized tools of Poetry, Fiction, or Drama projects.</p>
+<h2 id="when-to-use-prose-projects">When to Use Prose Projects</h2>
+<p>Choose a Prose project when writing:
+- Essays and academic papers
+- Blog posts and articles
+- Personal journals and diaries
+- Technical documentation
+- Business documents
+- Any general-purpose writing</p>
+<h2 id="prose-project-structure">Prose Project Structure</h2>
+<p>When you create a Prose project, you get these folders:</p>
+<table>
+<thead>
+<tr>
+<th>Folder</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Prose</strong></td>
+<td>Your main writing area - all files live here</td>
+</tr>
+<tr>
+<td><strong>Sections</strong></td>
+<td>Optional organizational divisions</td>
+</tr>
+<tr>
+<td><strong>Trash</strong></td>
+<td>Deleted files (recoverable until emptied)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-prose-folder">The Prose Folder</h3>
+<p>Like other project types, Prose uses <strong>workflow status</strong> (Draft, Ready, Set Aside, Published) on files rather than separate status folders. In Prose, files live in a single <strong>Prose</strong> folder.</p>
+<h2 id="workflow-status">Workflow Status</h2>
+<p>Every file has a workflow status:</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Draft</strong></td>
+<td>Work in progress</td>
+</tr>
+<tr>
+<td><strong>Ready</strong></td>
+<td>Complete and ready for use/export</td>
+</tr>
+<tr>
+<td><strong>Set Aside</strong></td>
+<td>On hold or archived</td>
+</tr>
+<tr>
+<td><strong>Published</strong></td>
+<td>Final, published version</td>
+</tr>
+</tbody>
+</table>
+<h3 id="filtering-by-status">Filtering by Status</h3>
+<p>At the top of the file list, tap status tabs to filter:
+- <strong>All</strong> - Show all files
+- <strong>Draft (n)</strong> - Show only drafts
+- <strong>Ready (n)</strong> - Show ready files
+- etc.</p>
+<h3 id="changing-status">Changing Status</h3>
+<ol>
+<li>Tap <strong>Edit</strong> in the file list</li>
+<li>Select one or more files</li>
+<li>Tap <strong>Change Status</strong> (🔁) in the toolbar</li>
+<li>Choose the new status</li>
+</ol>
+<h2 id="sections">Sections</h2>
+<p>Sections let you organize files into logical groups within a Prose project.</p>
+<h3 id="what-are-sections">What Are Sections?</h3>
+<p>Sections are like chapters or parts—they group related files together:
+- A user guide might have sections for "Getting Started", "Features", "Reference"
+- An essay collection might have sections for themes or time periods
+- A journal might have sections for different years</p>
+<h3 id="creating-sections">Creating Sections</h3>
+<ol>
+<li>Navigate to the <strong>Sections</strong> folder</li>
+<li>Tap <strong>+</strong> to add a new section</li>
+<li>Enter a name and optional synopsis</li>
+</ol>
+<h3 id="assigning-files-to-sections">Assigning Files to Sections</h3>
+<ol>
+<li>In the Prose file list, tap <strong>Edit</strong></li>
+<li>Select files with <strong>Ready</strong> status</li>
+<li>Tap <strong>Add to Section</strong> in the toolbar</li>
+<li>Choose the destination section</li>
+</ol>
+<h3 id="collapsible-section-view">Collapsible Section View</h3>
+<p>When files are assigned to sections, the main file list groups them by section:
+- Tap a section header to expand/collapse
+- Use the expand/collapse button to show/hide all sections
+- File count displayed in each section header</p>
+<p>See <a href="guide:52-working-with-sections">Working with Sections</a> for detailed instructions.</p>
+<h2 id="key-features">Key Features</h2>
+<h3 id="flexible-organization">Flexible Organization</h3>
+<ul>
+<li>No enforced structure—organize however works for you</li>
+<li>Files can be ordered manually or sorted alphabetically</li>
+<li>Optional section grouping for larger projects</li>
+</ul>
+<h3 id="full-text-formatting">Full Text Formatting</h3>
+<ul>
+<li>All text styles (headings, body, captions, etc.)</li>
+<li>Character formatting (bold, italic, underline)</li>
+<li>Images with captions</li>
+<li>Footnotes and comments</li>
+</ul>
+<h3 id="import-and-export">Import and Export</h3>
+<ul>
+<li>Import Word (.docx) and Markdown (.md) documents</li>
+<li>Export to PDF, RTF, Word, HTML, or Markdown</li>
+<li>Batch export multiple files at once</li>
+</ul>
+<h3 id="search-and-replace">Search and Replace</h3>
+<ul>
+<li>Search across all files in the project</li>
+<li>Find and replace with preview</li>
+<li>Regular expression support</li>
+</ul>
+<h2 id="prose-vs-other-project-types">Prose vs. Other Project Types</h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Prose</th>
+<th>Poetry</th>
+<th>Fiction</th>
+<th>Drama</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Simple folder structure</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Sections for organization</td>
+<td>✓</td>
+<td>Poetry Collections</td>
+<td>Chapters/Books</td>
+<td>Acts</td>
+</tr>
+<tr>
+<td>Syllable counting</td>
+<td></td>
+<td>✓</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Scene management</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Script formatting</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Workflow status</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+</tbody>
+</table>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="start-writing-first">Start Writing First</h3>
+<p>Don't worry about organization initially. Create files, write content, then organize later.</p>
+<h3 id="use-sections-for-larger-projects">Use Sections for Larger Projects</h3>
+<p>If your project has 10+ files, consider grouping them into sections.</p>
+<h3 id="leverage-workflow-status">Leverage Workflow Status</h3>
+<p>Use Draft → Ready → Published to track progress. Filter by status to focus on current work.</p>
+<h3 id="export-regularly">Export Regularly</h3>
+<p>Export finished work to PDF or other formats for backup and sharing.</p>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:52-working-with-sections">Working with Sections</a></li>
+<li><a href="guide:53-file-organization">File Organization</a></li>
+<li><a href="guide:54-manuscript-and-export">Manuscript and Export</a></li>
+<li><a href="guide:31-project-types-overview">Project Types Overview</a></li>
+<li><a href="guide:41-the-editor">The Editor</a></li>
+</ul>
+
+<p class="back-to-top"><a href="guide:00-toc">↑ Back to Contents</a></p>
+<hr>
+</body>
+</html>

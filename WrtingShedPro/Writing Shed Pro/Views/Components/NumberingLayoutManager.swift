@@ -32,6 +32,10 @@ class NumberingLayoutManager: NSLayoutManager {
 
     /// Whether to draw editor line numbers in the right margin
     var showDocumentLineNumbers: Bool = false
+
+    /// Whether the layout manager should draw the extra trailing editor line number.
+    /// FormattedTextEditor handles this in CustomTextView.draw(_:) to avoid clip issues.
+    var drawDocumentExtraLineInBackground: Bool = true
     
     /// Initial counter state for cross-page numbering continuity.
     /// Set by VirtualPageScrollView to continue numbering from previous pages.
@@ -654,14 +658,17 @@ class NumberingLayoutManager: NSLayoutManager {
     /// Draw line numbers on the left margin for regular editor documents.
     /// Counts rendered visual lines (line fragments), including wrapped and blank lines.
     private func drawDocumentLineNumbers(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
-        guard textStorage != nil, textContainers.first != nil else {
+        guard textStorage != nil,
+              let textContainer = textContainers.first else {
             return
         }
 
         // Empty editor still displays line 1.
         if numberOfGlyphs == 0 {
             let defaultLineHeight = UIFont.preferredFont(forTextStyle: .body).lineHeight
-            let emptyRect = CGRect(x: 0, y: 0, width: 100, height: defaultLineHeight)
+            let emptyRect = extraLineFragmentRect.isEmpty
+                ? CGRect(x: 0, y: 0, width: 100, height: defaultLineHeight)
+                : extraLineFragmentRect
             drawDocumentLineNumber(1, at: origin, lineFragmentRect: emptyRect)
             return
         }
@@ -693,6 +700,18 @@ class NumberingLayoutManager: NSLayoutManager {
 
             self.drawDocumentLineNumber(lineNumber, at: origin, lineFragmentRect: lineFragmentRect)
             lineNumber += 1
+        }
+
+          let extraRect = extraLineFragmentRect
+          if drawDocumentExtraLineInBackground,
+              extraLineFragmentTextContainer === textContainer,
+           !extraRect.isEmpty {
+            let visibleRect = boundingRect(forGlyphRange: glyphsToShow, in: textContainer)
+            let isExtraLineVisible = glyphsToShow.length == 0 || extraRect.intersects(visibleRect)
+
+            if isExtraLineVisible {
+                drawDocumentLineNumber(lineNumber, at: origin, lineFragmentRect: extraRect)
+            }
         }
     }
 

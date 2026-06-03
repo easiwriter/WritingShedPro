@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="81-drama-mode-overview"></a>
+
+<h1 id="drama-mode-overview">Drama Mode Overview</h1>
+<p>Drama projects in Writing Shed Pro provide specialized tools for playwrights and screenwriters. This overview explains the features available for writing scripts.</p>
+<h2 id="what-makes-drama-mode-special">What Makes Drama Mode Special</h2>
+<p>Drama mode understands script writing needs:
+- <strong>Dialogue formatting</strong>: Character names, dialogue, and directions
+- <strong>Industry formats</strong>: Film/screenplay and stage play styles
+- <strong>DML markup</strong>: Easy-to-write source that renders professionally
+- <strong>Scene structure</strong>: Organize your script logically</p>
+<h2 id="creating-a-drama-project">Creating a Drama Project</h2>
+<ol>
+<li>From the project list, tap <strong>+</strong></li>
+<li>Enter a project name</li>
+<li>Select <strong>Drama</strong> as the project type</li>
+<li>Optionally select a story structure</li>
+<li>Tap <strong>Create</strong></li>
+</ol>
+<h2 id="story-structures">Story Structures</h2>
+<p>Drama projects support the same story structures as Fiction:</p>
+<h3 id="freeform">Freeform</h3>
+<p>No predefined stages—organize your plot however you like.</p>
+<h3 id="three-act-structure">Three-Act Structure</h3>
+<p>Classic narrative structure:</p>
+<ol>
+<li><strong>Act 1 - Setup</strong>: Introduce world and characters, inciting incident</li>
+<li><strong>Act 2 - Confrontation</strong>: Rising action, complications</li>
+<li><strong>Act 3 - Resolution</strong>: Climax and conclusion</li>
+</ol>
+<h3 id="the-monomyth-heros-journey">The Monomyth (Hero's Journey)</h3>
+<p>Christopher Vogler's 12-stage adaptation of the Hero's Journey from <em>The Writer's Journey</em>:</p>
+<ol>
+<li>Ordinary World</li>
+<li>Call to Adventure</li>
+<li>Refusal of the Call</li>
+<li>Meeting the Mentor</li>
+<li>Crossing the Threshold</li>
+<li>Tests, Allies, Enemies</li>
+<li>Approach to the Inmost Cave</li>
+<li>Ordeal</li>
+<li>Reward</li>
+<li>The Road Back</li>
+<li>Resurrection</li>
+<li>Return with the Elixir</li>
+</ol>
+<p>You can change the structure at any time in Project Settings.</p>
+<h3 id="using-structures-in-drama">Using Structures in Drama</h3>
+<p>Plot elements in your drama project can be linked to structure stages:</p>
+<ul>
+<li>Create plot elements for key story beats</li>
+<li>Assign each to a monomyth stage or three-act stage</li>
+<li>Connect plot elements to scenes</li>
+<li>Use the structure to track your script's arc</li>
+</ul>
+<h2 id="drama-project-structure">Drama Project Structure</h2>
+<pre><code>Project
+├── Manuscript (Front Matter, Body Matter, Back Matter)
+├── Scenes (filtered by workflow status)
+├── Acts (group scenes into acts)
+├── Plot Elements
+├── Characters
+├── Locations
+├── Submissions
+├── Research
+├── Publishers / Agents
+├── Other
+└── Trash
+</code></pre>
+<p>Drama projects share structure with Fiction projects, as scripts have similar organizational needs.</p>
+<h2 id="script-format-options">Script Format Options</h2>
+<p>Choose how your script is rendered:</p>
+<h3 id="filmscreenplay-format">Film/Screenplay Format</h3>
+<p>Industry-standard screenplay format:
+- INT./EXT. scene headings
+- Centered character names
+- Dialogue with specific margins
+- Right-aligned transitions</p>
+<h3 id="stage-play-format">Stage Play Format</h3>
+<p>Traditional theatrical format:
+- ACT/Scene headings
+- Character names in caps
+- Italicized stage directions
+- Different margin conventions</p>
+<h3 id="changing-format">Changing Format</h3>
+<ol>
+<li>Open Project Settings</li>
+<li>Select <strong>Script Format</strong></li>
+<li>Choose Film or Stage</li>
+<li>Your DML source renders in the new format</li>
+</ol>
+<p>The same source works for both—only the output changes.</p>
+<h2 id="drama-markup-language-dml">Drama Markup Language (DML)</h2>
+<p>DML is a simple markup that lets you write dialogue naturally:</p>
+<h3 id="basic-example">Basic Example</h3>
+<pre><code># ACT I, Scene 1
+@ LOCATION: Living Room
+= Night, raining
+
+&gt; A modest living room. JOHN stands by the window.
+
+JOHN
+(hesitantly)
+I don't think we should go.
+
+MARY
+We don't have a choice.
+</code></pre>
+<p>This renders as professional script format based on your settings.</p>
+<p>See <a href="guide:84-dml-reference">DML Reference</a> for complete syntax.</p>
+<h2 id="core-concepts">Core Concepts</h2>
+<h3 id="scenes">Scenes</h3>
+<p>Like fiction, drama is built from scenes:
+- Each scene file contains DML content
+- Scenes are organized into acts (chapters)
+- Preview shows formatted output</p>
+<h3 id="acts">Acts</h3>
+<p>The equivalent of chapters:
+- Group related scenes
+- Organize your script structure
+- Traditional theatrical divisions</p>
+<h3 id="scene-grouping-by-act">Scene Grouping by Act</h3>
+<p>When viewing all scenes in a Drama project, scenes are automatically grouped under their assigned act in collapsible sections:</p>
+<ul>
+<li>Each section shows a theater masks icon, act name, and scene count</li>
+<li>Tap a section header to expand or collapse it</li>
+<li>Use the expand/collapse all button in the toolbar</li>
+<li>Unassigned scenes appear in a separate "Unassigned" section</li>
+</ul>
+<p>This gives you an at-a-glance view of your script structure without navigating into individual acts.</p>
+<h3 id="characters">Characters</h3>
+<p>Define your dramatis personae:
+- Character names
+- Descriptions
+- Relationships
+- Notes</p>
+<h3 id="locations">Locations</h3>
+<p>Your settings and places:
+- Location names
+- Descriptions
+- Practical notes for production</p>
+<h2 id="drama-workflow">Drama Workflow</h2>
+<h3 id="1-create-characters-and-locations">1. Create Characters and Locations</h3>
+<p>Before writing, define:
+- Your main characters
+- Key locations
+- This helps with consistency</p>
+<h3 id="2-write-scenes">2. Write Scenes</h3>
+<ul>
+<li>Use DML markup</li>
+<li>Focus on dialogue and action</li>
+<li>Let formatting happen automatically</li>
+</ul>
+<h3 id="3-organize">3. Organize</h3>
+<ul>
+<li>Group scenes into acts</li>
+<li>Arrange in performance order</li>
+<li>Review the full script</li>
+</ul>
+<h3 id="4-export">4. Export</h3>
+<ul>
+<li>Choose film or stage format</li>
+<li>Generate PDF or print</li>
+<li>Share your script</li>
+</ul>
+<h2 id="live-preview">Live Preview</h2>
+<p>As you write in DML:
+- Preview shows formatted output
+- See how dialogue will look
+- Check scene headings and transitions</p>
+<p>Toggle between:
+- Source view (DML markup)
+- Preview (formatted script)</p>
+<h2 id="differences-from-fiction">Differences from Fiction</h2>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Fiction</th>
+<th>Drama</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Content</td>
+<td>Prose narrative</td>
+<td>Dialogue and directions</td>
+</tr>
+<tr>
+<td>Markup</td>
+<td>Standard text</td>
+<td>DML formatting</td>
+</tr>
+<tr>
+<td>Output</td>
+<td>Manuscript</td>
+<td>Script format</td>
+</tr>
+<tr>
+<td>Chapters</td>
+<td>Reader divisions</td>
+<td>Acts (performance divisions)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="getting-started-tips">Getting Started Tips</h2>
+<h3 id="learn-dml-basics">Learn DML Basics</h3>
+<p>Start with simple scenes:
+- Scene heading
+- A few characters
+- Basic dialogue</p>
+<h3 id="study-script-format">Study Script Format</h3>
+<p>Read professional scripts to understand:
+- How dialogue is spaced
+- When to use parentheticals
+- How to write action lines</p>
+<h3 id="use-both-formats">Use Both Formats</h3>
+<p>Try rendering in both film and stage:
+- See how the same content adapts
+- Understand the differences
+- Choose appropriately for your target</p>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:82-script-formatting">Script Formatting</a></li>
+<li><a href="guide:83-film-vs-stage-formats">Film vs Stage Formats</a></li>
+<li><a href="guide:84-dml-reference">DML Reference</a></li>
+<li><a href="guide:85-manuscript-and-export">Manuscript and Export</a></li>
+</ul>
+
+<p class="back-to-top"><a href="guide:00-toc">↑ Back to Contents</a></p>
+<hr>
+</body>
+</html>

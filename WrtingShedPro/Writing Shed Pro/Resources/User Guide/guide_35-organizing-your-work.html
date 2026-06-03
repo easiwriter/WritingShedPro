@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="35-organizing-your-work"></a>
+
+<h1 id="organizing-your-work">Organizing Your Work</h1>
+<p>A well-organized project makes writing easier and more productive. This guide focuses on <strong>organization strategy</strong>: workflow status, ordering, and manuscript assembly decisions.</p>
+<p>For step-by-step actions (creating, renaming, deleting, restoring, and detailed list operations), see <a href="guide:34-folders-and-files">Folders and Files</a>.</p>
+<h2 id="workflow-status-lifecycle">Workflow Status Lifecycle</h2>
+<p>Writing Shed Pro uses file workflow statuses to support a natural writing lifecycle:</p>
+<pre><code class="language-text">Draft → Ready → Published
+  ↓
+Set Aside
+</code></pre>
+<p>Deleted items go to the Trash folder.</p>
+<h3 id="draft-status">Draft Status</h3>
+<p>Where new work begins. Use Draft for:</p>
+<ul>
+<li>First drafts</li>
+<li>Work in progress</li>
+<li>Pieces that need revision</li>
+</ul>
+<h3 id="ready-status">Ready Status</h3>
+<p>Use Ready when a file is polished and complete. Ready signals:</p>
+<ul>
+<li>No more major edits needed</li>
+<li>Ready for submission or publication</li>
+<li>Your best, finished work</li>
+</ul>
+<h3 id="set-aside-status">Set Aside Status</h3>
+<p>For work you're not actively pursuing:</p>
+<ul>
+<li>Ideas that aren't working yet</li>
+<li>Seasonal pieces (waiting for the right time)</li>
+<li>Experiments you might return to</li>
+</ul>
+<h3 id="published-status">Published Status</h3>
+<p>Published is usually set automatically when a submission is accepted.</p>
+<h3 id="trash">Trash</h3>
+<p>Deleted items land here. You can:</p>
+<ul>
+<li>Restore accidentally deleted work</li>
+<li>Review before permanent deletion</li>
+<li>Empty periodically to clean up</li>
+</ul>
+<h2 id="sorting-and-ordering">Sorting and Ordering</h2>
+<p>Control how files appear in lists:</p>
+<h3 id="sort-options">Sort Options</h3>
+<ul>
+<li><strong>Name</strong>: Alphabetical (A-Z)</li>
+<li><strong>Date Created</strong>: When files were made</li>
+<li><strong>Date Modified</strong>: When files were last edited</li>
+<li><strong>User's Order</strong>: Your custom arrangement</li>
+</ul>
+<h3 id="custom-ordering-notes">Custom Ordering Notes</h3>
+<ul>
+<li>Use <strong>User's Order</strong> when sequence matters (submissions, reading flow, revision passes)</li>
+<li>Keep one stable ordering strategy per folder to avoid accidental reshuffling</li>
+<li>Custom order is saved and syncs across devices</li>
+</ul>
+<p>For exact tap-by-tap sorting and drag-reorder steps, see <a href="guide:34-folders-and-files">Folders and Files</a>.</p>
+<h2 id="project-body-containers-and-body-matter">Project Body Containers and Body Matter</h2>
+<p>Writing Shed Pro uses project-specific <strong>body containers</strong> to group content for manuscript assembly. Poetry Collections are one example, not the only one.</p>
+<h3 id="body-matter-units-by-project">Body Matter Units by Project</h3>
+<ul>
+<li><strong>Prose</strong>: Sections</li>
+<li><strong>Poetry</strong>: Collections</li>
+<li><strong>Fiction (Novel)</strong>: Chapters</li>
+<li><strong>Fiction (Short Fiction)</strong>: Scenes (directly ordered)</li>
+<li><strong>Fiction (Verse Novel)</strong>: Books</li>
+<li><strong>Drama</strong>: Acts</li>
+</ul>
+<p>These units are added to <strong>Manuscript → Body Matter</strong> and reordered. During export, body matter is assembled in that order.</p>
+<h3 id="common-uses">Common Uses</h3>
+<ul>
+<li>Group related pieces into coherent units</li>
+<li>Build a deliberate reading order</li>
+<li>Organize long projects into manageable structure</li>
+<li>Control manuscript assembly order for export and print</li>
+</ul>
+<p>See <a href="guide:36-manuscript-structure">Manuscript Structure</a> for full assembly behavior across project types, and <a href="guide:104-collections">Poetry Collections</a> for Poetry-specific details.</p>
+<h2 id="searching">Searching</h2>
+<p>Find files quickly with search:</p>
+<h3 id="project-search">Project Search</h3>
+<ol>
+<li>From the project view, tap the search icon</li>
+<li>Type your search term</li>
+<li>Results show matching files</li>
+</ol>
+<h3 id="within-a-folder">Within a Folder</h3>
+<p>Search scope is limited to the current folder.</p>
+<h3 id="search-options">Search Options</h3>
+<ul>
+<li>Search by file name</li>
+<li>Search within file content</li>
+<li>Case-insensitive by default</li>
+</ul>
+<p>For advanced find/replace workflows inside files, see <a href="guide:101-search-and-replace">Search and Replace</a>.</p>
+<h2 id="tags-and-metadata">Tags and Metadata</h2>
+<p>While Writing Shed Pro doesn't have explicit tags, you can use:</p>
+<h3 id="naming-conventions">Naming Conventions</h3>
+<p>Add prefixes or suffixes to file names:</p>
+<ul>
+<li><code>[WIP] Poem Title</code> for work in progress</li>
+<li><code>Poem Title - Sonnet</code> for form</li>
+<li><code>Poem Title (Contest)</code> for destination</li>
+</ul>
+<h3 id="details-field">Details Field</h3>
+<p>Use the file details field for notes, tags, or metadata.</p>
+<h2 id="workflow-examples">Workflow Examples</h2>
+<h3 id="poetry-workflow">Poetry Workflow</h3>
+<ol>
+<li>New poem → Draft</li>
+<li>Revise and polish → keep status as Draft while revising</li>
+<li>Complete → change status to Ready</li>
+<li>Create Collection for submission</li>
+<li>Submit → Track in Submissions</li>
+<li>Accepted → status becomes Published</li>
+</ol>
+<h3 id="novel-workflow">Novel Workflow</h3>
+<ol>
+<li>Create scenes with Draft status</li>
+<li>Link to plot elements</li>
+<li>Organize into chapters</li>
+<li>Change completed scenes/chapters to Ready</li>
+<li>Assemble full manuscript for export</li>
+</ol>
+<h3 id="general-writing-workflow">General Writing Workflow</h3>
+<ol>
+<li>Start in Draft</li>
+<li>Change to Ready when done</li>
+<li>Export or print as needed</li>
+</ol>
+<h2 id="cleanup-and-maintenance">Cleanup and Maintenance</h2>
+<p>Keep your project healthy:</p>
+<h3 id="regular-tasks">Regular Tasks</h3>
+<ul>
+<li>Change finished work to Ready</li>
+<li>Change paused work to Set Aside</li>
+<li>Empty Trash monthly</li>
+<li>Review body containers for relevance</li>
+</ul>
+<h3 id="spring-cleaning">Spring Cleaning</h3>
+<ul>
+<li>Delete truly obsolete files</li>
+<li>Consolidate similar folders</li>
+<li>Update file names for clarity</li>
+<li>Archive completed projects</li>
+</ul>
+<h3 id="before-submitting">Before Submitting</h3>
+<ul>
+<li>Ensure work is set to Ready</li>
+<li>Double-check formatting</li>
+<li>Review in pagination view</li>
+<li>Export and proof</li>
+</ul>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:34-folders-and-files">Folders and Files</a></li>
+<li><a href="guide:36-manuscript-structure">Manuscript Structure</a></li>
+<li><a href="guide:104-collections">Collections</a></li>
+<li><a href="guide:31-project-types-overview">Project Types Overview</a></li>
+<li><a href="guide:101-search-and-replace">Search and Replace</a></li>
+</ul>
+
+<p class="back-to-top"><a href="guide:00-toc">↑ Back to Contents</a></p>
+<hr>
+</body>
+</html>

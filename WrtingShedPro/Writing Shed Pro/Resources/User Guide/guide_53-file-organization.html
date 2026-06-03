@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="53-file-organization"></a>
+
+<h1 id="file-organization-in-prose-projects">File Organization in Prose Projects</h1>
+<p>This guide covers strategies for organizing files within Prose projects, from simple single-file documents to complex multi-file projects.</p>
+<h2 id="organizing-strategies">Organizing Strategies</h2>
+<h3 id="single-file-approach">Single-File Approach</h3>
+<p>For short documents (articles, essays, blog posts):
+- Create one file per document
+- Use workflow status to track progress
+- No sections needed</p>
+<h3 id="multi-file-approach">Multi-File Approach</h3>
+<p>For longer documents (user guides, book-length works):
+- Break content into logical files
+- Use sections to group related files
+- Order files within sections for export</p>
+<h3 id="hybrid-approach">Hybrid Approach</h3>
+<p>Mix both as needed:
+- Main content in organized sections
+- Supporting materials (notes, research) as standalone files</p>
+<h2 id="file-naming-conventions">File Naming Conventions</h2>
+<p>Good file names help you navigate your project quickly.</p>
+<h3 id="recommended-patterns">Recommended Patterns</h3>
+<p><strong>Numbered Prefix</strong></p>
+<pre><code>01-introduction
+02-getting-started
+03-main-features
+04-advanced-topics
+</code></pre>
+<p><strong>Category Prefix</strong></p>
+<pre><code>guide-installation
+guide-features
+ref-shortcuts
+ref-faq
+</code></pre>
+<p><strong>Date Prefix (for journals/logs)</strong></p>
+<pre><code>2025-01-15-meeting-notes
+2025-01-20-project-update
+</code></pre>
+<h3 id="naming-tips">Naming Tips</h3>
+<ul>
+<li>Keep names concise but descriptive</li>
+<li>Use lowercase with hyphens (avoids case-sensitivity issues)</li>
+<li>Include numbers for ordering if sequence matters</li>
+<li>Avoid special characters</li>
+</ul>
+<h2 id="workflow-status-strategy">Workflow Status Strategy</h2>
+<p>Use workflow status to track where each file is in your process:</p>
+<h3 id="the-standard-flow">The Standard Flow</h3>
+<pre><code>Draft → Ready → Published
+</code></pre>
+<ol>
+<li><strong>Draft</strong>: Active writing/editing</li>
+<li><strong>Ready</strong>: Complete, reviewed, ready for use</li>
+<li><strong>Published</strong>: Final version, exported/published</li>
+</ol>
+<h3 id="alternative-flows">Alternative Flows</h3>
+<p><strong>For Ongoing Projects</strong></p>
+<pre><code>Draft → Ready (loop back as needed)
+</code></pre>
+<p><strong>For Review Process</strong></p>
+<pre><code>Draft → Ready (for review) → Published (after approval)
+</code></pre>
+<h3 id="set-aside-status">Set Aside Status</h3>
+<p>Use "Set Aside" for:
+- Content you might use later
+- Alternate versions
+- Archived material</p>
+<p>This keeps your active lists focused.</p>
+<h2 id="using-filters-effectively">Using Filters Effectively</h2>
+<h3 id="focus-on-current-work">Focus on Current Work</h3>
+<p>Filter to <strong>Draft</strong> to see only work in progress.</p>
+<h3 id="review-ready-files">Review Ready Files</h3>
+<p>Filter to <strong>Ready</strong> when preparing to:
+- Export documents
+- Assign files to sections
+- Do final review</p>
+<h3 id="check-published">Check Published</h3>
+<p>Filter to <strong>Published</strong> to see completed work.</p>
+<h3 id="view-all">View All</h3>
+<p>Switch to <strong>All</strong> for complete project overview.</p>
+<h2 id="ordering-files">Ordering Files</h2>
+<h3 id="manual-ordering-within-sections">Manual Ordering (Within Sections)</h3>
+<p>When viewing a section's files:
+1. Tap <strong>Edit</strong>
+2. Drag files using the reorder handles
+3. Tap <strong>Done</strong></p>
+<p>This order is used when exporting the section.</p>
+<h3 id="alphabetical-ordering-main-list">Alphabetical Ordering (Main List)</h3>
+<p>In the main Prose file list, files are sorted alphabetically by default. Use numbered prefixes in file names to control order.</p>
+<h2 id="the-trash-folder">The Trash Folder</h2>
+<p>Deleted files go to Trash rather than being permanently removed.</p>
+<h3 id="recovering-files">Recovering Files</h3>
+<ol>
+<li>Open the <strong>Trash</strong> folder</li>
+<li>Find the file</li>
+<li>Swipe left on the file</li>
+<li>Tap <strong>Put Back</strong></li>
+<li>File returns to the Prose folder</li>
+</ol>
+<h3 id="permanent-deletion">Permanent Deletion</h3>
+<ol>
+<li>In Trash, tap <strong>Edit</strong></li>
+<li>Select files</li>
+<li>Tap <strong>Delete Forever</strong></li>
+</ol>
+<p><strong>Warning</strong>: Permanent deletion cannot be undone.</p>
+<h3 id="empty-trash">Empty Trash</h3>
+<p>To delete all trashed files:
+1. Open Trash
+2. Tap <strong>Empty Trash</strong>
+3. Confirm</p>
+<h2 id="file-details">File Details</h2>
+<p>View file information by tapping the file's <strong>⋯</strong> button:</p>
+<h3 id="information-shown">Information Shown</h3>
+<ul>
+<li><strong>Created</strong>: When the file was created</li>
+<li><strong>Modified</strong>: Last edit date/time</li>
+<li><strong>Word Count</strong>: Total words</li>
+<li><strong>Character Count</strong>: Total characters</li>
+<li><strong>Section</strong>: Which section (if any)</li>
+<li><strong>Status</strong>: Current workflow status</li>
+</ul>
+<h2 id="import-and-organization">Import and Organization</h2>
+<p>When importing files:
+1. Files are added to the Prose folder
+2. Status defaults to <strong>Draft</strong>
+3. Section is unassigned</p>
+<h3 id="post-import-steps">Post-Import Steps</h3>
+<ol>
+<li>Review imported content</li>
+<li>Rename if needed (tap <strong>⋯</strong> → <strong>Edit</strong> in file details)</li>
+<li>Change status when ready</li>
+<li>Assign to sections as appropriate</li>
+</ol>
+<h2 id="export-and-organization">Export and Organization</h2>
+<p>File organization affects export:</p>
+<h3 id="single-file-export">Single File Export</h3>
+<p>Each file exports as a separate document.</p>
+<h3 id="section-export">Section Export</h3>
+<p>Export all files in a section as one combined document (in file order).</p>
+<h3 id="project-export">Project Export</h3>
+<p>Export the entire project (all files) as one document.</p>
+<h2 id="tips-for-large-projects">Tips for Large Projects</h2>
+<h3 id="break-files-by-topic">Break Files by Topic</h3>
+<p>One topic per file is easier to manage than monolithic documents.</p>
+<h3 id="use-sections-for-major-divisions">Use Sections for Major Divisions</h3>
+<p>Sections should represent major divisions (parts, chapters, categories).</p>
+<h3 id="regular-cleanup">Regular Cleanup</h3>
+<p>Periodically review:
+- Change completed work to Published
+- Set aside inactive files
+- Delete outdated content</p>
+<h3 id="consistent-naming">Consistent Naming</h3>
+<p>Establish naming conventions early and stick to them.</p>
+<h3 id="use-synopses">Use Synopses</h3>
+<p>Add synopses to sections to remember what each contains.</p>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:51-prose-mode-overview">Prose Mode Overview</a></li>
+<li><a href="guide:52-working-with-sections">Working with Sections</a></li>
+<li><a href="guide:35-organizing-your-work">Organizing Your Work</a></li>
+</ul>
+
+<p class="back-to-top"><a href="guide:00-toc">↑ Back to Contents</a></p>
+<hr>
+</body>
+</html>
