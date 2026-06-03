@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-/// A sheet that displays file details with edit mode for renaming and export support
+/// A sheet that lets the user rename a file directly.
 struct FileDetailsSheet: View {
     @Bindable var file: TextFile
     var onExport: ((TextFile) -> Void)? = nil
@@ -15,19 +15,14 @@ struct FileDetailsSheet: View {
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    
-    // MARK: - Edit State
-    
-    @State private var isEditing = false
     @State private var editName: String = ""
-    
-    // MARK: - Async stats (computed off main thread to avoid blocking on SwiftData faults)
-    
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
     @State private var wordCount: Int = 0
     @State private var characterCount: Int = 0
     @State private var lineCount: Int = 0
     @State private var statsLoaded = false
-    
+
     private func computeStats() async {
         let content = file.currentVersion?.content ?? ""
         let words = content.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
@@ -38,14 +33,14 @@ struct FileDetailsSheet: View {
         lineCount = lines
         statsLoaded = true
     }
-    
+
     private var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter
     }
-    
+
     private var hasContainerInfo: Bool {
         file.parentFolder != nil ||
         !(file.poetryCollections ?? []).isEmpty ||
@@ -58,16 +53,38 @@ struct FileDetailsSheet: View {
         NavigationStack {
             Form {
                 nameSection
-                readOnlySections
+                datesSection
+                statisticsSection
+                workflowSection
+                containerInfoSection
+                exportSection
             }
-            .navigationTitle(file.name)
+            .navigationTitle(NSLocalizedString("fileDetail.title", comment: "File details title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                cancellationToolbarItem
-                confirmationToolbarItem
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(NSLocalizedString("button.done", comment: "Done")) {
+                        saveChanges()
+                    }
+                    .disabled(editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
             }
         }
         .presentationDetents([.medium, .large])
+        .alert(NSLocalizedString("fileDetail.error", comment: "Error alert title"), isPresented: $showErrorAlert) {
+            Button(NSLocalizedString("fileDetail.ok", comment: "OK button"), role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+        .onAppear {
+            editName = file.name
+        }
         .task {
             await computeStats()
         }
@@ -75,24 +92,11 @@ struct FileDetailsSheet: View {
 
     private var nameSection: some View {
         Section {
-            if isEditing {
-                TextField(NSLocalizedString("fileDetails.name", comment: "Name"), text: $editName)
-            } else {
-                LabeledContent(NSLocalizedString("fileDetails.name", comment: "Name")) {
-                    Text(file.name)
+            TextField(NSLocalizedString("fileDetails.name", comment: "Name"), text: $editName)
+                .accessibilityLabel(NSLocalizedString("fileDetails.name", comment: "Name"))
+                .onSubmit {
+                    saveChanges()
                 }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var readOnlySections: some View {
-        if !isEditing {
-            datesSection
-            statisticsSection
-            workflowSection
-            containerInfoSection
-            exportSection
         }
     }
 
@@ -233,46 +237,39 @@ struct FileDetailsSheet: View {
             }
         }
     }
-
-    private var cancellationToolbarItem: some ToolbarContent {
-        ToolbarItem(placement: .cancellationAction) {
-            if isEditing {
-                Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                    isEditing = false
-                }
-            } else {
-                Button(NSLocalizedString("button.done", comment: "Done")) {
-                    dismiss()
-                }
-            }
-        }
-    }
-
-    private var confirmationToolbarItem: some ToolbarContent {
-        ToolbarItem(placement: .confirmationAction) {
-            if isEditing {
-                Button(NSLocalizedString("button.save", comment: "Save")) {
-                    saveChanges()
-                }
-                .disabled(editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            } else {
-                Button(NSLocalizedString("button.edit", comment: "Edit")) {
-                    editName = file.name
-                    isEditing = true
-                }
-            }
-        }
-    }
     
     // MARK: - Actions
     
     private func saveChanges() {
         let trimmed = editName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty {
-            file.name = trimmed
-            file.modifiedDate = Date()
-            try? modelContext.save()
+
+        guard trimmed != file.name else {
+            dismiss()
+            return
         }
-        isEditing = false
+
+        do {
+            try NameValidator.validateFileName(trimmed)
+        } catch {
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+            return
+        }
+
+        if let parentFolder = file.parentFolder,
+           !UniquenessChecker.isFileNameUnique(trimmed, in: parentFolder),
+           !(parentFolder.textFiles ?? []).contains(where: { $0.id == file.id && $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }) {
+            let conflict = UniquenessChecker.getFileNameConflict(trimmed, in: parentFolder)
+            errorMessage = conflict == "trash"
+                ? NSLocalizedString("fileDetail.duplicateNameInTrash", comment: "File with this name exists in Trash")
+                : NSLocalizedString("fileDetail.duplicateName", comment: "Duplicate file name error")
+            showErrorAlert = true
+            return
+        }
+
+        file.name = trimmed
+        file.modifiedDate = Date()
+        try? modelContext.save()
+        dismiss()
     }
 }
