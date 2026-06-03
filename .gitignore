@@ -47,3 +47,4 @@ cloudflare-worker/node_modules/
 
 # Media assets
 *.mp4
+*.mov
