@@ -76,6 +76,17 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				Resources/Videos/FirstPoem.mov,
+				Resources/Videos/FirstScript.mov,
+				Resources/Videos/Introduction.mov,
+				Resources/Videos/LargeProseProject.mov,
+				Resources/Videos/Novel.mov,
+				Resources/Videos/PoetryChapbook.mov,
+				Resources/Videos/ProgessionalManuscript.mov,
+				Resources/Videos/QuickStart.mov,
+				Resources/Videos/ShortFiction.mov,
+				Resources/Videos/SubmittingWork.mov,
+				Resources/Videos/VerseNovel.mov,
 			);
 			target = D741DF6B2EA76292003629E8 /* Writing Shed Pro */;
 		};
@@ -578,6 +589,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSRemindersUsageDescription = "Writing Shed Pro uses Reminders to help you follow up on submissions and track publication deadlines. You can create optional reminders for submission follow-ups and approaching deadlines.";
+				INFOPLIST_KEY_TutorialVideoBaseURL = "$(TUTORIAL_VIDEO_BASE_URL)";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -643,6 +655,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSRemindersUsageDescription = "Writing Shed Pro uses Reminders to help you follow up on submissions and track publication deadlines. You can create optional reminders for submission follow-ups and approaching deadlines.";
+				INFOPLIST_KEY_TutorialVideoBaseURL = "$(TUTORIAL_VIDEO_BASE_URL)";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;

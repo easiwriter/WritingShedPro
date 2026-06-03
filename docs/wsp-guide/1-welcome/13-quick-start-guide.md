@@ -2,6 +2,8 @@
 
 Get writing in Writing Shed Pro in just five minutes. This guide walks you through creating your first project and writing your first document.
 
+[Watch the video](wspvideo:quick-start-guide)
+
 ## Step 1: Create a Project
 
 When you first open Writing Shed Pro, you'll see an empty project list.

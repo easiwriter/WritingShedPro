@@ -118,11 +118,11 @@ CHAPTER_NAMES = {
 CHAPTER_EXTRA_LINKS = {
     "2-tutorials": [
         (
-            "Video Tutorials: Writing Shed Pro Reel",
-            "wspvideo:writing-shed-pro-reel",
+            "Watch the video",
+            "wspvideo:introduction",
         ),
         (
-            "Video Tutorials: Tutorial 1",
+            "Watch the video",
             "wspvideo:tutorial-1",
         )
     ]

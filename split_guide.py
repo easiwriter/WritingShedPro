@@ -13,7 +13,7 @@ Usage:
     python3 split_guide.py
 
 Output:
-    Creates guide_*.html files in the Resources directory.
+    Creates guide_*.html files in the Resources/User Guide directory.
 """
 
 import re
@@ -27,7 +27,7 @@ GUIDE_PATH = os.path.join(
     "Resources",
     "Writing Shed Pro Guide.html",
 )
-OUTPUT_DIR = os.path.dirname(GUIDE_PATH)
+OUTPUT_DIR = os.path.join(os.path.dirname(GUIDE_PATH), "User Guide")
 
 
 def extract_css(html: str) -> str:

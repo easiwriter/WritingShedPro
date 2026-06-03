@@ -131,6 +131,10 @@ export default {
         const url = new URL(request.url);
         const pathname = url.pathname;
 
+        if (pathname.startsWith("/tutorials/")) {
+            return handleTutorialVideo(request, env, pathname);
+        }
+
         // Route to appropriate handler
         if (pathname.startsWith("/api/manuscript-analyst/review")) {
             return handleManuscriptAnalystReview(request, env);
@@ -140,6 +144,129 @@ export default {
         return handleSupport(request, env);
     },
 };
+
+async function handleTutorialVideo(request, env, pathname) {
+    if (request.method !== "GET" && request.method !== "HEAD") {
+        return new Response("Method not allowed", { status: 405 });
+    }
+
+    const bucket = env.TUTORIAL_VIDEOS;
+    if (!bucket) {
+        return new Response("Video storage unavailable", { status: 500 });
+    }
+
+    const key = decodeURIComponent(pathname.replace(/^\//, ""));
+    const head = await bucket.head(key);
+    if (!head) {
+        return new Response("Not found", { status: 404 });
+    }
+
+    const rangeHeader = request.headers.get("range");
+    const parsedRange = parseByteRange(rangeHeader, head.size);
+    if (rangeHeader && !parsedRange) {
+        return new Response("Requested Range Not Satisfiable", {
+            status: 416,
+            headers: {
+                "Content-Range": `bytes */${head.size}`,
+                "Accept-Ranges": "bytes",
+            },
+        });
+    }
+
+    const object = parsedRange
+        ? await bucket.get(key, {
+            range: {
+                offset: parsedRange.start,
+                length: parsedRange.end - parsedRange.start + 1,
+            },
+        })
+        : await bucket.get(key);
+
+    if (!object) {
+        return new Response("Not found", { status: 404 });
+    }
+
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set("etag", object.httpEtag);
+    headers.set("cache-control", "public, max-age=31536000, immutable");
+    headers.set("accept-ranges", "bytes");
+
+    if (parsedRange) {
+        headers.set("content-range", `bytes ${parsedRange.start}-${parsedRange.end}/${head.size}`);
+        headers.set("content-length", String(parsedRange.end - parsedRange.start + 1));
+    } else if (!headers.has("content-length")) {
+        headers.set("content-length", String(head.size));
+    }
+
+    if (!headers.has("content-type")) {
+        if (key.endsWith(".mov")) {
+            headers.set("content-type", "video/quicktime");
+        } else if (key.endsWith(".mp4")) {
+            headers.set("content-type", "video/mp4");
+        } else {
+            headers.set("content-type", "application/octet-stream");
+        }
+    }
+
+    return new Response(request.method === "HEAD" ? null : object.body, {
+        status: parsedRange ? 206 : 200,
+        headers,
+    });
+}
+
+function parseByteRange(rangeHeader, totalSize) {
+    if (!rangeHeader || typeof rangeHeader !== "string") {
+        return null;
+    }
+
+    const trimmed = rangeHeader.trim();
+    if (!trimmed.startsWith("bytes=")) {
+        return null;
+    }
+
+    const firstRange = trimmed.slice(6).split(",")[0]?.trim();
+    if (!firstRange) {
+        return null;
+    }
+
+    const [startStr, endStr] = firstRange.split("-");
+    if (startStr === undefined || endStr === undefined) {
+        return null;
+    }
+
+    // Suffix range: bytes=-500
+    if (startStr === "") {
+        const suffixLength = Number.parseInt(endStr, 10);
+        if (!Number.isFinite(suffixLength) || suffixLength <= 0) {
+            return null;
+        }
+        const clampedLength = Math.min(suffixLength, totalSize);
+        const start = totalSize - clampedLength;
+        const end = totalSize - 1;
+        return { start, end };
+    }
+
+    const start = Number.parseInt(startStr, 10);
+    if (!Number.isFinite(start) || start < 0 || start >= totalSize) {
+        return null;
+    }
+
+    // Open-ended range: bytes=500-
+    if (endStr === "") {
+        return { start, end: totalSize - 1 };
+    }
+
+    const end = Number.parseInt(endStr, 10);
+    if (!Number.isFinite(end) || end < start) {
+        return null;
+    }
+
+    return {
+        start,
+        end: Math.min(end, totalSize - 1),
+    };
+}
 
 async function handleManuscriptAnalystReview(request, env) {
     if (request.method !== "POST") {

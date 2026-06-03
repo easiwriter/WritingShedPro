@@ -2,6 +2,8 @@
 
 This tutorial walks you through writing a Shakespearean sonnet in Writing Shed Pro, using the poetry tools to guide your meter and rhyme. By the end, you'll have a polished poem and know how to use syllable counting, stress analysis, and form templates.
 
+[Watch the video](wspvideo:tutorial-1)
+
 **Time**: 20–30 minutes  
 **Project Type**: Poetry  
 **Difficulty**: Beginner

@@ -1,8 +1,6 @@
 # Introduction
 
-Welcome to Writing Shed Pro, the professional writing app designed for authors, poets, playwrights, and fiction writers. Whether you're crafting your first haiku or your tenth novel, Writing Shed Pro provides the tools you need to write, organize, and publish your creative work.
-
-## What Is Writing Shed Pro?
+Welcome to Writing Shed Pro, the professional writing app designed for authors, poets, playwrights, and fiction writers. Whether you're crafting your first haiku or your tenth novel, Writing Shed Pro provides the tools you need to write, oWSP Is Writing Shed Pro?
 
 Writing Shed Pro is a complete writing environment that runs on iPhone, iPad, and Mac. It's built from the ground up for writers who take their craft seriously. Unlike generic word processors, every feature is designed with creative writing in mind.
 

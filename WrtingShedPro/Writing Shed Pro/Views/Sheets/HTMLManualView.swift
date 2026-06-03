@@ -18,6 +18,7 @@ import SwiftUI
 /// When `section` is provided (Learn More), loads that section's file directly.
 struct HTMLManualView: View {
     @Environment(\.dismiss) private var dismiss
+    private let guideSubdirectory = "User Guide"
     
     /// Optional section to open directly (e.g. "22-creating-your-first-project")
     var section: String? = nil
@@ -132,8 +133,14 @@ struct HTMLManualView: View {
     /// Load and render an HTML section file as AttributedString
     private func loadSection(_ sectionId: String) {
         let resourceName = "guide_\(sectionId)"
-        
-        guard let url = Bundle.main.url(forResource: resourceName, withExtension: "html"),
+
+        let sectionURL = Bundle.main.url(
+            forResource: resourceName,
+            withExtension: "html",
+            subdirectory: guideSubdirectory
+        ) ?? Bundle.main.url(forResource: resourceName, withExtension: "html")
+
+        guard let url = sectionURL,
               var html = try? String(contentsOf: url, encoding: .utf8) else {
             #if DEBUG
             print("❌ [Guide] Section file not found: \(resourceName).html")

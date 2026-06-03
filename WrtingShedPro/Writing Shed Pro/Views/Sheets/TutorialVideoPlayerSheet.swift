@@ -20,23 +20,32 @@ struct TutorialVideo: Identifiable, Equatable {
 
 enum TutorialVideoCatalog {
     static let writingShedProReel = TutorialVideo(
-        id: "Writing-shed-pro-introlduction",
+        id: "introduction",
         title: "Writing Shed Pro Introduction",
-        expectedFileName: "wsp_intro",
-        expectedFileExtension: "mp4"
+        expectedFileName: "Introduction",
+        expectedFileExtension: "mov"
     )
 
     static let tutorial1 = TutorialVideo(
         id: "tutorial-1",
         title: "Tutorial 1",
-        expectedFileName: "wsp_tutorial_1",
-        expectedFileExtension: "mp4"
+        expectedFileName: "FirstPoem",
+        expectedFileExtension: "mov"
+    )
+
+    static let quickStartGuide = TutorialVideo(
+        id: "quick-start-guide",
+        title: "Quick Start Guide",
+        expectedFileName: "QuickStart",
+        expectedFileExtension: "mov"
     )
 
     static func video(for id: String) -> TutorialVideo? {
         switch id {
         case writingShedProReel.id:
             return writingShedProReel
+        case quickStartGuide.id:
+            return quickStartGuide
         case tutorial1.id:
             return tutorial1
         default:
@@ -47,6 +56,10 @@ enum TutorialVideoCatalog {
 
 struct TutorialVideoPlayerSheet: View {
     let video: TutorialVideo
+    private let remoteBaseURLDefaultsKey = "tutorialVideoBaseURL"
+    private let fallbackRemoteBaseURLString = "https://wsp-support.wsp-support.workers.dev"
+    private let legacyRemoteBaseURLHost = "wsp-support.writingshedpro.workers.dev"
+    private let canonicalRemoteBaseURLHost = "wsp-support.wsp-support.workers.dev"
 
     @Environment(\.dismiss) private var dismiss
     @State private var player: AVPlayer?
@@ -72,9 +85,9 @@ struct TutorialVideoPlayerSheet: View {
                             }
                     } else {
                         ContentUnavailableView {
-                            Label("Video Missing", systemImage: "film")
+                            Label("Video Temporarily Unavailable", systemImage: "film")
                         } description: {
-                            Text("Add \"\(video.expectedBundleFile)\" to the app target to enable native playback.")
+                            Text("This tutorial video is temporarily unavailable. Please try again later.")
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
@@ -135,13 +148,65 @@ struct TutorialVideoPlayerSheet: View {
     }
 
     private func makePlayerIfAvailable() -> AVPlayer? {
-        guard let fileURL = Bundle.main.url(
-            forResource: video.expectedFileName,
-            withExtension: video.expectedFileExtension
-        ) else {
-            return nil
+        if let remoteURL = remoteVideoURL() {
+            return AVPlayer(url: remoteURL)
         }
-        return AVPlayer(url: fileURL)
+
+        return nil
+    }
+
+    private func remoteVideoURL() -> URL? {
+        for base in configuredRemoteBaseURLs() {
+            let candidate = base
+                .appendingPathComponent("tutorials", isDirectory: true)
+                .appendingPathComponent(video.expectedBundleFile)
+            if let scheme = candidate.scheme?.lowercased(), scheme == "https" || scheme == "http" {
+                return candidate
+            }
+        }
+        return nil
+    }
+
+    private func configuredRemoteBaseURLs() -> [URL] {
+        var candidates: [String] = []
+
+        if let plistValue = Bundle.main.object(forInfoDictionaryKey: "TutorialVideoBaseURL") as? String {
+            candidates.append(plistValue)
+        }
+
+        if let defaultsValue = UserDefaults.standard.string(forKey: remoteBaseURLDefaultsKey) {
+            candidates.append(defaultsValue)
+        }
+
+        candidates.append(fallbackRemoteBaseURLString)
+
+        var urls: [URL] = []
+        var seen: Set<String> = []
+
+        for rawCandidate in candidates {
+            let trimmed = rawCandidate.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, var components = URLComponents(string: trimmed) else {
+                continue
+            }
+
+            if components.host?.lowercased() == legacyRemoteBaseURLHost {
+                components.host = canonicalRemoteBaseURLHost
+            }
+
+            guard let url = components.url,
+                  let scheme = url.scheme?.lowercased(),
+                  scheme == "https" || scheme == "http" else {
+                continue
+            }
+
+            let key = url.absoluteString
+            if !seen.contains(key) {
+                seen.insert(key)
+                urls.append(url)
+            }
+        }
+
+        return urls
     }
 }
 
