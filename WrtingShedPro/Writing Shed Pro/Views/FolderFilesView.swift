@@ -223,10 +223,12 @@ struct FolderFilesView: View {
     @ViewBuilder
     var navigationDestinationContent: some View {
         if let file = selectedFile {
+            let isNamedCoverInMatterFolder = (folder.isFrontMatterFolder || folder.isBackMatterFolder)
+                && (file.name == FrontMatterItem.frontCover.fileName || file.name == BackMatterItem.backCover.fileName)
             if let project = folder.resolvedProject, project.type == .drama,
                FolderCapabilityService.isContentFolder(folder) {
                 DramaSceneEditorView(file: file, project: project)
-            } else if file.isCoverFile {
+            } else if file.isCoverFile || isNamedCoverInMatterFolder {
                 // Cover image files (Front Cover / Back Cover)
                 CoverImageEditorView(file: file)
             } else if let project = folder.resolvedProject,

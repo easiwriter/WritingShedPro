@@ -43,10 +43,19 @@ extension FolderFilesView {
         // Sort Matter folders by userOrder to maintain standard manuscript order
         if isMatterFolder {
             let sorted = allFiles.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+            let coverNames: Set<String> = [
+                FrontMatterItem.frontCover.fileName,
+                BackMatterItem.backCover.fileName
+            ]
+
+            func isCoverLike(_ file: TextFile) -> Bool {
+                file.isCoverFile || coverNames.contains(file.name)
+            }
+
             // Pin cover files: front cover always first, back cover always last
-            var nonCovers = sorted.filter { !$0.isCoverFile }
-            let frontCover = sorted.first(where: { $0.isCoverFile && $0.name == FrontMatterItem.frontCover.fileName })
-            let backCover = sorted.first(where: { $0.isCoverFile && $0.name == BackMatterItem.backCover.fileName })
+            var nonCovers = sorted.filter { !isCoverLike($0) }
+            let frontCover = sorted.first(where: { isCoverLike($0) && $0.name == FrontMatterItem.frontCover.fileName })
+            let backCover = sorted.first(where: { isCoverLike($0) && $0.name == BackMatterItem.backCover.fileName })
             if let fc = frontCover { nonCovers.insert(fc, at: 0) }
             if let bc = backCover { nonCovers.append(bc) }
             return nonCovers

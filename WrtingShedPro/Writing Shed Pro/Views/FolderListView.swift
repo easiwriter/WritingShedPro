@@ -821,10 +821,13 @@ struct FolderListView: View {
         var coverImageData: Data?
         if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
            let frontMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Front Matter" }),
-           let frontCoverFile = frontMatterFolder.textFiles?.first(where: { $0.isCoverFile && $0.name == FrontMatterItem.frontCover.fileName }),
-           frontCoverFile.includedInManuscript,
-           let imageData = frontCoverFile.coverImageData,
-           UIImage(data: imageData) != nil {
+           let imageData = frontMatterFolder.textFiles?
+                .filter {
+                    $0.includedInManuscript
+                    && ($0.isCoverFile || $0.name == FrontMatterItem.frontCover.fileName)
+                }
+                .compactMap(\.coverImageData)
+                .first(where: { UIImage(data: $0) != nil }) {
             coverImageData = imageData
         }
         
@@ -1035,10 +1038,13 @@ struct FolderListView: View {
         // Front cover: find front cover file and prepend its image
         if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
            let frontMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Front Matter" }),
-           let frontCoverFile = frontMatterFolder.textFiles?.first(where: { $0.isCoverFile && $0.name == FrontMatterItem.frontCover.fileName }),
-           frontCoverFile.includedInManuscript,
-           let imageData = frontCoverFile.coverImageData,
-           UIImage(data: imageData) != nil {
+           let imageData = frontMatterFolder.textFiles?
+                .filter {
+                    $0.includedInManuscript
+                    && ($0.isCoverFile || $0.name == FrontMatterItem.frontCover.fileName)
+                }
+                .compactMap(\.coverImageData)
+                .first(where: { UIImage(data: $0) != nil }) {
             frontCoverData = imageData
             // Insert a lightweight placeholder for the cover page.
             // The actual image is drawn directly by CustomPDFPageRenderer.drawCoverImage()
@@ -1082,10 +1088,13 @@ struct FolderListView: View {
         // Back cover: find back cover file and append its image
         if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
            let backMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Back Matter" }),
-           let backCoverFile = backMatterFolder.textFiles?.first(where: { $0.isCoverFile && $0.name == BackMatterItem.backCover.fileName }),
-           backCoverFile.includedInManuscript,
-           let imageData = backCoverFile.coverImageData,
-           UIImage(data: imageData) != nil {
+           let imageData = backMatterFolder.textFiles?
+                .filter {
+                    $0.includedInManuscript
+                    && ($0.isCoverFile || $0.name == BackMatterItem.backCover.fileName)
+                }
+                .compactMap(\.coverImageData)
+                .first(where: { UIImage(data: $0) != nil }) {
             backCoverData = imageData
             assembled.append(NSAttributedString(string: "\u{0C}")) // Page break before cover
             // Insert a lightweight placeholder for the cover page.
