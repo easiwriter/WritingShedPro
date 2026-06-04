@@ -575,35 +575,10 @@ struct SceneListView: View {
             AddSceneSheet(project: project, chapter: chapter, act: act, book: book)
         }
         .sheet(item: $sceneForDetails) { scene in
-            SceneDetailView(scene: scene, project: project, onExport: { textFile in
-                sceneForDetails = nil
-                filesToExport = [textFile]
-                saveAsRequested = false
-                showExportMenu = true
-            })
+            sceneDetailsSheetContent(for: scene)
         }
         .sheet(isPresented: $showSearchView) {
-            // Multi-file search across all scene files
-            if let folder = scenesFolder {
-                MultiFileSearchView(folder: folder, files: sceneFiles)
-            } else {
-                NavigationStack {
-                    ContentUnavailableView {
-                        Label(NSLocalizedString("multiFileSearch.folderMissing.title", comment: "Folder missing"), systemImage: "folder.badge.questionmark")
-                    } description: {
-                        Text(String(format: NSLocalizedString("multiFileSearch.folderMissing.message", comment: "Could not find expected folder"), scenesFolderName))
-                    }
-                    .navigationTitle(NSLocalizedString("multiFileSearch.title", comment: "Search"))
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button(NSLocalizedString("button.close", comment: "Close")) {
-                                showSearchView = false
-                            }
-                        }
-                    }
-                }
-            }
+            searchSheetContent
         }
         .sheet(isPresented: $showHeaderFooterEditor) {
             headerFooterEditor
@@ -625,6 +600,50 @@ struct SceneListView: View {
             allowsMultipleSelection: false,
             onCompletion: handleImport
         )
+    }
+
+    @ViewBuilder
+    private func sceneDetailsSheetContent(for scene: StoryScene) -> some View {
+        if let textFile = scene.textFile {
+            FileDetailsSheet(file: textFile, onExport: { file in
+                sceneForDetails = nil
+                filesToExport = [file]
+                saveAsRequested = false
+                showExportMenu = true
+            })
+        } else {
+            SceneDetailView(scene: scene, project: project, onExport: { textFile in
+                sceneForDetails = nil
+                filesToExport = [textFile]
+                saveAsRequested = false
+                showExportMenu = true
+            })
+        }
+    }
+
+    @ViewBuilder
+    private var searchSheetContent: some View {
+        // Multi-file search across all scene files
+        if let folder = scenesFolder {
+            MultiFileSearchView(folder: folder, files: sceneFiles)
+        } else {
+            NavigationStack {
+                ContentUnavailableView {
+                    Label(NSLocalizedString("multiFileSearch.folderMissing.title", comment: "Folder missing"), systemImage: "folder.badge.questionmark")
+                } description: {
+                    Text(String(format: NSLocalizedString("multiFileSearch.folderMissing.message", comment: "Could not find expected folder"), scenesFolderName))
+                }
+                .navigationTitle(NSLocalizedString("multiFileSearch.title", comment: "Search"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(NSLocalizedString("button.close", comment: "Close")) {
+                            showSearchView = false
+                        }
+                    }
+                }
+            }
+        }
     }
     
     var body: some View {
@@ -1338,7 +1357,7 @@ struct SceneListView: View {
         Button {
             sceneForDetails = scene
         } label: {
-            Label(NSLocalizedString("fiction.sceneDetails.title", comment: "Scene Details"), systemImage: "info.circle")
+            Label(NSLocalizedString("fileDetail.title", comment: "File details title"), systemImage: "info.circle")
         }
         
         Divider()
