@@ -48,3 +48,7 @@ cloudflare-worker/node_modules/
 # Media assets
 *.mp4
 *.mov
+
+# Sample project files and local Cloudflare state
+*.wsp
+cloudflare-worker/.wrangler/

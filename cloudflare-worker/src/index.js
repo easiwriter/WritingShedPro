@@ -131,8 +131,8 @@ export default {
         const url = new URL(request.url);
         const pathname = url.pathname;
 
-        if (pathname.startsWith("/tutorials/")) {
-            return handleTutorialVideo(request, env, pathname);
+        if (pathname.startsWith("/tutorials/") || pathname.startsWith("/samples/")) {
+            return handleR2Asset(request, env, pathname);
         }
 
         // Route to appropriate handler
@@ -145,7 +145,7 @@ export default {
     },
 };
 
-async function handleTutorialVideo(request, env, pathname) {
+async function handleR2Asset(request, env, pathname) {
     if (request.method !== "GET" && request.method !== "HEAD") {
         return new Response("Method not allowed", { status: 405 });
     }
@@ -204,6 +204,8 @@ async function handleTutorialVideo(request, env, pathname) {
             headers.set("content-type", "video/quicktime");
         } else if (key.endsWith(".mp4")) {
             headers.set("content-type", "video/mp4");
+        } else if (key.endsWith(".wsp")) {
+            headers.set("content-type", "application/octet-stream");
         } else {
             headers.set("content-type", "application/octet-stream");
         }

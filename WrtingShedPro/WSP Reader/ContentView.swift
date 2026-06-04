@@ -181,6 +181,8 @@ struct HomeView: View {
                     }
                 case .videos:
                     videoLinks
+                case .samples:
+                    sampleProjects
                 }
             }
         }
@@ -226,6 +228,47 @@ struct HomeView: View {
                             openURL(video.url)
                         } label: {
                             Label("Watch video", systemImage: "play.rectangle")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.brown)
+                    }
+                    .padding(.vertical, 6)
+                }
+            }
+
+            Section {
+                GetWSPButton()
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+
+    private var sampleProjects: some View {
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Sample Projects")
+                        .font(.headline)
+                    Text("Download ready-to-read WSP examples that demonstrate poetry forms, drama formatting, and fiction manuscripts.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
+
+            Section("Available Samples") {
+                ForEach(ReaderSampleProject.all) { sample in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(sample.title)
+                            .font(.headline)
+                        Text(sample.commentary)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        Button {
+                            appState.openRemoteSample(named: sample.title, from: sample.url)
+                        } label: {
+                            Label("Open sample", systemImage: "arrow.down.doc")
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.brown)
@@ -315,6 +358,7 @@ struct HomeView: View {
 private enum HomeMode: String, CaseIterable, Identifiable {
     case openFiles
     case videos
+    case samples
 
     var id: String { rawValue }
 
@@ -324,6 +368,8 @@ private enum HomeMode: String, CaseIterable, Identifiable {
             return "Open Files"
         case .videos:
             return "Videos"
+        case .samples:
+            return "Samples"
         }
     }
 
@@ -333,6 +379,8 @@ private enum HomeMode: String, CaseIterable, Identifiable {
             return "doc.badge.plus"
         case .videos:
             return "play.rectangle"
+        case .samples:
+            return "shippingbox"
         }
     }
 }
@@ -361,6 +409,34 @@ private struct ReaderPromoVideo: Identifiable {
             title: "First Poem Walkthrough",
             commentary: "A focused demo of poetry tools including structure support and editing flow in a real poem project.",
             url: URL(string: "https://wsp-support.wsp-support.workers.dev/tutorials/FirstPoem.mov")!
+        ),
+    ]
+}
+
+private struct ReaderSampleProject: Identifiable {
+    let id: String
+    let title: String
+    let commentary: String
+    let url: URL
+
+    static let all: [ReaderSampleProject] = [
+        ReaderSampleProject(
+            id: "poetry-forms",
+            title: "Poetry Forms",
+            commentary: "A poetry project containing one poem for each supported poetry form.",
+            url: URL(string: "https://wsp-support.wsp-support.workers.dev/samples/Poetry%20forms.wsp")!
+        ),
+        ReaderSampleProject(
+            id: "a-play-for-today",
+            title: "A Play for Today",
+            commentary: "A short drama project demonstrating DML script formatting in context.",
+            url: URL(string: "https://wsp-support.wsp-support.workers.dev/samples/A%20Play%20for%20Today.wsp")!
+        ),
+        ReaderSampleProject(
+            id: "devils-triangle",
+            title: "The Devil's Triangle",
+            commentary: "A fiction project demonstrating novel structure and manuscript assembly.",
+            url: URL(string: "https://wsp-support.wsp-support.workers.dev/samples/The%20Devil's%20Triangle.wsp")!
         ),
     ]
 }

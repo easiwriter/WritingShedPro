@@ -47,6 +47,12 @@ class ReaderAppState {
     }
     
     // MARK: - Recent Documents
+
+    private var samplesCacheDirectory: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("WSPReader")
+            .appendingPathComponent("Samples")
+    }
     
     private var recentDocumentsURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -205,6 +211,43 @@ class ReaderAppState {
                 DispatchQueue.main.async {
                     self?.isLoadingDocument = false
                     self?.currentError = ReaderError.openFailed(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    /// Downloads a hosted sample WSP file to app-local storage, then opens it.
+    func openRemoteSample(named sampleName: String, from remoteURL: URL) {
+        isLoadingDocument = true
+
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+
+            do {
+                let (tempURL, response) = try await URLSession.shared.download(from: remoteURL)
+                if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+                    throw ReaderError.openFailed("Sample download failed (\(http.statusCode)).")
+                }
+
+                let directory = self.samplesCacheDirectory
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+                let rawName = remoteURL.lastPathComponent.isEmpty ? sampleName : remoteURL.lastPathComponent
+                let fileName = rawName.lowercased().hasSuffix(".wsp") ? rawName : "\(rawName).wsp"
+                let destinationURL = directory.appendingPathComponent(fileName)
+
+                if FileManager.default.fileExists(atPath: destinationURL.path) {
+                    try FileManager.default.removeItem(at: destinationURL)
+                }
+                try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+
+                await MainActor.run {
+                    self.openDocument(at: destinationURL)
+                }
+            } catch {
+                await MainActor.run {
+                    self.isLoadingDocument = false
+                    self.currentError = ReaderError.openFailed(error.localizedDescription)
                 }
             }
         }
