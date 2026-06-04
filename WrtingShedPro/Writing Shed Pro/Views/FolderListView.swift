@@ -820,15 +820,13 @@ struct FolderListView: View {
         // Extract cover image data on main thread (SwiftData model access)
         var coverImageData: Data?
         if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
-           let frontMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Front Matter" }),
-           let imageData = frontMatterFolder.textFiles?
-                .filter {
-                    $0.includedInManuscript
-                    && ($0.isCoverFile || $0.name == FrontMatterItem.frontCover.fileName)
-                }
-                .compactMap(\.coverImageData)
-                .first(where: { UIImage(data: $0) != nil }) {
-            coverImageData = imageData
+           let frontMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Front Matter" }) {
+            let candidates = (frontMatterFolder.textFiles ?? []).filter { file in
+                file.includedInManuscript
+                    && (file.isCoverFile || file.name == FrontMatterItem.frontCover.fileName)
+            }
+            coverImageData = candidates.compactMap { $0.coverImageData }
+                .first(where: { UIImage(data: $0) != nil })
         }
         
         let isPoetry = project.type == .poetry
@@ -1037,13 +1035,12 @@ struct FolderListView: View {
         
         // Front cover: find front cover file and prepend its image
         if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
-           let frontMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Front Matter" }),
-           let imageData = frontMatterFolder.textFiles?
-                .filter {
-                    $0.includedInManuscript
-                    && ($0.isCoverFile || $0.name == FrontMatterItem.frontCover.fileName)
-                }
-                .compactMap(\.coverImageData)
+           let frontMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Front Matter" }) {
+            let candidates = (frontMatterFolder.textFiles ?? []).filter { file in
+                file.includedInManuscript
+                    && (file.isCoverFile || file.name == FrontMatterItem.frontCover.fileName)
+            }
+            if let imageData = candidates.compactMap({ $0.coverImageData })
                 .first(where: { UIImage(data: $0) != nil }) {
             frontCoverData = imageData
             // Insert a lightweight placeholder for the cover page.
@@ -1054,6 +1051,7 @@ struct FolderListView: View {
             assembled.append(NSAttributedString(string: " ")) // placeholder
             assembled.append(NSAttributedString(string: "\u{0C}")) // Page break after cover
             hasFrontCover = true
+            }
         }
         
         assembled.append(content.attributedString)
@@ -1087,13 +1085,12 @@ struct FolderListView: View {
         
         // Back cover: find back cover file and append its image
         if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
-           let backMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Back Matter" }),
-           let imageData = backMatterFolder.textFiles?
-                .filter {
-                    $0.includedInManuscript
-                    && ($0.isCoverFile || $0.name == BackMatterItem.backCover.fileName)
-                }
-                .compactMap(\.coverImageData)
+           let backMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Back Matter" }) {
+            let candidates = (backMatterFolder.textFiles ?? []).filter { file in
+                file.includedInManuscript
+                    && (file.isCoverFile || file.name == BackMatterItem.backCover.fileName)
+            }
+            if let imageData = candidates.compactMap({ $0.coverImageData })
                 .first(where: { UIImage(data: $0) != nil }) {
             backCoverData = imageData
             assembled.append(NSAttributedString(string: "\u{0C}")) // Page break before cover
@@ -1101,6 +1098,7 @@ struct FolderListView: View {
             // The actual image is drawn directly by CustomPDFPageRenderer.drawCoverImage()
             assembled.append(NSAttributedString(string: " ")) // placeholder
             hasBackCover = true
+            }
         }
         
         // Adjust vertically centered chunk indices when a front cover shifts all chunks
