@@ -7,6 +7,11 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 struct DocumentReaderView: View {
     @Environment(ReaderAppState.self) var appState
@@ -191,9 +196,12 @@ struct DocumentReaderView: View {
         case .manuscript:
             ManuscriptReaderView(
                 title: document.manuscriptPreviewTitle,
+                projectName: document.projectName,
+                projectAuthor: document.projectAuthor,
                 files: document.manuscriptPreviewFiles,
                 projectType: document.projectType,
                 dramaScriptType: document.dramaScriptType,
+                pageSetup: document.manuscriptPageSetup,
                 fontSize: appState.fontSize,
                 onNavigateToFile: navigateToFile
             )
@@ -328,18 +336,19 @@ struct DocumentReaderView: View {
 // MARK: - Manuscript Reader
 
 /// Renders the full assembled manuscript (front matter + body + back matter) in a
-/// single scrollable view, mirroring how FileReaderView renders individual files.
+/// paged scrollable view with explicit file boundaries.
 struct ManuscriptReaderView: View {
     let title: String
+    let projectName: String
+    let projectAuthor: String?
     let files: [WSPReaderFile]
     let projectType: String
     let dramaScriptType: String?
+    let pageSetup: ReaderManuscriptPageSetup
     let fontSize: CGFloat
     var onNavigateToFile: ((String) -> Void)? = nil
 
-    @Environment(ReaderAppState.self) private var appState
-    /// Combined attributed string built once and cached; rebuilt when fontSize changes.
-    @State private var displayContent: NSAttributedString = NSAttributedString()
+    @State private var pageCount: Int = 1
 
     var body: some View {
         Group {
@@ -350,73 +359,230 @@ struct ManuscriptReaderView: View {
                     description: Text("No files are marked for manuscript inclusion.")
                 )
             } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        AttributedTextView(
-                            attributedString: displayContent,
-                            fontSize: fontSize,
-                            onLinkTap: handleLinkTap
-                        )
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        Spacer(minLength: 40)
+                #if canImport(UIKit)
+                VStack(alignment: .leading, spacing: 12) {
+#if DEBUG
+                    Text("Manuscript pagination path: v3")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 14)
+#endif
+                    ReaderManuscriptPaginatedView(
+                        projectName: projectName,
+                        projectAuthor: projectAuthor,
+                        sources: paginatedSources,
+                        pageSetup: pageSetup,
+                        zoomScale: 1.0,
+                        pageCount: $pageCount,
+                        onLinkTap: handleLinkTap
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                    HStack {
+                        Text("\(max(pageCount, 1)) pages")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                        Spacer()
                     }
-                    .padding()
-                    .frame(maxWidth: 700, alignment: .leading)
+                    .padding(.horizontal, 14)
                 }
                 .background(readerBackground)
+                #else
+                GeometryReader { geo in
+                    let pageWidth = manuscriptPageWidth(for: geo.size.width)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: pageSetup.pageBreakBetweenFiles ? 44 : 18) {
+                            ForEach(Array(files.enumerated()), id: \.element.id) { index, file in
+                                manuscriptPage(for: file, pageNumber: index + 1)
+
+                                if pageSetup.pageBreakBetweenFiles && index < files.count - 1 {
+                                    filePageBreak
+                                }
+                            }
+                        }
+                        .padding(.vertical, 12)
+                        .frame(width: pageWidth, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                    .background(readerBackground)
+                }
+                #endif
             }
         }
-        .onAppear { displayContent = buildCombinedContent() }
-        .onChange(of: fontSize) { displayContent = buildCombinedContent() }
     }
 
-    // MARK: - Content Assembly
+    #if canImport(UIKit)
+    private var paginatedSources: [ReaderManuscriptSource] {
+        files.map { file in
+            ReaderManuscriptSource(file: file, content: buildScaledContent(for: file))
+        }
+    }
+    #endif
 
-    /// Concatenate all manuscript files into one attributed string, scale fonts to
-    /// match the user's font-size preference (identical to FileReaderView.buildScaledContent).
-    private func buildCombinedContent() -> NSAttributedString {
-        let isDrama = projectType.lowercased() == "drama"
-        let combined = NSMutableAttributedString()
+    // MARK: - Page Rendering
 
-        for (index, file) in files.enumerated() {
-            let fileContent: NSAttributedString
-            if isDrama {
-                fileContent = WSPDramaRenderer.shared.render(
-                    source: file.plainContent,
-                    scriptTypeRaw: dramaScriptType
+    @ViewBuilder
+    private func manuscriptPage(for file: WSPReaderFile, pageNumber: Int) -> some View {
+        let isCover = file.isCoverFile
+
+        VStack(alignment: .leading, spacing: 12) {
+            if pageSetup.hasHeaders && !isCover {
+                headerFooterRow(
+                    left: resolveTokens(pageSetup.headerLeft, pageNumber: pageNumber, file: file),
+                    center: resolveTokens(pageSetup.headerCenter, pageNumber: pageNumber, file: file),
+                    right: resolveTokens(pageSetup.headerRight, pageNumber: pageNumber, file: file)
                 )
-            } else {
-                fileContent = file.attributedContent
             }
 
-            combined.append(fileContent)
+            if isCover {
+                coverView(for: file)
+            } else {
+                AttributedTextView(
+                    attributedString: buildScaledContent(for: file),
+                    fontSize: fontSize,
+                    onLinkTap: handleLinkTap
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
 
-            // Separate files with a page-break character (not after the last file)
-            if index < files.count - 1 {
-                if !combined.string.hasSuffix("\n") {
-                    combined.append(NSAttributedString(string: "\n"))
-                }
-                combined.append(NSAttributedString(string: "\u{000C}")) // form feed = page break
+            if pageSetup.hasFooters && !isCover {
+                headerFooterRow(
+                    left: resolveTokens(pageSetup.footerLeft, pageNumber: pageNumber, file: file),
+                    center: resolveTokens(pageSetup.footerCenter, pageNumber: pageNumber, file: file),
+                    right: resolveTokens(pageSetup.footerRight, pageNumber: pageNumber, file: file)
+                )
             }
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
 
-        // Scale all fonts to match user preference — same as FileReaderView.buildScaledContent()
+    @ViewBuilder
+    private func coverView(for file: WSPReaderFile) -> some View {
+#if canImport(UIKit)
+        if let data = file.coverImageData, let image = UIImage(data: data) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, alignment: .center)
+                .accessibilityLabel(file.name)
+        } else {
+            Text(file.name)
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 20)
+        }
+#elseif canImport(AppKit)
+        if let data = file.coverImageData, let image = NSImage(data: data) {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, alignment: .center)
+                .accessibilityLabel(file.name)
+        } else {
+            Text(file.name)
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 20)
+        }
+#else
+        Text(file.name)
+            .font(.headline)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, 20)
+#endif
+    }
+
+    private func buildScaledContent(for file: WSPReaderFile) -> NSAttributedString {
+        let rendered: NSAttributedString
+        if projectType.lowercased() == "drama" {
+            rendered = WSPDramaRenderer.shared.render(source: file.plainContent, scriptTypeRaw: dramaScriptType)
+        } else {
+            rendered = file.attributedContent
+        }
+
+        let mutable = NSMutableAttributedString(attributedString: rendered)
         let scaleFactor = fontSize / 16.0
-        combined.enumerateAttribute(.font, in: NSRange(location: 0, length: combined.length)) { value, range, _ in
+        mutable.enumerateAttribute(.font, in: NSRange(location: 0, length: mutable.length)) { value, range, _ in
 #if canImport(UIKit)
             if let font = value as? UIFont {
-                combined.addAttribute(.font, value: font.withSize(font.pointSize * scaleFactor), range: range)
+                mutable.addAttribute(.font, value: font.withSize(font.pointSize * scaleFactor), range: range)
             }
 #elseif canImport(AppKit)
             if let font = value as? NSFont {
                 let scaled = NSFont(descriptor: font.fontDescriptor, size: font.pointSize * scaleFactor)
                     ?? NSFont.systemFont(ofSize: font.pointSize * scaleFactor)
-                combined.addAttribute(.font, value: scaled, range: range)
+                mutable.addAttribute(.font, value: scaled, range: range)
             }
 #endif
         }
 
-        return combined
+        mutable.enumerateAttribute(.paragraphStyle, in: NSRange(location: 0, length: mutable.length)) { value, range, _ in
+            guard let paragraph = value as? NSParagraphStyle else { return }
+            let needsNormalization = paragraph.firstLineHeadIndent != 0
+                || paragraph.headIndent != 0
+                || paragraph.tailIndent != 0
+                || paragraph.lineBreakMode != .byWordWrapping
+            if needsNormalization {
+                let normalized = paragraph.mutableCopy() as! NSMutableParagraphStyle
+                normalized.firstLineHeadIndent = 0
+                normalized.headIndent = 0
+                normalized.tailIndent = 0
+                normalized.lineBreakMode = .byWordWrapping
+                mutable.addAttribute(.paragraphStyle, value: normalized, range: range)
+            }
+        }
+
+        return mutable
+    }
+
+    private func headerFooterRow(left: String, center: String, right: String) -> some View {
+        HStack(spacing: 10) {
+            Text(left)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(center)
+                .frame(maxWidth: .infinity, alignment: .center)
+            Text(right)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+    }
+
+    private func resolveTokens(_ input: String, pageNumber: Int, file: WSPReaderFile) -> String {
+        let dateString = DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .none)
+        return input
+            .replacingOccurrences(of: "{{Date}}", with: dateString)
+            .replacingOccurrences(of: "{{Page Number}}", with: String(pageNumber))
+            .replacingOccurrences(of: "{{PageNumber}}", with: String(pageNumber))
+            .replacingOccurrences(of: "{{Project Name}}", with: projectName)
+            .replacingOccurrences(of: "{{ProjectTitle}}", with: projectName)
+            .replacingOccurrences(of: "{{FileTitle}}", with: file.name)
+            .replacingOccurrences(of: "{{Collection}}", with: file.collectionName ?? "")
+            .replacingOccurrences(of: "{{Author}}", with: projectAuthor ?? "")
+    }
+
+    private func manuscriptPageWidth(for containerWidth: CGFloat) -> CGFloat {
+        // Keep manuscript pages desktop-like on wide layouts, but always fit compact screens.
+        min(700, max(280, containerWidth - 24))
+    }
+
+    private var filePageBreak: some View {
+        HStack(spacing: 8) {
+            Rectangle()
+                .fill(Color.secondary.opacity(0.35))
+                .frame(height: 1)
+            Text("Page Break")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Rectangle()
+                .fill(Color.secondary.opacity(0.35))
+                .frame(height: 1)
+        }
     }
 
     // MARK: - Link Handling

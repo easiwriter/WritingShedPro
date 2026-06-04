@@ -32,8 +32,10 @@ struct FileReaderView: View {
     @State private var contentScale: CGFloat = 1.0
     /// Baseline scale accumulated across successive pinch gestures.
     @State private var lastScale: CGFloat = 1.0
-    /// Measured natural (unscaled) content height for the scroll frame sizing trick.
-    @State private var naturalContentHeight: CGFloat = 0
+    /// Current visible page in paginated reader mode.
+    @State private var currentPageIndex: Int = 0
+    /// Total page count for current content/layout.
+    @State private var totalPageCount: Int = 1
 
     init(
         file: WSPReaderFile,
@@ -56,33 +58,36 @@ struct FileReaderView: View {
 
     var body: some View {
         Group {
-            #if os(iOS) && !targetEnvironment(macCatalyst)
-            GeometryReader { geo in
-                let naturalWidth = min(geo.size.width, 700)
-                ScrollView([.vertical, .horizontal]) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        scrollContent
-                            .frame(width: naturalWidth)
-                            .background(
-                                GeometryReader { inner in
-                                    Color.clear
-                                        .onAppear { naturalContentHeight = inner.size.height }
-                                        .onChange(of: inner.size.height) { _, h in naturalContentHeight = h }
-                                }
-                            )
-                            .scaleEffect(contentScale, anchor: .topLeading)
-                            .frame(
-                                width: naturalWidth * contentScale,
-                                height: max(naturalContentHeight, 1) * contentScale,
-                                alignment: .topLeading
-                            )
-                    }
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
+            #if canImport(UIKit)
+            VStack(alignment: .leading, spacing: 12) {
+#if DEBUG
+                Text("Reader pagination path: v3")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+#endif
+                fileHeader
+                Divider()
+                ReaderSingleFilePaginatedView(
+                    fileName: file.name,
+                    attributedString: displayContent,
+                    isTOCFile: file.isTOCFile,
+                    zoomScale: contentScale,
+                    pageCount: $totalPageCount,
+                    onLinkTap: handleLinkTap
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                HStack {
+                    Text("\(max(totalPageCount, 1)) pages")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                    Spacer()
                 }
-                .defaultScrollAnchor(.top)
-                .background(readerBackground)
-                .simultaneousGesture(pinchGesture)
+                .padding(.horizontal, 2)
             }
+            .padding()
+            .background(readerBackground)
             .navigationTitle(file.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -123,22 +128,35 @@ struct FileReaderView: View {
             CommentsSheet(comments: comments)
         }
         .onAppear {
+            #if targetEnvironment(macCatalyst)
+            contentScale = 1.0
+            appState.readerContentScale = 1.0
+            #else
             contentScale = appState.readerContentScale
+            #endif
             lastScale = contentScale
             displayContent = buildScaledContent()
         }
         .onChange(of: file.id) {
             selectedVersionIndex = file.currentVersionIndex
+            #if targetEnvironment(macCatalyst)
+            contentScale = 1.0
+            appState.readerContentScale = 1.0
+            #else
             contentScale = appState.readerContentScale
+            #endif
             lastScale = contentScale
-            naturalContentHeight = 0
             displayContent = buildScaledContent()
         }
         .onChange(of: fontSize) { displayContent = buildScaledContent() }
         .onChange(of: selectedVersionIndex) {
+            #if targetEnvironment(macCatalyst)
+            contentScale = 1.0
+            appState.readerContentScale = 1.0
+            #else
             contentScale = appState.readerContentScale
+            #endif
             lastScale = contentScale
-            naturalContentHeight = 0
             displayContent = buildScaledContent()
         }
     }
@@ -361,11 +379,16 @@ struct FileReaderView: View {
         // Normalize indents so headings and body start at the same left edge, like WSP.
         mutable.enumerateAttribute(.paragraphStyle, in: NSRange(location: 0, length: mutable.length)) { value, range, _ in
             guard let paragraph = value as? NSParagraphStyle else { return }
-            if paragraph.firstLineHeadIndent != 0 || paragraph.headIndent != 0 || paragraph.tailIndent != 0 {
+            let needsNormalization = paragraph.firstLineHeadIndent != 0
+                || paragraph.headIndent != 0
+                || paragraph.tailIndent != 0
+                || paragraph.lineBreakMode != .byWordWrapping
+            if needsNormalization {
                 let normalized = paragraph.mutableCopy() as! NSMutableParagraphStyle
                 normalized.firstLineHeadIndent = 0
                 normalized.headIndent = 0
                 normalized.tailIndent = 0
+                normalized.lineBreakMode = .byWordWrapping
                 mutable.addAttribute(.paragraphStyle, value: normalized, range: range)
             }
         }
@@ -465,10 +488,14 @@ private struct UIKitAttributedTextView: UIViewRepresentable {
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
         textView.isEditable = false
+        textView.isSelectable = true
         textView.isScrollEnabled = false
         textView.backgroundColor = .clear
         textView.textContainerInset = .zero
         textView.textContainer.lineFragmentPadding = 0
+        textView.textContainer.widthTracksTextView = true
+        textView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         textView.dataDetectorTypes = [.link]
         textView.delegate = context.coordinator
         textView.linkTextAttributes = [
@@ -480,6 +507,217 @@ private struct UIKitAttributedTextView: UIViewRepresentable {
 
     func updateUIView(_ textView: UITextView, context: Context) {
         textView.attributedText = attributedString
+        context.coordinator.onLinkTap = onLinkTap
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
+        guard let proposedWidth = proposal.width, proposedWidth > 0 else {
+            return nil
+        }
+
+        let targetSize = CGSize(width: proposedWidth, height: .greatestFiniteMagnitude)
+        let measuredSize = uiView.sizeThatFits(targetSize)
+        return CGSize(width: proposedWidth, height: ceil(measuredSize.height))
+    }
+
+    class Coordinator: NSObject, UITextViewDelegate {
+        var onLinkTap: ((URL) -> Bool)?
+
+        init(onLinkTap: ((URL) -> Bool)?) {
+            self.onLinkTap = onLinkTap
+        }
+
+        func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange) -> Bool {
+            if let handler = onLinkTap {
+                return !handler(URL)
+            }
+            return true
+        }
+    }
+}
+
+private struct PaginatedAttributedTextReader: View {
+    private static let pageInsets = UIEdgeInsets(top: 20, left: 22, bottom: 20, right: 22)
+
+    let attributedString: NSAttributedString
+    @Binding var pageIndex: Int
+    @Binding var pageCount: Int
+    var onLinkTap: ((URL) -> Bool)? = nil
+
+    @State private var pages: [NSAttributedString] = []
+
+    var body: some View {
+        GeometryReader { geo in
+            let pageWidth = max(1, geo.size.width)
+            let pageHeight = max(1, geo.size.height)
+
+            Group {
+                if pages.isEmpty {
+                    ContentUnavailableView("No Content", systemImage: "doc.text")
+                } else {
+                    TabView(selection: $pageIndex) {
+                        ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
+                            UIKitAttributedPageView(
+                                attributedString: page,
+                                pageInsets: Self.pageInsets,
+                                onLinkTap: onLinkTap
+                            )
+                            .padding(12)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .tag(index)
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .always))
+                }
+            }
+            .onAppear {
+                repaginate(width: pageWidth, height: pageHeight)
+            }
+            .onChange(of: attributedString) {
+                repaginate(width: pageWidth, height: pageHeight)
+            }
+            .onChange(of: pageWidth) { _, newWidth in
+                repaginate(width: newWidth, height: pageHeight)
+            }
+            .onChange(of: pageHeight) { _, newHeight in
+                repaginate(width: pageWidth, height: newHeight)
+            }
+        }
+    }
+
+    private func repaginate(width: CGFloat, height: CGFloat) {
+        let contentWidth = max(1, width - 24 - Self.pageInsets.left - Self.pageInsets.right)
+        let contentHeight = max(1, height - 24 - Self.pageInsets.top - Self.pageInsets.bottom)
+        let nextPages = TextPaginator.paginate(
+            attributedString: attributedString,
+            pageSize: CGSize(width: contentWidth, height: contentHeight)
+        )
+        pages = nextPages.isEmpty ? [NSAttributedString(string: "")] : nextPages
+        pageCount = max(pages.count, 1)
+        pageIndex = min(max(0, pageIndex), max(0, pageCount - 1))
+    }
+}
+
+final class ReaderPaginatedTextLayoutManager {
+    private let textStorage: NSTextStorage
+    private let layoutManager: NSLayoutManager
+
+    init(attributedString: NSAttributedString) {
+        self.textStorage = NSTextStorage(attributedString: attributedString)
+        self.layoutManager = NSLayoutManager()
+        self.layoutManager.allowsNonContiguousLayout = true
+        textStorage.addLayoutManager(layoutManager)
+    }
+
+    func calculatePageRanges(containerSize: CGSize, respectFormFeed: Bool = false) -> [NSRange] {
+        var pageRanges: [NSRange] = []
+        var characterIndex = 0
+        let totalCharacters = textStorage.length
+        var lastProgress = -1
+
+        while characterIndex < totalCharacters || pageRanges.isEmpty {
+            if pageRanges.count > 5000 { break }
+
+            let container = NSTextContainer(size: containerSize)
+            container.lineFragmentPadding = 0
+            container.maximumNumberOfLines = 0
+            container.lineBreakMode = .byWordWrapping
+            layoutManager.addTextContainer(container)
+            layoutManager.ensureLayout(for: container)
+
+            var glyphRange = layoutManager.glyphRange(for: container)
+            var characterRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+            var foundFormFeed = false
+
+            if respectFormFeed && characterRange.length > 0 {
+                let pageText = (textStorage.string as NSString).substring(with: characterRange)
+                if let formFeedIndex = pageText.firstIndex(of: "\u{000C}") {
+                    foundFormFeed = true
+                    let offsetInPage = pageText.distance(from: pageText.startIndex, to: formFeedIndex)
+                    let formFeedLocation = characterRange.location + offsetInPage
+                    characterRange = NSRange(location: characterRange.location, length: offsetInPage)
+                    glyphRange = layoutManager.glyphRange(forCharacterRange: characterRange, actualCharacterRange: nil)
+                    _ = glyphRange
+                    characterIndex = formFeedLocation + 1
+                }
+            }
+
+            if characterRange.length == 0 && !foundFormFeed {
+                break
+            }
+
+            pageRanges.append(characterRange)
+
+            if !foundFormFeed {
+                let nextChar = NSMaxRange(characterRange)
+                characterIndex = nextChar
+            }
+
+            if characterIndex <= lastProgress && !foundFormFeed {
+                break
+            }
+            lastProgress = characterIndex
+
+            if characterIndex >= totalCharacters {
+                break
+            }
+        }
+
+        return pageRanges
+    }
+}
+
+enum TextPaginator {
+    static func paginate(attributedString: NSAttributedString, pageSize: CGSize) -> [NSAttributedString] {
+        guard attributedString.length > 0 else { return [] }
+
+        let manager = ReaderPaginatedTextLayoutManager(attributedString: attributedString)
+        let ranges = manager.calculatePageRanges(containerSize: pageSize, respectFormFeed: false)
+
+        if ranges.isEmpty {
+            return [attributedString]
+        }
+
+        return ranges.map { attributedString.attributedSubstring(from: $0) }
+    }
+}
+
+struct UIKitAttributedPageView: UIViewRepresentable {
+    let attributedString: NSAttributedString
+    let pageInsets: UIEdgeInsets
+    var onLinkTap: ((URL) -> Bool)? = nil
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onLinkTap: onLinkTap)
+    }
+
+    func makeUIView(context: Context) -> UITextView {
+        let textView = ReaderPageTextView()
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.isScrollEnabled = false
+        textView.backgroundColor = .clear
+        textView.textContainerInset = pageInsets
+        textView.textContainer.lineFragmentPadding = 0
+        textView.textContainer.lineBreakMode = .byWordWrapping
+        textView.textContainer.maximumNumberOfLines = 0
+        textView.textContainer.widthTracksTextView = false
+        textView.textContainer.heightTracksTextView = false
+        textView.dataDetectorTypes = [.link]
+        textView.delegate = context.coordinator
+        textView.linkTextAttributes = [
+            .foregroundColor: UIColor.systemBrown,
+            .underlineStyle: NSUnderlineStyle.single.rawValue
+        ]
+        return textView
+    }
+
+    func updateUIView(_ textView: UITextView, context: Context) {
+        textView.attributedText = attributedString
+        textView.textContainerInset = pageInsets
+        textView.textContainer.lineBreakMode = .byWordWrapping
+        textView.contentOffset = .zero
         context.coordinator.onLinkTap = onLinkTap
     }
 
@@ -498,6 +736,20 @@ private struct UIKitAttributedTextView: UIViewRepresentable {
         }
     }
 }
+
+final class ReaderPageTextView: UITextView {
+    override func layoutSubviews() {
+        super.layoutSubviews()
+
+        let contentWidth = max(1, bounds.width - textContainerInset.left - textContainerInset.right)
+        let contentHeight = max(1, bounds.height - textContainerInset.top - textContainerInset.bottom)
+        let targetSize = CGSize(width: contentWidth, height: contentHeight)
+        if textContainer.size != targetSize {
+            textContainer.size = targetSize
+        }
+    }
+}
+
 #endif
 
 // MARK: - Footnotes Sheet

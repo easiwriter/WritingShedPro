@@ -14,6 +14,32 @@ import UIKit
 import AppKit
 #endif
 
+struct ReaderManuscriptPageSetup {
+    var hasHeaders: Bool
+    var hasFooters: Bool
+    var headerLeft: String
+    var headerCenter: String
+    var headerRight: String
+    var footerLeft: String
+    var footerCenter: String
+    var footerRight: String
+    var pageBreakBetweenFiles: Bool
+
+    static func `default`(projectName: String) -> ReaderManuscriptPageSetup {
+        ReaderManuscriptPageSetup(
+            hasHeaders: true,
+            hasFooters: true,
+            headerLeft: "",
+            headerCenter: "{{Collection}}",
+            headerRight: "",
+            footerLeft: "",
+            footerCenter: "{{Page Number}}",
+            footerRight: "",
+            pageBreakBetweenFiles: true
+        )
+    }
+}
+
 /// Represents a parsed WSP document for reading
 @Observable
 class WSPDocument {
@@ -25,6 +51,7 @@ class WSPDocument {
     
     /// Project metadata
     let projectName: String
+    let projectAuthor: String?
     let projectType: String
     let fictionClass: String?
     let dramaScriptType: String?
@@ -112,10 +139,9 @@ class WSPDocument {
             result.append(contentsOf: frontMatter.files)
         }
 
-        // 2. Body — files from the project-type source folder, filtered by includedInManuscript
-        let bodyFolderName = bodySourceFolderName()
-        if let bodyFolder = folders.first(where: { $0.name.caseInsensitiveCompare(bodyFolderName) == .orderedSame }) {
-            result.append(contentsOf: bodyFolder.files.filter { $0.includedInManuscript && !$0.isTOCFile })
+        // 2. Body — pick the first candidate body folder that actually has manuscript files.
+        if let bodyFolder = bodySourceFolder() {
+            result.append(contentsOf: manuscriptFilesPreservingFolderOrder(in: bodyFolder))
         }
 
         // 3. Back Matter — files inside Manuscript/Back Matter
@@ -125,13 +151,16 @@ class WSPDocument {
 
         // Fallback: if nothing found, use all includedInManuscript files except TOC
         if result.isEmpty {
-            return manuscriptOrderedFiles.filter { !$0.isTOCFile }
+            return manuscriptOrderedFiles.filter { !$0.isTOCFile || $0.isCoverFile }
         }
         return result
     }
 
     /// Manuscript preview title
     var manuscriptPreviewTitle: String { "Manuscript" }
+
+    /// Page setup hints used by Reader manuscript rendering.
+    let manuscriptPageSetup: ReaderManuscriptPageSetup
 
     /// Returns the subfolder of the top-level "Manuscript" folder with the given name.
     private func manuscriptSubfolder(named name: String) -> WSPReaderFolder? {
@@ -143,20 +172,93 @@ class WSPDocument {
         })
     }
 
-    /// Returns the folder name containing body content — mirrors ManuscriptAssemblyService.getBodySourceFolderName()
-    private func bodySourceFolderName() -> String {
+    /// Candidate folder names containing body content.
+    /// We intentionally include fallback names because some projects keep text files in
+    /// `Scenes` even when fictionClass is `novel`.
+    private func bodySourceFolderCandidates() -> [String] {
         switch projectType.lowercased() {
-        case "poetry":   return "Poems"
-        case "drama":    return "Scenes"
-        case "prose":    return "Prose"
+        case "poetry":
+            return ["Poems"]
+        case "drama":
+            return ["Scenes", "Acts"]
+        case "prose":
+            return ["Prose", "Scenes"]
         case "fiction":
             switch fictionClass?.lowercased() {
-            case "novel":      return "Chapters"
-            case "versenovel": return "Episodes"
-            default:           return "Scenes"
+            case "novel":
+                return ["Chapters", "Scenes", "Books"]
+            case "versenovel":
+                return ["Episodes", "Scenes", "Chapters"]
+            default:
+                return ["Scenes", "Chapters"]
             }
-        default: return "Scenes"
+        default:
+            return ["Scenes"]
         }
+    }
+
+    /// Returns the best body folder by trying candidates in order and selecting
+    /// the first one that contains manuscript-included files.
+    private func bodySourceFolder() -> WSPReaderFolder? {
+        for candidate in bodySourceFolderCandidates() {
+            guard let folder = folders.first(where: { $0.name.caseInsensitiveCompare(candidate) == .orderedSame }) else {
+                continue
+            }
+            if !manuscriptFilesPreservingFolderOrder(in: folder).isEmpty {
+                return folder
+            }
+        }
+
+        // If candidates exist but are empty, still return the first match to preserve prior behavior.
+        for candidate in bodySourceFolderCandidates() {
+            if let folder = folders.first(where: { $0.name.caseInsensitiveCompare(candidate) == .orderedSame }) {
+                return folder
+            }
+        }
+
+        return nil
+    }
+
+    private static func parseManuscriptPageSetup(from project: WSPProjectData, projectName: String) -> ReaderManuscriptPageSetup {
+        struct EncodedPageSetup: Codable {
+            var headers: Int?
+            var footers: Int?
+            var pageBreakBetweenFiles: Int?
+            var headerLeft: String?
+            var headerCenter: String?
+            var headerRight: String?
+            var footerLeft: String?
+            var footerCenter: String?
+            var footerRight: String?
+        }
+
+        var setup = ReaderManuscriptPageSetup.default(projectName: projectName)
+
+        if let base64 = project.pageSetupBase64,
+           let rawData = Data(base64Encoded: base64),
+           let decoded = try? JSONDecoder().decode(EncodedPageSetup.self, from: rawData) {
+            if let headers = decoded.headers { setup.hasHeaders = headers == 1 }
+            if let footers = decoded.footers { setup.hasFooters = footers == 1 }
+            if let breaks = decoded.pageBreakBetweenFiles { setup.pageBreakBetweenFiles = breaks == 1 }
+            setup.headerLeft = decoded.headerLeft ?? setup.headerLeft
+            setup.headerCenter = decoded.headerCenter ?? setup.headerCenter
+            setup.headerRight = decoded.headerRight ?? setup.headerRight
+            setup.footerLeft = decoded.footerLeft ?? setup.footerLeft
+            setup.footerCenter = decoded.footerCenter ?? setup.footerCenter
+            setup.footerRight = decoded.footerRight ?? setup.footerRight
+        }
+
+        if let hasHeaders = project.headers { setup.hasHeaders = hasHeaders }
+        if let hasFooters = project.footers { setup.hasFooters = hasFooters }
+        if let breaks = project.pageBreakBetweenFiles { setup.pageBreakBetweenFiles = breaks }
+        setup.headerLeft = project.headerLeft ?? setup.headerLeft
+        setup.headerCenter = project.headerCenter ?? setup.headerCenter
+        setup.headerRight = project.headerRight ?? setup.headerRight
+        setup.footerLeft = project.footerLeft ?? setup.footerLeft
+        setup.footerCenter = project.footerCenter ?? setup.footerCenter
+        setup.footerRight = project.footerRight ?? setup.footerRight
+
+        return setup
     }
     
     /// Publications (read-only display)
@@ -166,6 +268,44 @@ class WSPDocument {
     let submissions: [WSPReaderSubmission]
     
     // MARK: - Initialization
+
+    private static func sectionNameLookup(from data: WSPExportData) -> [String: String] {
+        var lookup: [String: String] = [:]
+
+        for section in data.proseSections ?? [] where !section.id.isEmpty {
+            lookup[section.id] = section.name
+        }
+        for collection in data.poetryCollections ?? [] where !collection.id.isEmpty {
+            lookup[collection.id] = collection.name
+        }
+        for book in data.books ?? [] where !book.id.isEmpty {
+            lookup[book.id] = book.name
+        }
+        for chapter in data.chapters ?? [] where !chapter.id.isEmpty {
+            lookup[chapter.id] = chapter.name
+        }
+        for act in data.acts ?? [] where !act.id.isEmpty {
+            lookup[act.id] = act.name
+        }
+
+        return lookup
+    }
+
+    private static func fileCollectionLookup(from data: WSPExportData, sectionNameByID: [String: String]) -> [String: String] {
+        var lookup: [String: String] = [:]
+
+        for scene in data.scenes ?? [] {
+            guard let textFileID = scene.textFileId, !textFileID.isEmpty else { continue }
+            let resolved = scene.chapterId.flatMap { sectionNameByID[$0] }
+                ?? scene.actId.flatMap { sectionNameByID[$0] }
+                ?? scene.bookId.flatMap { sectionNameByID[$0] }
+            if let resolved, !resolved.isEmpty {
+                lookup[textFileID] = resolved
+            }
+        }
+
+        return lookup
+    }
     
     init(url: URL) throws {
         self.fileURL = url
@@ -191,15 +331,21 @@ class WSPDocument {
         
         // Extract project info
         self.projectName = wspData.project.name.isEmpty ? "Untitled" : wspData.project.name
+        self.projectAuthor = wspData.project.author
         self.projectType = wspData.project.type
         self.fictionClass = wspData.project.fictionClass
         self.dramaScriptType = wspData.project.dramaScriptType
         self.exportDate = wspData.exportDate
         self.appVersion = wspData.appVersion
+        self.manuscriptPageSetup = Self.parseManuscriptPageSetup(from: wspData.project, projectName: self.projectName)
         
         // Parse folders, sorted by userOrder to match WSP display order
+        let sectionLookup = Self.sectionNameLookup(from: wspData)
+
+        let fileCollectionLookup = Self.fileCollectionLookup(from: wspData, sectionNameByID: sectionLookup)
+
         let parsedFolders = wspData.folders
-            .map { WSPReaderFolder(from: $0) }
+            .map { WSPReaderFolder(from: $0, sectionNameByID: sectionLookup, fileCollectionNameByID: fileCollectionLookup) }
             .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
         self.folders = parsedFolders
 
@@ -383,16 +529,16 @@ struct WSPReaderFolder: Identifiable {
     let files: [WSPReaderFile]
     let subfolders: [WSPReaderFolder]
     
-    init(from data: WSPFolderData) {
+    init(from data: WSPFolderData, sectionNameByID: [String: String] = [:], fileCollectionNameByID: [String: String] = [:]) {
         self.id = data.id
         self.name = data.name
         self.userOrder = data.userOrder
         self.files = data.textFiles
             .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
-            .map { WSPReaderFile(from: $0) }
+            .map { WSPReaderFile(from: $0, sectionNameByID: sectionNameByID, fileCollectionNameByID: fileCollectionNameByID) }
         self.subfolders = data.subfolders
             .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
-            .map { WSPReaderFolder(from: $0) }
+            .map { WSPReaderFolder(from: $0, sectionNameByID: sectionNameByID, fileCollectionNameByID: fileCollectionNameByID) }
     }
     
     /// Get folder icon based on name
@@ -418,11 +564,14 @@ struct WSPReaderFile: Identifiable, Hashable {
     let userOrder: Int?
     let includedInManuscript: Bool
     let isTOCFile: Bool
+    let isCoverFile: Bool
+    let coverImageData: Data?
     let versions: [WSPReaderVersion]
     let workflowStatus: String?
     let poetryFormName: String?
+    let collectionName: String?
     
-    init(from data: WSPTextFileData) {
+    init(from data: WSPTextFileData, sectionNameByID: [String: String] = [:], fileCollectionNameByID: [String: String] = [:]) {
         self.id = data.id
         self.name = data.name
         self.createdDate = data.createdDate
@@ -431,9 +580,21 @@ struct WSPReaderFile: Identifiable, Hashable {
         self.userOrder = data.userOrder
         self.includedInManuscript = data.includedInManuscript ?? true
         self.isTOCFile = data.isTOCFile ?? false
+        self.isCoverFile = data.isCoverFile == true || ["front cover", "back cover"].contains(data.name.lowercased())
+        if let base64 = data.coverImageBase64, let decoded = Data(base64Encoded: base64) {
+            self.coverImageData = decoded
+        } else {
+            self.coverImageData = nil
+        }
         self.versions = data.versions.map { WSPReaderVersion(from: $0) }
         self.workflowStatus = data.workflowStatus
         self.poetryFormName = data.poetryFormName
+        let preferredCollectionID = data.poetryCollectionId
+            ?? data.poetryCollectionIds?.first
+            ?? data.sectionId
+            ?? data.sectionIds?.first
+        self.collectionName = preferredCollectionID.flatMap { sectionNameByID[$0] }
+            ?? fileCollectionNameByID[data.id]
     }
     
     // MARK: - Hashable

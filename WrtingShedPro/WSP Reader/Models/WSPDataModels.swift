@@ -49,6 +49,7 @@ struct WSPProjectData: Codable {
     var modifiedDate: Date?
     var details: String?
     var notes: String?
+    var author: String?
     var fictionClass: String?
     var useMonomyth: Bool = false
     var storyStructure: String?
@@ -57,6 +58,18 @@ struct WSPProjectData: Codable {
     // Feature 029: Manuscript Assembly
     var manuscriptSettingsBase64: String?
     var tocSettingsBase64: String?
+    // Optional page setup payload for manuscript-style rendering in Reader.
+    var pageSetupBase64: String?
+    // Optional direct page setup fields (if exported directly by newer app versions).
+    var headers: Bool?
+    var footers: Bool?
+    var headerLeft: String?
+    var headerCenter: String?
+    var headerRight: String?
+    var footerLeft: String?
+    var footerCenter: String?
+    var footerRight: String?
+    var pageBreakBetweenFiles: Bool?
     // Feature 029: Contributor display settings
     var contributorDisplaySurnameFirst: Bool?
     var contributorDisplayRunTogether: Bool?
@@ -98,10 +111,15 @@ struct WSPTextFileData: Codable {
     var poetryFormId: String?
     var poetryFormName: String?
     var sectionId: String?
+    var sectionIds: [String]?
     var includedInManuscript: Bool?  // Optional for backward compatibility
     var contentTypeRaw: String?  // Optional for backward compatibility - "richText" or "markdown"
     var isTOCFile: Bool?  // Optional for backward compatibility - Feature 031
     var tocSettingsBase64: String?  // Base64 encoded TOCSettings JSON - Feature 031
+    var poetryCollectionId: String?
+    var poetryCollectionIds: [String]?
+    var isCoverFile: Bool?  // Cover image file (Front Cover / Back Cover)
+    var coverImageBase64: String?  // Base64 encoded cover image data (JPEG/PNG)
     var versions: [WSPVersionData] = []
 }
 
