@@ -55,11 +55,22 @@ struct SyncDiagnosticsView: View {
     @State private var foreignZoneStatus: String = ""
     @State private var purgeOrphansStatus: String = ""
     @State private var showPurgeOrphansConfirmation = false
+    @State private var guidedRecoveryStatus: String = ""
+    @State private var isGuidedRecoveryInProgress = false
+    @State private var convergenceStatus: String = "Checking…"
+    @State private var convergenceMismatchCount: Int = 0
+    @State private var convergenceLastCheckedAt: Date?
+
+#if DEBUG || targetEnvironment(simulator)
+    private let showAdvancedZoneRecovery = true
+#else
+    private let showAdvancedZoneRecovery = false
+#endif
     
     var body: some View {
         NavigationStack {
             diagnosticsList
-            .navigationTitle("Sync Diagnostics")
+            .navigationTitle("Sync Troubleshooting")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -69,6 +80,9 @@ struct SyncDiagnosticsView: View {
                 }
             }
             .onAppear {
+                // Always run convergence check (used in the status summary)
+                analyzeConvergenceSignals()
+                #if DEBUG || targetEnvironment(simulator)
                 checkiCloudStatus()
                 checkForDuplicates()
                 checkForDuplicateProjects()
@@ -78,6 +92,7 @@ struct SyncDiagnosticsView: View {
                 checkForOrphanedPublications()
                 checkForDuplicateStyleSheets()
                 tombstoneCount = DeduplicationService.tombstoneCount
+                #endif
             }
             .alert("Repair Complete", isPresented: $showRepairResult) {
                 Button("OK") { }
@@ -97,13 +112,62 @@ struct SyncDiagnosticsView: View {
 
     private var diagnosticsList: some View {
         List {
+            // ── Always visible to users ──────────────────────────────
+            syncStatusSummarySection
+            debugActionsSection
+
+            // ── Technical / developer-only sections ──────────────────
+            #if DEBUG || targetEnvironment(simulator)
             iCloudSection
             cloudKitContainerSection
             liveCloudKitSection
+            convergenceSection
             localDataSection
             databaseHealthSection
             stylesheetsSection
-            debugActionsSection
+            #endif
+        }
+    }
+
+    /// Compact status summary for release users.
+    private var syncStatusSummarySection: some View {
+        Section("iCloud Sync Status") {
+            HStack {
+                let healthy = syncThrottler.importSucceeded && syncThrottler.exportSucceeded && !syncThrottler.isRateLimited
+                Image(systemName: healthy ? "checkmark.icloud.fill" : "exclamationmark.icloud.fill")
+                    .foregroundStyle(healthy ? .green : .orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(healthy ? "Sync is working normally" : "Sync may need attention")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    if let lastSync = syncThrottler.lastSyncTime {
+                        Text("Last activity: \(lastSync.formatted(date: .omitted, time: .standard))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+
+            if convergenceMismatchCount > 0 {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text("\(convergenceMismatchCount) project(s) may have stale data on this device")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+
+            if syncThrottler.isRateLimited {
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.badge.exclamationmark.fill")
+                        .foregroundStyle(.red)
+                    Text("Sync is temporarily rate-limited by iCloud. This clears automatically.")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
         }
     }
 
@@ -249,6 +313,32 @@ struct SyncDiagnosticsView: View {
         return Date().timeIntervalSince(reference) > 20
     }
 
+    private var convergenceSection: some View {
+        Section("Convergence") {
+            HStack {
+                Text("Status")
+                Spacer()
+                Text(convergenceStatus)
+                    .font(.caption)
+                    .foregroundStyle(convergenceStatus.hasPrefix("✅") ? .green :
+                                     convergenceStatus.hasPrefix("⚠️") ? .orange : .secondary)
+            }
+
+            LabeledContent("Mismatch Signals", value: "\(convergenceMismatchCount)")
+
+            if let checkedAt = convergenceLastCheckedAt {
+                LabeledContent("Last Checked") {
+                    Text(checkedAt.formatted(date: .omitted, time: .standard))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Button("Re-check Convergence") {
+                analyzeConvergenceSignals()
+            }
+        }
+    }
+
     private func cloudKitEventRow(_ event: CloudKitEventLogEntry) -> some View {
         let isResetLatencyEvent = event.type == "mirroring"
             && event.phase == "first-import-started"
@@ -392,6 +482,28 @@ struct SyncDiagnosticsView: View {
         syncForceStatus = includeVerboseInventory
             ? "✅ Full diagnostics snapshot copied to clipboard"
             : "✅ Diagnostics snapshot copied to clipboard"
+    }
+
+    private func copyGuidedRecoveryReport() {
+        let guidedResult = guidedRecoveryStatus.isEmpty
+            ? "(no guided recovery run captured yet)"
+            : guidedRecoveryStatus
+
+        let report = [
+            "Guided Recovery Report",
+            "Generated: \(Date().formatted(date: .complete, time: .standard))",
+            "",
+            "Guided Recovery Result:",
+            guidedResult,
+            "",
+            diagnosticsSnapshotText(includeVerboseInventory: true)
+        ].joined(separator: "\n")
+
+        #if canImport(UIKit)
+        UIPasteboard.general.string = report
+        #endif
+
+        syncForceStatus = "✅ Guided recovery report copied to clipboard"
     }
 
     private func projectInventoryLines(includeDetails: Bool = true, includeNaPoVariantSearch: Bool = true) -> [String] {
@@ -949,6 +1061,37 @@ struct SyncDiagnosticsView: View {
                     showResetSyncConfirmation = true
                 }
                 .foregroundStyle(.red)
+
+                Text("Deletes local data on this device and re-imports from iCloud on next launch. iCloud data is not deleted.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+
+        Section("Guided Recovery") {
+            Text("Run a safe recovery sequence before scheduling a local cache rebuild.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button(isGuidedRecoveryInProgress ? "Running Guided Recovery…" : "Run Guided Recovery") {
+                runGuidedRecovery()
+            }
+            .disabled(isGuidedRecoveryInProgress)
+
+            if !guidedRecoveryStatus.isEmpty {
+                Text(guidedRecoveryStatus)
+                    .font(.caption)
+                    .foregroundStyle(guidedRecoveryStatus.hasPrefix("✅") ? .green :
+                                     guidedRecoveryStatus.hasPrefix("❌") ? .red : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+
+                Button("Copy Guided Recovery Report") {
+                    copyGuidedRecoveryReport()
+                }
+                .disabled(isGuidedRecoveryInProgress)
             }
         }
         .alert("Reset Sync Database?", isPresented: $showResetSyncConfirmation) {
@@ -969,6 +1112,7 @@ struct SyncDiagnosticsView: View {
             Text("⚠️ This permanently deletes ALL data in the CloudKit zone. This device's local data is preserved. After deleting, just QUIT AND RELAUNCH this app — it will re-export local data to a fresh zone. Do NOT use 'Reset Sync Database' on this device afterwards or you will lose everything.")
         }
 
+        if showAdvancedZoneRecovery {
         Section("Zone Recovery") {
             Button("Force Re-export All Data") {
                 forceReexportAllData()
@@ -1044,6 +1188,7 @@ struct SyncDiagnosticsView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
             }
+        }
         }
 
         #if DEBUG
@@ -1842,6 +1987,114 @@ struct SyncDiagnosticsView: View {
         } catch {
             syncForceStatus += " Local save failed: \(error.localizedDescription)"
         }
+    }
+
+    private func runGuidedRecovery() {
+        guard !isGuidedRecoveryInProgress else { return }
+        isGuidedRecoveryInProgress = true
+        guidedRecoveryStatus = "Step 1/4: Refreshing sync backoff state…"
+
+        Task { @MainActor in
+            CloudKitSyncThrottler.shared.resetBackoffState()
+            try? await Task.sleep(nanoseconds: 200_000_000)
+
+            guidedRecoveryStatus = "Step 2/4: Requesting CloudKit fetch…"
+            forceSyncFromCloud()
+
+            let _ = await waitForForceSyncResult(timeoutSeconds: 25)
+
+            guidedRecoveryStatus = "Step 3/4: Waiting for CloudKit to settle…"
+            let settled = await waitForCloudKitIdle(timeoutSeconds: 30)
+
+            guidedRecoveryStatus = "Step 4/4: Re-checking local store snapshot…"
+            let freshContext = ModelContext(modelContext.container)
+            let totalProjects = (try? freshContext.fetchCount(FetchDescriptor<Project>())) ?? -1
+            let totalFiles = (try? freshContext.fetchCount(FetchDescriptor<TextFile>())) ?? -1
+            analyzeConvergenceSignals()
+
+            let throttler = CloudKitSyncThrottler.shared
+            let transportHealthy = throttler.importCompleted && throttler.importSucceeded && throttler.exportCompleted && throttler.exportSucceeded && !throttler.isRateLimited
+
+            var lines: [String] = []
+            lines.append("\(transportHealthy ? "✅" : "⚠️") Guided recovery check complete")
+            lines.append("CloudKit settled: \(settled ? "yes" : "no")")
+            lines.append("Transport state: import=\(throttler.importSucceeded ? "ok" : "not-ok"), export=\(throttler.exportSucceeded ? "ok" : "not-ok"), rateLimited=\(throttler.isRateLimited ? "yes" : "no")")
+            lines.append("Local store: projects=\(totalProjects), files=\(totalFiles)")
+            lines.append("Convergence signals: \(convergenceMismatchCount)")
+
+            if transportHealthy {
+                lines.append("If one project is still stale on this device, use Reset Sync Database to rebuild local cache from iCloud.")
+            } else {
+                lines.append("Sync transport is not fully healthy yet. Wait 1-2 minutes, then run Guided Recovery again before resetting local cache.")
+            }
+
+            guidedRecoveryStatus = lines.joined(separator: "\n")
+            isGuidedRecoveryInProgress = false
+        }
+    }
+
+    private func analyzeConvergenceSignals() {
+        let freshContext = ModelContext(modelContext.container)
+        let descriptor = FetchDescriptor<Project>()
+        let storeProjects = (try? freshContext.fetch(descriptor)) ?? []
+
+        let queryActive = projects.filter { !$0.isTrashed }
+        let storeActive = storeProjects.filter { !$0.isTrashed }
+
+        let queryByID = Dictionary(uniqueKeysWithValues: queryActive.map { ($0.id, $0) })
+        let storeByID = Dictionary(uniqueKeysWithValues: storeActive.map { ($0.id, $0) })
+        let allIDs = Set(queryByID.keys).union(storeByID.keys)
+
+        var mismatches = 0
+        for id in allIDs {
+            guard let queryProject = queryByID[id], let storeProject = storeByID[id] else {
+                mismatches += 1
+                continue
+            }
+
+            if queryProject.name != storeProject.name {
+                mismatches += 1
+                continue
+            }
+
+            if queryProject.modifiedDate != storeProject.modifiedDate {
+                mismatches += 1
+            }
+        }
+
+        convergenceMismatchCount = mismatches
+        convergenceLastCheckedAt = Date()
+
+        let hasHealthyTransport = syncThrottler.importCompleted && syncThrottler.importSucceeded && syncThrottler.exportCompleted && syncThrottler.exportSucceeded && !syncThrottler.isRateLimited && !syncThrottler.hasActiveCloudKitEvent
+
+        if mismatches == 0 {
+            convergenceStatus = "✅ Converged"
+        } else if hasHealthyTransport {
+            convergenceStatus = "⚠️ Likely stale local cache"
+        } else {
+            convergenceStatus = "⚠️ Divergence while sync active"
+        }
+    }
+
+    private func waitForForceSyncResult(timeoutSeconds: Int) async -> Bool {
+        for _ in 0..<timeoutSeconds {
+            if !isForceSyncInProgress {
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+        return false
+    }
+
+    private func waitForCloudKitIdle(timeoutSeconds: Int) async -> Bool {
+        for _ in 0..<timeoutSeconds {
+            let throttler = CloudKitSyncThrottler.shared
+            if !throttler.isSyncing && !throttler.hasActiveCloudKitEvent {
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+        return false
     }
     
     /// Remove duplicate projects, keeping the one with the most content

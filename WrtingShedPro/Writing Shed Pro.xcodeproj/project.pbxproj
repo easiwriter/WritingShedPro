@@ -87,6 +87,7 @@
 				Resources/Videos/ShortFiction.mov,
 				Resources/Videos/SubmittingWork.mov,
 				Resources/Videos/VerseNovel.mov,
+				"Resources/Writing Shed Pro Guide.html",
 			);
 			target = D741DF6B2EA76292003629E8 /* Writing Shed Pro */;
 		};

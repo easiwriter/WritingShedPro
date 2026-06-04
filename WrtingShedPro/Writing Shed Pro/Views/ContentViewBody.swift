@@ -150,11 +150,9 @@ struct ContentViewBody: View {
             .sheet(isPresented: $state.showContactSupport) {
                 ContactSupportView()
             }
-            #if DEBUG || targetEnvironment(simulator)
             .sheet(isPresented: $state.showSyncDiagnostics) {
                 SyncDiagnosticsView()
             }
-            #endif
             .sheet(isPresented: $state.showHTMLManual, onDismiss: {
                 state.htmlManualSection = nil
             }) {

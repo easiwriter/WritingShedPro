@@ -189,9 +189,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <a id="11-introduction"></a>
 
 <h1 id="introduction">Introduction</h1>
-<p>Welcome to Writing Shed Pro, the professional writing app designed for authors, poets, playwrights, and fiction writers. Whether you're crafting your first haiku or your tenth novel, Writing Shed Pro provides the tools you need to write, organize, and publish your creative work.</p>
-<p><a href="wspvideo:introduction">Watch the video</a></p>
-<h2 id="what-is-writing-shed-pro">What Is Writing Shed Pro?</h2>
+<p>Welcome to Writing Shed Pro, the professional writing app designed for authors, poets, playwrights, and fiction writers. Whether you're crafting your first haiku or your tenth novel, Writing Shed Pro provides the tools you need to write, oWSP Is Writing Shed Pro?</p>
 <p>Writing Shed Pro is a complete writing environment that runs on iPhone, iPad, and Mac. It's built from the ground up for writers who take their craft seriously. Unlike generic word processors, every feature is designed with creative writing in mind.</p>
 <h2 id="key-features-at-a-glance">Key Features at a Glance</h2>
 <h3 id="project-based-organization">Project-Based Organization</h3>
@@ -13802,29 +13800,88 @@ DAVID (CONT'D)
 <h1 id="troubleshooting">Troubleshooting</h1>
 <p>Solutions to common issues in Writing Shed Pro.</p>
 <h2 id="sync-issues">Sync Issues</h2>
-<h3 id="files-not-syncing">Files Not Syncing</h3>
-<p><strong>Symptoms</strong>: Changes on one device don't appear on another.</p>
-<p><strong>Solutions</strong>:
-1. Check internet connection on both devices
-2. Ensure iCloud is enabled in Settings
-3. Wait a few minutes—sync isn't instant
-4. Force quit and reopen the app
-5. Check iCloud storage isn't full
-6. Verify same Apple ID on both devices</p>
+<p>Writing Shed Pro keeps your projects in sync across all your devices using iCloud. Sync happens automatically in the background — you don't need to do anything to keep devices up to date. Most sync delays resolve on their own within a few minutes.</p>
+<h3 id="how-sync-works">How Sync Works</h3>
+<p>When you create or edit a project on one device, the changes are uploaded to iCloud. Your other devices download those changes when they are online and the app is running (or shortly after you open it). There is no manual sync button you need to press in normal use.</p>
+<p>Because iCloud is a cloud service, sync speed depends on your internet connection, Apple's servers, and how much has changed. After a long period offline, a device may take several minutes to catch up.</p>
+<h3 id="projects-or-changes-not-appearing-on-another-device">Projects or Changes Not Appearing on Another Device</h3>
+<p><strong>Before troubleshooting</strong>: Wait at least 5–10 minutes with the app open and a good Wi-Fi connection. Most delays resolve on their own.</p>
+<p>If changes still don't appear:</p>
+<ol>
+<li><strong>Check internet</strong> — Confirm both devices have a working Wi-Fi or cellular connection.</li>
+<li><strong>Check iCloud</strong> — Go to Settings → [your name] → iCloud and confirm iCloud Drive is turned on. Check that Writing Shed Pro is allowed to use iCloud.</li>
+<li><strong>Check iCloud storage</strong> — If your iCloud storage is full, sync will stop. Free up space or upgrade your plan.</li>
+<li><strong>Confirm the same Apple ID</strong> — Both devices must be signed in to the same Apple ID.</li>
+<li><strong>Force quit and reopen</strong> — On the device that seems behind, force-quit the app and reopen it. This triggers a fresh sync check.</li>
+<li><strong>Check Apple's system status</strong> — Visit <a href="https://apple.com/support/systemstatus">apple.com/support/systemstatus</a> to see if iCloud is experiencing a known outage.</li>
+</ol>
+<h3 id="using-sync-troubleshooting">Using Sync Troubleshooting</h3>
+<p>If normal steps haven't helped, Writing Shed Pro has a built-in recovery tool. Go to <strong>Settings → Sync Troubleshooting</strong>.</p>
+<p>The screen shows you:</p>
+<ul>
+<li><strong>iCloud Sync Status</strong> — A green checkmark means recent syncs succeeded. An orange warning means sync may need attention.</li>
+<li><strong>Sync Actions</strong> — Steps you can take to nudge or reset sync.</li>
+<li><strong>Guided Recovery</strong> — A one-tap recovery sequence that safely resolves most persistent sync problems.</li>
+</ul>
+<h4 id="run-guided-recovery">Run Guided Recovery</h4>
+<p><strong>Guided Recovery</strong> is the recommended first step for any stubborn sync issue. Tap <strong>Run Guided Recovery</strong> and the app will:</p>
+<ol>
+<li>Clear any rate-limiting backoff so sync can proceed at full speed.</li>
+<li>Ask iCloud to deliver any pending changes immediately.</li>
+<li>Wait for the sync activity to settle.</li>
+<li>Check whether your projects match the expected state and report any mismatches.</li>
+</ol>
+<p>This process takes 1–2 minutes. A status message tells you what happened. If projects are now fully synced, the status will show a green "Converged" result. If a problem was found, the status message describes it.</p>
+<p>After Guided Recovery completes, you can tap <strong>Copy Guided Recovery Report</strong> to copy a detailed report to your clipboard. This report is useful if you need to contact support.</p>
+<h4 id="force-sync-now">Force Sync Now</h4>
+<p>If you want to manually trigger an iCloud check without running the full Guided Recovery, tap <strong>Force Sync Now</strong>. This tells iCloud to deliver pending changes immediately. It is safe to use at any time.</p>
+<h4 id="reset-sync-backoff-state">Reset Sync Backoff State</h4>
+<p>If the app has encountered repeated network errors, it temporarily slows down sync attempts to avoid overloading iCloud. <strong>Reset Sync Backoff State</strong> clears this delay so normal sync speed resumes. This button only appears when a backoff is active.</p>
+<h4 id="reset-sync-database">Reset Sync Database</h4>
+<blockquote>
+<p><strong>Warning: this deletes all local data on this device.</strong> Only use this as a last resort.</p>
+</blockquote>
+<p><strong>Reset Sync Database</strong> removes the local copy of your data and re-downloads everything fresh from iCloud. Your iCloud data is not affected — nothing is deleted from iCloud. After resetting, the app will re-import all your projects from iCloud when it next launches.</p>
+<p>Use this only when:
+- Guided Recovery has not fixed the problem.
+- You are confident that iCloud holds a complete, up-to-date copy of your data.
+- Support has advised this step.</p>
+<p>After tapping Reset Sync Database, quit and relaunch the app. Re-import begins automatically. Depending on how much data you have, it may take a few minutes.</p>
+<h3 id="a-project-disappeared">A Project Disappeared</h3>
+<p>If a project that existed on one device doesn't appear on another:</p>
+<ol>
+<li>Scroll through the full project list — it may have moved.</li>
+<li>Check the Trash within the app (swipe left on a project or use the project menu).</li>
+<li>Wait a few minutes and check again — the project may still be syncing.</li>
+<li>Open <strong>Sync Troubleshooting → Run Guided Recovery</strong> and check the result.</li>
+</ol>
+<p>If the project is still missing after Guided Recovery, tap <strong>Copy Guided Recovery Report</strong> and <a href="#115-contact-support">contact support</a> with the report attached.</p>
+<h3 id="duplicate-projects-appearing">Duplicate Projects Appearing</h3>
+<p>Occasionally iCloud can deliver the same project twice during a sync catch-up. Writing Shed Pro detects and removes true duplicates automatically. If you see duplicates:</p>
+<ol>
+<li>Wait a few minutes — automatic deduplication usually runs within a minute or two of opening the app.</li>
+<li>Force-quit and reopen the app to trigger deduplication immediately.</li>
+<li>If duplicates persist after several minutes, delete the one with older or fewer changes.</li>
+</ol>
+<h3 id="sync-is-temporarily-rate-limited-message">"Sync is temporarily rate-limited" Message</h3>
+<p>iCloud limits how often apps can send updates when a large volume of changes is being processed. The app shows this message and slows down sync automatically. <strong>No action is needed</strong> — rate limiting clears by itself, usually within a few minutes to an hour. Avoid force-quitting and relaunching repeatedly, as this can reset the clock.</p>
+<h3 id="after-reinstalling-the-app">After Reinstalling the App</h3>
+<p>After reinstalling Writing Shed Pro, your projects re-import from iCloud automatically when you open the app. This can take several minutes depending on how much data you have. Keep the app in the foreground with a good Wi-Fi connection while the import completes.</p>
+<p>If projects are missing after 10–15 minutes:</p>
+<ol>
+<li>Force-quit and reopen the app.</li>
+<li>If still missing, try <strong>rebooting your device</strong> — this restarts the iCloud sync service and often resolves stalled imports.</li>
+<li>If still missing, open <strong>Sync Troubleshooting → Run Guided Recovery</strong>.</li>
+</ol>
 <h3 id="sync-conflicts">Sync Conflicts</h3>
-<p><strong>Symptoms</strong>: Message about conflicts; duplicate files.</p>
-<p><strong>Solutions</strong>:
-1. Review both versions
-2. Keep the correct one
-3. Delete the duplicate
-4. In future, wait for sync before switching devices</p>
-<h3 id="unable-to-sync-error">"Unable to Sync" Error</h3>
-<p><strong>Solutions</strong>:
-1. Check internet connection
-2. Check iCloud status at apple.com/support/systemstatus
-3. Sign out and back into iCloud
-4. Restart device
-5. Wait and try again later</p>
+<p><strong>Symptoms</strong>: Duplicate files appear, or you see a message about conflicting versions.</p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Open both versions and compare.</li>
+<li>Keep the one with the correct content.</li>
+<li>Delete the other.</li>
+</ol>
+<p>To avoid conflicts in future, wait for the sync indicator to clear before switching devices after making large edits.</p>
 <h2 id="app-performance">App Performance</h2>
 <h3 id="app-running-slowly">App Running Slowly</h3>
 <p><strong>Solutions</strong>:

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import CryptoKit
 
 /// Builds a compact sync diagnostics snapshot suitable for support emails.
 enum SupportDiagnosticsSnapshotBuilder {
@@ -92,6 +93,15 @@ enum SupportDiagnosticsSnapshotBuilder {
             lines.append("- \(project.id.uuidString) | \(project.name ?? "Untitled") | \(folderCount) | \(textFileCount) | \(versionCount) | \(submittedFileCount) | \(submissionCount) | \(publicationCount) | \(poetryCollectionCount)")
         }
 
+        lines.append("")
+        lines.append("Project Sync Fingerprints (store)")
+        lines.append("- format: id | name | modified | fingerprint")
+        for project in storeProjects {
+            let modified = project.modifiedDate.map { formatter.string(from: $0) } ?? "nil"
+            let fingerprint = stableProjectFingerprint(for: project)
+            lines.append("- \(project.id.uuidString) | \(project.name ?? "Untitled") | \(modified) | \(fingerprint)")
+        }
+
         let storePublications = (try? freshContext.fetch(FetchDescriptor<Publication>())) ?? []
         lines.append("")
         lines.append("Publication Inventory")
@@ -123,6 +133,53 @@ enum SupportDiagnosticsSnapshotBuilder {
             count += countFolderTree(folder)
         }
         return count
+    }
+
+    private static func stableProjectFingerprint(for project: Project) -> String {
+        let folderCount = countFolders(in: project)
+        let textFileCount = countTextFiles(in: project)
+        let versionCount = countVersions(in: project)
+        let submittedFileCount = countSubmittedFiles(in: project)
+        let submissionCount = countSubmissions(in: project)
+
+        var parts: [String] = []
+        parts.reserveCapacity(32)
+        parts.append(project.id.uuidString)
+        parts.append(project.name ?? "")
+        parts.append(project.typeRaw ?? "")
+        parts.append(project.isTrashed ? "1" : "0")
+        parts.append(project.creationDate?.timeIntervalSince1970.description ?? "")
+        parts.append(project.modifiedDate?.timeIntervalSince1970.description ?? "")
+        parts.append(String(project.details?.count ?? 0))
+        parts.append(String(project.notes?.count ?? 0))
+        parts.append(String(project.author?.count ?? 0))
+        parts.append(project.fictionClassRaw ?? "")
+        parts.append(project.storyStructureRaw ?? "")
+        parts.append(project.dramaScriptTypeRaw ?? "")
+        parts.append(String(project.manuscriptSettingsData?.count ?? 0))
+        parts.append(String(project.tocSettingsData?.count ?? 0))
+        parts.append(String(project.publications?.count ?? 0))
+        parts.append(String(project.submissions?.count ?? 0))
+        parts.append(String(project.submittedFiles?.count ?? 0))
+        parts.append(String(project.poetryCollections?.count ?? 0))
+        parts.append(String(project.scenes?.count ?? 0))
+        parts.append(String(project.chapters?.count ?? 0))
+        parts.append(String(project.acts?.count ?? 0))
+        parts.append(String(project.sections?.count ?? 0))
+        parts.append(String(project.books?.count ?? 0))
+        parts.append(String(project.characters?.count ?? 0))
+        parts.append(String(project.locations?.count ?? 0))
+        parts.append(String(project.plotElements?.count ?? 0))
+        parts.append(String(folderCount))
+        parts.append(String(textFileCount))
+        parts.append(String(versionCount))
+        parts.append(String(submittedFileCount))
+        parts.append(String(submissionCount))
+
+        let canonical = parts.joined(separator: "|")
+
+        let digest = SHA256.hash(data: Data(canonical.utf8))
+        return digest.prefix(8).map { String(format: "%02x", $0) }.joined()
     }
 
     private static func countTextFiles(in project: Project) -> Int {
