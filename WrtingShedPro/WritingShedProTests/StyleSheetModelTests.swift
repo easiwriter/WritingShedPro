@@ -302,4 +302,45 @@ final class StyleSheetModelTests: XCTestCase {
         XCTAssertTrue(font.familyName.contains("Helvetica"))
         XCTAssertEqual(font.pointSize, 16)
     }
+
+    func testDefaultListStyleMatchesBodyDisplaySize() {
+        // Given
+        let bodyStyle = TextStyleModel(
+            name: UIFont.TextStyle.body.rawValue,
+            displayName: "Body",
+            displayOrder: 0,
+            fontSize: 12
+        )
+        let listStyle = TextStyleModel(
+            name: "list-bullet",
+            displayName: "Bullet List",
+            displayOrder: 1,
+            fontSize: 12,
+            styleCategory: .list
+        )
+
+        // When
+        let bodyFont = bodyStyle.generateFont()
+        let listFont = listStyle.generateFont()
+
+        // Then
+        XCTAssertEqual(listFont.pointSize, bodyFont.pointSize, accuracy: 0.01)
+    }
+
+    func testDefaultListStyleKeepsStoredSizeWhenPlatformScalingDisabled() {
+        // Given
+        let listStyle = TextStyleModel(
+            name: "list-numbered",
+            displayName: "Numbered List",
+            displayOrder: 1,
+            fontSize: 12,
+            styleCategory: .list
+        )
+
+        // When
+        let font = listStyle.generateFont(applyPlatformScaling: false)
+
+        // Then
+        XCTAssertEqual(font.pointSize, 12, accuracy: 0.01)
+    }
 }

@@ -282,11 +282,24 @@ final class TextStyleModel {
             UIFont.TextStyle.subheadline.rawValue: (.subheadline, 10)
         ]
 
+        let listStyleDefaultNames: Set<String> = [
+            "list-numbered",
+            "list-numbered-level-2",
+            "list-numbered-level-3",
+            "list-bullet",
+            "list-bullet-level-2",
+            "list-bullet-level-3"
+        ]
+
         let baseSize: CGFloat
         if applyPlatformScaling,
            let override = displaySizeOverrides[name],
            abs(fontSize - override.defaultStoredSize) < 0.01 {
             baseSize = UIFont.preferredFont(forTextStyle: override.style).pointSize * platformScaleFactor
+        } else if applyPlatformScaling,
+                  listStyleDefaultNames.contains(name),
+                  abs(fontSize - 12) < 0.01 {
+            baseSize = UIFont.preferredFont(forTextStyle: .body).pointSize * platformScaleFactor
         } else {
             baseSize = fontSize * platformScaleFactor
         }
