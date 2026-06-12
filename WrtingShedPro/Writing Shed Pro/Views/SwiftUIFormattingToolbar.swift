@@ -7,12 +7,20 @@ struct SwiftUIFormattingToolbar: View {
     let hasSelectedImage: Bool
     let notesExist: Bool
     let indexEnabled: Bool
+    let isBoldActive: Bool
+    let isItalicActive: Bool
+    let isUnderlineActive: Bool
+    let isStrikethroughActive: Bool
     @State private var hasHardwareKeyboard = false
     @State private var isKeyboardVisible = false
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     private var isCompactWidth: Bool {
         horizontalSizeClass == .compact
+    }
+
+    private var hasActiveEmphasis: Bool {
+        isBoldActive || isItalicActive || isUnderlineActive || isStrikethroughActive
     }
     
     enum FormattingAction {
@@ -70,16 +78,16 @@ struct SwiftUIFormattingToolbar: View {
                 // Text formatting
                 #if targetEnvironment(macCatalyst)
                 // Mac/iPad: individual buttons
-                toolbarButton(systemName: "bold", action: .bold)
+                toolbarButton(systemName: "bold", action: .bold, isActive: isBoldActive)
                     .opacity(hasSelectedImage ? 0.3 : 1.0)
                     .disabled(hasSelectedImage)
-                toolbarButton(systemName: "italic", action: .italic)
+                toolbarButton(systemName: "italic", action: .italic, isActive: isItalicActive)
                     .opacity(hasSelectedImage ? 0.3 : 1.0)
                     .disabled(hasSelectedImage)
-                toolbarButton(systemName: "underline", action: .underline)
+                toolbarButton(systemName: "underline", action: .underline, isActive: isUnderlineActive)
                     .opacity(hasSelectedImage ? 0.3 : 1.0)
                     .disabled(hasSelectedImage)
-                toolbarButton(systemName: "strikethrough", action: .strikethrough)
+                toolbarButton(systemName: "strikethrough", action: .strikethrough, isActive: isStrikethroughActive)
                     .opacity(hasSelectedImage ? 0.3 : 1.0)
                     .disabled(hasSelectedImage)
                 #else
@@ -90,16 +98,16 @@ struct SwiftUIFormattingToolbar: View {
                         .disabled(hasSelectedImage)
                 } else {
                     // iPad: individual buttons
-                    toolbarButton(systemName: "bold", action: .bold)
+                    toolbarButton(systemName: "bold", action: .bold, isActive: isBoldActive)
                         .opacity(hasSelectedImage ? 0.3 : 1.0)
                         .disabled(hasSelectedImage)
-                    toolbarButton(systemName: "italic", action: .italic)
+                    toolbarButton(systemName: "italic", action: .italic, isActive: isItalicActive)
                         .opacity(hasSelectedImage ? 0.3 : 1.0)
                         .disabled(hasSelectedImage)
-                    toolbarButton(systemName: "underline", action: .underline)
+                    toolbarButton(systemName: "underline", action: .underline, isActive: isUnderlineActive)
                         .opacity(hasSelectedImage ? 0.3 : 1.0)
                         .disabled(hasSelectedImage)
-                    toolbarButton(systemName: "strikethrough", action: .strikethrough)
+                    toolbarButton(systemName: "strikethrough", action: .strikethrough, isActive: isStrikethroughActive)
                         .opacity(hasSelectedImage ? 0.3 : 1.0)
                         .disabled(hasSelectedImage)
                 }
@@ -158,22 +166,34 @@ struct SwiftUIFormattingToolbar: View {
             Button {
                 onFormatAction(.bold)
             } label: {
-                Label(NSLocalizedString("toolbar.bold", comment: "Bold"), systemImage: "bold")
+                Label(
+                    NSLocalizedString("toolbar.bold", comment: "Bold"),
+                    systemImage: isBoldActive ? "checkmark" : "bold"
+                )
             }
             Button {
                 onFormatAction(.italic)
             } label: {
-                Label(NSLocalizedString("toolbar.italic", comment: "Italic"), systemImage: "italic")
+                Label(
+                    NSLocalizedString("toolbar.italic", comment: "Italic"),
+                    systemImage: isItalicActive ? "checkmark" : "italic"
+                )
             }
             Button {
                 onFormatAction(.underline)
             } label: {
-                Label(NSLocalizedString("toolbar.underline", comment: "Underline"), systemImage: "underline")
+                Label(
+                    NSLocalizedString("toolbar.underline", comment: "Underline"),
+                    systemImage: isUnderlineActive ? "checkmark" : "underline"
+                )
             }
             Button {
                 onFormatAction(.strikethrough)
             } label: {
-                Label(NSLocalizedString("toolbar.strikethrough", comment: "Strikethrough"), systemImage: "strikethrough")
+                Label(
+                    NSLocalizedString("toolbar.strikethrough", comment: "Strikethrough"),
+                    systemImage: isStrikethroughActive ? "checkmark" : "strikethrough"
+                )
             }
             Divider()
             Button(role: .destructive) {
@@ -182,23 +202,50 @@ struct SwiftUIFormattingToolbar: View {
                 Label("Clear Text", systemImage: "eraser.fill")
             }
         } label: {
-            Image(systemName: "bold.italic.underline")
-                .font(.system(size: 17))
-                .frame(width: 32, height: 44)
+            Group {
+                if hasActiveEmphasis {
+                    ZStack {
+                        Circle()
+                            .fill(Color.primary)
+                            .frame(width: 22, height: 22)
+                        Image(systemName: "bold.italic.underline")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color(uiColor: .systemBackground))
+                    }
+                } else {
+                    Image(systemName: "bold.italic.underline")
+                        .font(.system(size: 17))
+                        .foregroundStyle(Color.primary)
+                }
+            }
+            .frame(width: 32, height: 44)
         }
         .buttonStyle(.plain)
         .controlSize(.small)
         .accessibilityLabel(NSLocalizedString("toolbar.textFormatting", comment: "Text formatting"))
     }
     
-    private func toolbarButton(systemName: String, action: FormattingAction, tint: Color? = nil) -> some View {
+    private func toolbarButton(systemName: String, action: FormattingAction, tint: Color? = nil, isActive: Bool = false) -> some View {
         Button {
             onFormatAction(action)
         } label: {
-            Image(systemName: systemName)
-                .font(.system(size: 17))
-                .frame(width: 32, height: 44)
-                .foregroundColor(tint)
+            Group {
+                if isActive {
+                    ZStack {
+                        Circle()
+                            .fill(Color.primary)
+                            .frame(width: 22, height: 22)
+                        Image(systemName: systemName)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color(uiColor: .systemBackground))
+                    }
+                } else {
+                    Image(systemName: systemName)
+                        .font(.system(size: 17))
+                        .foregroundStyle(tint ?? Color.primary)
+                }
+            }
+            .frame(width: 32, height: 44)
         }
         .buttonStyle(.plain)
         .controlSize(.small)

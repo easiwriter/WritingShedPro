@@ -174,6 +174,37 @@ final class ContainerRelationshipTests: XCTestCase {
 
         XCTAssertTrue(remaining.isEmpty, "Permanent delete should be saved immediately")
     }
+
+    func testDeleteFilesPermanentlyUpdatesFolderFileCountWhenRefetched() throws {
+        // Mirrors user flow: file exists in folder -> delete forever -> navigate back to folder.
+        let project = Project(name: "Count Refresh Project", type: .prose)
+        let folder = Folder(name: "Prose", project: project)
+        let firstFile = TextFile(name: "First", initialContent: "A", parentFolder: folder)
+        let secondFile = TextFile(name: "Second", initialContent: "B", parentFolder: folder)
+
+        modelContext.insert(project)
+        modelContext.insert(folder)
+        modelContext.insert(firstFile)
+        modelContext.insert(secondFile)
+        try modelContext.save()
+
+        XCTAssertEqual(folder.textFiles?.count, 2, "Setup should start with two files")
+
+        WriteCoalescer.shared = nil
+        let service = FileMoveService(modelContext: modelContext)
+        try service.deleteFilesPermanently([firstFile])
+
+        // Immediate in-memory relationship update (the row count source).
+        XCTAssertEqual(folder.textFiles?.count, 1, "Folder relationship count should update immediately after permanent delete")
+
+        // Simulate navigating back to folder list: read from a fresh context.
+        let freshContext = ModelContext(modelContainer)
+        let folderID = folder.id
+        let folderDescriptor = FetchDescriptor<Folder>(predicate: #Predicate { $0.id == folderID })
+        let fetchedFolder = try XCTUnwrap(freshContext.fetch(folderDescriptor).first)
+
+        XCTAssertEqual(fetchedFolder.textFiles?.count, 1, "Refetched folder should show updated file count after permanent delete")
+    }
     
     // MARK: - TextFile ↔ ProseSection
     

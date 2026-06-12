@@ -172,13 +172,12 @@ struct FileEditView: View {
         _previousContent = State(initialValue: "")
         _selectedRange = State(initialValue: NSRange(location: 0, length: 0))
         
-        // Try to restore undo manager or create new one
-        if let restoredManager = file.restoreUndoState() {
-            _undoManager = State(initialValue: restoredManager)
-        } else {
-            let newManager = TextFileUndoManager(file: file)
-            _undoManager = State(initialValue: newManager)
-        }
+        // Always start a fresh undo session when opening a file.
+        // Restoring serialized undo commands across reopen can replay stale snapshots
+        // against the current document and produce unexpected formatting rollbacks.
+        file.clearUndoHistory()
+        let newManager = TextFileUndoManager(file: file)
+        _undoManager = State(initialValue: newManager)
     }
     
     // MARK: - Body Components
@@ -586,7 +585,11 @@ struct FileEditView: View {
             },
             hasSelectedImage: selectedImage != nil,
             notesExist: notesExist,
-            indexEnabled: indexEnabled
+            indexEnabled: indexEnabled,
+            isBoldActive: currentFormattingState().bold,
+            isItalicActive: currentFormattingState().italic,
+            isUnderlineActive: currentFormattingState().underline,
+            isStrikethroughActive: currentFormattingState().strikethrough
         )
     }
     
@@ -1696,6 +1699,10 @@ struct FileEditView: View {
             }
         }
         .sheet(isPresented: $showStylePicker, onDismiss: {
+            // Style edits can happen while this sheet is presented. Reapply once on
+            // dismiss so the visible editor always reflects the latest style values.
+            reapplyAllStyles(registerUndo: false)
+
             // Force the text view to re-render after the style picker sheet dismisses.
             // reapplyAllStyles() may have run while the text view was behind the sheet,
             // preventing setNeedsDisplay from triggering a visible redraw.
@@ -1713,7 +1720,8 @@ struct FileEditView: View {
                 },
                 project: file.project,
                 onReapplyStyles: {
-                    reapplyAllStyles()
+                    // Style definition updates should not create document undo steps.
+                    reapplyAllStyles(registerUndo: false)
                 }
             )
         }
@@ -2866,7 +2874,7 @@ struct FileEditView: View {
             #if DEBUG
             print("📋 Reapplying all styles due to stylesheet change")
             #endif
-            reapplyAllStyles()
+            reapplyAllStyles(registerUndo: false)
         } else {
             #if DEBUG
             print("📋 Document is empty, skipping reapply")
@@ -2933,7 +2941,7 @@ struct FileEditView: View {
             #if DEBUG
             print("📝 Reapplying all styles due to style modification")
             #endif
-            reapplyAllStyles()
+            reapplyAllStyles(registerUndo: false)
         } else {
             #if DEBUG
             print("📝 Document is empty, skipping reapply")
@@ -6269,6 +6277,88 @@ struct FileEditView: View {
         case italic
         case underline
         case strikethrough
+    }
+
+    /// Returns BIU state for the current selection/cursor so toolbar controls can reflect active formatting.
+    private func currentFormattingState() -> (bold: Bool, italic: Bool, underline: Bool, strikethrough: Bool) {
+        guard selectedRange.location != NSNotFound else {
+            return (false, false, false, false)
+        }
+
+        if selectedRange.length == 0 {
+            if let attrs = textViewCoordinator.textView?.typingAttributes {
+                return formattingState(from: attrs)
+            }
+
+            guard attributedContent.length > 0,
+                  selectedRange.location > 0,
+                  selectedRange.location <= attributedContent.length else {
+                return (false, false, false, false)
+            }
+
+            let fallbackRange = NSRange(location: selectedRange.location - 1, length: 1)
+            return formattingState(in: fallbackRange)
+        }
+
+        guard selectedRange.location + selectedRange.length <= attributedContent.length else {
+            return (false, false, false, false)
+        }
+
+        return formattingState(in: selectedRange)
+    }
+
+    private func formattingState(from attributes: [NSAttributedString.Key: Any]) -> (bold: Bool, italic: Bool, underline: Bool, strikethrough: Bool) {
+        var bold = false
+        var italic = false
+
+        if let font = attributes[.font] as? UIFont {
+            let traits = font.fontDescriptor.symbolicTraits
+            bold = traits.contains(.traitBold)
+            italic = traits.contains(.traitItalic)
+        }
+
+        let underline = styleValueIsNonZero(attributes[.underlineStyle])
+        let strikethrough = styleValueIsNonZero(attributes[.strikethroughStyle])
+        return (bold, italic, underline, strikethrough)
+    }
+
+    private func formattingState(in range: NSRange) -> (bold: Bool, italic: Bool, underline: Bool, strikethrough: Bool) {
+        guard range.length > 0 else {
+            return (false, false, false, false)
+        }
+
+        var bold = false
+        var italic = false
+        var underline = false
+        var strikethrough = false
+
+        attributedContent.enumerateAttributes(in: range, options: []) { attrs, _, _ in
+            if let font = attrs[.font] as? UIFont {
+                let traits = font.fontDescriptor.symbolicTraits
+                if traits.contains(.traitBold) { bold = true }
+                if traits.contains(.traitItalic) { italic = true }
+            }
+
+            if styleValueIsNonZero(attrs[.underlineStyle]) {
+                underline = true
+            }
+
+            if styleValueIsNonZero(attrs[.strikethroughStyle]) {
+                strikethrough = true
+            }
+        }
+
+        return (bold, italic, underline, strikethrough)
+    }
+
+    private func styleValueIsNonZero(_ value: Any?) -> Bool {
+        if let intValue = value as? Int {
+            return intValue != 0
+        }
+        if let numberValue = value as? NSNumber {
+            return numberValue.intValue != 0
+        }
+        return false
     }
     
     /// Apply formatting to the current selection

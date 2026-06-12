@@ -1436,6 +1436,15 @@ struct FolderRowView: View {
         .task {
             await loadFolderCounts()
         }
+        .onChange(of: folder.textFiles?.count ?? 0) { _, _ in
+            Task { await loadFolderCounts() }
+        }
+        .onChange(of: folder.folders?.count ?? 0) { _, _ in
+            Task { await loadFolderCounts() }
+        }
+        .onChange(of: folder.project?.trashedItems?.count ?? 0) { _, _ in
+            Task { await loadFolderCounts() }
+        }
     }
     
     private func loadFolderCounts() async {
