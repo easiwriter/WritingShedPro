@@ -5,7 +5,13 @@
   "scripts": {
     "build": "python3 build-prompt.py",
     "dev": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "cf:whoami": "wrangler whoami",
+    "messages:d1:create": "wrangler d1 create wsp_messages",
+    "messages:d1:list": "wrangler d1 list",
+    "messages:d1:migrate": "wrangler d1 execute wsp_messages --remote --file=./sql/messages_schema.sql",
+    "messages:d1:migrate:local": "wrangler d1 execute wsp_messages --file=./sql/messages_schema.sql",
+    "messages:deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {
     "wrangler": "^4.93.1"

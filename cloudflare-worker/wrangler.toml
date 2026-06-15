@@ -7,6 +7,12 @@ workers_dev = true
 binding = "TUTORIAL_VIDEOS"
 bucket_name = "wsp-videos"
 
+# Configure for messages API (required for /api/messages and /api/admin/messages)
+[[d1_databases]]
+binding = "MESSAGES_DB"
+database_name = "wsp_messages"
+database_id = "8c142ac0-e616-44a9-8973-f288e44c1d37"
+
 [[rules]]
 type = "Text"
 globs = ["**/*.txt"]

@@ -21,13 +21,56 @@ Proxies user support queries from Writing Shed Pro to the OpenAI API.
    # Paste your key at the interactive prompt (input is hidden)
    ```
 
-4. Deploy:
+4. Create/configure the D1 database for support messages:
    ```bash
-   npm run deploy
+   # Check auth/session first
+   npm run cf:whoami
+
+   # Create once (or use existing)
+   npm run messages:d1:create
+
+   # List databases (verify name and id)
+   npm run messages:d1:list
+
+   # Apply schema (remote D1)
+   npm run messages:d1:migrate
+
+   # Optional: apply schema to local preview DB
+   npm run messages:d1:migrate:local
+   ```
+   Then add the returned database id/name to `wrangler.toml` under a `d1_databases`
+   binding named `MESSAGES_DB`.
+
+   If you see `Authentication error [code: 10000]`, refresh session and retry:
+   ```bash
+   npx wrangler logout
+   npx wrangler login
+   npm run cf:whoami
+   ```
+
+5. Set admin token secret (used by operator app/panel):
+   ```bash
+   npx wrangler secret put ADMIN_API_TOKEN
+   ```
+
+6. Deploy:
+   ```bash
+   npm run messages:deploy
    ```
    This prints the Worker URL (e.g. `https://wsp-support.<your-subdomain>.workers.dev`).
 
-5. Update the endpoint URL in the app's `SupportService.swift` to match.
+7. Update the endpoint URL in the app's `SupportService.swift` to match.
+
+## Messages API
+
+Public:
+- `GET /api/messages` -> list active messages.
+
+Admin (Bearer token required: `Authorization: Bearer <ADMIN_API_TOKEN>`):
+- `GET /api/admin/messages?includeArchived=1`
+- `POST /api/admin/messages` with `{ "title": "...", "body": "..." }`
+- `PUT /api/admin/messages/:id` with any of `{ "title", "body", "isArchived" }`
+- `DELETE /api/admin/messages/:id` archives message (keeps row in DB).
 
 ## Local Development
 
