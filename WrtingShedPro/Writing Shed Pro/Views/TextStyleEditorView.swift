@@ -334,7 +334,7 @@ struct TextStyleEditorView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("textStyleEditor.textColour")
                 .font(.headline)
-                
+
                 ColorPicker("textStyleEditor.textColour", selection: Binding(
                     get: {
                         if let uiColor = style.textColor {
@@ -944,7 +944,18 @@ struct TextStyleEditorView: View {
             return
         }
 
-        guard let proj = project else { return }
+        // Stylesheets created in Settings can exist before they are assigned to a project.
+        // In that case the style cannot be in file content yet, so direct deletion is safe.
+        guard let proj = project else {
+            if let stylesheet = style.styleSheet {
+                stylesheet.textStyles?.removeAll { $0.id == style.id }
+            }
+            modelContext.delete(style)
+            WriteCoalescer.shared?.requestSave()
+            onSave?()
+            dismiss()
+            return
+        }
         
         do {
             try StyleSheetService.deleteStyle(
