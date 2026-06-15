@@ -45,6 +45,7 @@ struct ContentView: View {
 
     /// Debounced task handle for remote-change reconciliation.
     @State private var remoteReconcileTask: Task<Void, Never>?
+    @State private var lastReconcileTriggerLogDate: Date = .distantPast
 
     @State private var showSyncRecoveryBanner = false
     @State private var syncRecoveryBannerTask: Task<Void, Never>?
@@ -127,6 +128,8 @@ struct ContentView: View {
             if scenePhase == .active {
                 startPeriodicSyncTimer()
             }
+
+            await checkForNewSupportMessagesIfNeeded()
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             if newPhase == .active && oldPhase != .active {
@@ -135,6 +138,9 @@ struct ContentView: View {
                 syncOnForegroundResume()
                 startPeriodicSyncTimer()
                 scheduleRemoteReconcile(reason: "foreground-resume")
+                Task {
+                    await checkForNewSupportMessagesIfNeeded()
+                }
             }
             if newPhase == .background {
                 stopPeriodicSyncTimer()
@@ -215,6 +221,16 @@ struct ContentView: View {
         #if DEBUG
         print("🔄 [ContentView] App became active — resuming passive CloudKit observation")
         #endif
+    }
+
+    @MainActor
+    private func checkForNewSupportMessagesIfNeeded() async {
+        let service = SupportMessagesService()
+        let pendingVersions = await service.pendingNewMessageAlertVersions()
+        if !pendingVersions.isEmpty {
+            state.pendingSupportMessageAlertVersions = pendingVersions
+            state.showNewSupportMessagesAlert = true
+        }
     }
     
     /// Start a periodic passive sync watchdog while app is foregrounded.
@@ -387,7 +403,11 @@ struct ContentView: View {
             reconcileProjectListIfNeeded()
 
             #if DEBUG
-            print("🔄 [ContentView] Reconcile triggered by \(reason)")
+            let now = Date()
+            if now.timeIntervalSince(lastReconcileTriggerLogDate) >= 10 {
+                print("🔄 [ContentView] Reconcile triggered by \(reason)")
+                lastReconcileTriggerLogDate = now
+            }
             #endif
         }
     }
@@ -417,12 +437,6 @@ struct ContentView: View {
     ///   a) the active project count differs, OR
     ///   b) any project's name in @Query doesn't match what's in the store.
     private func reconcileProjectListIfNeeded() {
-        if disableRiskySyncMutationPaths {
-            #if DEBUG
-            print("⏸️ [ContentView] Reconcile safety mode: skipping local delete/repair mutations")
-            #endif
-        }
-
         // Only run zombie cleanup when exports can actually propagate — otherwise
         // we generate local deletes that queue exports and deepen rate-limiting.
         if !disableRiskySyncMutationPaths && !CloudKitSyncThrottler.shared.isRateLimited {
@@ -646,9 +660,6 @@ struct ContentView: View {
 
     private func performAutomaticDedupIfSafe(reason: String) {
         guard !disableRiskySyncMutationPaths else {
-            #if DEBUG
-            print("⏸️ [ContentView] performAutomaticDedupIfSafe disabled via \(reason) (safety mode)")
-            #endif
             return
         }
 
@@ -676,9 +687,6 @@ struct ContentView: View {
 
     private func performPostImportRepairIfSafe(reason: String) {
         guard !disableRiskySyncMutationPaths else {
-            #if DEBUG
-            print("⏸️ [ContentView] performPostImportRepairIfSafe disabled via \(reason) (safety mode)")
-            #endif
             return
         }
 
@@ -1045,6 +1053,13 @@ struct ContentView: View {
             return
         }
 
+        if let preferredSortOrder = ProjectSortService.preferredDefaultSortOrder(
+            for: allProjects,
+            hasStoredSortOrder: state.hasStoredSortOrder
+        ), state.selectedSortOrder != preferredSortOrder {
+            state.selectedSortOrder = preferredSortOrder
+        }
+
         let projectsNeedingOrder = allProjects.filter { $0.userOrder == nil }
         guard !projectsNeedingOrder.isEmpty else {
             return
@@ -1067,6 +1082,10 @@ struct ContentView: View {
 
         for (index, project) in allProjects.enumerated() {
             project.userOrder = index
+        }
+
+        if state.selectedSortOrder != .byUserOrder {
+            state.selectedSortOrder = .byUserOrder
         }
 
         do {

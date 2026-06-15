@@ -30,6 +30,7 @@ final class ContentViewState {
     
     // Sort order - stored property that syncs with UserDefaults for persistence
     private static let sortOrderKey = "projectSortOrder"
+    private(set) var hasStoredSortOrder: Bool
     var selectedSortOrder: SortOrder {
         didSet {
             UserDefaults.standard.set(selectedSortOrder.rawValue, forKey: Self.sortOrderKey)
@@ -42,6 +43,9 @@ final class ContentViewState {
     var showAbout = false
     var projectForPageSetup: Project? // Tracks which project's page setup to show
     var showContactSupport = false
+    var showSupportMessages = false
+    var showNewSupportMessagesAlert = false
+    var pendingSupportMessageAlertVersions: [String: TimeInterval] = [:]
     
     // Help & Manual
     var showHTMLManual = false
@@ -95,8 +99,10 @@ final class ContentViewState {
         if let rawValue = UserDefaults.standard.string(forKey: Self.sortOrderKey),
            let order = SortOrder(rawValue: rawValue) {
             self.selectedSortOrder = order
+            self.hasStoredSortOrder = true
         } else {
             self.selectedSortOrder = .byName
+            self.hasStoredSortOrder = false
         }
 
         if let storedHiddenIDs = UserDefaults.standard.array(forKey: Self.hiddenProjectIDsKey) as? [String] {

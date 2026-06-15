@@ -81,6 +81,7 @@ struct ContentViewBody: View {
             #endif
             .onAppear {
                 onInitialize()
+                adoptUserOrderSortIfNeeded()
                 
                 // Initialize stylesheets in background (moved from Write_App)
                 onInitializeStyleSheets()
@@ -107,6 +108,7 @@ struct ContentViewBody: View {
                 restoreLastOpenedProjectIfNeeded()
             }
             .onChange(of: projects.count) { _, _ in
+                adoptUserOrderSortIfNeeded()
                 restoreLastOpenedProjectIfNeeded()
             }
             .onChange(of: projects.isEmpty) { _, isEmpty in
@@ -150,6 +152,9 @@ struct ContentViewBody: View {
             .sheet(isPresented: $state.showContactSupport) {
                 ContactSupportView()
             }
+            .sheet(isPresented: $state.showSupportMessages) {
+                SupportMessagesView()
+            }
             .sheet(isPresented: $state.showSyncDiagnostics) {
                 SyncDiagnosticsView()
             }
@@ -175,6 +180,19 @@ struct ContentViewBody: View {
                 Button("button.ok", role: .cancel) { }
             } message: {
                 Text(state.importErrorMessage)
+            }
+            .alert(NSLocalizedString("messages.launchAlert.title", comment: ""), isPresented: $state.showNewSupportMessagesAlert) {
+                Button(NSLocalizedString("messages.launchAlert.open", comment: "")) {
+                    SupportMessagesService().acknowledgeNewMessageAlert(state.pendingSupportMessageAlertVersions)
+                    state.pendingSupportMessageAlertVersions = [:]
+                    state.showSupportMessages = true
+                }
+                Button(NSLocalizedString("common.cancel", comment: ""), role: .cancel) {
+                    SupportMessagesService().acknowledgeNewMessageAlert(state.pendingSupportMessageAlertVersions)
+                    state.pendingSupportMessageAlertVersions = [:]
+                }
+            } message: {
+                Text(NSLocalizedString("messages.launchAlert.body", comment: ""))
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: GuideNavigationService.openGuideSectionNotification)) { notification in
@@ -203,5 +221,18 @@ struct ContentViewBody: View {
 
         state.showProject(project, rememberForResume: false)
         didProcessLaunchProjectRestore = true
+    }
+
+    private func adoptUserOrderSortIfNeeded() {
+        guard let preferredSortOrder = ProjectSortService.preferredDefaultSortOrder(
+            for: projects,
+            hasStoredSortOrder: state.hasStoredSortOrder
+        ) else {
+            return
+        }
+
+        if state.selectedSortOrder != preferredSortOrder {
+            state.selectedSortOrder = preferredSortOrder
+        }
     }
 }

@@ -1421,6 +1421,9 @@
 "textStyleEditor.followOnStyle.header" = "Follow-On Style";
 "textStyleEditor.followOnStyle.footer" = "The style to apply when you press Enter. For example, after a heading you might want to switch to Body style.";
 "textStyleEditor.followOnStyle.same" = "Same Style";
+"textStyleEditor.firstParagraphStyle.header" = "New Document";
+"textStyleEditor.firstParagraphStyle.toggle" = "Use for first paragraph";
+"textStyleEditor.firstParagraphStyle.footer" = "Applies this style to the first paragraph in new empty documents. Only one style in a stylesheet can be selected.";
 
 /* Table of Contents Settings - Feature 031 */
 "textStyleEditor.toc.header" = "Table of Contents";
@@ -2904,6 +2907,18 @@
 "support.syncDiagnostics.include" = "Include sync diagnostics in email";
 "support.syncDiagnostics.footer" = "Adds CloudKit sync state and inventory summary to help diagnose sync issues.";
 "support.syncDiagnostics.header" = "Sync Diagnostics Snapshot";
+
+/* Messages */
+"messages.title" = "Messages from Support";
+"messages.empty.title" = "No Messages";
+"messages.empty.body" = "You are up to date. New messages from support will appear here.";
+"messages.error.title" = "Unable to Load Messages";
+"messages.error.unavailable" = "Messages are temporarily unavailable. Please try again later.";
+"messages.launchAlert.title" = "You have new messages";
+"messages.launchAlert.body" = "There are new messages from support waiting for you.";
+"messages.launchAlert.open" = "Open";
+"messages.markRead" = "Mark Read";
+"messages.markUnread" = "Mark Unread";
 
 // MARK: - Sync Status
 "sync.status.healthy" = "All synced";

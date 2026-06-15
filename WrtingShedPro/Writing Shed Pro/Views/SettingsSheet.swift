@@ -115,6 +115,13 @@ struct SettingsSheet: View {
                     } label: {
                         Label("Contact Support", systemImage: "envelope")
                     }
+
+                    Button {
+                        isPresented = false
+                        state.showSupportMessages = true
+                    } label: {
+                        Label("Support Messages", systemImage: "text.bubble")
+                    }
                     
                     Button {
                         Task {
