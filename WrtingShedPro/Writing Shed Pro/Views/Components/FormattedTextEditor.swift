@@ -769,6 +769,18 @@ struct FormattedTextEditor: UIViewRepresentable {
                             attrs = followOnStyle.generateAttributes()
                             useFollowOnStyle = true
                         }
+
+                        // First-paragraph styles are one-shot styles.
+                        // If the current style is flagged as the first paragraph style
+                        // and it does not define a follow-on style, the next paragraph
+                        // should revert to Body rather than inheriting the heading style.
+                        if !useFollowOnStyle,
+                           let project = parent.project,
+                           let styleSheet = project.styleSheet,
+                           let currentStyle = styleSheet.textStyles?.first(where: { $0.name == styleName }),
+                           currentStyle.isFirstParagraphStyle {
+                            attrs = resolvedBodyStyleAttributes()
+                        }
                     }
                     
                     // If we have a follow-on style, manually insert the newline with correct attributes
@@ -1123,7 +1135,9 @@ struct FormattedTextEditor: UIViewRepresentable {
                 let checkPos = cursorPos - 1
                 if textStorage.attribute(.textStyle, at: checkPos, effectiveRange: nil) == nil {
                     // Find style from previous character
-                    var styleToApply: String = UIFont.TextStyle.body.rawValue
+                    var styleToApply = (textView.typingAttributes[.textStyle] as? String)
+                        ?? parent.project?.styleSheet?.firstParagraphStyle?.name
+                        ?? UIFont.TextStyle.body.rawValue
                     if checkPos > 0 {
                         if let prevStyle = textStorage.attribute(.textStyle, at: checkPos - 1, effectiveRange: nil) as? String {
                             styleToApply = prevStyle
@@ -1680,6 +1694,14 @@ struct FormattedTextEditor: UIViewRepresentable {
             // Update typing attributes to match the paragraph style at cursor
             var typingAttrs = textView.typingAttributes
             typingAttrs[.paragraphStyle] = paragraphStyle
+
+            if attributedText.length > 0,
+               let styleName = attributedText.attribute(.textStyle, at: checkPos, effectiveRange: nil) as? String {
+                typingAttrs[.textStyle] = styleName
+            } else if let firstParagraphStyleName = parent.project?.styleSheet?.firstParagraphStyle?.name,
+                      position == 0 {
+                typingAttrs[.textStyle] = firstParagraphStyleName
+            }
             
             textView.typingAttributes = typingAttrs
             

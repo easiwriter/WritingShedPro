@@ -2752,8 +2752,9 @@ struct FileEditView: View {
                     textView.typingAttributes = attrs
                 }
             } else {
+                let firstParagraphStyleName = project.styleSheet?.firstParagraphStyle?.name ?? UIFont.TextStyle.body.rawValue
                 let bodyAttrs = TextFormatter.getTypingAttributes(
-                    forStyleNamed: UIFont.TextStyle.body.rawValue,
+                    forStyleNamed: firstParagraphStyleName,
                     project: project,
                     context: modelContext
                 )
@@ -2762,8 +2763,9 @@ struct FileEditView: View {
                     // Force redraw to trigger custom draw() method for empty document numbering
                     textView.setNeedsDisplay()
                 }
+                currentParagraphStyle = UIFont.TextStyle(rawValue: firstParagraphStyleName)
                 #if DEBUG
-                print("📝 onAppear: Set typing attributes for empty document and forced redraw")
+                print("📝 onAppear: Set typing attributes for empty document using '\(firstParagraphStyleName)' and forced redraw")
                 #endif
             }
         }
@@ -7077,6 +7079,12 @@ struct FileEditView: View {
     
     /// Update the current paragraph style state by checking the attributed content
     private func updateCurrentParagraphStyle() {
+        if let typingStyleName = textViewCoordinator.textView?.typingAttributes[.textStyle] as? String {
+            let typingStyle = UIFont.TextStyle(rawValue: typingStyleName)
+            currentParagraphStyle = typingStyle
+            return
+        }
+
         // Try model-based lookup if we have a project
         if let project = file.project,
            let styleName = TextFormatter.getCurrentStyleName(
@@ -8184,8 +8192,9 @@ struct FileEditView: View {
         } else {
             // New/empty version - initialize with Body style from project stylesheet
             if let project = file.project {
+                let firstParagraphStyleName = project.styleSheet?.firstParagraphStyle?.name ?? UIFont.TextStyle.body.rawValue
                 let bodyAttrs = TextFormatter.getTypingAttributes(
-                    forStyleNamed: UIFont.TextStyle.body.rawValue,
+                    forStyleNamed: firstParagraphStyleName,
                     project: project,
                     context: modelContext
                 )
@@ -8194,7 +8203,7 @@ struct FileEditView: View {
                 
                 // Debug: Log what we're initializing with
                 #if DEBUG
-                print("📝 loadCurrentVersion: Initializing with Body style from stylesheet '\(project.styleSheet?.name ?? "none")'")
+                print("📝 loadCurrentVersion: Initializing with first-paragraph style '\(firstParagraphStyleName)' from stylesheet '\(project.styleSheet?.name ?? "none")'")
                 #endif
                 for (key, value) in bodyAttrs {
                     if key == .font {
