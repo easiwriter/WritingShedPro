@@ -72,6 +72,10 @@ final class OperatorMessagesService {
     }
 
     func archive(_ messageID: String, settings: OperatorSettingsStore) async {
+        await deleteMessage(messageID, settings: settings)
+    }
+
+    func deleteMessage(_ messageID: String, settings: OperatorSettingsStore) async {
         guard let url = URL(string: settings.endpoint)?.appendingPathComponent("api/admin/messages/\(messageID)") else {
             errorMessage = "Invalid endpoint URL"
             return
@@ -80,6 +84,28 @@ final class OperatorMessagesService {
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.timeoutInterval = 20
+        request.setValue("Bearer \(settings.token)", forHTTPHeaderField: "Authorization")
+
+        await performMutation(request)
+    }
+
+    func deleteArchivedMessages(settings: OperatorSettingsStore) async {
+        guard let baseURL = URL(string: settings.endpoint) else {
+            errorMessage = "Invalid endpoint URL"
+            return
+        }
+
+        var components = URLComponents(url: baseURL.appendingPathComponent("api/admin/messages"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "deleteArchived", value: "1")]
+
+        guard let url = components?.url else {
+            errorMessage = "Invalid endpoint URL"
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.timeoutInterval = 30
         request.setValue("Bearer \(settings.token)", forHTTPHeaderField: "Authorization")
 
         await performMutation(request)

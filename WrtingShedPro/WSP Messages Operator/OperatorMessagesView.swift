@@ -2,14 +2,19 @@ import SwiftUI
 
 struct OperatorMessagesView: View {
     @State private var service = OperatorMessagesService()
-    @State private var settings = OperatorSettingsStore()
+    @Bindable var settings: OperatorSettingsStore
     @State private var includeArchived = false
+    @State private var pendingDeleteMessage: OperatorMessage?
+    @State private var showingDeleteAllArchivedConfirmation = false
 
     @State private var draftTitle = ""
     @State private var draftBody = ""
     @State private var selectedMessage: OperatorMessage?
 
     var body: some View {
+        let activeMessages = service.messages.filter { $0.isArchived == false }
+        let archivedMessages = service.messages.filter { $0.isArchived }
+
         NavigationStack {
             List {
                 Section("Connection") {
@@ -43,17 +48,12 @@ struct OperatorMessagesView: View {
                     if service.isLoading {
                         ProgressView()
                     }
-                    ForEach(service.messages) { message in
+                    ForEach(activeMessages) { message in
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
                                 Text(message.title)
                                     .font(.headline)
                                 Spacer()
-                                if message.isArchived {
-                                    Text("Archived")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
                             }
                             Text(message.body)
                                 .font(.subheadline)
@@ -67,11 +67,59 @@ struct OperatorMessagesView: View {
                         .swipeActions {
                             Button(role: .destructive) {
                                 Task {
-                                    await service.archive(message.id, settings: settings)
+                                    await service.deleteMessage(message.id, settings: settings)
                                     await service.fetch(includeArchived: includeArchived, settings: settings)
                                 }
                             } label: {
                                 Label("Archive", systemImage: "archivebox")
+                            }
+                        }
+                    }
+                }
+
+                if includeArchived {
+                    Section {
+                        if archivedMessages.isEmpty {
+                            Text("No archived messages")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(archivedMessages) { message in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack {
+                                        Text(message.title)
+                                            .font(.headline)
+                                        Spacer()
+                                        Text("Archived")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Text(message.body)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(3)
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    selectedMessage = message
+                                }
+                                .swipeActions {
+                                    Button(role: .destructive) {
+                                        pendingDeleteMessage = message
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                            }
+                        }
+                    } header: {
+                        HStack {
+                            Text("Archived Messages")
+                            Spacer()
+                            if !archivedMessages.isEmpty {
+                                Button("Delete All") {
+                                    showingDeleteAllArchivedConfirmation = true
+                                }
+                                .foregroundStyle(.red)
                             }
                         }
                     }
@@ -118,6 +166,38 @@ struct OperatorMessagesView: View {
                 Button("OK", role: .cancel) { service.errorMessage = nil }
             } message: {
                 Text(service.errorMessage ?? "")
+            }
+            .alert(
+                "Delete Archived Message?",
+                isPresented: Binding(
+                    get: { pendingDeleteMessage != nil },
+                    set: { if !$0 { pendingDeleteMessage = nil } }
+                ),
+                presenting: pendingDeleteMessage
+            ) { message in
+                Button("Delete", role: .destructive) {
+                    Task {
+                        await service.deleteMessage(message.id, settings: settings)
+                        await service.fetch(includeArchived: includeArchived, settings: settings)
+                    }
+                    pendingDeleteMessage = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingDeleteMessage = nil
+                }
+            } message: { message in
+                Text("This will permanently delete \"\(message.title)\".")
+            }
+            .alert("Delete All Archived Messages?", isPresented: $showingDeleteAllArchivedConfirmation) {
+                Button("Delete All", role: .destructive) {
+                    Task {
+                        await service.deleteArchivedMessages(settings: settings)
+                        await service.fetch(includeArchived: includeArchived, settings: settings)
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will permanently remove every archived message.")
             }
         }
     }
