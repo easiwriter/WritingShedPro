@@ -547,6 +547,90 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(scene1.plotElements?.count, 1)
         XCTAssertEqual(scene2.plotElements?.count, 1)
     }
+
+    func testPlotElementCharactersIncludesDirectAndSceneLinked() throws {
+        let element = PlotElement(name: "Beat")
+        modelContext.insert(element)
+
+        let scene = StoryScene(name: "Scene 1")
+        modelContext.insert(scene)
+
+        let sceneCharacter = Character(name: "Scene Hero")
+        let directCharacter = Character(name: "Planned Mentor")
+        modelContext.insert(sceneCharacter)
+        modelContext.insert(directCharacter)
+
+        scene.characters = [sceneCharacter]
+        element.linkedScenes = [scene]
+        element.characters = [directCharacter]
+
+        try modelContext.save()
+
+        let names = Set((element.characters ?? []).compactMap { $0.name })
+        XCTAssertEqual(names, Set(["Scene Hero", "Planned Mentor"]))
+    }
+
+    func testPlotElementCharactersDeduplicatesDirectAndSceneLinked() throws {
+        let element = PlotElement(name: "Beat")
+        modelContext.insert(element)
+
+        let scene = StoryScene(name: "Scene 1")
+        modelContext.insert(scene)
+
+        let sharedCharacter = Character(name: "Hero")
+        modelContext.insert(sharedCharacter)
+
+        scene.characters = [sharedCharacter]
+        element.linkedScenes = [scene]
+        element.characters = [sharedCharacter]
+
+        try modelContext.save()
+
+        XCTAssertEqual(element.characters?.count, 1)
+        XCTAssertEqual(element.characters?.first?.name, "Hero")
+    }
+
+    func testPlotElementLocationsIncludesDirectAndSceneLinked() throws {
+        let element = PlotElement(name: "Beat")
+        modelContext.insert(element)
+
+        let scene = StoryScene(name: "Scene 1")
+        modelContext.insert(scene)
+
+        let sceneLocation = Location(name: "Castle")
+        let directLocation = Location(name: "Forest")
+        modelContext.insert(sceneLocation)
+        modelContext.insert(directLocation)
+
+        scene.location = sceneLocation
+        element.linkedScenes = [scene]
+        element.locations = [directLocation]
+
+        try modelContext.save()
+
+        let names = Set((element.locations ?? []).compactMap { $0.name })
+        XCTAssertEqual(names, Set(["Castle", "Forest"]))
+    }
+
+    func testPlotElementLocationsDeduplicatesDirectAndSceneLinked() throws {
+        let element = PlotElement(name: "Beat")
+        modelContext.insert(element)
+
+        let scene = StoryScene(name: "Scene 1")
+        modelContext.insert(scene)
+
+        let sharedLocation = Location(name: "Castle")
+        modelContext.insert(sharedLocation)
+
+        scene.location = sharedLocation
+        element.linkedScenes = [scene]
+        element.locations = [sharedLocation]
+
+        try modelContext.save()
+
+        XCTAssertEqual(element.locations?.count, 1)
+        XCTAssertEqual(element.locations?.first?.name, "Castle")
+    }
     
     // MARK: - CustomAttribute Tests
     

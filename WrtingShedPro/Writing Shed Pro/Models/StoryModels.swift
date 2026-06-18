@@ -991,14 +991,14 @@ final class PlotElement {
         }
     }
     
-    /// Characters in this plot beat — derived as the union of all linked scenes' characters.
+    /// Characters in this plot beat — union of directly linked characters and those derived from linked scenes.
     var characters: [Character]? {
         get {
+            let direct = (characterLinks ?? []).compactMap(\.character)
             let fromScenes = (linkedScenes ?? []).flatMap { $0.characters ?? [] }
             var seen = Set<PersistentIdentifier>()
-            return fromScenes.filter { seen.insert($0.persistentModelID).inserted }
+            return (direct + fromScenes).filter { seen.insert($0.persistentModelID).inserted }
         }
-        // Setter retained for import compatibility; data is ignored by the getter.
         set {
             for link in characterLinks ?? [] { modelContext?.delete(link) }
             characterLinks = []
@@ -1013,14 +1013,14 @@ final class PlotElement {
         }
     }
     
-    /// Locations in this plot beat — derived as the union of all linked scenes' locations.
+    /// Locations in this plot beat — union of directly linked locations and those derived from linked scenes.
     var locations: [Location]? {
         get {
+            let direct = (locationLinks ?? []).compactMap(\.location)
             let fromScenes = (linkedScenes ?? []).flatMap { $0.locations ?? [] }
             var seen = Set<PersistentIdentifier>()
-            return fromScenes.filter { seen.insert($0.persistentModelID).inserted }
+            return (direct + fromScenes).filter { seen.insert($0.persistentModelID).inserted }
         }
-        // Setter retained for import compatibility; data is ignored by the getter.
         set {
             for link in locationLinks ?? [] { modelContext?.delete(link) }
             locationLinks = []

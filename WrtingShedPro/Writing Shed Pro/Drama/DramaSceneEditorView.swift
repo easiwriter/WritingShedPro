@@ -479,12 +479,7 @@ struct DramaSceneEditorView: View {
     
     @ViewBuilder
     private var characterInsertSection: some View {
-        // When editing a scene file, show only that scene's linked characters.
-        // If the file has no scene, fall back to all project characters.
-        let characters = (file.scene != nil
-            ? (file.scene!.characters ?? [])
-            : (project.characters ?? []))
-            .sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
+        let characters = computedCharactersForInsertMenu
         if !characters.isEmpty {
             Section(NSLocalizedString("autocomplete.characters", comment: "Characters")) {
                 ForEach(characters, id: \.id) { character in
@@ -497,12 +492,28 @@ struct DramaSceneEditorView: View {
             }
         }
     }
+
+    private var computedCharactersForInsertMenu: [Character] {
+        if let scene = file.scene {
+            var seen = Set<PersistentIdentifier>()
+            var result: [Character] = []
+            for c in scene.characters ?? [] {
+                if seen.insert(c.persistentModelID).inserted { result.append(c) }
+            }
+            for element in scene.plotElements ?? [] {
+                for c in (element.characterLinks ?? []).compactMap(\.character) {
+                    if seen.insert(c.persistentModelID).inserted { result.append(c) }
+                }
+            }
+            return result.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
+        } else {
+            return (project.characters ?? []).sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
+        }
+    }
     
     @ViewBuilder
     private var locationInsertSection: some View {
-        // Show this scene's locations, or fall back to all project locations if none assigned.
-        let locations: [Location] = file.scene?.locations
-            ?? (project.locations ?? []).sorted { ($0.name ?? "") < ($1.name ?? "") }
+        let locations = computedLocationsForInsertMenu
         if !locations.isEmpty {
             Section(NSLocalizedString("autocomplete.locations", comment: "Locations")) {
                 ForEach(locations, id: \.id) { location in
@@ -513,6 +524,24 @@ struct DramaSceneEditorView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var computedLocationsForInsertMenu: [Location] {
+        if let scene = file.scene {
+            var seen = Set<PersistentIdentifier>()
+            var result: [Location] = []
+            for loc in scene.locations ?? [] {
+                if seen.insert(loc.persistentModelID).inserted { result.append(loc) }
+            }
+            for element in scene.plotElements ?? [] {
+                for loc in (element.locationLinks ?? []).compactMap(\.location) {
+                    if seen.insert(loc.persistentModelID).inserted { result.append(loc) }
+                }
+            }
+            return result.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
+        } else {
+            return (project.locations ?? []).sorted { ($0.name ?? "") < ($1.name ?? "") }
         }
     }
     

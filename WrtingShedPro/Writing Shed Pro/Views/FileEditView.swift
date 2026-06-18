@@ -1170,13 +1170,47 @@ struct FileEditView: View {
     /// Menu for inserting character or location names (Fiction and Drama projects)
     private func hasCharactersLocationsOrPlotElements(project: Project) -> Bool {
         let hasCharacters = file.scene != nil
-            ? !(file.scene!.characters ?? []).isEmpty
+            ? !sceneCharactersForInsertMenu.isEmpty
             : !(project.characters ?? []).isEmpty
         let hasLocations = file.scene != nil
-            ? !(file.scene!.locations ?? []).isEmpty
+            ? !sceneLocationsForInsertMenu.isEmpty
             : !(project.locations ?? []).isEmpty
         let hasPlotElements = !(file.scene?.plotElements ?? []).isEmpty
         return hasCharacters || hasLocations || hasPlotElements
+    }
+
+    /// All characters relevant to this scene: the scene's own direct links unioned
+    /// with characters directly linked to any of the scene's plot elements.
+    private var sceneCharactersForInsertMenu: [Character] {
+        guard let scene = file.scene else { return [] }
+        var seen = Set<PersistentIdentifier>()
+        var result: [Character] = []
+        for c in scene.characters ?? [] {
+            if seen.insert(c.persistentModelID).inserted { result.append(c) }
+        }
+        for element in scene.plotElements ?? [] {
+            for c in (element.characterLinks ?? []).compactMap(\.character) {
+                if seen.insert(c.persistentModelID).inserted { result.append(c) }
+            }
+        }
+        return result.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
+    }
+
+    /// All locations relevant to this scene: the scene's own direct links unioned
+    /// with locations directly linked to any of the scene's plot elements.
+    private var sceneLocationsForInsertMenu: [Location] {
+        guard let scene = file.scene else { return [] }
+        var seen = Set<PersistentIdentifier>()
+        var result: [Location] = []
+        for loc in scene.locations ?? [] {
+            if seen.insert(loc.persistentModelID).inserted { result.append(loc) }
+        }
+        for element in scene.plotElements ?? [] {
+            for loc in (element.locationLinks ?? []).compactMap(\.location) {
+                if seen.insert(loc.persistentModelID).inserted { result.append(loc) }
+            }
+        }
+        return result.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
     }
     
     private func characterLocationInsertMenu(project: Project) -> some View {
@@ -1192,12 +1226,12 @@ struct FileEditView: View {
     
     @ViewBuilder
     private func characterInsertSection(project: Project) -> some View {
-        // When editing a scene file, show only that scene's linked characters.
+        // When editing a scene file, show the scene's own characters unioned with
+        // characters directly linked to the scene's plot elements.
         // If the file has no scene, fall back to all project characters.
-        let characters = (file.scene != nil
-            ? (file.scene!.characters ?? [])
-            : (project.characters ?? []))
-            .sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
+        let characters = file.scene != nil
+            ? sceneCharactersForInsertMenu
+            : (project.characters ?? []).sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
         if !characters.isEmpty {
             Section(NSLocalizedString("autocomplete.characters", comment: "Characters")) {
                 ForEach(characters, id: \.id) { character in
@@ -1218,9 +1252,11 @@ struct FileEditView: View {
     
     @ViewBuilder
     private func locationInsertSection(project: Project) -> some View {
-        // Show this scene's locations, or fall back to all project locations if none assigned.
-        let locations = file.scene?.locations
-            ?? (project.locations ?? []).sorted { ($0.name ?? "") < ($1.name ?? "") }
+        // Show this scene's locations unioned with locations directly linked to the
+        // scene's plot elements. Fall back to all project locations if no scene.
+        let locations = file.scene != nil
+            ? sceneLocationsForInsertMenu
+            : (project.locations ?? []).sorted { ($0.name ?? "") < ($1.name ?? "") }
         if !locations.isEmpty {
             Section(NSLocalizedString("autocomplete.locations", comment: "Locations")) {
                 ForEach(locations, id: \.id) { location in
