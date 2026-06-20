@@ -99,6 +99,45 @@ final class StyleSheet {
     var hasListStyles: Bool {
         return textStyles?.contains(where: { $0.styleCategory == .list }) ?? false
     }
+
+    /// The style used for the first paragraph in new/empty documents.
+    /// If sync artifacts temporarily produce multiple flagged styles,
+    /// prefer the most recently modified one for deterministic behavior.
+    var firstParagraphStyle: TextStyleModel? {
+        guard let matches = textStyles?.filter({ $0.isFirstParagraphStyle }), !matches.isEmpty else {
+            return nil
+        }
+
+        return matches.max { lhs, rhs in
+            if lhs.modifiedDate != rhs.modifiedDate {
+                return lhs.modifiedDate < rhs.modifiedDate
+            }
+            if lhs.createdDate != rhs.createdDate {
+                return lhs.createdDate < rhs.createdDate
+            }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
+    }
+
+    /// Enforce that only one text style can be marked as first-paragraph style.
+    /// Pass nil to clear the designation for all styles in this stylesheet.
+    func setFirstParagraphStyle(_ selectedStyle: TextStyleModel?) {
+        guard let styles = textStyles else { return }
+
+        var changed = false
+        for style in styles {
+            let shouldBeSelected = selectedStyle?.id == style.id
+            if style.isFirstParagraphStyle != shouldBeSelected {
+                style.isFirstParagraphStyle = shouldBeSelected
+                style.modifiedDate = Date()
+                changed = true
+            }
+        }
+
+        if changed {
+            modifiedDate = Date()
+        }
+    }
 }
 
 // MARK: - TextStyle Model
@@ -157,6 +196,12 @@ final class TextStyleModel {
     var includeInTOC: Bool = false
     /// Indent level in TOC (0-5), 0 = no indent
     var tocLevel: Int = 0
+
+    // MARK: - New Document Defaults
+    /// If true, this style is used as the typing style for the first paragraph
+    /// when opening a brand-new empty document. Only one style per stylesheet
+    /// should have this flag set.
+    var isFirstParagraphStyle: Bool = false
     
     // MARK: - Metadata
     var createdDate: Date = Date()
@@ -295,11 +340,14 @@ final class TextStyleModel {
         if applyPlatformScaling,
            let override = displaySizeOverrides[name],
            abs(fontSize - override.defaultStoredSize) < 0.01 {
-            baseSize = UIFont.preferredFont(forTextStyle: override.style).pointSize * platformScaleFactor
+            // preferredFont(forTextStyle:) is already platform-aware on Catalyst.
+            // Do not multiply by platformScaleFactor again or Body/Body 1/Body 2 render too large.
+            baseSize = UIFont.preferredFont(forTextStyle: override.style).pointSize
         } else if applyPlatformScaling,
                   listStyleDefaultNames.contains(name),
                   abs(fontSize - 12) < 0.01 {
-            baseSize = UIFont.preferredFont(forTextStyle: .body).pointSize * platformScaleFactor
+            // Same as above: avoid double-scaling default list text size on Catalyst.
+            baseSize = UIFont.preferredFont(forTextStyle: .body).pointSize
         } else {
             baseSize = fontSize * platformScaleFactor
         }

@@ -61,6 +61,46 @@ struct AttributeValues: Codable {
 
 /// Service for converting between NSAttributedString and storable formats
 struct AttributedStringSerializer {
+
+    /// Returns true when encoded runs contain heading text styles applied to
+    /// short inline fragments inside a paragraph (known legacy corruption pattern).
+    static func containsInlineHeadingStyleArtifacts(in data: Data, text: String) -> Bool {
+        guard !data.isEmpty, !text.isEmpty,
+              let runs = try? PropertyListDecoder().decode([AttributeValues].self, from: data) else {
+            return false
+        }
+
+        let nsText = text as NSString
+        let headingTextStyles: Set<String> = [
+            "UICTFontTextStyleTitle0",
+            "UICTFontTextStyleTitle1",
+            "UICTFontTextStyleTitle2",
+            "UICTFontTextStyleTitle3",
+            "UICTFontTextStyleHeadline"
+        ]
+
+        for run in runs {
+            guard let location = run.location,
+                  let length = run.length,
+                  length > 0,
+                  location + length <= nsText.length,
+                  let textStyle = run.textStyle,
+                  headingTextStyles.contains(textStyle) else {
+                continue
+            }
+
+            let runRange = NSRange(location: location, length: length)
+            let paragraphRange = nsText.paragraphRange(for: runRange)
+            let isParagraphScopedHeading = runRange.location == paragraphRange.location
+                && NSMaxRange(runRange) >= max(paragraphRange.location, NSMaxRange(paragraphRange) - 1)
+
+            if !isParagraphScopedHeading {
+                return true
+            }
+        }
+
+        return false
+    }
     
     // MARK: - System Font Detection
     
@@ -505,6 +545,15 @@ struct AttributedStringSerializer {
                 .font: UIFont.preferredFont(forTextStyle: .body)
             ]
         )
+
+        let nsText = text as NSString
+        let headingTextStyles: Set<String> = [
+            "UICTFontTextStyleTitle0",     // Large Title
+            "UICTFontTextStyleTitle1",     // Title 1
+            "UICTFontTextStyleTitle2",     // Title 2
+            "UICTFontTextStyleTitle3",     // Title 3
+            "UICTFontTextStyleHeadline"    // Headline
+        ]
         
         guard result.length > 0, !data.isEmpty else {
             return result
@@ -526,13 +575,35 @@ struct AttributedStringSerializer {
                 }
                 
                 var attributes = [NSAttributedString.Key: Any]()
+
+                // Repair malformed inline heading runs (seen in legacy documents) where
+                // short words inside a body paragraph were tagged as Title styles.
+                // These render as oversized bold fragments and can reappear on reopen.
+                var effectiveTextStyle = jsonAttributes.textStyle
+                var effectiveFontSize = jsonAttributes.fontSize
+
+                if let textStyleValue = effectiveTextStyle,
+                   headingTextStyles.contains(textStyleValue) {
+                    let runRange = NSRange(location: location, length: length)
+                    let paragraphRange = nsText.paragraphRange(for: runRange)
+                    let isParagraphScopedHeading = runRange.location == paragraphRange.location
+                        && NSMaxRange(runRange) >= max(paragraphRange.location, NSMaxRange(paragraphRange) - 1)
+
+                    if !isParagraphScopedHeading {
+                        effectiveTextStyle = UIFont.TextStyle.body.rawValue
+                        let bodySize = UIFont.preferredFont(forTextStyle: .body).pointSize
+                        if let storedSize = effectiveFontSize, storedSize > bodySize + 0.5 {
+                            effectiveFontSize = bodySize
+                        }
+                    }
+                }
                 
                 // Reconstruct font with traits
                 if let fontName = jsonAttributes.fontName,
-                   let fontSize = jsonAttributes.fontSize {
+                   let fontSize = effectiveFontSize {
                     
                     #if DEBUG
-                    print("🔍 DECODE font: '\(fontName)' size:\(fontSize) bold:\(jsonAttributes.bold ?? false) italic:\(jsonAttributes.italic ?? false) textStyle:\(jsonAttributes.textStyle ?? "nil")")
+                    print("🔍 DECODE font: '\(fontName)' size:\(fontSize) bold:\(jsonAttributes.bold ?? false) italic:\(jsonAttributes.italic ?? false) textStyle:\(effectiveTextStyle ?? "nil")")
                     #endif
                     
                     var font: UIFont
@@ -542,14 +613,7 @@ struct AttributedStringSerializer {
                     // Heading-category text styles must always be bold.
                     // Some formattedContent was saved before the heading-bold migration,
                     // so the stored bold flag may be false even though the style is a heading.
-                    let headingTextStyles: Set<String> = [
-                        "UICTFontTextStyleTitle0",     // Large Title
-                        "UICTFontTextStyleTitle1",     // Title 1
-                        "UICTFontTextStyleTitle2",     // Title 2
-                        "UICTFontTextStyleTitle3",     // Title 3
-                        "UICTFontTextStyleHeadline"    // Headline
-                    ]
-                    if let ts = jsonAttributes.textStyle, headingTextStyles.contains(ts), !isBold {
+                    if let ts = effectiveTextStyle, headingTextStyles.contains(ts), !isBold {
                         #if DEBUG
                         print("🔧 DECODE: Forcing bold for heading textStyle '\(ts)' at location \(jsonAttributes.location ?? -1)")
                         #endif
@@ -560,7 +624,7 @@ struct AttributedStringSerializer {
                     // This preserves heading detection for markdown export
                     // Must check for "UICTFontTextStyle" prefix - Core Text usage constants like
                     // "CTFontObliqueUsage" are NOT valid UIKit text styles and will cause wrong sizes
-                    if let textStyleValue = jsonAttributes.textStyle,
+                          if let textStyleValue = effectiveTextStyle,
                        textStyleValue.hasPrefix("UICTFontTextStyle") {
                         // Use the stored text style to get a proper preferredFont with correct descriptor
                         let textStyle = UIFont.TextStyle(rawValue: textStyleValue)
@@ -640,7 +704,7 @@ struct AttributedStringSerializer {
                 }
                 
                 // Text style - restore the stored style name
-                if let textStyleValue = jsonAttributes.textStyle {
+                if let textStyleValue = effectiveTextStyle {
                     attributes[.textStyle] = textStyleValue
                 }
                 

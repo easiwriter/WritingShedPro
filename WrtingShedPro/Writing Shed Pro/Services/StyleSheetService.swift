@@ -65,6 +65,17 @@ struct StyleSheetService {
         }
         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
+
+    private static func canonicalSystemStyleSheet(from sheets: [StyleSheet]) -> StyleSheet? {
+        sheets.sorted { lhs, rhs in
+            let lhsProjects = lhs.projects?.count ?? 0
+            let rhsProjects = rhs.projects?.count ?? 0
+            if lhsProjects != rhsProjects {
+                return lhsProjects > rhsProjects
+            }
+            return lhs.createdDate <= rhs.createdDate
+        }.first
+    }
     
     // MARK: - Default StyleSheet Creation
     
@@ -125,6 +136,11 @@ struct StyleSheetService {
             // Set TOC properties for heading styles
             style.includeInTOC = includeInTOC
             style.tocLevel = tocLevel
+
+            // Default first paragraph style for brand-new documents.
+            if textStyle == .body {
+                style.isFirstParagraphStyle = true
+            }
             
             styles.append(style)
         }
@@ -513,6 +529,7 @@ struct StyleSheetService {
             fixStyleCategories(in: sheet, context: context)
             migrateBodyStyleDefinitionSizes(in: sheet, context: context)
             migrateListStyleDefinitionSizes(in: sheet, context: context)
+            migrateFirstParagraphStyleIfNeeded(in: sheet)
         }
         
         // Also fix all project stylesheets (not just system ones)
@@ -523,6 +540,7 @@ struct StyleSheetService {
                     fixStyleCategories(in: sheet, context: context)
                     migrateBodyStyleDefinitionSizes(in: sheet, context: context)
                     migrateListStyleDefinitionSizes(in: sheet, context: context)
+                    migrateFirstParagraphStyleIfNeeded(in: sheet)
                 }
             }
         }
@@ -532,10 +550,19 @@ struct StyleSheetService {
             #if DEBUG
             print("⚠️ Found \(existingSystemSheets.count) system stylesheets - removing duplicates")
             #endif
-            // Keep the first one, delete the rest
-            for i in 1..<existingSystemSheets.count {
-                context.delete(existingSystemSheets[i])
+
+            guard let keeper = canonicalSystemStyleSheet(from: existingSystemSheets) else {
+                return
             }
+
+            for duplicate in existingSystemSheets where duplicate.id != keeper.id {
+                // Preserve project links before deleting duplicate rows.
+                for project in duplicate.projects ?? [] {
+                    project.styleSheet = keeper
+                }
+                context.delete(duplicate)
+            }
+
             Task { @MainActor in WriteCoalescer.shared?.requestSave() }
         }
         
@@ -676,6 +703,32 @@ struct StyleSheetService {
             Task { @MainActor in WriteCoalescer.shared?.requestSave() }
         }
     }
+
+    /// Ensures each stylesheet has at most one first-paragraph style and assigns
+    /// a sensible default (Body) when legacy rows predate this feature.
+    private static func migrateFirstParagraphStyleIfNeeded(in stylesheet: StyleSheet) {
+        guard let styles = stylesheet.textStyles, !styles.isEmpty else { return }
+
+        if let selected = stylesheet.firstParagraphStyle {
+            // Normalize duplicates/sync artifacts to one deterministic selection.
+            stylesheet.setFirstParagraphStyle(selected)
+            return
+        }
+
+        if let body = stylesheet.style(named: UIFont.TextStyle.body.rawValue)
+            ?? stylesheet.style(named: "UICTFontTextStyleBody") {
+            stylesheet.setFirstParagraphStyle(body)
+            return
+        }
+
+        // Fallback for unusual legacy/custom sheets with no body style.
+        if let firstTextLike = styles
+            .filter({ $0.styleCategory != .footnote && $0.styleCategory != .list })
+            .sorted(by: { $0.displayOrder < $1.displayOrder })
+            .first {
+            stylesheet.setFirstParagraphStyle(firstTextLike)
+        }
+    }
     
     // MARK: - Style Migration
     
@@ -772,7 +825,24 @@ struct StyleSheetService {
         let descriptor = FetchDescriptor<StyleSheet>(
             predicate: #Predicate { $0.isSystemStyleSheet == true }
         )
-        return try? context.fetch(descriptor).first
+        guard let systemSheets = try? context.fetch(descriptor), !systemSheets.isEmpty else {
+            return nil
+        }
+
+        // Self-heal duplicate default stylesheets and ensure deterministic selection.
+        if systemSheets.count > 1,
+           let keeper = canonicalSystemStyleSheet(from: systemSheets) {
+            for duplicate in systemSheets where duplicate.id != keeper.id {
+                for project in duplicate.projects ?? [] {
+                    project.styleSheet = keeper
+                }
+                context.delete(duplicate)
+            }
+            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+            return keeper
+        }
+
+        return systemSheets.first
     }
     
     /// Get or create a stylesheet for a project
@@ -1106,7 +1176,7 @@ struct StyleSheetService {
         if style.isSystemStyle {
             return (false, "System styles cannot be deleted.")
         }
-        
+
         // Check if style is in use
         let filesUsing = findStyleUsage(style: style, in: project)
         

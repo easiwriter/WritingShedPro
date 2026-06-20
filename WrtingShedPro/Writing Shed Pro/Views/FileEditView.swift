@@ -41,6 +41,7 @@ struct FileEditView: View {
     @State private var refreshTrigger = UUID()
     @State private var forceRefresh = false
     @State private var showStylePicker = false
+    @State private var needsStyleReapplyAfterPickerDismiss = false
     @State private var showImageEditor = false
     @State private var showLockedVersionWarning = false
     @State private var attemptedEdit = false
@@ -543,6 +544,7 @@ struct FileEditView: View {
             onFormatAction: { action in
                 switch action {
                 case .paragraphStyle:
+                    needsStyleReapplyAfterPickerDismiss = false
                     showStylePicker = true
                 case .bold:
                     applyFormatting(.bold)
@@ -935,30 +937,9 @@ struct FileEditView: View {
             }
         } else {
             let isCompact = UIDevice.current.userInterfaceIdiom == .phone
+            let showSearchButton = !isPaginationMode && !isFromMultiFileSearch
             
             HStack(spacing: isCompact ? 12 : 16) {
-                // Search button (only in edit mode and not opened from multi-file search)
-                if !isPaginationMode && !isFromMultiFileSearch {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showSearchBar.toggle()
-                            if showSearchBar, let textView = textViewCoordinator.textView {
-                                // Connect search manager to text view when opening
-                                searchManager.connect(to: textView)
-                                // Also connect to the custom undo manager so Replace All can clear it
-                                searchManager.customUndoManager = undoManager
-                            } else if !showSearchBar {
-                                // Disconnect when closing
-                                searchManager.disconnect()
-                            }
-                        }
-                    }) {
-                        Image(systemName: showSearchBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
-                    }
-                    .accessibilityLabel("Find and Replace")
-                    .keyboardShortcut("f", modifiers: .command)
-                }
-                
                 if isPoetryProject {
                     // Poetry metrics button with validation badge (English only - analysis requires CMU dictionary)
                     if isEnglishLocale {
@@ -979,8 +960,32 @@ struct FileEditView: View {
                                     }
                                 }
                         }
+                        // Keep a little extra separation before Search on iOS poetry files.
+                        .padding(.trailing, showSearchButton ? 6 : 0)
                         .accessibilityLabel(NSLocalizedString("poetryMetrics.buttonAccessibility", comment: "Show poetry metrics"))
                     }
+                }
+
+                // Search button (only in edit mode and not opened from multi-file search)
+                if showSearchButton {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showSearchBar.toggle()
+                            if showSearchBar, let textView = textViewCoordinator.textView {
+                                // Connect search manager to text view when opening
+                                searchManager.connect(to: textView)
+                                // Also connect to the custom undo manager so Replace All can clear it
+                                searchManager.customUndoManager = undoManager
+                            } else if !showSearchBar {
+                                // Disconnect when closing
+                                searchManager.disconnect()
+                            }
+                        }
+                    }) {
+                        Image(systemName: showSearchBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
+                    }
+                    .accessibilityLabel("Find and Replace")
+                    .keyboardShortcut("f", modifiers: .command)
                 }
                 
                 // Plot elements button (only for files linked to fiction scenes with plot elements)
@@ -1735,19 +1740,20 @@ struct FileEditView: View {
             }
         }
         .sheet(isPresented: $showStylePicker, onDismiss: {
-            // Style edits can happen while this sheet is presented. Reapply once on
-            // dismiss so the visible editor always reflects the latest style values.
-            reapplyAllStyles(registerUndo: false)
+            // Avoid a second full-document style pass after a simple style selection,
+            // which causes visible "twitch"/jump on macOS. Only reapply when the
+            // style definition itself was edited inside the picker flow.
+            if needsStyleReapplyAfterPickerDismiss {
+                reapplyAllStyles(registerUndo: false)
 
-            // Force the text view to re-render after the style picker sheet dismisses.
-            // reapplyAllStyles() may have run while the text view was behind the sheet,
-            // preventing setNeedsDisplay from triggering a visible redraw.
-            textViewCoordinator.modifyTypingAttributes { textView in
-                textView.textStorage.setAttributedString(attributedContent)
-                textView.layoutManager.invalidateLayout(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length), actualCharacterRange: nil)
-                textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
-                textView.setNeedsDisplay()
+                textViewCoordinator.modifyTypingAttributes { textView in
+                    textView.textStorage.setAttributedString(attributedContent)
+                    textView.layoutManager.invalidateLayout(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length), actualCharacterRange: nil)
+                    textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                    textView.setNeedsDisplay()
+                }
             }
+            needsStyleReapplyAfterPickerDismiss = false
         }) {
             StylePickerSheet(
                 currentStyle: $currentParagraphStyle,
@@ -1757,6 +1763,7 @@ struct FileEditView: View {
                 project: file.project,
                 onReapplyStyles: {
                     // Style definition updates should not create document undo steps.
+                    needsStyleReapplyAfterPickerDismiss = true
                     reapplyAllStyles(registerUndo: false)
                 }
             )
@@ -2574,6 +2581,11 @@ struct FileEditView: View {
         
         // Load content from database - ALWAYS normalize for iPhone
         if let savedContent = file.currentVersion?.attributedContent {
+            let shouldPersistInlineHeadingRepair: Bool = {
+                guard let raw = file.currentVersion?.formattedContent else { return false }
+                return AttributedStringSerializer.containsInlineHeadingStyleArtifacts(in: raw, text: file.currentVersion?.content ?? "")
+            }()
+
             #if DEBUG
             print("📂 ======== STYLE DIAG: LOAD START ========")
             print("📂 File: \(file.name)")
@@ -2625,6 +2637,17 @@ struct FileEditView: View {
             attributedContent = processedContent
             previousContent = attributedContent.string
             previousAttributedContent = processedContent  // Cache for undo without expensive DB fetch
+
+            // If decode repaired malformed inline heading runs (oversized "bold" fragments),
+            // persist immediately so CloudKit exports the cleaned content to other devices.
+            if shouldPersistInlineHeadingRepair {
+                file.currentVersion?.attributedContent = processedContent
+                file.modifiedDate = Date()
+                WriteCoalescer.shared?.requestSave()
+                #if DEBUG
+                print("🩹 Persisted inline-heading repair for CloudKit sync")
+                #endif
+            }
             
             // Detect incomplete CloudKit sync: plain text has U+FFFC attachment
             // placeholders but the decoded attributed content has no recognized attachments.

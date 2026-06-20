@@ -27,6 +27,10 @@ struct InEditorSearchBar: View {
     
     /// Whether replace mode is expanded
     @State private var showReplace: Bool = false
+
+    private var isPhoneLayout: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone
+    }
     
     // MARK: - Body
     
@@ -182,7 +186,85 @@ struct InEditorSearchBar: View {
     private func fullSearchBar() -> some View {
         VStack(spacing: 0) {
             // Main search row
-            HStack(spacing: 8) {
+            Group {
+                if isPhoneLayout {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        searchControlsRow
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    searchControlsRow
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+                // Replace row (conditionally shown)
+                if showReplace {
+                    HStack(spacing: 8) {
+                        // Replace text field (same width/style as search field)
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 18))
+                            
+                            TextField("Replace", text: $manager.replaceText)
+                                .textFieldStyle(.plain)
+                                .focused($focusedField, equals: .replace)
+                                .font(.system(size: 17))
+                            
+                            if !manager.replaceText.isEmpty {
+                                Button(action: {
+                                    manager.replaceText = ""
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.secondary)
+                                        .font(.system(size: 18))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(Color(uiColor: .systemGray6))
+                        .cornerRadius(8)
+                        .frame(minWidth: 200, maxWidth: 400)
+                        
+                        // Replace buttons appear right after the text field
+                        Button("Replace") {
+                            let _ = manager.replaceCurrentMatch()
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 15))
+                        .disabled(!manager.canReplace)
+                        
+                        Button("Replace All") {
+                            let count = manager.replaceAllMatches()
+                            #if DEBUG
+                            print("Replaced \(count) matches")
+                            #endif
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 15))
+                        .disabled(!manager.canReplace)
+                        
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .onAppear {
+                focusedField = .search
+            }
+        }
+
+    @ViewBuilder
+    private var searchControlsRow: some View {
+        HStack(spacing: 8) {
                     // Search text field
                     HStack(spacing: 6) {
                         Image(systemName: "magnifyingglass")
@@ -311,70 +393,7 @@ struct InEditorSearchBar: View {
                     .buttonStyle(.plain)
                     .help("Close (⎋)")
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                
-                // Replace row (conditionally shown)
-                if showReplace {
-                    HStack(spacing: 8) {
-                        // Replace text field (same width/style as search field)
-                        HStack(spacing: 6) {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .foregroundColor(.secondary)
-                                .font(.system(size: 18))
-                            
-                            TextField("Replace", text: $manager.replaceText)
-                                .textFieldStyle(.plain)
-                                .focused($focusedField, equals: .replace)
-                                .font(.system(size: 17))
-                            
-                            if !manager.replaceText.isEmpty {
-                                Button(action: {
-                                    manager.replaceText = ""
-                                }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.secondary)
-                                        .font(.system(size: 18))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(Color(uiColor: .systemGray6))
-                        .cornerRadius(8)
-                        .frame(minWidth: 200, maxWidth: 400)
-                        
-                        // Replace buttons appear right after the text field
-                        Button("Replace") {
-                            let _ = manager.replaceCurrentMatch()
-                        }
-                        .buttonStyle(.borderless)
-                        .font(.system(size: 15))
-                        .disabled(!manager.canReplace)
-                        
-                        Button("Replace All") {
-                            let count = manager.replaceAllMatches()
-                            #if DEBUG
-                            print("Replaced \(count) matches")
-                            #endif
-                        }
-                        .buttonStyle(.borderless)
-                        .font(.system(size: 15))
-                        .disabled(!manager.canReplace)
-                        
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
-            .onAppear {
-                focusedField = .search
-            }
-        }
+    }
     
     // MARK: - Actions
     

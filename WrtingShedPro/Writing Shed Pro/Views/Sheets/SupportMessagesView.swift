@@ -76,9 +76,15 @@ struct SupportMessagesView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text(message.title)
-                        .font(.headline)
-                        .fontWeight(isRead ? .regular : .semibold)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(message.title)
+                            .font(.headline)
+                            .fontWeight(isRead ? .regular : .semibold)
+
+                        if message.isMarkedCritical {
+                            criticalBadge
+                        }
+                    }
 
                     Spacer(minLength: 8)
 
@@ -103,6 +109,14 @@ struct SupportMessagesView: View {
             }
         }
         .padding(.vertical, 4)
+        .accessibilityLabel(
+            message.isMarkedCritical
+                ? String(
+                    format: NSLocalizedString("messages.accessibility.criticalLabel", comment: "Accessibility label for critical support message row"),
+                    message.title
+                )
+                : message.title
+        )
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
             Button(isRead ? NSLocalizedString("messages.markUnread", comment: "") : NSLocalizedString("messages.markRead", comment: "")) {
                 if isRead {
@@ -118,5 +132,16 @@ struct SupportMessagesView: View {
     private func relativeDateText(from timestampMs: TimeInterval) -> String {
         let date = Date(timeIntervalSince1970: timestampMs / 1000.0)
         return RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date())
+    }
+
+    private var criticalBadge: some View {
+        Label(NSLocalizedString("messages.critical", comment: "Critical message badge text"), systemImage: "exclamationmark.triangle.fill")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.red)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.red.opacity(0.12))
+            .clipShape(Capsule())
+            .accessibilityLabel(NSLocalizedString("messages.critical", comment: "Critical message badge text"))
     }
 }

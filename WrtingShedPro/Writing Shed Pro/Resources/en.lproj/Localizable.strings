@@ -2919,6 +2919,16 @@
 "messages.launchAlert.open" = "Open";
 "messages.markRead" = "Mark Read";
 "messages.markUnread" = "Mark Unread";
+"messages.critical" = "Critical";
+"messages.accessibility.criticalLabel" = "Critical message: %@";
+
+/* Guide Tutorial Videos */
+"guide.tutorialVideos.command" = "Tutorial Videos";
+"guide.tutorialVideos.title" = "Tutorial Videos";
+"guide.tutorialVideos.empty.title" = "No Tutorial Videos";
+"guide.tutorialVideos.empty.body" = "No tutorial videos are currently available.";
+"guide.tutorialVideos.error.title" = "Unable to Load Videos";
+"guide.tutorialVideos.error.unavailable" = "Tutorial videos are temporarily unavailable. Please try again later.";
 
 // MARK: - Sync Status
 "sync.status.healthy" = "All synced";

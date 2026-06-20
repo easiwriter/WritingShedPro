@@ -390,9 +390,17 @@ struct TextFormatter {
         if range.location >= attributedText.length {
             checkLocation = attributedText.length - 1
         } else if range.location > 0 && range.length == 0 {
-            // Cursor position (no selection) - check character before cursor
-            // This gives us the style of text we're "in"
-            checkLocation = range.location - 1
+            // Cursor position (no selection).
+            // If we're at the start of a new paragraph (previous char is newline),
+            // don't inherit the previous paragraph's style.
+            let nsText = attributedText.string as NSString
+            let prevChar = nsText.character(at: range.location - 1)
+            if prevChar == 0x0A || prevChar == 0x0D {
+                checkLocation = min(range.location, attributedText.length - 1)
+            } else {
+                // Otherwise use character before cursor for in-line cursor behavior.
+                checkLocation = range.location - 1
+            }
         } else {
             // Selection or at start - check at current location
             checkLocation = range.location
@@ -774,7 +782,14 @@ struct TextFormatter {
         if range.location >= attributedText.length {
             checkLocation = attributedText.length - 1
         } else if range.location > 0 && range.length == 0 {
-            checkLocation = range.location - 1
+            // Prevent style bleed from previous paragraph when cursor is at line start.
+            let nsText = attributedText.string as NSString
+            let prevChar = nsText.character(at: range.location - 1)
+            if prevChar == 0x0A || prevChar == 0x0D {
+                checkLocation = min(range.location, attributedText.length - 1)
+            } else {
+                checkLocation = range.location - 1
+            }
         } else {
             checkLocation = range.location
         }
