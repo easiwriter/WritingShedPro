@@ -14,6 +14,7 @@ struct PoetryCollectionPickerSheet: View {
     // MARK: - Environment
     
     @Environment(\.dismiss) private var dismiss
+    @Query private var allCollectionLinks: [TextFileCollectionLink]
     
     // MARK: - Properties
     
@@ -26,6 +27,14 @@ struct PoetryCollectionPickerSheet: View {
     
     private var sortedCollections: [PoetryCollection] {
         (project.poetryCollections ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+    }
+
+    private func liveFileCount(for collection: PoetryCollection) -> Int {
+        allCollectionLinks.reduce(into: 0) { count, link in
+            if link.poetryCollection?.id == collection.id, link.textFile != nil {
+                count += 1
+            }
+        }
     }
     
     /// Check if all selected files are assigned to the same collection
@@ -91,7 +100,7 @@ struct PoetryCollectionPickerSheet: View {
                                         
                                         Spacer()
                                         
-                                        let fileCount = collection.textFiles?.count ?? 0
+                                        let fileCount = liveFileCount(for: collection)
                                         Text("\(fileCount)")
                                             .font(.caption)
                                             .foregroundColor(.secondary)

@@ -87,10 +87,9 @@ extension FolderFilesView {
     var poetryCollectionGroups: [CollectionGroup]? {
         guard isPoetryProject && isContentFolder else { return nil }
         guard let collections = folder.project?.poetryCollections, !collections.isEmpty else { return nil }
-        
-        let currentFiles = Set(sortedFiles.map { $0.id })
+
         var groups: [CollectionGroup] = []
-        
+
         // Sort collections by userOrder, then by name
         let sortedCollections = collections.sorted {
             let order0 = $0.userOrder ?? Int.max
@@ -98,16 +97,30 @@ extension FolderFilesView {
             if order0 != order1 { return order0 < order1 }
             return ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
-        
+
+        // Drive membership from live join-link query so UI refreshes immediately
+        // when links are inserted/deleted by assignment actions.
+        let visibleFileIDs = Set(sortedFiles.map(\.id))
+        let validCollectionIDs = Set(sortedCollections.map(\.id))
+        var membershipByCollectionID: [UUID: Set<UUID>] = [:]
+        var assignedVisibleFileIDs: Set<UUID> = []
+
+        for link in allCollectionLinks {
+            guard
+                let fileID = link.textFile?.id,
+                visibleFileIDs.contains(fileID),
+                let collectionID = link.poetryCollection?.id,
+                validCollectionIDs.contains(collectionID)
+            else {
+                continue
+            }
+            membershipByCollectionID[collectionID, default: []].insert(fileID)
+            assignedVisibleFileIDs.insert(fileID)
+        }
+
         for collection in sortedCollections {
-            let collectionFiles = (collection.textFiles ?? [])
-                .filter { currentFiles.contains($0.id) }
-                .sorted {
-                    let order0 = $0.userOrder ?? Int.max
-                    let order1 = $1.userOrder ?? Int.max
-                    if order0 != order1 { return order0 < order1 }
-                    return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-                }
+            let memberIDs = membershipByCollectionID[collection.id] ?? []
+            let collectionFiles = sortedFiles.filter { memberIDs.contains($0.id) }
             if !collectionFiles.isEmpty {
                 groups.append(CollectionGroup(
                     id: collection.id.uuidString,
@@ -116,10 +129,9 @@ extension FolderFilesView {
                 ))
             }
         }
-        
+
         // Add unassigned poems
-        let assignedFileIDs = Set(groups.flatMap { $0.files.map { $0.id } })
-        let unassignedFiles = sortedFiles.filter { !assignedFileIDs.contains($0.id) }
+        let unassignedFiles = sortedFiles.filter { !assignedVisibleFileIDs.contains($0.id) }
         if !unassignedFiles.isEmpty {
             groups.append(CollectionGroup(
                 id: "__unassigned__",
@@ -168,6 +180,6 @@ extension FolderFilesView {
     }
 
     var showMixedContentToolbar: Bool {
-        isEditMode && (!selectedFileIDs.isEmpty || !selectedFolderIDs.isEmpty)
+        isEditMode && (!sortedMixedFiles.isEmpty || !sortedSubfolders.isEmpty)
     }
 }

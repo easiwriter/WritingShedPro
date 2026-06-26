@@ -15,6 +15,7 @@ import UniformTypeIdentifiers
 struct FolderFilesView: View {
     @Bindable var folder: Folder
     @Environment(\.modelContext) var modelContext
+    @Query var allCollectionLinks: [TextFileCollectionLink]
     
     // State for edit mode (shared with FileListView)
     @State var editMode: EditMode = .inactive
@@ -174,6 +175,7 @@ struct FolderFilesView: View {
             onManageContainers: (isPoetryProject && isContentFolder && !isReadOnly) ? { containerAssignmentFiles = ContainerAssignmentItem(files: selectedFiles) } : nil,
             onPrint: handlePrint,
             collectionGroups: poetryCollectionGroups,
+            hasAvailableCollectionsForAddToCollection: !(folder.project?.poetryCollections?.isEmpty ?? true),
             expandedCollections: $collectionExpandedSections
         )
     }
@@ -699,17 +701,28 @@ struct FolderFilesView: View {
     @ViewBuilder
     private var mixedContentBottomToolbar: some View {
         let totalSelected = selectedFileIDs.count + selectedFolderIDs.count
+        let totalSelectable = sortedMixedFiles.count + sortedSubfolders.count
+        let allItemsSelected = totalSelectable > 0 && totalSelected == totalSelectable
         let filesOnlySelected = !selectedFileIDs.isEmpty && selectedFolderIDs.isEmpty
         
-        // Deselect all button
+        // Select/Deselect all button
         Button {
-            selectedFileIDs.removeAll()
-            selectedFolderIDs.removeAll()
+            if allItemsSelected {
+                selectedFileIDs.removeAll()
+                selectedFolderIDs.removeAll()
+            } else {
+                selectedFileIDs = Set(sortedMixedFiles.map { $0.id })
+                selectedFolderIDs = Set(sortedSubfolders.map { $0.id })
+            }
         } label: {
-            Image(systemName: "circle.slash")
+            Text(allItemsSelected
+                ? NSLocalizedString("fileList.deselectAll", comment: "Deselect all")
+                : NSLocalizedString("fileList.selectAll", comment: "Select all"))
         }
-        .disabled(totalSelected == 0)
-        .accessibilityLabel(NSLocalizedString("fileList.deselectAll", comment: "Deselect all"))
+        .disabled(totalSelectable == 0)
+        .accessibilityLabel(allItemsSelected
+            ? NSLocalizedString("fileList.deselectAll.accessibility", comment: "Deselect all files")
+            : NSLocalizedString("fileList.selectAll.accessibility", comment: "Select all files"))
         
         Spacer()
         

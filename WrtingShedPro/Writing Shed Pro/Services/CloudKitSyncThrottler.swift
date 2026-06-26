@@ -14,6 +14,12 @@ import CoreData
 import Observation
 import CloudKit
 
+extension NSNotification.Name {
+    /// Posted when NSPersistentCloudKitContainer reports an import end event with failure.
+    /// `userInfo` may contain `errorDomain`, `errorCode`, and `errorMessage`.
+    static let writingShedProCloudKitImportFailed = NSNotification.Name("WritingShedProCloudKitImportFailed")
+}
+
 struct CloudKitEventLogEntry: Identifiable {
     let id = UUID()
     let timestamp: Date
@@ -166,6 +172,13 @@ final class CloudKitSyncThrottler {
     /// activity for `minInProgressInactivityForClear`, clear it proactively.
     private let minInProgressAgeForInactivityClear: TimeInterval = 90
     private let minInProgressInactivityForClear: TimeInterval = 60
+
+    /// Post-reset sessions can legitimately run longer, but if there is no
+    /// mirroring activity for several minutes, the in-progress flag is likely wedged.
+    // Post-reset imports are allowed extra time, but if mirroring is silent
+    // for ~3 minutes this is typically a wedged import episode, not active work.
+    private let minInProgressAgeForInactivityClearAfterReset: TimeInterval = 240
+    private let minInProgressInactivityForClearAfterReset: TimeInterval = 180
 
     /// Longer timeout after a sync database reset, since full zone re-imports
     /// can take 15-30 minutes for large databases.
@@ -622,9 +635,19 @@ final class CloudKitSyncThrottler {
                             #if DEBUG
                             print("⚠️ [CloudKitSyncThrottler] Import failure #\(self.consecutiveImportFailures) — \(self.detailedErrorMessage(event.error))")
                             #endif
+                            let nsError = event.error as? NSError
+                            NotificationCenter.default.post(
+                                name: .writingShedProCloudKitImportFailed,
+                                object: nil,
+                                userInfo: [
+                                    "errorDomain": nsError?.domain ?? "",
+                                    "errorCode": nsError?.code ?? -1,
+                                    "errorMessage": errorMessage
+                                ]
+                            )
                             self.scheduleAutoResetIfNeeded()
                             // Detect transport failures for backoff
-                            let nsError = event.error as? NSError
+                            
                             let errorDomain = nsError?.domain ?? ""
                             let errorCode = nsError?.code ?? -1
                             let underlying = nsError?.userInfo[NSUnderlyingErrorKey] as? NSError
@@ -764,9 +787,16 @@ final class CloudKitSyncThrottler {
             let eventAge = now.timeIntervalSince(started)
             let inactivity = now.timeIntervalSince(lastMirroringActivity ?? started)
             let shouldClearForAge = eventAge > staleAge
-            let shouldClearForInactivity = !isPostReset &&
-                eventAge > minInProgressAgeForInactivityClear &&
-                inactivity > minInProgressInactivityForClear
+            let shouldClearForInactivity: Bool
+            if isPostReset {
+                shouldClearForInactivity =
+                    eventAge > minInProgressAgeForInactivityClearAfterReset &&
+                    inactivity > minInProgressInactivityForClearAfterReset
+            } else {
+                shouldClearForInactivity =
+                    eventAge > minInProgressAgeForInactivityClear &&
+                    inactivity > minInProgressInactivityForClear
+            }
 
             if shouldClearForAge || shouldClearForInactivity {
             importInProgress = false
@@ -790,9 +820,16 @@ final class CloudKitSyncThrottler {
             let eventAge = now.timeIntervalSince(started)
             let inactivity = now.timeIntervalSince(lastMirroringActivity ?? started)
             let shouldClearForAge = eventAge > staleAge
-            let shouldClearForInactivity = !isPostReset &&
-                eventAge > minInProgressAgeForInactivityClear &&
-                inactivity > minInProgressInactivityForClear
+            let shouldClearForInactivity: Bool
+            if isPostReset {
+                shouldClearForInactivity =
+                    eventAge > minInProgressAgeForInactivityClearAfterReset &&
+                    inactivity > minInProgressInactivityForClearAfterReset
+            } else {
+                shouldClearForInactivity =
+                    eventAge > minInProgressAgeForInactivityClear &&
+                    inactivity > minInProgressInactivityForClear
+            }
 
             if shouldClearForAge || shouldClearForInactivity {
             exportInProgress = false
@@ -841,6 +878,7 @@ final class CloudKitSyncThrottler {
         guard let nsError = error as NSError? else { return "" }
 
         var details: [String] = []
+        var extractedExtraDetails = false
         details.append("\(nsError.domain) code=\(nsError.code)")
 
         if !nsError.localizedDescription.isEmpty {
@@ -850,6 +888,7 @@ final class CloudKitSyncThrottler {
         // CKPartialErrorsByItemIDKey — individual record/zone errors
         if let partialByItem = nsError.userInfo[CKPartialErrorsByItemIDKey] as? [AnyHashable: NSError],
            !partialByItem.isEmpty {
+            extractedExtraDetails = true
             details.append("partialErrors=\(partialByItem.count)")
             // Show first 3 distinct error codes
             var errorCodes: [String: Int] = [:]
@@ -875,6 +914,7 @@ final class CloudKitSyncThrottler {
 
         // NSDetailedErrorsKey — Core Data batch validation errors
         if let detailedErrors = nsError.userInfo["NSDetailedErrors"] as? [NSError], !detailedErrors.isEmpty {
+            extractedExtraDetails = true
             details.append("detailedErrors=\(detailedErrors.count)")
             if let first = detailedErrors.first {
                 details.append("firstDetailed=\(first.domain):\(first.code) \(first.localizedDescription)")
@@ -885,6 +925,7 @@ final class CloudKitSyncThrottler {
         var current: NSError? = nsError.userInfo[NSUnderlyingErrorKey] as? NSError
         var depth = 0
         while let u = current, depth < 3 {
+            extractedExtraDetails = true
             let prefix = depth == 0 ? "underlying" : "underlying\(depth+1)"
             details.append("\(prefix)=\(u.domain):\(u.code)")
             if !u.localizedDescription.isEmpty && u.localizedDescription != nsError.localizedDescription {
@@ -913,8 +954,8 @@ final class CloudKitSyncThrottler {
             depth += 1
         }
 
-        // Dump all userInfo keys if we still only have domain+code (no details extracted)
-        if details.count <= 2 {
+        // Dump all userInfo keys if we have no structured detail.
+        if !extractedExtraDetails {
             let keys = nsError.userInfo.keys.map { "\($0)" }.sorted()
             if !keys.isEmpty {
                 details.append("userInfoKeys=[\(keys.joined(separator: ", "))]")

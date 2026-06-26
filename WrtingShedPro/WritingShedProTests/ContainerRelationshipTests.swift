@@ -110,6 +110,26 @@ final class ContainerRelationshipTests: XCTestCase {
         XCTAssertFalse(file.isInPoetryCollection(col1))
         XCTAssertTrue(file.isInPoetryCollection(col2))
     }
+
+    func testRemoveFromPoetryCollectionKeepsFolderRelationship() throws {
+        let project = Project(name: "Poetry Project", type: .poetry)
+        let folder = Folder(name: "Draft", project: project)
+        let collection = PoetryCollection(name: "Sonnets")
+        collection.project = project
+        let file = TextFile(name: "Poem 1", initialContent: "", parentFolder: folder)
+
+        modelContext.insert(project)
+        modelContext.insert(folder)
+        modelContext.insert(collection)
+        modelContext.insert(file)
+
+        file.addToPoetryCollection(collection)
+        file.removeFromPoetryCollection(collection)
+        try modelContext.save()
+
+        XCTAssertEqual(file.parentFolder?.id, folder.id, "Removing collection membership must not detach the file from its folder")
+        XCTAssertFalse(file.isInPoetryCollection(collection))
+    }
     
     func testRemoveFromAllPoetryCollections() throws {
         let col1 = PoetryCollection(name: "Sonnets")

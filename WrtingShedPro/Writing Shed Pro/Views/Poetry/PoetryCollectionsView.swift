@@ -11,10 +11,16 @@ import SwiftData
 
 /// List view showing all poetry collections for a Poetry project
 struct PoetryCollectionsView: View {
+    private struct CollectionEditState: Identifiable {
+        let id: UUID
+        let name: String
+        let synopsis: String
+    }
     
     // MARK: - Environment
     
     @Environment(\.modelContext) private var modelContext
+    @Query private var allCollectionLinks: [TextFileCollectionLink]
     
     // MARK: - Properties
     
@@ -26,7 +32,7 @@ struct PoetryCollectionsView: View {
     @State private var editMode: EditMode = .inactive
     @State private var selectedCollectionIDs: Set<UUID> = []
     @State private var showDeleteConfirmation = false
-    @State private var collectionToEdit: PoetryCollection?
+    @State private var collectionToEdit: CollectionEditState?
     
     /// Submission state
     @State private var showSubmissionNamePrompt = false
@@ -51,6 +57,16 @@ struct PoetryCollectionsView: View {
     
     private var showToolbar: Bool {
         isEditMode && !selectedCollectionIDs.isEmpty
+    }
+
+    /// Live count from view-context query to avoid transient stale row counts.
+    private func liveFileCount(for collection: PoetryCollection) -> Int {
+        let collectionID = collection.id
+        return allCollectionLinks.reduce(into: 0) { count, link in
+            guard link.poetryCollection?.id == collectionID else { return }
+            guard link.textFile?.trashItem == nil else { return }
+            count += 1
+        }
     }
     
     // MARK: - Body
@@ -125,10 +141,10 @@ struct PoetryCollectionsView: View {
                 nameLabel: NSLocalizedString("poetry.collection.name", comment: "Name"),
                 synopsisLabel: NSLocalizedString("poetry.collection.synopsis", comment: "Synopsis"),
                 synopsisFooter: NSLocalizedString("poetry.collection.synopsis.footer", comment: "Brief description of this collection"),
-                initialName: collection.name ?? "",
-                initialSynopsis: collection.synopsis ?? ""
+                initialName: collection.name,
+                initialSynopsis: collection.synopsis
             ) { updatedName, updatedSynopsis in
-                updateCollection(collection, name: updatedName, synopsis: updatedSynopsis)
+                updateCollection(id: collection.id, name: updatedName, synopsis: updatedSynopsis)
             }
         }
         .alert(NSLocalizedString("submissions.name.title", comment: "Name Submission"), isPresented: $showSubmissionNamePrompt) {
@@ -191,20 +207,25 @@ struct PoetryCollectionsView: View {
     private var collectionList: some View {
         List(selection: $selectedCollectionIDs) {
             ForEach(sortedCollections) { collection in
+                let currentFileCount = liveFileCount(for: collection)
                 HStack {
                     if isEditMode {
-                        CollectionRowView(collection: collection)
+                        CollectionRowView(collection: collection, fileCount: currentFileCount)
                     } else {
                         NavigationLink {
                             PoetryCollectionPoemsView(project: project, collection: collection)
                         } label: {
-                            CollectionRowView(collection: collection)
+                            CollectionRowView(collection: collection, fileCount: currentFileCount)
                         }
                     }
                     
                     if !isEditMode {
                         Button {
-                            collectionToEdit = collection
+                            collectionToEdit = CollectionEditState(
+                                id: collection.id,
+                                name: collection.name ?? "",
+                                synopsis: collection.synopsis ?? ""
+                            )
                         } label: {
                             Image(systemName: "ellipsis.circle")
                                 .imageScale(.large)
@@ -254,10 +275,12 @@ struct PoetryCollectionsView: View {
     // MARK: - Actions
     
     private func deleteSelectedCollections() {
+        let deletedIDs = Set(selectedCollections.map { $0.id })
+
         for collection in selectedCollections {
-            // Unassign poems first (don't delete them)
+            // Remove only this collection link from poems; do not touch folders/files.
             for file in collection.textFiles ?? [] {
-                file.poetryCollection = nil
+                file.removeFromPoetryCollection(collection)
             }
             // Remove from Body Matter if included
             collection.isInBodyMatter = false
@@ -265,14 +288,19 @@ struct PoetryCollectionsView: View {
             
             modelContext.delete(collection)
         }
+
+        if let editID = collectionToEdit?.id, deletedIDs.contains(editID) {
+            collectionToEdit = nil
+        }
         
         try? modelContext.save()
         selectedCollectionIDs.removeAll()
         editMode = .inactive
     }
     
-    private func updateCollection(_ collection: PoetryCollection, name: String, synopsis: String) {
+    private func updateCollection(id: UUID, name: String, synopsis: String) {
         guard !name.isEmpty else { return }
+        guard let collection = sortedCollections.first(where: { $0.id == id }) else { return }
         collection.name = name
         collection.synopsis = synopsis.isEmpty ? nil : synopsis
         collection.modifiedDate = Date()
@@ -347,6 +375,7 @@ struct PoetryCollectionsView: View {
 
 struct CollectionRowView: View {
     let collection: PoetryCollection
+    let fileCount: Int
     
     var body: some View {
         HStack {
@@ -355,7 +384,6 @@ struct CollectionRowView: View {
                     .font(.body)
                 
                 HStack(spacing: 8) {
-                    let fileCount = collection.textFiles?.count ?? 0
                     Text(String(format: NSLocalizedString("poetry.collection.poemCount", comment: "%d poems"), fileCount))
                         .font(.caption)
                         .foregroundStyle(.secondary)

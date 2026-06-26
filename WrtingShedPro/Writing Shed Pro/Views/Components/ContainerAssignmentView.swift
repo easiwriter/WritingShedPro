@@ -177,12 +177,6 @@ struct ContainerAssignmentView<Item: ContainerAssignable>: View {
                         performAction(.move, targetContainerID: container.id)
                     }
                 }
-                
-                Divider()
-                
-                Button(NSLocalizedString("containerAssignment.unassigned", comment: "Unassigned")) {
-                    performAction(.move, targetContainerID: nil)
-                }
             } label: {
                 Label(NSLocalizedString("containerAssignment.move", comment: "Move"),
                       systemImage: "arrow.right")
@@ -229,9 +223,16 @@ struct ContainerAssignmentView<Item: ContainerAssignable>: View {
                 // Copy without a target is a no-op
             }
         }
-        
-        // Deselect items after action so user sees updated state
-        dialogSelection.removeAll()
+
+        switch mode {
+        case .move:
+            // Move is a complete action: commit immediately and close the sheet.
+            applyChanges()
+            dismiss()
+        case .copy:
+            // Keep dialog open for additional copy actions.
+            dialogSelection.removeAll()
+        }
     }
     
     // MARK: - Helpers

@@ -16,6 +16,7 @@ struct PoetryCollectionPoemsView: View {
     // MARK: - Environment
     
     @Environment(\.modelContext) private var modelContext
+    @Query private var allCollectionLinks: [TextFileCollectionLink]
     
     // MARK: - Properties
     
@@ -47,9 +48,23 @@ struct PoetryCollectionPoemsView: View {
     @State private var upgradePromptReason: UpgradePromptReason?
     
     // MARK: - Computed
+
+    private var liveCollectionFiles: [TextFile] {
+        let collectionID = collection.id
+        var seen = Set<UUID>()
+        let files = allCollectionLinks.compactMap { link -> TextFile? in
+            guard link.poetryCollection?.id == collectionID else { return nil }
+            guard let file = link.textFile, file.trashItem == nil else { return nil }
+            guard !seen.contains(file.id) else { return nil }
+            seen.insert(file.id)
+            return file
+        }
+
+        return files.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+    }
     
     private var sortedFiles: [TextFile] {
-        (collection.textFiles ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        liveCollectionFiles
     }
     
     private var isEditMode: Bool {
@@ -68,7 +83,7 @@ struct PoetryCollectionPoemsView: View {
     private var availablePoems: [TextFile] {
         let poemsFolder = project.folders?.first { $0.name == "Poems" }
         let allPoems = poemsFolder?.textFiles ?? []
-        let assignedIDs = Set((collection.textFiles ?? []).map { $0.id })
+        let assignedIDs = Set(sortedFiles.map { $0.id })
         return allPoems.filter { !assignedIDs.contains($0.id) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
@@ -315,7 +330,7 @@ struct PoetryCollectionPoemsView: View {
     // MARK: - Actions
     
     private func addPoemToCollection(_ file: TextFile) {
-        file.poetryCollection = collection
+        file.addToPoetryCollection(collection)
         let nextOrder = (sortedFiles.map { $0.userOrder ?? 0 }.max() ?? -1) + 1
         file.userOrder = nextOrder
         collection.modifiedDate = Date()
@@ -324,7 +339,7 @@ struct PoetryCollectionPoemsView: View {
     
     private func removeSelectedFiles() {
         for file in selectedFiles {
-            file.poetryCollection = nil
+            file.removeFromPoetryCollection(collection)
         }
         collection.modifiedDate = Date()
         try? modelContext.save()
@@ -335,7 +350,7 @@ struct PoetryCollectionPoemsView: View {
     private func deleteFiles(at offsets: IndexSet) {
         for index in offsets {
             let file = sortedFiles[index]
-            file.poetryCollection = nil
+            file.removeFromPoetryCollection(collection)
         }
         collection.modifiedDate = Date()
         try? modelContext.save()

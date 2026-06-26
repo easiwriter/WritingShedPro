@@ -34,7 +34,13 @@ extension FolderFilesView {
             .sheet(isPresented: $showBackMatterSettings) {
                 BackMatterSettingsDialog(folder: folder)
             }
-            .sheet(item: $containerAssignmentFiles) { item in
+            .sheet(item: $containerAssignmentFiles, onDismiss: {
+                withAnimation {
+                    editMode = .inactive
+                }
+                selectedFileIDs.removeAll()
+                selectedFolderIDs.removeAll()
+            }) { item in
                 if let project = folder.resolvedProject, project.type == .poetry {
                     ContainerAssignmentView.forPoetryCollections(
                         project: project,

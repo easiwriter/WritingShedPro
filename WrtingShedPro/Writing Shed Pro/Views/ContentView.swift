@@ -163,6 +163,26 @@ struct ContentView: View {
             dismissSyncRecoveryBanner()
             scheduleRemoteReconcile(reason: "stores-did-change")
         }
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: .writingShedProCloudKitImportFailed)
+                .receive(on: RunLoop.main)
+        ) { notification in
+            dismissSyncRecoveryBanner()
+            showSyncRecoveryBannerTemporarily()
+            scheduleRemoteReconcile(reason: "cloudkit-import-failed")
+            maybeRunCloudKitLivenessProbe(reason: "import-failed")
+
+            #if DEBUG
+            if let userInfo = notification.userInfo,
+               let domain = userInfo["errorDomain"] as? String,
+               let code = userInfo["errorCode"] as? Int {
+                print("⚠️ [ContentView] Observed CloudKit import failure: \(domain):\(code)")
+            } else {
+                print("⚠️ [ContentView] Observed CloudKit import failure")
+            }
+            #endif
+        }
         // When EntitlementManager clears the offline warning (connectivity restored +
         // purchases verified), re-show the banner next time if it happens again.
         .task {

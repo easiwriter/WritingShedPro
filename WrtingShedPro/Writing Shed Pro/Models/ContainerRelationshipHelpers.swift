@@ -28,14 +28,28 @@ extension TextFile {
         modelContext?.insert(link)
         if poetryCollectionLinks == nil { poetryCollectionLinks = [] }
         poetryCollectionLinks?.append(link)
+
+        // Keep collection-side relationship current so list counts refresh immediately.
+        if collection.textFileLinks == nil { collection.textFileLinks = [] }
+        collection.textFileLinks?.append(link)
         collection.modifiedDate = Date()
     }
     
     /// Remove this file from a specific poetry collection
     func removeFromPoetryCollection(_ collection: PoetryCollection) {
         guard let links = poetryCollectionLinks else { return }
+        let removedLinkIDs = Set(
+            links
+                .filter { $0.poetryCollection?.id == collection.id }
+                .map { $0.id }
+        )
+
         for link in links where link.poetryCollection?.id == collection.id {
             modelContext?.delete(link)
+        }
+
+        if !removedLinkIDs.isEmpty {
+            collection.textFileLinks?.removeAll { removedLinkIDs.contains($0.id) }
         }
         poetryCollectionLinks?.removeAll(where: { $0.poetryCollection?.id == collection.id })
         collection.modifiedDate = Date()
@@ -46,6 +60,7 @@ extension TextFile {
         for link in poetryCollectionLinks ?? [] {
             modelContext?.delete(link)
             if let collection = link.poetryCollection {
+                collection.textFileLinks?.removeAll { $0.id == link.id }
                 collection.modifiedDate = Date()
             }
         }

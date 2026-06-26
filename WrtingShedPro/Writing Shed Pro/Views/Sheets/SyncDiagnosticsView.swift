@@ -31,6 +31,7 @@ struct SyncDiagnosticsView: View {
     @State private var orphanedFolderCount: Int = 0
     @State private var orphanedFolderDetails: [(id: UUID, name: String, fileCount: Int, subfolderCount: Int)] = []
     @State private var orphanedFileCount: Int = 0
+    @State private var orphanedFileExcludedCount: Int = 0
     @State private var orphanedFileDetails: [(id: UUID, name: String)] = []
     @State private var orphanReassignStatus: String = ""
     @State private var orphanedPublicationCount: Int = 0
@@ -52,6 +53,9 @@ struct SyncDiagnosticsView: View {
     @State private var zoneWasDeletedThisSession = false
     @State private var reexportStatus: String = ""
     @State private var zoneVerifyStatus: String = ""
+    @State private var activeZoneVerifyRequestID: UUID?
+    @State private var activeZoneVerifyOperation: CKFetchRecordZoneChangesOperation?
+    @State private var activeZoneVerifyTimeoutTask: Task<Void, Never>?
     @State private var foreignZoneStatus: String = ""
     @State private var purgeOrphansStatus: String = ""
     @State private var showPurgeOrphansConfirmation = false
@@ -815,11 +819,18 @@ struct SyncDiagnosticsView: View {
     }
 
     private var orphanedFilesStatusRow: some View {
-        HStack {
-            Text("Orphaned Files")
-            Spacer()
-            Text("\(orphanedFileCount) found")
-                .foregroundColor(orphanedFileCount > 0 ? .orange : .secondary)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Orphaned Files (No Folder + No Trash)")
+                Spacer()
+                Text("\(orphanedFileCount) found")
+                    .foregroundColor(orphanedFileCount > 0 ? .orange : .secondary)
+            }
+            if orphanedFileExcludedCount > 0 {
+                Text("Excluded \(orphanedFileExcludedCount) unparented file(s) still linked via Trash/other relationships")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -968,7 +979,7 @@ struct SyncDiagnosticsView: View {
 
     private var tombstoneStatusRow: some View {
         HStack {
-            Text("Zombie Tombstones")
+            Text("Zombie Tombstones (Local Device)")
             Spacer()
             Text("\(tombstoneCount) active")
                 .foregroundColor(tombstoneCount > 0 ? .red : .secondary)
@@ -1427,7 +1438,25 @@ struct SyncDiagnosticsView: View {
     }
 
     private func verifyZoneContent() {
-        zoneVerifyStatus = "Querying zone…"
+        // Cancel any prior in-flight query before starting a new one.
+        activeZoneVerifyTimeoutTask?.cancel()
+        activeZoneVerifyTimeoutTask = nil
+        activeZoneVerifyOperation?.cancel()
+        activeZoneVerifyOperation = nil
+
+        let requestID = UUID()
+        activeZoneVerifyRequestID = requestID
+        zoneVerifyStatus = "Querying zone sample…"
+
+        activeZoneVerifyTimeoutTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 45_000_000_000)
+            guard activeZoneVerifyRequestID == requestID else { return }
+            activeZoneVerifyRequestID = nil
+            activeZoneVerifyOperation?.cancel()
+            activeZoneVerifyOperation = nil
+            zoneVerifyStatus = "❌ Zone sample timed out after 45s. Sync transport may still be healthy; this diagnostic query is slow on this device/account."
+        }
+
         let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
         let database = ckContainer.privateCloudDatabase
         let zoneID = CKRecordZone.ID(zoneName: "com.apple.coredata.cloudkit.zone", ownerName: CKCurrentUserDefaultName)
@@ -1436,13 +1465,23 @@ struct SyncDiagnosticsView: View {
         database.fetch(withRecordZoneID: zoneID) { zone, error in
             if let error = error {
                 DispatchQueue.main.async {
+                    guard activeZoneVerifyRequestID == requestID else { return }
                     zoneVerifyStatus = "❌ Zone fetch failed: \(error.localizedDescription)"
+                    activeZoneVerifyRequestID = nil
+                    activeZoneVerifyOperation = nil
+                    activeZoneVerifyTimeoutTask?.cancel()
+                    activeZoneVerifyTimeoutTask = nil
                 }
                 return
             }
             guard zone != nil else {
                 DispatchQueue.main.async {
+                    guard activeZoneVerifyRequestID == requestID else { return }
                     zoneVerifyStatus = "❌ Zone does not exist"
+                    activeZoneVerifyRequestID = nil
+                    activeZoneVerifyOperation = nil
+                    activeZoneVerifyTimeoutTask?.cancel()
+                    activeZoneVerifyTimeoutTask = nil
                 }
                 return
             }
@@ -1450,8 +1489,14 @@ struct SyncDiagnosticsView: View {
             // Fetch all changes with nil token (= full zone contents)
             let config = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
             config.previousServerChangeToken = nil
+            // Keep the payload tiny for diagnostics; we only need type + project names.
+            config.desiredKeys = ["CD_name"]
             let fetchOp = CKFetchRecordZoneChangesOperation(recordZoneIDs: [zoneID], configurationsByRecordZoneID: [zoneID: config])
+            // IMPORTANT: sample only the first server batch so diagnostics returns quickly.
+            fetchOp.fetchAllChanges = false
+            activeZoneVerifyOperation = fetchOp
 
+            let countLock = NSLock()
             var typeCounts: [String: Int] = [:]
             var totalRecords = 0
             var projectNames: [String] = []
@@ -1459,33 +1504,47 @@ struct SyncDiagnosticsView: View {
             fetchOp.recordWasChangedBlock = { _, result in
                 if case .success(let record) = result {
                     let type = record.recordType
-                    DispatchQueue.main.async {
-                        typeCounts[type, default: 0] += 1
-                        totalRecords += 1
-                        if type == "CD_Project", let name = record["CD_name"] as? String {
-                            projectNames.append(name)
-                        }
+                    countLock.lock()
+                    typeCounts[type, default: 0] += 1
+                    totalRecords += 1
+                    if type == "CD_Project", let name = record["CD_name"] as? String {
+                        projectNames.append(name)
                     }
+                    countLock.unlock()
                 }
             }
 
             fetchOp.fetchRecordZoneChangesResultBlock = { result in
-                // Give a moment for all recordWasChanged callbacks
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                countLock.lock()
+                let finalTypeCounts = typeCounts
+                let finalTotalRecords = totalRecords
+                let finalProjectNames = projectNames
+                countLock.unlock()
+
+                DispatchQueue.main.async {
+                    guard activeZoneVerifyRequestID == requestID else { return }
                     switch result {
                     case .success:
-                        if totalRecords == 0 {
-                            zoneVerifyStatus = "⚠️ Zone exists but contains 0 records"
+                        if finalTotalRecords == 0 {
+                            #if DEBUG
+                            zoneVerifyStatus = "⚠️ Zone exists but sample returned 0 records. In Debug builds, CloudKit usually points to the DEVELOPMENT environment, which is separate from TestFlight/production data."
+                            #else
+                            zoneVerifyStatus = "⚠️ Zone exists but sample returned 0 records"
+                            #endif
                         } else {
-                            let summary = typeCounts.sorted { $0.key < $1.key }
+                            let summary = finalTypeCounts.sorted { $0.key < $1.key }
                                 .map { "\($0.key): \($0.value)" }
                                 .joined(separator: "\n")
-                            let projectList = projectNames.sorted().joined(separator: ", ")
-                            zoneVerifyStatus = "✅ Zone has \(totalRecords) records:\n\(summary)\n\nProjects in zone (\(projectNames.count)): \(projectList)"
+                            let projectList = finalProjectNames.sorted().joined(separator: ", ")
+                            zoneVerifyStatus = "✅ Zone sample contains \(finalTotalRecords) records:\n\(summary)\n\nProjects in sample (\(finalProjectNames.count)): \(projectList)"
                         }
                     case .failure(let error):
                         zoneVerifyStatus = "❌ Zone fetch changes failed: \(error.localizedDescription)"
                     }
+                    activeZoneVerifyRequestID = nil
+                    activeZoneVerifyOperation = nil
+                    activeZoneVerifyTimeoutTask?.cancel()
+                    activeZoneVerifyTimeoutTask = nil
                 }
             }
 
@@ -1542,6 +1601,20 @@ struct SyncDiagnosticsView: View {
 
     /// Check for orphaned folders and files
     private func checkForOrphans() {
+        let now = Date()
+        let importRecentlyStarted = syncThrottler.importStartTime.map { now.timeIntervalSince($0) < 600 } ?? false
+        if syncThrottler.importInProgress || syncThrottler.isSyncing || importRecentlyStarted {
+            orphanedFolderCount = 0
+            orphanedFolderDetails = []
+            orphanedFileCount = 0
+            orphanedFileExcludedCount = 0
+            orphanedFileDetails = []
+            orphanReassignStatus = "Orphan check deferred while CloudKit import is active/recent."
+            return
+        }
+
+        orphanReassignStatus = ""
+
         // Use a fresh context to avoid false positives from main-context cache staleness.
         let freshCtx = ModelContext(modelContext.container)
 
@@ -1563,13 +1636,39 @@ struct SyncDiagnosticsView: View {
 
         let fileDescriptor = FetchDescriptor<TextFile>()
         let fetchedFiles = (try? freshCtx.fetch(fileDescriptor)) ?? []
-        let orphanedFiles = fetchedFiles.filter { file in
-            file.parentFolder == nil
+        let folderReferencedFileIDs = Set(
+            fetchedFolders.flatMap { folder in
+                (folder.textFiles ?? []).map(\.id)
+            }
+        )
+        let unparentedFiles = fetchedFiles.filter { $0.parentFolder == nil }
+        let orphanedFiles = unparentedFiles.filter { file in
+            isTrueOrphanedFile(file, folderReferencedFileIDs: folderReferencedFileIDs)
         }
+        orphanedFileExcludedCount = max(0, unparentedFiles.count - orphanedFiles.count)
         orphanedFileCount = orphanedFiles.count
         orphanedFileDetails = orphanedFiles.map { file in
             (id: file.id, name: file.name.isEmpty ? "Untitled" : file.name)
         }
+    }
+
+    private func isTrueOrphanedFile(_ file: TextFile, folderReferencedFileIDs: Set<UUID>) -> Bool {
+        guard file.parentFolder == nil else { return false }
+        if file.trashItem != nil { return false }
+        if folderReferencedFileIDs.contains(file.id) { return false }
+
+        // If a file is still linked to another parent-like entity, it is not
+        // considered a true storage orphan.
+        let hasSubmittedLink = file.submittedFiles?.contains(where: { $0.submission != nil }) == true
+        if hasSubmittedLink { return false }
+
+        let hasSectionLink = file.sectionLinks?.contains(where: { $0.section != nil }) == true
+        if hasSectionLink { return false }
+
+        let hasCollectionLink = file.poetryCollectionLinks?.contains(where: { $0.poetryCollection != nil }) == true
+        if hasCollectionLink { return false }
+
+        return true
     }
 
     private func checkForDuplicateStyleSheets() {
@@ -1848,6 +1947,19 @@ struct SyncDiagnosticsView: View {
         let descriptor = FetchDescriptor<TextFile>(predicate: #Predicate { $0.id == id })
         guard let file = (try? modelContext.fetch(descriptor))?.first else {
             orphanReassignStatus = "❌ File not found"
+            return
+        }
+        let folderDescriptor = FetchDescriptor<Folder>()
+        let allFolders = (try? modelContext.fetch(folderDescriptor)) ?? []
+        let folderReferencedFileIDs = Set(
+            allFolders.flatMap { folder in
+                (folder.textFiles ?? []).map(\.id)
+            }
+        )
+
+        guard isTrueOrphanedFile(file, folderReferencedFileIDs: folderReferencedFileIDs) else {
+            orphanReassignStatus = "⚠️ File no longer qualifies as a true orphan; delete skipped"
+            checkForOrphans()
             return
         }
         let name = file.name
