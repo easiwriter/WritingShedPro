@@ -98,29 +98,25 @@ extension FolderFilesView {
             return ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
 
-        // Drive membership from live join-link query so UI refreshes immediately
-        // when links are inserted/deleted by assignment actions.
-        let visibleFileIDs = Set(sortedFiles.map(\.id))
+        // Drive membership from each visible file's direct join links.
+        // This avoids whole-database link scans during list scrolling.
         let validCollectionIDs = Set(sortedCollections.map(\.id))
-        var membershipByCollectionID: [UUID: Set<UUID>] = [:]
+        var membershipByCollectionID: [UUID: [TextFile]] = [:]
         var assignedVisibleFileIDs: Set<UUID> = []
 
-        for link in allCollectionLinks {
-            guard
-                let fileID = link.textFile?.id,
-                visibleFileIDs.contains(fileID),
-                let collectionID = link.poetryCollection?.id,
-                validCollectionIDs.contains(collectionID)
-            else {
-                continue
+        for file in sortedFiles {
+            let membershipIDs = Set((file.poetryCollectionLinks ?? []).compactMap { $0.poetryCollection?.id })
+                .intersection(validCollectionIDs)
+            if membershipIDs.isEmpty { continue }
+
+            assignedVisibleFileIDs.insert(file.id)
+            for collectionID in membershipIDs {
+                membershipByCollectionID[collectionID, default: []].append(file)
             }
-            membershipByCollectionID[collectionID, default: []].insert(fileID)
-            assignedVisibleFileIDs.insert(fileID)
         }
 
         for collection in sortedCollections {
-            let memberIDs = membershipByCollectionID[collection.id] ?? []
-            let collectionFiles = sortedFiles.filter { memberIDs.contains($0.id) }
+            let collectionFiles = membershipByCollectionID[collection.id] ?? []
             if !collectionFiles.isEmpty {
                 groups.append(CollectionGroup(
                     id: collection.id.uuidString,

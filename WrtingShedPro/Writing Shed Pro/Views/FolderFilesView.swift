@@ -15,7 +15,6 @@ import UniformTypeIdentifiers
 struct FolderFilesView: View {
     @Bindable var folder: Folder
     @Environment(\.modelContext) var modelContext
-    @Query var allCollectionLinks: [TextFileCollectionLink]
     
     // State for edit mode (shared with FileListView)
     @State var editMode: EditMode = .inactive
