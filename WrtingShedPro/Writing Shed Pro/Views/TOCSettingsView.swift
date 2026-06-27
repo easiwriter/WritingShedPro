@@ -101,22 +101,6 @@ struct TOCSettingsView: View {
                     Text(NSLocalizedString("toc.settings.formattingSection", comment: "Formatting"))
                 }
                 
-                // Preview Section
-                Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(title)
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                        
-                        previewEntry(text: "Chapter One", level: 0, pageNumber: 1)
-                        previewEntry(text: "Scene One", level: 1, pageNumber: 3)
-                        previewEntry(text: "Scene Two", level: 1, pageNumber: 7)
-                        previewEntry(text: "Chapter Two", level: 0, pageNumber: 15)
-                    }
-                    .padding(.vertical, 4)
-                } header: {
-                    Text(NSLocalizedString("toc.settings.previewSection", comment: "Preview"))
-                }
             }
             .navigationTitle(NSLocalizedString("toc.settings.navigationTitle", comment: "TOC Settings"))
             .navigationBarTitleDisplayMode(.inline)
@@ -149,22 +133,6 @@ struct TOCSettingsView: View {
         case 2: return NSLocalizedString("toc.settings.level2", comment: "Level 3")
         case 3: return NSLocalizedString("toc.settings.level3", comment: "Level 4")
         default: return "Level \(level + 1)"
-        }
-    }
-    
-    // MARK: - Preview Entry
-    
-    @ViewBuilder
-    private func previewEntry(text: String, level: Int, pageNumber: Int) -> some View {
-        HStack(spacing: 0) {
-            if showPageNumbers {
-                Text("\(text)  \(pageNumber)")
-                    .font(.subheadline)
-            } else {
-                Text(text)
-                    .font(.subheadline)
-            }
-            Spacer()
         }
     }
     

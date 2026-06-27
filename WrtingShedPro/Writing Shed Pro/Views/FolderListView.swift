@@ -1032,25 +1032,48 @@ struct FolderListView: View {
         var hasBackCover = false
         var frontCoverData: Data?
         var backCoverData: Data?
+
+        let frontCoverFromSections = content.sections
+            .filter { $0.sectionType == .frontMatter }
+            .flatMap { $0.files }
+            .filter { file in
+                file.includedInManuscript
+                    && (file.isCoverFile || file.name == FrontMatterItem.frontCover.fileName)
+            }
+            .compactMap { $0.coverImageData }
+            .first(where: { UIImage(data: $0) != nil })
+
+        let backCoverFromSections = content.sections
+            .filter { $0.sectionType == .backMatter }
+            .flatMap { $0.files }
+            .filter { file in
+                file.includedInManuscript
+                    && (file.isCoverFile || file.name == BackMatterItem.backCover.fileName)
+            }
+            .compactMap { $0.coverImageData }
+            .first(where: { UIImage(data: $0) != nil })
         
-        // Front cover: find front cover file and prepend its image
-        if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
-           let frontMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Front Matter" }) {
+        // Front cover: find front cover image and prepend a cover placeholder page.
+        if let imageData = frontCoverFromSections {
+            frontCoverData = imageData
+            // Insert a lightweight placeholder for the cover page.
+            // The actual image is drawn directly by CustomPDFPageRenderer.drawCoverImage()
+            // from the cover image data, bypassing the text layout system entirely.
+            assembled.append(NSAttributedString(string: " ")) // placeholder
+            assembled.append(NSAttributedString(string: "\u{0C}")) // Page break after cover
+            hasFrontCover = true
+        } else if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
+                  let frontMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Front Matter" }) {
+            // Fallback for older/stale section state.
             let candidates = (frontMatterFolder.textFiles ?? []).filter { file in
                 file.includedInManuscript
                     && (file.isCoverFile || file.name == FrontMatterItem.frontCover.fileName)
             }
-            if let imageData = candidates.compactMap({ $0.coverImageData })
-                .first(where: { UIImage(data: $0) != nil }) {
-            frontCoverData = imageData
-            // Insert a lightweight placeholder for the cover page.
-            // The actual image is drawn directly by CustomPDFPageRenderer.drawCoverImage()
-            // from the project's cover file data, bypassing the text layout system entirely.
-            // Using NSTextAttachment with large images causes NSLayoutManager sizing
-            // issues on smaller devices (iPhone).
-            assembled.append(NSAttributedString(string: " ")) // placeholder
-            assembled.append(NSAttributedString(string: "\u{0C}")) // Page break after cover
-            hasFrontCover = true
+            if let imageData = candidates.compactMap({ $0.coverImageData }).first(where: { UIImage(data: $0) != nil }) {
+                frontCoverData = imageData
+                assembled.append(NSAttributedString(string: " ")) // placeholder
+                assembled.append(NSAttributedString(string: "\u{0C}")) // Page break after cover
+                hasFrontCover = true
             }
         }
         
@@ -1083,21 +1106,26 @@ struct FolderListView: View {
             adjustedFootnotes = content.assembledFootnotes
         }
         
-        // Back cover: find back cover file and append its image
-        if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
-           let backMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Back Matter" }) {
+        // Back cover: find back cover image and append a cover placeholder page.
+        if let imageData = backCoverFromSections {
+            backCoverData = imageData
+            assembled.append(NSAttributedString(string: "\u{0C}")) // Page break before cover
+            // Insert a lightweight placeholder for the cover page.
+            // The actual image is drawn directly by CustomPDFPageRenderer.drawCoverImage().
+            assembled.append(NSAttributedString(string: " ")) // placeholder
+            hasBackCover = true
+        } else if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
+                  let backMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Back Matter" }) {
+            // Fallback for older/stale section state.
             let candidates = (backMatterFolder.textFiles ?? []).filter { file in
                 file.includedInManuscript
                     && (file.isCoverFile || file.name == BackMatterItem.backCover.fileName)
             }
-            if let imageData = candidates.compactMap({ $0.coverImageData })
-                .first(where: { UIImage(data: $0) != nil }) {
-            backCoverData = imageData
-            assembled.append(NSAttributedString(string: "\u{0C}")) // Page break before cover
-            // Insert a lightweight placeholder for the cover page.
-            // The actual image is drawn directly by CustomPDFPageRenderer.drawCoverImage()
-            assembled.append(NSAttributedString(string: " ")) // placeholder
-            hasBackCover = true
+            if let imageData = candidates.compactMap({ $0.coverImageData }).first(where: { UIImage(data: $0) != nil }) {
+                backCoverData = imageData
+                assembled.append(NSAttributedString(string: "\u{0C}")) // Page break before cover
+                assembled.append(NSAttributedString(string: " ")) // placeholder
+                hasBackCover = true
             }
         }
         
