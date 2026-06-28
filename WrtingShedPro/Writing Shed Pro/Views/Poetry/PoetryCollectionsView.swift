@@ -20,7 +20,6 @@ struct PoetryCollectionsView: View {
     // MARK: - Environment
     
     @Environment(\.modelContext) private var modelContext
-    @Query private var allCollectionLinks: [TextFileCollectionLink]
     
     // MARK: - Properties
     
@@ -33,6 +32,8 @@ struct PoetryCollectionsView: View {
     @State private var selectedCollectionIDs: Set<UUID> = []
     @State private var showDeleteConfirmation = false
     @State private var collectionToEdit: CollectionEditState?
+    @State private var refreshToken: Int = 0
+    @State private var fileCountByCollectionID: [UUID: Int] = [:]
     
     /// Submission state
     @State private var showSubmissionNamePrompt = false
@@ -59,14 +60,9 @@ struct PoetryCollectionsView: View {
         isEditMode && !selectedCollectionIDs.isEmpty
     }
 
-    /// Live count from view-context query to avoid transient stale row counts.
+    /// Fast lookup of live counts computed from a single fetch.
     private func liveFileCount(for collection: PoetryCollection) -> Int {
-        let collectionID = collection.id
-        return allCollectionLinks.reduce(into: 0) { count, link in
-            guard link.poetryCollection?.id == collectionID else { return }
-            guard link.textFile?.trashItem == nil else { return }
-            count += 1
-        }
+        fileCountByCollectionID[collection.id] ?? 0
     }
     
     // MARK: - Body
@@ -79,8 +75,30 @@ struct PoetryCollectionsView: View {
                 collectionList
             }
         }
+        .id(refreshToken)
         .navigationTitle(NSLocalizedString("poetry.collections.title", comment: "Collections"))
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            refreshToken += 1
+            refreshLiveFileCounts()
+        }
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: .poetryCollectionMembershipDidChange)
+                .receive(on: RunLoop.main)
+        ) { notification in
+            _ = notification
+            refreshToken += 1
+            refreshLiveFileCounts()
+        }
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: NSNotification.Name("NSPersistentStoreRemoteChangeNotification"))
+                .receive(on: RunLoop.main)
+        ) { _ in
+            refreshToken += 1
+            refreshLiveFileCounts()
+        }
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Button {
@@ -273,6 +291,34 @@ struct PoetryCollectionsView: View {
     }
     
     // MARK: - Actions
+
+    private func refreshLiveFileCounts() {
+        let freshContext = ModelContext(modelContext.container)
+        var counts: [UUID: Int] = [:]
+
+        for collection in sortedCollections {
+            let collectionID = collection.id
+            let descriptor = FetchDescriptor<TextFileCollectionLink>(
+                predicate: #Predicate { link in
+                    link.poetryCollection?.id == collectionID
+                }
+            )
+
+            if let links = try? freshContext.fetch(descriptor) {
+                let liveCount = links.reduce(into: 0) { total, link in
+                    guard link.textFile?.trashItem == nil else { return }
+                    total += 1
+                }
+                counts[collectionID] = liveCount
+            } else {
+                // Fallback keeps UI usable even if the fetch fails transiently.
+                let fallback = (collection.textFiles ?? []).filter { $0.trashItem == nil }.count
+                counts[collectionID] = fallback
+            }
+        }
+
+        fileCountByCollectionID = counts
+    }
     
     private func deleteSelectedCollections() {
         let deletedIDs = Set(selectedCollections.map { $0.id })
@@ -294,6 +340,7 @@ struct PoetryCollectionsView: View {
         }
         
         try? modelContext.save()
+        refreshLiveFileCounts()
         selectedCollectionIDs.removeAll()
         editMode = .inactive
     }
@@ -305,6 +352,7 @@ struct PoetryCollectionsView: View {
         collection.synopsis = synopsis.isEmpty ? nil : synopsis
         collection.modifiedDate = Date()
         try? modelContext.save()
+        refreshLiveFileCounts()
     }
     
     private func moveCollections(from source: IndexSet, to destination: Int) {
@@ -314,6 +362,7 @@ struct PoetryCollectionsView: View {
             collection.userOrder = index
         }
         try? modelContext.save()
+        refreshLiveFileCounts()
     }
     
     private func createSubmissionFromCollections(name: String) {

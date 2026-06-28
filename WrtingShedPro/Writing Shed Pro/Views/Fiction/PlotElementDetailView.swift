@@ -574,8 +574,8 @@ struct CreateSceneForPlotElementSheet: View {
         }
         
         // Check entitlement for free tier file limits
-        let existingSceneCount = (project.scenes ?? []).filter { !$0.isTrashed }.count
-        if !EntitlementManager.shared.canCreateFile(forProjectType: project.type, existingCount: existingSceneCount) {
+        let existingFileCount = ProjectGateCounterService.activeFileCount(in: project)
+        if !EntitlementManager.shared.canCreateFile(forProjectType: project.type, existingCount: existingFileCount) {
             upgradePromptReason = .fileLimit(projectType: project.type)
             return
         }
@@ -638,4 +638,5 @@ struct CreateSceneForPlotElementSheet: View {
             showErrorAlert = true
         }
     }
+
 }

@@ -326,7 +326,35 @@ extension ContainerAssignmentView where Item == TextFile {
                 Set((file.poetryCollections ?? []).map(\.id))
             },
             onSave: {
-                try? modelContext.save()
+                // Save every distinct context participating in the mutation graph so
+                // link rows are persisted before this sheet dismisses.
+                var contextsToSave: [ModelContext] = []
+                var seenContextIDs: Set<ObjectIdentifier> = []
+
+                func addContextIfNeeded(_ context: ModelContext?) {
+                    guard let context else { return }
+                    let contextID = ObjectIdentifier(context)
+                    guard !seenContextIDs.contains(contextID) else { return }
+                    seenContextIDs.insert(contextID)
+                    contextsToSave.append(context)
+                }
+
+                addContextIfNeeded(modelContext)
+                for file in selectedFiles {
+                    addContextIfNeeded(file.modelContext)
+                }
+                for collection in collections {
+                    addContextIfNeeded(collection.modelContext)
+                }
+
+                for context in contextsToSave {
+                    do {
+                        try context.save()
+                    } catch {
+                        // Best effort: continue saving other contexts.
+                    }
+                }
+                NotificationCenter.default.post(name: .poetryCollectionMembershipDidChange, object: nil)
             }
         )
     }

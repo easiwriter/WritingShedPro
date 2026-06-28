@@ -131,7 +131,12 @@ struct AddProjectSheet: View {
         }
         
         // Check entitlement for free tier limits
-        let existingProjectsOfType = visibleProjects.filter { $0.type == selectedType }.count
+        // Use all non-trashed projects for entitlement gating so UI-level
+        // presentation collapsing cannot undercount and bypass free-tier limits.
+        let existingProjectsOfType = ProjectGateCounterService.activeProjectCount(
+            ofType: selectedType,
+            in: allProjects
+        )
         if !EntitlementManager.shared.canCreateProject(ofType: selectedType, existingCount: existingProjectsOfType) {
             upgradePromptReason = .projectLimit(projectType: selectedType)
             return

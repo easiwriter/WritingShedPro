@@ -10,6 +10,10 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 
+extension Notification.Name {
+    static let poetryCollectionMembershipDidChange = Notification.Name("poetryCollectionMembershipDidChange")
+}
+
 /// View for displaying and managing poems within a poetry collection
 struct PoetryCollectionPoemsView: View {
     
@@ -335,6 +339,7 @@ struct PoetryCollectionPoemsView: View {
         file.userOrder = nextOrder
         collection.modifiedDate = Date()
         try? modelContext.save()
+        NotificationCenter.default.post(name: .poetryCollectionMembershipDidChange, object: collection.id)
     }
     
     private func removeSelectedFiles() {
@@ -343,6 +348,7 @@ struct PoetryCollectionPoemsView: View {
         }
         collection.modifiedDate = Date()
         try? modelContext.save()
+        NotificationCenter.default.post(name: .poetryCollectionMembershipDidChange, object: collection.id)
         selectedFileIDs.removeAll()
         editMode = .inactive
     }
@@ -354,6 +360,7 @@ struct PoetryCollectionPoemsView: View {
         }
         collection.modifiedDate = Date()
         try? modelContext.save()
+        NotificationCenter.default.post(name: .poetryCollectionMembershipDidChange, object: collection.id)
     }
     
     // MARK: - Export
@@ -570,6 +577,7 @@ struct PoetryCollectionPoemsView: View {
         }
         collection.modifiedDate = Date()
         try? modelContext.save()
+        NotificationCenter.default.post(name: .poetryCollectionMembershipDidChange, object: collection.id)
     }
 }
 

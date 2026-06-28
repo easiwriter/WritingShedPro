@@ -36,6 +36,7 @@ struct BodyMatterView: View {
     @State private var showAddItemSheet = false
     @State private var showNoItemsAlert = false
     @State private var editMode: EditMode = .inactive
+    @State private var refreshToken: Int = 0
     
     // MARK: - Body
     
@@ -47,8 +48,20 @@ struct BodyMatterView: View {
                 itemList
             }
         }
+        .id(refreshToken)
         .navigationTitle(NSLocalizedString("bodyMatter.title", comment: "Body Matter"))
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            refreshToken += 1
+        }
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: .poetryCollectionMembershipDidChange)
+                .receive(on: RunLoop.main)
+        ) { notification in
+            _ = notification
+            refreshToken += 1
+        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
@@ -579,7 +592,7 @@ struct BodyMatterView: View {
         switch project.type {
         case .poetry:
             if let collection = item as? PoetryCollection {
-                let count = collection.textFiles?.count ?? 0
+                let count = liveCollectionFiles(for: collection).count
                 let structure = String(format: NSLocalizedString("bodyMatter.subtitle.poems", comment: "%d poems"), count)
                 return "\(wordsLabel) • \(structure)"
             }
@@ -633,7 +646,7 @@ struct BodyMatterView: View {
         switch project.type {
         case .poetry:
             if let collection = item as? PoetryCollection {
-                return (collection.textFiles ?? []).reduce(0) { $0 + wordCount(for: $1) }
+                return liveCollectionFiles(for: collection).reduce(0) { $0 + wordCount(for: $1) }
             }
         case .prose:
             if let section = item as? ProseSection {
@@ -668,6 +681,24 @@ struct BodyMatterView: View {
             }
         }
         return 0
+    }
+
+    private func liveCollectionFiles(for collection: PoetryCollection) -> [TextFile] {
+        let collectionID = collection.id
+        let freshContext = ModelContext(modelContext.container)
+        let descriptor = FetchDescriptor<TextFileCollectionLink>()
+        let links = (try? freshContext.fetch(descriptor)) ?? []
+        var seen = Set<UUID>()
+
+        let files = links.compactMap { link -> TextFile? in
+            guard link.poetryCollection?.id == collectionID else { return nil }
+            guard let file = link.textFile, file.trashItem == nil else { return nil }
+            guard !seen.contains(file.id) else { return nil }
+            seen.insert(file.id)
+            return file
+        }
+
+        return files.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
     }
 
     private func wordCount(for file: TextFile) -> Int {

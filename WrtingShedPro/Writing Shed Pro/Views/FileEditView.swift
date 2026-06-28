@@ -2757,21 +2757,26 @@ struct FileEditView: View {
             #endif
         }
         
-        // Position cursor at end of file without showing keyboard
+        // Position cursor at end of file without showing keyboard for existing content.
+        // Empty files are usually opened to start typing immediately, so don't schedule
+        // delayed resigns that can interrupt the first keystroke.
         if file.currentVersion?.isLocked != true && searchContext == nil {
+            let shouldSuppressInitialKeyboard = attributedContent.length > 0
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 if let textView = self.textViewCoordinator.textView {
                     let endPosition = textView.attributedText.length
                     textView.selectedRange = NSRange(location: endPosition, length: 0)
                     textView.scrollRangeToVisible(NSRange(location: endPosition, length: 0))
-                    // Ensure keyboard stays hidden - UIKit may auto-focus editable text views
-                    textView.resignFirstResponder()
+                    if shouldSuppressInitialKeyboard {
+                        textView.resignFirstResponder()
+                    }
                 }
             }
             // Second resign after navigation transition completes
             // iOS can auto-focus the first editable text view after push animation finishes
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 if let textView = self.textViewCoordinator.textView,
+                   shouldSuppressInitialKeyboard,
                    textView.isFirstResponder {
                     textView.resignFirstResponder()
                 }

@@ -229,10 +229,17 @@ final class EntitlementManager {
     ///   - existingCount: Number of existing projects of this type
     /// - Returns: true if allowed, false if limit reached
     func canCreateProject(ofType type: ProjectType, existingCount: Int) -> Bool {
+        // Fail closed for creation limits until entitlements are loaded.
+        // This prevents a startup race where users can bypass free-tier gates
+        // before StoreKit has finished loading entitlement state.
+        guard isLoaded else {
+            return existingCount < Self.freeTierMaxProjectsPerType
+        }
+
         if isProjectTypeUnlocked(type) {
             return true  // No limit if purchased
         }
-        return existingCount < 1  // Free tier: max 1 project per type
+        return existingCount < Self.freeTierMaxProjectsPerType  // Free tier: max 1 project per type
     }
     
     /// Check if user can create a new file in the given project
@@ -241,10 +248,15 @@ final class EntitlementManager {
     ///   - existingCount: Number of existing files in the project
     /// - Returns: true if allowed, false if limit reached
     func canCreateFile(forProjectType projectType: ProjectType, existingCount: Int) -> Bool {
+        // Fail closed for creation limits until entitlements are loaded.
+        guard isLoaded else {
+            return existingCount < Self.freeTierMaxFilesPerProject
+        }
+
         if isProjectTypeUnlocked(projectType) {
             return true  // No limit if purchased
         }
-        return existingCount < 1  // Free tier: max 1 file per project
+        return existingCount < Self.freeTierMaxFilesPerProject  // Free tier: max 1 file per project
     }
     
     /// Check if user can export from a project of the given type

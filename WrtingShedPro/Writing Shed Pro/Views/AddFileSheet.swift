@@ -134,7 +134,7 @@ struct AddFileSheet: View {
         
         // Check entitlement for free tier limits
         if let projectType = parentFolder.project?.type {
-            let existingFileCount = countFilesInProject()
+            let existingFileCount = parentFolder.project.map { ProjectGateCounterService.activeFileCount(in: $0) } ?? 0
             if !EntitlementManager.shared.canCreateFile(forProjectType: projectType, existingCount: existingFileCount) {
                 upgradePromptReason = .fileLimit(projectType: projectType)
                 return
@@ -201,6 +201,12 @@ struct AddFileSheet: View {
         }
         
         modelContext.insert(newFile)
+        if parentFolder.textFiles == nil {
+            parentFolder.textFiles = []
+        }
+        if parentFolder.textFiles?.contains(where: { $0.id == newFile.id }) != true {
+            parentFolder.textFiles?.append(newFile)
+        }
         
         // Save context to ensure relationships are updated immediately
         // This prevents duplicate name issues when quickly creating multiple files
@@ -221,29 +227,4 @@ struct AddFileSheet: View {
         isPresented = false
     }
     
-    /// Count all non-trashed files across all folders in the project
-    private func countFilesInProject() -> Int {
-        guard let project = parentFolder.project else { return 0 }
-        
-        var count = 0
-        func countInFolder(_ folder: Folder) {
-            if let files = folder.files {
-                // Files are trashed if they have a trashItem relationship
-                count += files.filter { $0.trashItem == nil }.count
-            }
-            if let subfolders = folder.subfolders {
-                for subfolder in subfolders {
-                    countInFolder(subfolder)
-                }
-            }
-        }
-        
-        if let folders = project.folders {
-            for folder in folders {
-                countInFolder(folder)
-            }
-        }
-        
-        return count
-    }
 }

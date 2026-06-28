@@ -32,7 +32,9 @@ struct ProjectEditableList: View {
     @State private var showShareSheet = false
     @State private var showExportError = false
     @State private var exportErrorMessage = ""
+    @State private var upgradePromptReason: UpgradePromptReason?
     @State private var lastSeenNameByProjectID: [UUID: String] = [:]
+    @Query private var allProjects: [Project]
     
     // Sort and display state
     private var sortedProjects: [Project] {
@@ -95,6 +97,9 @@ struct ProjectEditableList: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(exportErrorMessage)
+            }
+            .upgradePrompt(reason: $upgradePromptReason) {
+                // User can retry the original action after upgrading.
             }
             .confirmationDialog(
                 NSLocalizedString("projectItem.exportProject", comment: "Export project"),
@@ -231,6 +236,11 @@ struct ProjectEditableList: View {
     // MARK: - Export
     
     private func exportProject(_ project: Project) {
+        if !EntitlementManager.shared.canExport(projectType: project.type) {
+            upgradePromptReason = .exportBlocked(projectType: project.type)
+            return
+        }
+
         do {
             let exportService = JSONExportService()
             let data = try exportService.exportProject(project)
@@ -254,6 +264,11 @@ struct ProjectEditableList: View {
     }
 
     private func saveAsProject(_ project: Project) {
+        if !EntitlementManager.shared.canExport(projectType: project.type) {
+            upgradePromptReason = .exportBlocked(projectType: project.type)
+            return
+        }
+
         do {
             let exportService = JSONExportService()
             let data = try exportService.exportProject(project)
@@ -269,6 +284,15 @@ struct ProjectEditableList: View {
     }
 
     private func duplicateProject(_ project: Project) {
+        let existingProjectsOfType = ProjectGateCounterService.activeProjectCount(
+            ofType: project.type,
+            in: allProjects
+        )
+        if !EntitlementManager.shared.canCreateProject(ofType: project.type, existingCount: existingProjectsOfType) {
+            upgradePromptReason = .projectLimit(projectType: project.type)
+            return
+        }
+
         let tempURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("project-duplicate-\(UUID().uuidString)")
             .appendingPathExtension("wsp")

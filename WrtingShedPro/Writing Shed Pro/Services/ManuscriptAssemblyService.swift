@@ -140,7 +140,7 @@ final class ManuscriptAssemblyService {
         print("[ManuscriptAssembly] Poetry body sections: \(bodyCollections.count) body-matter collections, \(project.poetryCollections?.count ?? 0) total collections")
         for c in bodyCollections {
             let linkCount = c.textFileLinks?.count ?? 0
-            let fileCount = c.textFiles?.count ?? 0
+            let fileCount = liveCollectionFiles(for: c).count
             print("[ManuscriptAssembly]   Collection '\(c.name ?? "?")' isInBodyMatter=\(c.isInBodyMatter) textFileLinks=\(linkCount) textFiles=\(fileCount)")
         }
         #endif
@@ -207,7 +207,7 @@ final class ManuscriptAssemblyService {
     private func collectionsToSections(_ collections: [PoetryCollection]) -> [ManuscriptSection] {
         var sections: [ManuscriptSection] = []
         for collection in collections {
-            let files = (collection.textFiles ?? [])
+            let files = liveCollectionFiles(for: collection)
                 .filter { $0.includedInManuscript }
                 .sorted {
                     let order0 = $0.userOrder ?? Int.max
@@ -226,6 +226,28 @@ final class ManuscriptAssemblyService {
             }
         }
         return sections
+    }
+
+    private func liveCollectionFiles(for collection: PoetryCollection) -> [TextFile] {
+        let collectionID = collection.id
+        let descriptor = FetchDescriptor<TextFileCollectionLink>()
+        let links = (try? context.fetch(descriptor)) ?? []
+
+        var seen = Set<UUID>()
+        let files = links.compactMap { link -> TextFile? in
+            guard link.poetryCollection?.id == collectionID else { return nil }
+            guard let file = link.textFile, file.trashItem == nil else { return nil }
+            guard !seen.contains(file.id) else { return nil }
+            seen.insert(file.id)
+            return file
+        }
+
+        return files.sorted {
+            let order0 = $0.userOrder ?? Int.max
+            let order1 = $1.userOrder ?? Int.max
+            if order0 != order1 { return order0 < order1 }
+            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
     }
     
     /// Get body sections for Fiction projects
