@@ -538,15 +538,50 @@ struct BackMatterSettingsDialog: View {
     }
     
     private func removeFileForItem(_ item: BackMatterItem) {
-        guard let files = folder.textFiles else { return }
-        if let file = files.first(where: { $0.name == item.fileName }) {
+        // Prefer relationship lookup first, but also fall back to direct fetch.
+        // The in-memory relationship can be stale in some sync/load states.
+        if let index = folder.textFiles?.firstIndex(where: { $0.name == item.fileName }),
+           let file = folder.textFiles?[index] {
+            folder.textFiles?.remove(at: index)
+            modelContext.delete(file)
+            return
+        }
+
+        let folderID = folder.id
+        let fileName = item.fileName
+        let descriptor = FetchDescriptor<TextFile>(
+            predicate: #Predicate<TextFile> { file in
+                file.parentFolder?.id == folderID && file.name == fileName
+            }
+        )
+
+        if let file = try? modelContext.fetch(descriptor).first {
             modelContext.delete(file)
         }
     }
     
     private func removeFileForDramaItem(_ item: DramaBackMatterItem) {
-        guard let files = folder.textFiles else { return }
-        if let file = files.first(where: { $0.name == item.fileName }) {
+        if let index = folder.textFiles?.firstIndex(where: { $0.name == item.fileName }),
+           let file = folder.textFiles?[index] {
+            if let version = file.currentVersion,
+               let content = version.attributedContent,
+               !content.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return
+            }
+            folder.textFiles?.remove(at: index)
+            modelContext.delete(file)
+            return
+        }
+
+        let folderID = folder.id
+        let fileName = item.fileName
+        let descriptor = FetchDescriptor<TextFile>(
+            predicate: #Predicate<TextFile> { file in
+                file.parentFolder?.id == folderID && file.name == fileName
+            }
+        )
+
+        if let file = try? modelContext.fetch(descriptor).first {
             if let version = file.currentVersion,
                let content = version.attributedContent,
                !content.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

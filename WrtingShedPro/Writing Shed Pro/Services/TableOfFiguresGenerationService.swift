@@ -224,23 +224,6 @@ final class TableOfFiguresGenerationService {
             result.append(NSAttributedString(string: "\n"))
         }
         
-        // If not showing missing captions but some exist, add summary message
-        if !settings.showMissingCaption && missingCaptionCount > 0 {
-            result.append(NSAttributedString(string: "\n"))
-            let summaryText: String
-            if missingCaptionPages.count <= 5 {
-                let pagesList = missingCaptionPages.map { String($0) }.joined(separator: ", ")
-                summaryText = String(format: NSLocalizedString("tof.missingCaption.summary.withPages", comment: ""), missingCaptionCount, pagesList)
-            } else {
-                summaryText = String(format: NSLocalizedString("tof.missingCaption.summary", comment: ""), missingCaptionCount)
-            }
-            let summaryAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.preferredFont(forTextStyle: .footnote),
-                .foregroundColor: UIColor.secondaryLabel
-            ]
-            result.append(NSAttributedString(string: summaryText, attributes: summaryAttributes))
-        }
-        
         return result
     }
     

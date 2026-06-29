@@ -34,8 +34,8 @@ struct TableOfFiguresSettings: Codable, Equatable {
     
     /// Whether to show "Missing caption" for images without captions
     /// When true: Shows "Missing caption" in the list
-    /// When false: Skips uncaptioned images and shows a summary message
-    var showMissingCaption: Bool = true
+    /// When false: Silently skips uncaptioned images
+    var showMissingCaption: Bool = false
     
     /// Caption prefix to display (e.g., "Figure", "Photo", nil for caption text only)
     /// When set, entries display as "Figure 1: Caption text"

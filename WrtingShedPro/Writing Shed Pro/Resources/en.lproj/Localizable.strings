@@ -1231,9 +1231,14 @@
 "accessibility.collection.select" = "Select %@";
 "collections.button.delete" = "Delete";
 "collections.delete.confirmation.message" = "This action cannot be undone. Files in the collection will not be deleted.";
+"fileList.partialSelection.title" = "Some Files Were Skipped";
+"fileList.partialSelection.message" = "%d selected file(s) are not Ready and were skipped.";
+"fileList.noCollections.title" = "No Collections";
+"fileList.noCollections.message" = "Create a collection in the Collections folder before adding files to a collection.";
 
 /* General Buttons */
 "button.cancel" = "Cancel";
+"button.continue" = "Continue";
 "button.done" = "Done";
 "button.ok" = "OK";
 "button.delete" = "Delete";

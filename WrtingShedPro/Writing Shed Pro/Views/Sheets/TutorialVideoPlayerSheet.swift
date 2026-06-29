@@ -1,6 +1,6 @@
 import SwiftUI
 import AVKit
-#if os(iOS)
+#if os(iOS) || targetEnvironment(macCatalyst)
 import AVFoundation
 #endif
 #if os(iOS) || targetEnvironment(macCatalyst)
@@ -63,7 +63,7 @@ struct TutorialVideoPlayerSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var player: AVPlayer?
-    private let portraitAspectRatio: CGFloat = 9.0 / 16.0
+    @State private var videoAspectRatio: CGFloat = 9.0 / 16.0
 
     var body: some View {
         NavigationStack {
@@ -78,6 +78,9 @@ struct TutorialVideoPlayerSheet: View {
                             .frame(width: playerSize.width, height: playerSize.height)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .onAppear {
+                                #if DEBUG
+                                logDebugPlayerLayout(containerSize: proxy.size, playerSize: playerSize)
+                                #endif
                                 player.play()
                             }
                             .onDisappear {
@@ -110,7 +113,21 @@ struct TutorialVideoPlayerSheet: View {
             configureAudioSessionForPlayback()
             #endif
             if player == nil {
-                player = makePlayerIfAvailable()
+                if let remoteURL = remoteVideoURL() {
+                    player = AVPlayer(url: remoteURL)
+
+                    Task {
+                        let detectedAspectRatio = await extractVideoAspectRatio(from: remoteURL)
+                        if let detectedAspectRatio {
+                            await MainActor.run {
+                                videoAspectRatio = detectedAspectRatio
+                            }
+                        }
+                        #if DEBUG
+                        logDebugVideoSetup(url: remoteURL, detectedAspectRatio: detectedAspectRatio)
+                        #endif
+                    }
+                }
             }
         }
     }
@@ -137,23 +154,54 @@ struct TutorialVideoPlayerSheet: View {
         let availableHeight = max(200, containerSize.height - (verticalPadding * 2))
 
         var width = availableWidth
-        var height = width / portraitAspectRatio
+        var height = width / videoAspectRatio
 
         if height > availableHeight {
             height = availableHeight
-            width = height * portraitAspectRatio
+            width = height * videoAspectRatio
         }
 
         return CGSize(width: width, height: height)
     }
 
-    private func makePlayerIfAvailable() -> AVPlayer? {
-        if let remoteURL = remoteVideoURL() {
-            return AVPlayer(url: remoteURL)
-        }
+    private func extractVideoAspectRatio(from url: URL) async -> CGFloat? {
+        let asset = AVURLAsset(url: url)
 
-        return nil
+        do {
+            let tracks = try await asset.loadTracks(withMediaType: .video)
+            guard let track = tracks.first else {
+                return nil
+            }
+
+            let naturalSize = try await track.load(.naturalSize)
+            let preferredTransform = try await track.load(.preferredTransform)
+            let transformedSize = naturalSize.applying(preferredTransform)
+            let width = abs(transformedSize.width)
+            let height = abs(transformedSize.height)
+            guard width > 0, height > 0 else {
+                return nil
+            }
+
+            return width / height
+        } catch {
+            return nil
+        }
     }
+
+    #if DEBUG
+    private func logDebugVideoSetup(url: URL, detectedAspectRatio: CGFloat?) {
+        let ratioText = detectedAspectRatio.map { String(format: "%.4f", $0) } ?? "unavailable (using fallback)"
+        print("[TutorialVideo] Source: \(url.lastPathComponent), aspectRatio: \(ratioText)")
+    }
+
+    private func logDebugPlayerLayout(containerSize: CGSize, playerSize: CGSize) {
+        let ratioText = String(format: "%.4f", videoAspectRatio)
+        print(
+            "[TutorialVideo] Layout container=\(Int(containerSize.width))x\(Int(containerSize.height)) " +
+            "player=\(Int(playerSize.width))x\(Int(playerSize.height)) ratio=\(ratioText)"
+        )
+    }
+    #endif
 
     private func remoteVideoURL() -> URL? {
         for base in configuredRemoteBaseURLs() {
@@ -218,13 +266,13 @@ private struct TutorialVideoPlayerView: UIViewControllerRepresentable {
         let controller = AVPlayerViewController()
         controller.player = player
         controller.showsPlaybackControls = true
-        controller.videoGravity = .resizeAspectFill
+        controller.videoGravity = .resizeAspect
         return controller
     }
 
     func updateUIViewController(_ uiViewController: AVPlayerViewController, context: Context) {
         uiViewController.player = player
-        uiViewController.videoGravity = .resizeAspectFill
+        uiViewController.videoGravity = .resizeAspect
     }
 }
 #else

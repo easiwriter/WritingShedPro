@@ -889,16 +889,6 @@ struct BackMatterGeneratedContentView: View {
         }
     }
     
-    /// Entries with missing captions (for summary when not shown inline)
-    private var figuresWithMissingCaptions: [FigureEntry] {
-        let settings = file.tableOfFiguresSettings
-        if settings.showMissingCaption {
-            return []
-        } else {
-            return figureEntries.filter { !$0.hasCaption }
-        }
-    }
-    
     @ViewBuilder
     private var tableOfFiguresContent: some View {
         if figureEntries.isEmpty {
@@ -925,36 +915,7 @@ struct BackMatterGeneratedContentView: View {
                     figureEntryRow(entry, settings: file.tableOfFiguresSettings)
                 }
                 
-                // Show summary of missing captions if not displayed inline
-                if !figuresWithMissingCaptions.isEmpty {
-                    missingCaptionsSummary
-                }
             }
-        }
-    }
-    
-    /// Summary view for figures with missing captions
-    @ViewBuilder
-    private var missingCaptionsSummary: some View {
-        Divider()
-            .padding(.vertical, 4)
-        
-        Text(missingCaptionsSummaryText)
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .italic()
-    }
-    
-    /// Text for the missing captions summary
-    private var missingCaptionsSummaryText: String {
-        let missingEntries = figuresWithMissingCaptions
-        let pageNumbers = missingEntries.map { $0.pageNumber }.sorted()
-        let pagesList = pageNumbers.prefix(5).map { String($0) }.joined(separator: ", ")
-        
-        if pageNumbers.count <= 5 {
-            return String(format: NSLocalizedString("tof.missingCaption.summary.withPages", comment: "%d images without captions on pages: %@"), missingEntries.count, pagesList)
-        } else {
-            return String(format: NSLocalizedString("tof.missingCaption.summary", comment: "%d images without captions"), missingEntries.count)
         }
     }
     

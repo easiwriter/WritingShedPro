@@ -19,7 +19,7 @@ struct TableOfFiguresSettingsView: View {
     // Local state for editing (copied from file on appear)
     @State private var title: String = "List of Figures"
     @State private var showPageNumbers: Bool = true
-    @State private var showMissingCaption: Bool = true
+    @State private var showMissingCaption: Bool = false
     @State private var captionPrefix: String = "Figure"
     @State private var useCaptionPrefix: Bool = true
     
@@ -96,7 +96,7 @@ struct TableOfFiguresSettingsView: View {
                     if showMissingCaption {
                         Text(NSLocalizedString("tof.settings.missingCaptionFooter.show", comment: "Images without captions will appear with \"Missing caption\" text"))
                     } else {
-                        Text(NSLocalizedString("tof.settings.missingCaptionFooter.hide", comment: "Images without captions will be skipped, with a summary shown at the end"))
+                        Text(NSLocalizedString("tof.settings.missingCaptionFooter.hide", comment: "Images without captions will be skipped"))
                     }
                 }
                 

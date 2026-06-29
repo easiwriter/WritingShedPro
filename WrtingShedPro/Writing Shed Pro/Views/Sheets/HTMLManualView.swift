@@ -29,6 +29,7 @@ struct HTMLManualView: View {
     /// Rendered attributed string for the current section
     @State private var attributedContent: AttributedString = AttributedString()
     @State private var showAskQuestion = false
+    @State private var showTutorialVideos = false
     @State private var selectedTutorialVideo: TutorialVideo?
     
     init(section: String? = nil) {
@@ -112,6 +113,14 @@ struct HTMLManualView: View {
                     }
                 }
 
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showTutorialVideos = true
+                    } label: {
+                        Text(NSLocalizedString("guide.tutorialVideos.command", comment: ""))
+                    }
+                }
+
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         dismiss()
@@ -120,6 +129,11 @@ struct HTMLManualView: View {
             }
             .sheet(isPresented: $showAskQuestion) {
                 ContactSupportView(initialReportType: .question, presentationMode: .questionOnly)
+            }
+            .sheet(isPresented: $showTutorialVideos) {
+                TutorialVideosListSheet { tutorial in
+                    selectedTutorialVideo = tutorial
+                }
             }
             .fullScreenCover(item: $selectedTutorialVideo) { tutorial in
                 TutorialVideoPlayerSheet(video: tutorial)

@@ -46,6 +46,7 @@ struct IndexEditorSheet: View {
     @State private var showDiscardConfirmation = false
     @State private var showSaveError = false
     @State private var saveErrorMessage = ""
+    @State private var isSaving = false
     
     // MARK: - Computed Properties
     
@@ -76,6 +77,7 @@ struct IndexEditorSheet: View {
     }
     
     private var termExists: Bool {
+        if isSaving { return false }
         guard !keyword.isEmpty else { return false }
         let trimmedKeyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return project.indexEntries?.contains { entry in
@@ -371,7 +373,7 @@ struct IndexEditorSheet: View {
                     Button(NSLocalizedString("button.save", comment: "Save")) {
                         saveEntry()
                     }
-                    .disabled(!canSave || termExists)
+                    .disabled(isSaving || !canSave || termExists)
                 }
             }
             .onAppear {
@@ -483,14 +485,27 @@ struct IndexEditorSheet: View {
     }
     
     private func saveEntry() {
+        guard !isSaving else { return }
+
         #if DEBUG
         print("📑 saveEntry() called")
         print("   existingEntry: \(existingEntry?.keyword ?? "nil")")
         print("   keyword field: '\(keyword)'")
         #endif
+
+        isSaving = true
+        defer {
+            // Keep true on successful dismiss path; reset on early return/error paths.
+            if showSaveError {
+                isSaving = false
+            }
+        }
         
         let trimmedKeyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedKeyword.isEmpty else { return }
+        guard !trimmedKeyword.isEmpty else {
+            isSaving = false
+            return
+        }
         
         let entry: IndexEntry
         
@@ -578,6 +593,7 @@ struct IndexEditorSheet: View {
             #endif
             saveErrorMessage = error.localizedDescription
             showSaveError = true
+            isSaving = false
             // Don't dismiss - let user see the error and try again
         }
     }
