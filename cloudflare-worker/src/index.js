@@ -14,11 +14,13 @@ const RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
 
 const MAX_QUERY_LENGTH = 2000;
 const MAX_ANALYST_CONTENT_LENGTH = 120000;
-const ANALYST_CACHE_VERSION = "v1";
+const ANALYST_CACHE_VERSION = "v3";
 const ANALYST_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
 const MAX_MESSAGE_TITLE_LENGTH = 200;
 const MAX_MESSAGE_BODY_LENGTH = 4000;
 const TUTORIAL_VIDEO_ORDER_KEY = "tutorials/_order.json";
+const MAX_SINGLE_UPLOAD_BYTES = 95 * 1024 * 1024;
+const DEFAULT_MULTIPART_PART_SIZE_BYTES = 20 * 1024 * 1024;
 
 const ALLOWED_ANALYSIS_MODES = new Set(["file", "manuscript"]);
 const ALLOWED_PROJECT_TYPES = new Set(["fiction", "poetry", "drama", "prose"]);
@@ -396,7 +398,7 @@ async function handleManuscriptAnalystReview(request, env) {
             },
             body: JSON.stringify({
                 model: "gpt-4o-mini",
-                max_tokens: 1800,
+                max_tokens: 4000,
                 temperature: 0,
                 seed: stableSeed,
                 response_format: { type: "json_object" },
@@ -553,10 +555,12 @@ async function handleGetMessages(request, env) {
         return jsonResponse({ error: "Messages service unavailable" }, 500);
     }
 
+    await ensureMessagesCriticalColumn(env);
+
     try {
         const { results } = await env.MESSAGES_DB
             .prepare(`
-                SELECT id, title, body, created_at, updated_at
+                SELECT id, title, body, created_at, updated_at, is_critical
                 FROM messages
                 WHERE is_archived = 0
                 ORDER BY updated_at DESC
@@ -569,6 +573,7 @@ async function handleGetMessages(request, env) {
             body: row.body,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
+            isCritical: row.is_critical === 1,
         }));
 
         return jsonResponse({ messages }, 200, { "Cache-Control": "no-store" });
@@ -611,6 +616,10 @@ async function handleAdminTutorialVideos(request, env, pathname) {
     const basePath = "/api/admin/tutorial-videos";
     const suffix = pathname.slice(basePath.length);
 
+    if (suffix.startsWith("/multipart")) {
+        return handleAdminMultipartTutorialVideos(request, bucket, suffix);
+    }
+
     if (suffix === "/order") {
         if (request.method === "PUT") {
             return handleAdminReorderTutorialVideos(request, bucket);
@@ -650,7 +659,7 @@ async function handleAdminTutorialVideos(request, env, pathname) {
 
 async function handleAdminUploadTutorialVideo(request, bucket) {
     const url = new URL(request.url);
-    const fileNameParam = url.searchParams.get("fileName") || request.headers.get("X-File-Name") || "";
+    const fileNameParam = tutorialVideoFileNameParam(request, url);
     const safeFileName = sanitizeVideoFileName(fileNameParam);
 
     if (!safeFileName) {
@@ -660,6 +669,17 @@ async function handleAdminUploadTutorialVideo(request, bucket) {
     const lower = safeFileName.toLowerCase();
     if (!lower.endsWith(".mov") && !lower.endsWith(".mp4")) {
         return jsonResponse({ error: "Only .mov and .mp4 files are allowed" }, 400);
+    }
+
+    const contentLengthHeader = request.headers.get("content-length");
+    if (contentLengthHeader) {
+        const contentLength = Number.parseInt(contentLengthHeader, 10);
+        if (Number.isFinite(contentLength) && contentLength > MAX_SINGLE_UPLOAD_BYTES) {
+            return jsonResponse(
+                { error: "File too large for single upload. Use multipart upload." },
+                413
+            );
+        }
     }
 
     let body;
@@ -673,18 +693,222 @@ async function handleAdminUploadTutorialVideo(request, bucket) {
         return jsonResponse({ error: "Upload body is empty" }, 400);
     }
 
-    const key = `tutorials/${safeFileName}`;
+    if (body.byteLength > MAX_SINGLE_UPLOAD_BYTES) {
+        return jsonResponse(
+            { error: "File too large for single upload. Use multipart upload." },
+            413
+        );
+    }
+
     const httpMetadata = {
         contentType: lower.endsWith(".mov") ? "video/quicktime" : "video/mp4",
     };
 
     try {
+        const key = await createUniqueTutorialVideoKey(bucket, safeFileName);
         await bucket.put(key, body, { httpMetadata });
         await appendTutorialVideoOrder(bucket, key);
         return jsonResponse({ ok: true, key }, 201);
     } catch (err) {
         console.error("Failed to upload tutorial video:", err);
         return jsonResponse({ error: "Video upload failed" }, 502);
+    }
+}
+
+async function handleAdminMultipartTutorialVideos(request, bucket, suffix) {
+    if (suffix === "/multipart/start") {
+        if (request.method !== "POST") {
+            return jsonResponse({ error: "Method not allowed" }, 405);
+        }
+        return handleStartMultipartTutorialVideo(request, bucket);
+    }
+
+    if (suffix === "/multipart/complete") {
+        if (request.method !== "POST") {
+            return jsonResponse({ error: "Method not allowed" }, 405);
+        }
+        return handleCompleteMultipartTutorialVideo(request, bucket);
+    }
+
+    if (suffix === "/multipart/abort") {
+        if (request.method !== "POST") {
+            return jsonResponse({ error: "Method not allowed" }, 405);
+        }
+        return handleAbortMultipartTutorialVideo(request, bucket);
+    }
+
+    const match = suffix.match(/^\/multipart\/([^/]+)\/(\d+)$/);
+    if (!match) {
+        return jsonResponse({ error: "Invalid multipart path" }, 400);
+    }
+
+    if (request.method !== "PUT") {
+        return jsonResponse({ error: "Method not allowed" }, 405);
+    }
+
+    const [, encodedUploadId, partNumberStr] = match;
+    const uploadId = decodeURIComponent(encodedUploadId);
+    const partNumber = Number.parseInt(partNumberStr, 10);
+    if (!Number.isFinite(partNumber) || partNumber < 1 || partNumber > 10000) {
+        return jsonResponse({ error: "Invalid part number" }, 400);
+    }
+
+    const url = new URL(request.url);
+    const keyParam = url.searchParams.get("key") || "";
+    const key = decodeURIComponent(keyParam);
+    if (!isTutorialVideoFileKey(key)) {
+        return jsonResponse({ error: "Invalid tutorial video key" }, 400);
+    }
+
+    return handleUploadMultipartTutorialVideoPart(request, bucket, key, uploadId, partNumber);
+}
+
+async function handleStartMultipartTutorialVideo(request, bucket) {
+    const url = new URL(request.url);
+    const fileNameParam = tutorialVideoFileNameParam(request, url);
+    const safeFileName = sanitizeVideoFileName(fileNameParam);
+
+    if (!safeFileName) {
+        return jsonResponse({ error: "Missing or invalid file name" }, 400);
+    }
+
+    const lower = safeFileName.toLowerCase();
+    if (!lower.endsWith(".mov") && !lower.endsWith(".mp4")) {
+        return jsonResponse({ error: "Only .mov and .mp4 files are allowed" }, 400);
+    }
+
+    try {
+        const key = await createUniqueTutorialVideoKey(bucket, safeFileName);
+        const multipartUpload = await bucket.createMultipartUpload(key, {
+            httpMetadata: {
+                contentType: lower.endsWith(".mov") ? "video/quicktime" : "video/mp4",
+            },
+        });
+
+        return jsonResponse(
+            {
+                ok: true,
+                key,
+                uploadId: multipartUpload.uploadId,
+                partSizeBytes: DEFAULT_MULTIPART_PART_SIZE_BYTES,
+                maxSingleUploadBytes: MAX_SINGLE_UPLOAD_BYTES,
+            },
+            201
+        );
+    } catch (err) {
+        console.error("Failed to start multipart upload:", err);
+        return jsonResponse({ error: "Video multipart start failed" }, 502);
+    }
+}
+
+async function handleUploadMultipartTutorialVideoPart(request, bucket, key, uploadId, partNumber) {
+    let body;
+    try {
+        body = await request.arrayBuffer();
+    } catch {
+        return jsonResponse({ error: "Invalid upload body" }, 400);
+    }
+
+    if (!body || body.byteLength === 0) {
+        return jsonResponse({ error: "Upload body is empty" }, 400);
+    }
+
+    if (body.byteLength > MAX_SINGLE_UPLOAD_BYTES) {
+        return jsonResponse({ error: "Multipart part too large" }, 413);
+    }
+
+    try {
+        const multipartUpload = bucket.resumeMultipartUpload(key, uploadId);
+        const uploadedPart = await multipartUpload.uploadPart(partNumber, body);
+        return jsonResponse(
+            {
+                ok: true,
+                partNumber,
+                etag: uploadedPart.etag,
+            },
+            200
+        );
+    } catch (err) {
+        console.error("Failed to upload multipart tutorial video part:", err);
+        return jsonResponse({ error: "Video multipart part upload failed" }, 502);
+    }
+}
+
+async function handleCompleteMultipartTutorialVideo(request, bucket) {
+    let body;
+    try {
+        body = await request.json();
+    } catch {
+        return jsonResponse({ error: "Invalid JSON" }, 400);
+    }
+
+    const key = typeof body?.key === "string" ? body.key : "";
+    const uploadId = typeof body?.uploadId === "string" ? body.uploadId : "";
+    const rawParts = Array.isArray(body?.parts) ? body.parts : [];
+
+    if (!isTutorialVideoFileKey(key)) {
+        return jsonResponse({ error: "Invalid tutorial video key" }, 400);
+    }
+
+    if (!uploadId) {
+        return jsonResponse({ error: "Missing uploadId" }, 400);
+    }
+
+    const parts = rawParts
+        .map((part) => ({
+            partNumber: Number.parseInt(String(part?.partNumber), 10),
+            etag: typeof part?.etag === "string" ? part.etag : "",
+        }))
+        .filter((part) => Number.isFinite(part.partNumber) && part.partNumber >= 1 && part.etag.length > 0)
+        .sort((a, b) => a.partNumber - b.partNumber);
+
+    if (parts.length === 0) {
+        return jsonResponse({ error: "Missing multipart parts" }, 400);
+    }
+
+    for (let i = 1; i < parts.length; i++) {
+        if (parts[i].partNumber === parts[i - 1].partNumber) {
+            return jsonResponse({ error: "Duplicate part numbers" }, 400);
+        }
+    }
+
+    try {
+        const multipartUpload = bucket.resumeMultipartUpload(key, uploadId);
+        await multipartUpload.complete(parts);
+        await appendTutorialVideoOrder(bucket, key);
+        return jsonResponse({ ok: true, key }, 201);
+    } catch (err) {
+        console.error("Failed to complete multipart tutorial upload:", err);
+        return jsonResponse({ error: "Video multipart completion failed" }, 502);
+    }
+}
+
+async function handleAbortMultipartTutorialVideo(request, bucket) {
+    let body;
+    try {
+        body = await request.json();
+    } catch {
+        return jsonResponse({ error: "Invalid JSON" }, 400);
+    }
+
+    const key = typeof body?.key === "string" ? body.key : "";
+    const uploadId = typeof body?.uploadId === "string" ? body.uploadId : "";
+
+    if (!isTutorialVideoFileKey(key)) {
+        return jsonResponse({ error: "Invalid tutorial video key" }, 400);
+    }
+
+    if (!uploadId) {
+        return jsonResponse({ error: "Missing uploadId" }, 400);
+    }
+
+    try {
+        const multipartUpload = bucket.resumeMultipartUpload(key, uploadId);
+        await multipartUpload.abort();
+        return jsonResponse({ ok: true }, 200);
+    } catch (err) {
+        console.error("Failed to abort multipart tutorial upload:", err);
+        return jsonResponse({ error: "Video multipart abort failed" }, 502);
     }
 }
 
@@ -813,6 +1037,18 @@ function isTutorialVideoFileKey(key) {
     return lower.endsWith(".mov") || lower.endsWith(".mp4");
 }
 
+function tutorialVideoFileNameParam(request, url) {
+    const queryName = url.searchParams.get("fileName") || "";
+    const headerName = request.headers.get("X-File-Name") || "";
+    const querySafeName = sanitizeVideoFileName(queryName);
+
+    if (isTutorialVideoFileKey(querySafeName)) {
+        return queryName;
+    }
+
+    return headerName || queryName;
+}
+
 async function loadTutorialVideoOrder(bucket) {
     const object = await bucket.get(TUTORIAL_VIDEO_ORDER_KEY);
     if (!object) {
@@ -882,6 +1118,27 @@ function normalizeTutorialVideoOrder(currentKeys, orderedKeys) {
     return normalized;
 }
 
+async function createUniqueTutorialVideoKey(bucket, safeFileName) {
+    const objects = await listTutorialVideoObjectsFromBucket(bucket);
+    const existingKeys = new Set(objects.map((object) => object.key));
+    return makeUniqueTutorialVideoKey(safeFileName, existingKeys);
+}
+
+function makeUniqueTutorialVideoKey(safeFileName, existingKeys) {
+    const dotIndex = safeFileName.lastIndexOf(".");
+    const baseName = dotIndex > 0 ? safeFileName.slice(0, dotIndex) : safeFileName;
+    const extension = dotIndex > 0 ? safeFileName.slice(dotIndex) : "";
+    let candidate = `tutorials/${safeFileName}`;
+    let suffix = 2;
+
+    while (existingKeys.has(candidate)) {
+        candidate = `tutorials/${baseName}-${suffix}${extension}`;
+        suffix += 1;
+    }
+
+    return candidate;
+}
+
 function sanitizeVideoFileName(fileName) {
     const trimmed = String(fileName || "").trim();
     if (!trimmed) {
@@ -928,6 +1185,8 @@ async function handleAdminMessages(request, env, pathname) {
         return jsonResponse({ error: "Messages service unavailable" }, 500);
     }
 
+    await ensureMessagesCriticalColumn(env);
+
     const basePath = "/api/admin/messages";
     const suffix = pathname.slice(basePath.length);
     const hasMessageID = suffix.startsWith("/") && suffix.length > 1;
@@ -968,12 +1227,12 @@ async function handleAdminListMessages(request, env) {
     try {
         const query = includeArchived
             ? `
-                SELECT id, title, body, created_at, updated_at, is_archived
+                SELECT id, title, body, created_at, updated_at, is_archived, is_critical
                 FROM messages
                 ORDER BY updated_at DESC
             `
             : `
-                SELECT id, title, body, created_at, updated_at, is_archived
+                SELECT id, title, body, created_at, updated_at, is_archived, is_critical
                 FROM messages
                 WHERE is_archived = 0
                 ORDER BY updated_at DESC
@@ -987,6 +1246,7 @@ async function handleAdminListMessages(request, env) {
             createdAt: row.created_at,
             updatedAt: row.updated_at,
             isArchived: row.is_archived === 1,
+            isCritical: row.is_critical === 1,
         }));
 
         return jsonResponse({ messages }, 200, { "Cache-Control": "no-store" });
@@ -1012,14 +1272,15 @@ async function handleAdminCreateMessage(request, env) {
     const now = Date.now();
     const id = crypto.randomUUID();
     const isArchived = body.isArchived === true ? 1 : 0;
+    const isCritical = body.isCritical === true ? 1 : 0;
 
     try {
         await env.MESSAGES_DB
             .prepare(`
-                INSERT INTO messages (id, title, body, created_at, updated_at, is_archived)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO messages (id, title, body, created_at, updated_at, is_archived, is_critical)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             `)
-            .bind(id, validation.title, validation.body, now, now, isArchived)
+            .bind(id, validation.title, validation.body, now, now, isArchived, isCritical)
             .run();
 
         return jsonResponse(
@@ -1031,6 +1292,7 @@ async function handleAdminCreateMessage(request, env) {
                     createdAt: now,
                     updatedAt: now,
                     isArchived: isArchived === 1,
+                    isCritical: isCritical === 1,
                 },
             },
             201
@@ -1068,6 +1330,10 @@ async function handleAdminUpdateMessage(request, env, id) {
     if (body.isArchived !== undefined) {
         updates.push("is_archived = ?");
         bindings.push(body.isArchived === true ? 1 : 0);
+    }
+    if (body.isCritical !== undefined) {
+        updates.push("is_critical = ?");
+        bindings.push(body.isCritical === true ? 1 : 0);
     }
 
     if (updates.length === 0) {
@@ -1184,10 +1450,34 @@ function validateMessageInput(body, { allowPartial }) {
         body.body = messageBody;
     }
 
+    if (body?.isCritical !== undefined && typeof body.isCritical !== "boolean") {
+        return { error: "isCritical must be a boolean" };
+    }
+
+    if (body?.isArchived !== undefined && typeof body.isArchived !== "boolean") {
+        return { error: "isArchived must be a boolean" };
+    }
+
     return {
         title: hasTitle ? body.title : undefined,
         body: hasBody ? body.body : undefined,
     };
+}
+
+async function ensureMessagesCriticalColumn(env) {
+    try {
+        await env.MESSAGES_DB
+            .prepare(
+                "ALTER TABLE messages ADD COLUMN is_critical INTEGER NOT NULL DEFAULT 0 CHECK (is_critical IN (0, 1))"
+            )
+            .run();
+    } catch (err) {
+        const message = String(err?.message || "").toLowerCase();
+        if (!message.includes("duplicate column name") && !message.includes("already exists")) {
+            console.error("Failed to ensure is_critical column:", err);
+            throw err;
+        }
+    }
 }
 
 function isAuthorizedAdminRequest(request, env) {
@@ -1237,7 +1527,7 @@ Avoid contradictory judgments about the same passage unless you explicitly expla
 
 You provide feedback in JSON format with the following structure:
 {
-    "summary": "2-3 sentence editorial reading of the writing's strengths and possible areas for revision",
+    "summary": "a developed editorial reading (4-6 sentences) of the writing's strengths and possible areas for revision, naming specific craft elements rather than generalities",
   "sentiment": "encouraging|mixed|critical",
   "focusAreas": ["area1", "area2", "area3"],
   "suggestions": [
@@ -1246,9 +1536,9 @@ You provide feedback in JSON format with the following structure:
       "category": "category_name",
       "severity": "high|medium|low",
             "location": "Line N or Line N-M (must use source line numbers) or null",
-            "observation": "an evidence-grounded editorial reading of what you noticed",
-            "suggestion": "a possible revision focus or craft experiment",
-            "rationale": "why this may matter for reader experience or authorial intent"
+            "observation": "a thorough, evidence-grounded editorial reading of what you noticed, quoting a brief phrase from the source and explaining precisely how the passage operates",
+            "suggestion": "a concrete, developed revision focus or craft experiment the author could try, with enough specificity to act on (without rewriting the text for them)",
+            "rationale": "a full explanation of why this may matter for reader experience or authorial intent, tracing the likely effect on the reader"
     }
   ]
 }
@@ -1260,9 +1550,12 @@ CRITICAL LINE-NUMBER RULES:
 - If no precise location applies, set "location" to null.
 
 OUTPUT QUALITY RULES:
-- Keep the summary concise, specific, and non-grandiose.
+- Make the summary substantive and specific (4-6 sentences), naming concrete craft elements; avoid grandiose or vague praise.
 - Focus areas must be supported by the actual suggestions you provide.
-- Prefer fewer, better-supported suggestions over a long list of weak ones.
+- BE COMPREHENSIVE. Work through the piece systematically and surface every distinct, well-supported issue you can evidence, across the full range of relevant craft categories. As a guideline, provide at least 6-10 suggestions for a substantial sample, and more for longer texts, whenever the text genuinely supports them. Do not stop after two or three points.
+- Each suggestion's observation, suggestion, and rationale must each be fully developed (aim for 3-5 sentences each), not one-line notes. In the observation, quote the relevant phrase, explain precisely how the passage operates, and name the specific craft mechanism at work. In the rationale, trace the concrete effect on the reader and why it matters.
+- The only legitimate reason to provide few suggestions is a genuinely short or already-polished passage. Never withhold a supported observation for the sake of brevity.
+- Quality still governs: every suggestion must be anchored in textual evidence. Do not invent weak or speculative points purely to inflate the count.
 - Never imply that your reading is the only valid reading of the text.`;
 
     if (analysisProfile === "poetry") {
@@ -1361,7 +1654,7 @@ function buildAnalystUserPrompt(content, metadata, options, analysisProfile) {
         prompt += `Focus particularly on: ${options.focusAreas.join(", ")}\n\n`;
     }
     
-    prompt += `Provide structured feedback as JSON. Limit to ${options?.severity === "high" ? "high-severity" : "all"} issues unless severity is specified as 'all'. Do not provide rewritten text.`;
+    prompt += `Provide structured feedback as JSON. Limit to ${options?.severity === "high" ? "high-severity" : "all"} issues unless severity is specified as 'all'. Be comprehensive and detailed: work through the whole piece, cover the full range of relevant craft categories, provide as many well-evidenced suggestions as the text genuinely supports (aim for at least 6-10 on a substantial sample), and develop each observation, suggestion, and rationale fully (3-5 sentences each). Do not provide rewritten text.`;
     
     return prompt;
 }

@@ -31,7 +31,7 @@ final class OperatorMessagesService {
         await performRequestAndDecode(request)
     }
 
-    func create(title: String, body: String, settings: OperatorSettingsStore) async {
+    func create(title: String, body: String, isCritical: Bool, settings: OperatorSettingsStore) async {
         guard let url = URL(string: settings.endpoint)?.appendingPathComponent("api/admin/messages") else {
             errorMessage = "Invalid endpoint URL"
             return
@@ -43,7 +43,7 @@ final class OperatorMessagesService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(settings.token)", forHTTPHeaderField: "Authorization")
 
-        let payload: [String: Any] = ["title": title, "body": body]
+        let payload: [String: Any] = ["title": title, "body": body, "isCritical": isCritical]
         request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
 
         await performMutation(request)
@@ -65,6 +65,7 @@ final class OperatorMessagesService {
             "title": message.title,
             "body": message.body,
             "isArchived": message.isArchived,
+            "isCritical": message.isCritical,
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
 

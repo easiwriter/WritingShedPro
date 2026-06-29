@@ -65,12 +65,21 @@ Proxies user support queries from Writing Shed Pro to the OpenAI API.
 
 Public:
 - `GET /api/messages` -> list active messages.
+- `GET /api/tutorial-videos` -> list available tutorial videos from R2 (`tutorials/` prefix).
 
 Admin (Bearer token required: `Authorization: Bearer <ADMIN_API_TOKEN>`):
 - `GET /api/admin/messages?includeArchived=1`
 - `POST /api/admin/messages` with `{ "title": "...", "body": "..." }`
 - `PUT /api/admin/messages/:id` with any of `{ "title", "body", "isArchived" }`
 - `DELETE /api/admin/messages/:id` archives message (keeps row in DB).
+- `GET /api/admin/tutorial-videos`
+- `POST /api/admin/tutorial-videos?fileName=...` for single uploads (up to ~95 MB)
+- `POST /api/admin/tutorial-videos/multipart/start?fileName=...`
+- `PUT /api/admin/tutorial-videos/multipart/:uploadId/:partNumber?key=...`
+- `POST /api/admin/tutorial-videos/multipart/complete` with `{ "key", "uploadId", "parts": [{ "partNumber", "etag" }] }`
+- `POST /api/admin/tutorial-videos/multipart/abort` with `{ "key", "uploadId" }`
+- `PUT /api/admin/tutorial-videos/order` with `{ "orderedKeys": ["tutorials/foo.mp4", ...] }`
+- `DELETE /api/admin/tutorial-videos/:key`
 
 ## Local Development
 

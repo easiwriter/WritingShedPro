@@ -7,6 +7,20 @@ struct SupportMessage: Identifiable, Codable, Equatable {
     let body: String
     let createdAt: TimeInterval
     let updatedAt: TimeInterval
+    let isCritical: Bool?
+    let severity: String?
+
+    var isMarkedCritical: Bool {
+        if isCritical == true {
+            return true
+        }
+
+        if let severity, severity.caseInsensitiveCompare("critical") == .orderedSame {
+            return true
+        }
+
+        return title.uppercased().hasPrefix("CRITICAL:")
+    }
 }
 
 private struct SupportMessagesResponse: Codable {
@@ -23,12 +37,22 @@ final class SupportMessagesService {
     private let hiddenMessageIDsKey = "support.hiddenMessageIDs"
     private let readMessageVersionsKey = "support.readMessageVersions"
     private let alertedMessageVersionsKey = "support.alertedMessageVersions"
+    private static let receiveOperatorMessagesKey = "support.receiveOperatorMessages"
+    private static let allowCriticalOperatorMessagesWhenOptedOutKey = "support.allowCriticalOperatorMessagesWhenOptedOut"
 
     private(set) var hiddenMessageIDs: Set<String>
     private(set) var readMessageVersions: [String: TimeInterval]
     private(set) var alertedMessageVersions: [String: TimeInterval]
 
     init() {
+        // Seed explicit defaults on first run.
+        if UserDefaults.standard.object(forKey: Self.receiveOperatorMessagesKey) == nil {
+            UserDefaults.standard.set(true, forKey: Self.receiveOperatorMessagesKey)
+        }
+        if UserDefaults.standard.object(forKey: Self.allowCriticalOperatorMessagesWhenOptedOutKey) == nil {
+            UserDefaults.standard.set(true, forKey: Self.allowCriticalOperatorMessagesWhenOptedOutKey)
+        }
+
         if let stored = UserDefaults.standard.array(forKey: hiddenMessageIDsKey) as? [String] {
             hiddenMessageIDs = Set(stored)
         } else {
@@ -48,11 +72,50 @@ final class SupportMessagesService {
         }
     }
 
+    static var receiveOperatorMessages: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: receiveOperatorMessagesKey) == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: receiveOperatorMessagesKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: receiveOperatorMessagesKey)
+        }
+    }
+
+    static var allowCriticalWhenOptedOut: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: allowCriticalOperatorMessagesWhenOptedOutKey) == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: allowCriticalOperatorMessagesWhenOptedOutKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: allowCriticalOperatorMessagesWhenOptedOutKey)
+        }
+    }
+
+    static func shouldDeliver(_ message: SupportMessage) -> Bool {
+        if receiveOperatorMessages {
+            return true
+        }
+
+        return allowCriticalWhenOptedOut && message.isMarkedCritical
+    }
+
     var visibleMessages: [SupportMessage] {
-        messages.filter { !hiddenMessageIDs.contains($0.id) }
+        messages.filter { !hiddenMessageIDs.contains($0.id) && Self.shouldDeliver($0) }
     }
 
     func fetchMessages() async {
+        if !Self.receiveOperatorMessages && !Self.allowCriticalWhenOptedOut {
+            messages = []
+            errorMessage = nil
+            isLoading = false
+            return
+        }
+
         isLoading = true
         errorMessage = nil
 
@@ -107,6 +170,10 @@ final class SupportMessagesService {
     }
 
     func pendingNewMessageAlertVersions() async -> [String: TimeInterval] {
+        if !Self.receiveOperatorMessages && !Self.allowCriticalWhenOptedOut {
+            return [:]
+        }
+
         await fetchMessages()
 
         let newlyAlertableMessages = visibleMessages.filter { message in

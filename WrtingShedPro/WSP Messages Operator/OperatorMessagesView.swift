@@ -9,6 +9,7 @@ struct OperatorMessagesView: View {
 
     @State private var draftTitle = ""
     @State private var draftBody = ""
+    @State private var draftIsCritical = false
     @State private var selectedMessage: OperatorMessage?
 
     var body: some View {
@@ -31,12 +32,14 @@ struct OperatorMessagesView: View {
                     TextField("Title", text: $draftTitle)
                     TextField("Body", text: $draftBody, axis: .vertical)
                         .lineLimit(3...8)
+                    Toggle("Critical Message", isOn: $draftIsCritical)
                     Button("Create") {
                         Task {
-                            await service.create(title: draftTitle, body: draftBody, settings: settings)
+                            await service.create(title: draftTitle, body: draftBody, isCritical: draftIsCritical, settings: settings)
                             await service.fetch(includeArchived: includeArchived, settings: settings)
                             draftTitle = ""
                             draftBody = ""
+                            draftIsCritical = false
                         }
                     }
                     .disabled(draftTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
@@ -53,6 +56,16 @@ struct OperatorMessagesView: View {
                             HStack {
                                 Text(message.title)
                                     .font(.headline)
+                                if message.isCritical {
+                                    Text("CRITICAL")
+                                        .font(.caption2)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.red)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.red.opacity(0.12))
+                                        .clipShape(Capsule())
+                                }
                                 Spacer()
                             }
                             Text(message.body)
@@ -88,6 +101,16 @@ struct OperatorMessagesView: View {
                                     HStack {
                                         Text(message.title)
                                             .font(.headline)
+                                        if message.isCritical {
+                                            Text("CRITICAL")
+                                                .font(.caption2)
+                                                .fontWeight(.semibold)
+                                                .foregroundStyle(.red)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Color.red.opacity(0.12))
+                                                .clipShape(Capsule())
+                                        }
                                         Spacer()
                                         Text("Archived")
                                             .font(.caption)
@@ -221,6 +244,7 @@ private struct OperatorMessageEditor: View {
                     TextField("Title", text: $draft.title)
                     TextField("Body", text: $draft.body, axis: .vertical)
                         .lineLimit(4...10)
+                    Toggle("Critical Message", isOn: $draft.isCritical)
                     Toggle("Archived", isOn: $draft.isArchived)
                 }
             }
