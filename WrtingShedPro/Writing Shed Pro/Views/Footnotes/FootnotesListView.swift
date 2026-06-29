@@ -284,8 +284,12 @@ struct FootnotesListView: View {
     // MARK: - Actions
     
     private func loadFootnotes() {
-        // Use the relationship directly, sorted by number (document order)
-        footnotes = (version.footnotes ?? []).sorted { $0.number < $1.number }
+        let anchoredAttachmentIDs = Set(version.attributedContent?.footnoteAttachments().map { $0.0.footnoteID } ?? [])
+        let activeFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: modelContext)
+
+        footnotes = activeFootnotes
+            .filter { anchoredAttachmentIDs.contains($0.attachmentID) }
+            .sorted { $0.number < $1.number }
     }
     
     private func startEditing(_ footnote: FootnoteModel) {
@@ -308,9 +312,15 @@ struct FootnotesListView: View {
     }
     
     private func deleteFootnote(_ footnote: FootnoteModel) {
-        FootnoteManager.shared.deleteFootnote(footnote, context: modelContext)
+        onFootnoteDeleted?(footnote) // Remove marker from editor/model content before deleting the model.
+
+        guard FootnoteManager.shared.deleteFootnote(footnote, context: modelContext) else {
+            loadFootnotes()
+            return
+        }
+
+        WriteCoalescer.shared?.flush()
+
         loadFootnotes()
-        onFootnoteChanged?()
-        onFootnoteDeleted?(footnote) // Notify parent to remove marker from text
     }
 }

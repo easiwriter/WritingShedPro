@@ -107,6 +107,34 @@ final class PaginatedTextLayoutManagerTests: XCTestCase {
         XCTAssertEqual(pageInfo.characterRange.location, 0)
         XCTAssertEqual(pageInfo.characterRange.length, text.count)
     }
+
+    func testGetFootnotesSkipsModelWithoutTextAttachment() throws {
+        let version = Version(content: "Text without a footnote marker")
+        modelContext.insert(version)
+
+        let footnote = FootnoteModel(
+            version: version,
+            characterPosition: 5,
+            attachmentID: UUID(),
+            text: "Orphaned footnote",
+            number: 1
+        )
+        modelContext.insert(footnote)
+
+        let textStorage = NSTextStorage(string: version.content)
+        let layoutManager = PaginatedTextLayoutManager(
+            textStorage: textStorage,
+            pageSetup: pageSetup
+        )
+
+        let footnotes = layoutManager.getFootnotes(
+            in: NSRange(location: 0, length: textStorage.length),
+            version: version,
+            context: modelContext
+        )
+
+        XCTAssertTrue(footnotes.isEmpty)
+    }
     
     func testSingleLineDocument() throws {
         let text = "One line"

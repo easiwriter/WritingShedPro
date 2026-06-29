@@ -158,6 +158,29 @@ final class FootnoteInsertionHelperTests: XCTestCase {
         XCTAssertEqual(attachment1?.number, 1)
         XCTAssertEqual(attachment2?.number, 2)
     }
+
+    func testInsertFootnotePrunesOrphanedModelBeforeNumbering() throws {
+        let orphan = FootnoteModel(
+            version: testVersion,
+            characterPosition: 0,
+            attachmentID: UUID(),
+            text: "Orphaned footnote",
+            number: 1
+        )
+        modelContext.insert(orphan)
+
+        let originalText = NSAttributedString(string: "Hello World")
+        let (_, footnote) = FootnoteInsertionHelper.insertFootnote(
+            in: originalText,
+            at: 5,
+            footnoteText: "Visible footnote",
+            version: testVersion,
+            context: modelContext
+        )
+
+        XCTAssertEqual(footnote.number, 1)
+        XCTAssertNil(FootnoteManager.shared.getFootnote(id: orphan.id, context: modelContext))
+    }
     
     func testInsertFootnotesOutOfOrder() throws {
         let originalText = NSAttributedString(string: "A B C D E")

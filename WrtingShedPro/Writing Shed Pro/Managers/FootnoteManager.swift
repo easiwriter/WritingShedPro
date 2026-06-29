@@ -119,12 +119,13 @@ final class FootnoteManager: ObservableObject {
     /// - Parameters:
     ///   - footnote: The footnote to delete
     ///   - context: SwiftData model context
-    func deleteFootnote(_ footnote: FootnoteModel, context: ModelContext) {
-        guard let version = footnote.version else {
+    @discardableResult
+    func deleteFootnote(_ footnote: FootnoteModel, context: ModelContext) -> Bool {
+        let version = footnote.version
+        if version == nil {
             #if DEBUG
-            print("❌ Cannot delete footnote: no version relationship")
+            print("⚠️ Deleting footnote with no version relationship: \(footnote.id)")
             #endif
-            return
         }
         
         footnote.prepareForPermanentDeletion()
@@ -136,14 +137,20 @@ final class FootnoteManager: ObservableObject {
         #endif
         
         // Renumber remaining footnotes
-        renumberFootnotes(forVersion: version, context: context)
+        if let version {
+            renumberFootnotes(forVersion: version, context: context)
+        }
         
         // Post notification so views can update footnote attachment numbers
-        NotificationCenter.default.post(
-            name: .footnoteNumbersDidChange,
-            object: nil,
-            userInfo: ["versionID": version.id.uuidString]
-        )
+        if let version {
+            NotificationCenter.default.post(
+                name: .footnoteNumbersDidChange,
+                object: nil,
+                userInfo: ["versionID": version.id.uuidString]
+            )
+        }
+
+        return true
     }
     
     // MARK: - Numbering Logic

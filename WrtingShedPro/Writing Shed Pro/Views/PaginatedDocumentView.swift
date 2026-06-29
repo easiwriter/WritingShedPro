@@ -117,6 +117,12 @@ struct PaginatedDocumentView: View {
             #endif
             recalculateLayout()
         }
+        .onChange(of: textFile.currentVersion?.formattedContent) { oldValue, newValue in
+            #if DEBUG
+            print("📝 Version formattedContent changed: \(oldValue?.count ?? 0) → \(newValue?.count ?? 0)")
+            #endif
+            recalculateLayout()
+        }
         // Note: Page setup is now global (UserDefaults), changes require app restart
         .onChange(of: project.styleSheet?.modifiedDate) { _, _ in
             #if DEBUG

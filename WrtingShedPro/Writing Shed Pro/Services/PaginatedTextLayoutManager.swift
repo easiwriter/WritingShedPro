@@ -628,8 +628,9 @@ class PaginatedTextLayoutManager {
         let pageHeight = pageLayout.pageRect.height
         updateInitialEstimatedLayout(estimatedPages: estimatedPages, pageLayout: pageLayout, pageHeight: pageHeight)
         
-        // Get all footnotes for this version
-        let allFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
+        // Get footnotes anchored in the text. Relationship-based lookups can lag behind
+        // newly inserted markers, so fall back to attachmentID for markers in textStorage.
+        let allFootnotes = getAnchoredFootnotes(forVersion: version, context: context)
         let maxFootnoteSpace = containerSize.height * 0.5  // Max half page for footnotes
         let totalCharacters = textStorage.length
         let maxPagesPerFootnoteIteration = 5  // Max iterations per page for footnote space
@@ -1055,6 +1056,30 @@ class PaginatedTextLayoutManager {
         return actualPositions
     }
 
+    private func getAnchoredFootnotes(forVersion version: Version, context: ModelContext) -> [FootnoteModel] {
+        let actualPositions = actualFootnoteAttachmentPositions()
+        let activeFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
+        let activeByAttachmentID = Dictionary(uniqueKeysWithValues: activeFootnotes.map { ($0.attachmentID, $0) })
+
+        return actualPositions.compactMap { attachmentID, _ in
+            activeByAttachmentID[attachmentID]
+                ?? fetchFootnoteByAttachment(attachmentID: attachmentID, context: context)
+        }
+        .sorted { lhs, rhs in
+            (actualPositions[lhs.attachmentID] ?? lhs.characterPosition) < (actualPositions[rhs.attachmentID] ?? rhs.characterPosition)
+        }
+    }
+
+    private func fetchFootnoteByAttachment(attachmentID: UUID, context: ModelContext) -> FootnoteModel? {
+        let descriptor = FetchDescriptor<FootnoteModel>(
+            predicate: #Predicate { footnote in
+                footnote.attachmentID == attachmentID
+            }
+        )
+
+        return try? context.fetch(descriptor).first
+    }
+
     private func buildFootnotesWithActualPositions(from allFootnotes: [FootnoteModel]) -> [FootnoteInfo] {
         let actualPositions = actualFootnoteAttachmentPositions()
         return allFootnotes.compactMap { footnote in
@@ -1063,9 +1088,9 @@ class PaginatedTextLayoutManager {
             }
 
             #if DEBUG
-            print("   ⚠️ Footnote #\(footnote.number) not found in text, using stored position \(footnote.characterPosition)")
+            print("   ⚠️ Footnote #\(footnote.number) not found in text, skipping orphaned model")
             #endif
-            return FootnoteInfo(footnote: footnote, actualPosition: footnote.characterPosition)
+            return nil
         }
         .sorted { $0.actualPosition < $1.actualPosition }
     }
@@ -1189,21 +1214,14 @@ class PaginatedTextLayoutManager {
     /// Get footnotes for an explicit character range (use when layoutResult may not be set yet,
     /// e.g. PDF rendering on a background thread).
     func getFootnotes(in textRange: NSRange, version: Version, context: ModelContext) -> [FootnoteModel] {
-        // Get all active footnotes for version
-        let allFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
-        
-        // CRITICAL: Build a map of actual attachment positions from the text storage
-        // The stored characterPosition in FootnoteModel may be stale/incorrect
-        var actualPositions: [UUID: Int] = [:]
-        textStorage.enumerateAttribute(.attachment, in: NSRange(location: 0, length: textStorage.length), options: []) { value, range, _ in
-            if let footnoteAttachment = value as? FootnoteAttachment {
-                actualPositions[footnoteAttachment.footnoteID] = range.location
-            }
-        }
+        let allFootnotes = getAnchoredFootnotes(forVersion: version, context: context)
+        let actualPositions = actualFootnoteAttachmentPositions()
         
         // Filter to footnotes within this page's text range using ACTUAL positions
         return allFootnotes.filter { footnote in
-            let actualPosition = actualPositions[footnote.attachmentID] ?? footnote.characterPosition
+            guard let actualPosition = actualPositions[footnote.attachmentID] else {
+                return false
+            }
             return NSLocationInRange(actualPosition, textRange)
         }
     }
@@ -1233,7 +1251,9 @@ class PaginatedTextLayoutManager {
         }
         
         return assembledFootnotes.filter { fn in
-            let actualPosition = actualPositions[fn.attachmentID] ?? fn.characterPosition
+            guard let actualPosition = actualPositions[fn.attachmentID] else {
+                return false
+            }
             return NSLocationInRange(actualPosition, textRange)
         }
     }

@@ -105,6 +105,24 @@ final class FootnoteManagerTests: XCTestCase {
         let retrieved = manager.getFootnote(id: footnoteID, context: modelContext)
         XCTAssertNil(retrieved)
     }
+
+    func testDeleteFootnoteWithoutVersionRelationship() throws {
+        let footnote = manager.createFootnote(
+            version: testVersion,
+            characterPosition: 5,
+            attachmentID: UUID(),
+            text: "To delete",
+            context: modelContext
+        )
+
+        let footnoteID = footnote.id
+        footnote.version = nil
+
+        XCTAssertTrue(manager.deleteFootnote(footnote, context: modelContext))
+
+        let retrieved = manager.getFootnote(id: footnoteID, context: modelContext)
+        XCTAssertNil(retrieved)
+    }
     
     func testUpdateFootnoteText() throws {
         let footnote = manager.createFootnote(

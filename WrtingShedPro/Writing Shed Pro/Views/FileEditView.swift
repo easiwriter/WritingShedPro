@@ -260,6 +260,25 @@ struct FileEditView: View {
     private var editorZoomPercent: Int {
         Int(round(editorZoomScale * 100))
     }
+
+    /// Glossary/Index marker insertion is only valid in body files, not
+    /// manuscript front matter or back matter files.
+    private var canInsertGlossaryAndIndexMarkers: Bool {
+        let folderName = file.parentFolder?.name ?? ""
+        return folderName != "Front Matter" && !file.isBackMatterFile
+    }
+
+    /// Glossary marker commands should only be available in body files
+    /// when the Glossary section is enabled in Back Matter settings.
+    private var canAddGlossaryMarkers: Bool {
+        canInsertGlossaryAndIndexMarkers && backMatterSettings.isEnabled(.glossary)
+    }
+
+    /// Index marker commands should only be available in body files
+    /// when the Index section is enabled in Back Matter settings.
+    private var canAddIndexMarkers: Bool {
+        canInsertGlossaryAndIndexMarkers && backMatterSettings.isEnabled(.index)
+    }
     
     private func textEditorSection() -> some View {
         Group {
@@ -314,12 +333,12 @@ struct FileEditView: View {
                                 onMixedAttachmentsDeleted: { references, comments, footnotes, deletionRange in
                                     handleMixedAttachmentsDeleted(references, comments: comments, footnotes: footnotes, in: deletionRange)
                                 },
-                                onGlossaryAddRequested: { selectedText in
+                                onGlossaryAddRequested: canAddGlossaryMarkers ? { selectedText in
                                     handleGlossaryAddRequested(selectedText)
-                                },
-                                onIndexAddRequested: { selectedText in
+                                } : nil,
+                                onIndexAddRequested: canAddIndexMarkers ? { selectedText in
                                     handleIndexAddRequested(selectedText)
-                                },
+                                } : nil,
                                 onTabPressed: {
                                     insertTab()
                                 },
@@ -381,12 +400,12 @@ struct FileEditView: View {
                                 onMixedAttachmentsDeleted: { references, comments, footnotes, deletionRange in
                                     handleMixedAttachmentsDeleted(references, comments: comments, footnotes: footnotes, in: deletionRange)
                                 },
-                                onGlossaryAddRequested: { selectedText in
+                                onGlossaryAddRequested: canAddGlossaryMarkers ? { selectedText in
                                     handleGlossaryAddRequested(selectedText)
-                                },
-                                onIndexAddRequested: { selectedText in
+                                } : nil,
+                                onIndexAddRequested: canAddIndexMarkers ? { selectedText in
                                     handleIndexAddRequested(selectedText)
-                                },
+                                } : nil,
                                 onTabPressed: {
                                     insertTab()
                                 },
@@ -455,6 +474,12 @@ struct FileEditView: View {
                                 onMixedAttachmentsDeleted: { references, comments, footnotes, deletionRange in
                                     handleMixedAttachmentsDeleted(references, comments: comments, footnotes: footnotes, in: deletionRange)
                                 },
+                                onGlossaryAddRequested: canAddGlossaryMarkers ? { selectedText in
+                                    handleGlossaryAddRequested(selectedText)
+                                } : nil,
+                                onIndexAddRequested: canAddIndexMarkers ? { selectedText in
+                                    handleIndexAddRequested(selectedText)
+                                } : nil,
                                 onTabPressed: {
                                     insertTab()
                                 },
@@ -513,6 +538,12 @@ struct FileEditView: View {
                                 onMixedAttachmentsDeleted: { references, comments, footnotes, deletionRange in
                                     handleMixedAttachmentsDeleted(references, comments: comments, footnotes: footnotes, in: deletionRange)
                                 },
+                                onGlossaryAddRequested: canAddGlossaryMarkers ? { selectedText in
+                                    handleGlossaryAddRequested(selectedText)
+                                } : nil,
+                                onIndexAddRequested: canAddIndexMarkers ? { selectedText in
+                                    handleIndexAddRequested(selectedText)
+                                } : nil,
                                 onTabPressed: {
                                     insertTab()
                                 },
@@ -539,7 +570,7 @@ struct FileEditView: View {
     private func formattingToolbar() -> some View {
         // Pure SwiftUI toolbar that respects iOS 26.2+ button styling
         let notesExist = file.currentVersion?.notes?.isEmpty == false
-        let indexEnabled = backMatterSettings.isEnabled(.index)
+        let indexEnabled = backMatterSettings.isEnabled(.index) && canInsertGlossaryAndIndexMarkers
         SwiftUIFormattingToolbar(
             onFormatAction: { action in
                 switch action {
@@ -582,7 +613,9 @@ struct FileEditView: View {
                 case .decreaseIndent:
                     decreaseListIndent()
                 case .addIndex:
-                    showIndexEntryDialogWithSelectedText()
+                    if canAddIndexMarkers {
+                        showIndexEntryDialogWithSelectedText()
+                    }
                 }
             },
             hasSelectedImage: selectedImage != nil,
@@ -724,7 +757,7 @@ struct FileEditView: View {
         }
         
         // Glossary (top-level)
-        if backMatterSettings.isEnabled(.glossary) {
+        if backMatterSettings.isEnabled(.glossary) && canInsertGlossaryAndIndexMarkers {
             compactGlossarySubmenu()
         }
         
@@ -734,7 +767,7 @@ struct FileEditView: View {
         }
         
         // Index (top-level)
-        if backMatterSettings.isEnabled(.index) {
+        if backMatterSettings.isEnabled(.index) && canInsertGlossaryAndIndexMarkers {
             compactIndexSubmenu()
         }
         
@@ -834,7 +867,7 @@ struct FileEditView: View {
     /// Glossary button for compact mode
     @ViewBuilder
     private func compactGlossarySubmenu() -> some View {
-        Button(action: { showNewGlossaryTermDialog = true }) {
+        Button(action: { showGlossaryTermDialogWithSelectedText() }) {
             Label(NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add Glossary Term"), systemImage: "text.book.closed.fill")
         }
     }
@@ -1365,8 +1398,8 @@ struct FileEditView: View {
             }
 
             // Glossary - direct button, no submenu
-            if backMatterSettings.isEnabled(.glossary) {
-                Button(action: { showNewGlossaryTermDialog = true }) {
+            if backMatterSettings.isEnabled(.glossary) && canInsertGlossaryAndIndexMarkers {
+                Button(action: { showGlossaryTermDialogWithSelectedText() }) {
                     Label(NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add Term"), systemImage: "text.book.closed.fill")
                 }
             }
@@ -1379,7 +1412,7 @@ struct FileEditView: View {
             }
             
             // Index - direct button, no submenu
-            if backMatterSettings.isEnabled(.index) {
+            if backMatterSettings.isEnabled(.index) && canInsertGlossaryAndIndexMarkers {
                 Button(action: { showIndexEntryDialogWithSelectedText() }) {
                     Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "character.book.closed.fill")
                 }
@@ -1582,16 +1615,30 @@ struct FileEditView: View {
     
     /// Get the Back Matter settings from the project's Back Matter folder
     private var backMatterSettings: BackMatterSettings {
-        guard let project = file.project else {
+        guard let project = file.project ?? file.parentFolder?.project ?? findProjectInHierarchy() else {
             return BackMatterSettings()
         }
-        
-        // Use the project helper to find back matter folder
+
+        // Prefer a fresh store fetch to avoid stale relationship snapshots.
+        let projectID = project.id
+        let descriptor = FetchDescriptor<Folder>(
+            predicate: #Predicate<Folder> { folder in
+                folder.name == "Back Matter"
+            }
+        )
+
+        if let folders = try? modelContext.fetch(descriptor),
+           let backMatterFolder = folders.first(where: {
+               $0.project?.id == projectID || $0.parentFolder?.project?.id == projectID
+           }) {
+            return backMatterFolder.backMatterSettings
+        }
+
+        // Fallback to relationship traversal.
         if let backMatterFolder = project.findBackMatterFolder() {
             return backMatterFolder.backMatterSettings
         }
-        
-        // No back matter found
+
         return BackMatterSettings()
     }
     
@@ -1698,7 +1745,7 @@ struct FileEditView: View {
                 
                 // Add Index Entry: Cmd+Shift+X
                 Button("") {
-                    if backMatterSettings.isEnabled(.index) {
+                    if backMatterSettings.isEnabled(.index) && canInsertGlossaryAndIndexMarkers {
                         showIndexEntryDialogWithSelectedText()
                     }
                 }
@@ -2319,8 +2366,9 @@ struct FileEditView: View {
                             showFootnotesList = false
                         },
                         onFootnoteChanged: {
-                            // Footnote was updated, refresh display
-                            saveChanges()
+                            // Footnote text was updated by FootnoteManager; refresh without rewriting editor content.
+                            WriteCoalescer.shared?.flush()
+                            forceRefresh.toggle()
                         },
                         onFootnoteDeleted: { footnote in
                             // Footnote was deleted, remove marker from text
@@ -3600,6 +3648,7 @@ struct FileEditView: View {
                 // may not trigger textViewDidChange to clear the flag).
                 hasMissingAttachments = false
                 saveChanges()
+                WriteCoalescer.shared?.flush()
             }
         }
         
@@ -3610,39 +3659,45 @@ struct FileEditView: View {
     
     /// Remove a footnote attachment from the text when it's moved to trash
     private func removeFootnoteFromText(_ footnote: FootnoteModel) {
-        guard let textView = textViewCoordinator.textView else {
-            #if DEBUG
-            print("❌ Cannot remove footnote: no text view")
-            #endif
-            return
-        }
-        
         #if DEBUG
         print("🗑️ Removing footnote \(footnote.id) from text (attachmentID: \(footnote.attachmentID))")
         #endif
         
         // Set flag FIRST before any text modifications
         isPerformingUndoRedo = true
-        
-        // CRITICAL: Use attachmentID, not id! The FootnoteAttachment stores attachmentID, not the footnote's database ID
-        // Remove the footnote attachment from the text view
-        if let removedRange = FootnoteInsertionHelper.removeFootnoteFromTextView(textView, footnoteID: footnote.attachmentID) {
-            // Get the updated text from text view
-            let updatedText = textView.attributedText ?? NSAttributedString()
-            
-            // Update the model directly WITHOUT triggering attributedContent observer
+
+        var updatedText: NSAttributedString?
+        var removedLocation: Int?
+
+        if let textView = textViewCoordinator.textView,
+           let removedRange = FootnoteInsertionHelper.removeFootnoteFromTextView(textView, footnoteID: footnote.attachmentID) {
+            updatedText = textView.attributedText ?? NSAttributedString()
+            removedLocation = removedRange.location
+        } else {
+            let sourceText = file.currentVersion?.attributedContent ?? attributedContent
+            let withoutFootnote = FootnoteInsertionHelper.removeFootnote(from: sourceText, footnoteID: footnote.attachmentID)
+            if withoutFootnote.string != sourceText.string || withoutFootnote.length != sourceText.length {
+                updatedText = withoutFootnote
+            }
+        }
+
+        if let updatedText {
+            if let textView = textViewCoordinator.textView,
+               textView.attributedText?.string != updatedText.string {
+                textView.textStorage.setAttributedString(updatedText)
+            }
+
             file.currentVersion?.attributedContent = updatedText
             previousContent = updatedText.string
+            previousAttributedContent = updatedText
             file.modifiedDate = Date()
-            
-            WriteCoalescer.shared?.requestSave()
-            
-            // Update attributedContent LAST, after flag is set
-            // This ensures the observer sees isPerformingUndoRedo = true
             attributedContent = updatedText
-            
+
+            WriteCoalescer.shared?.requestSave()
+            WriteCoalescer.shared?.flush()
+
             #if DEBUG
-            print("✅ Footnote removed from position \(removedRange.location)")
+            print("✅ Footnote removed from position \(removedLocation ?? -1)")
             #endif
         } else {
             #if DEBUG
@@ -4025,20 +4080,10 @@ struct FileEditView: View {
         #if DEBUG
         print("🔄 Syncing back matter settings with actual files...")
         print("  Folder ID: \(backMatterFolder.id)")
-        print("  Folder has \(backMatterFolder.files?.count ?? 0) files in relationship")
+        print("  Folder has \(backMatterFolder.files?.count ?? 0) files in relationship (diagnostic only)")
         #endif
-        
-        // Try relationship first
-        if let relationshipFiles = backMatterFolder.files, !relationshipFiles.isEmpty {
-            let fileNames = Set(relationshipFiles.compactMap { $0.name })
-            #if DEBUG
-            print("📄 Back matter files from relationship: \(fileNames)")
-            #endif
-            syncSettingsWithFileNames(fileNames, backMatterFolder: backMatterFolder)
-            return
-        }
-        
-        // Query database directly as fallback
+
+        // Query database directly to avoid stale in-memory relationship state.
         let folderID = backMatterFolder.id
         do {
             let descriptor = FetchDescriptor<TextFile>(
@@ -4984,6 +5029,8 @@ struct FileEditView: View {
     
     /// Handle "Add to Glossary" from context menu with selected text
     private func handleGlossaryAddRequested(_ selectedText: String) {
+        guard canAddGlossaryMarkers else { return }
+
         let trimmedText = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
         
@@ -5006,6 +5053,26 @@ struct FileEditView: View {
             glossaryTermFromContextMenu = trimmedText
             showNewGlossaryTermDialog = true
         }
+    }
+
+    /// Show the glossary term dialog, pre-filling with selected text if any.
+    /// If the selected term already exists, insert a marker directly.
+    private func showGlossaryTermDialogWithSelectedText() {
+        guard canAddGlossaryMarkers else { return }
+
+        if let textView = textViewCoordinator.textView {
+            let selectedRange = textView.selectedRange
+            if selectedRange.length > 0,
+               let selectedText = textView.textStorage.attributedSubstring(from: selectedRange).string
+                .trimmingCharacters(in: .whitespacesAndNewlines) as String?,
+               !selectedText.isEmpty {
+                handleGlossaryAddRequested(selectedText)
+                return
+            }
+        }
+
+        glossaryTermFromContextMenu = nil
+        showNewGlossaryTermDialog = true
     }
     
     /// Insert a glossary term marker at the current cursor position
@@ -5301,6 +5368,8 @@ struct FileEditView: View {
     
     /// Show the index entry dialog, pre-filling with selected text if any
     private func showIndexEntryDialogWithSelectedText() {
+        guard canAddIndexMarkers else { return }
+
         #if DEBUG
         print("📑 showIndexEntryDialogWithSelectedText called")
         #endif
@@ -5334,15 +5403,16 @@ struct FileEditView: View {
     
     /// Handle "Add to Index" from context menu with selected text (Feature 033)
     private func handleIndexAddRequested(_ selectedText: String) {
+        guard canAddIndexMarkers else { return }
+
         let trimmedText = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
         
         guard let project = file.project else { return }
         
-        // Check if this index entry already exists (case-insensitive)
-        if let existingEntry = project.indexEntries?.first(where: { 
-            $0.keyword.lowercased() == trimmedText.lowercased() 
-        }) {
+        // Check if this index entry already exists (case-insensitive).
+        // Use a direct fetch fallback to avoid stale relationship reads.
+        if let existingEntry = findExistingIndexEntry(keyword: trimmedText, project: project) {
             // Entry exists - insert marker directly
             #if DEBUG
             print("📑 Index entry '\(trimmedText)' already exists, inserting marker directly")
@@ -5358,6 +5428,34 @@ struct FileEditView: View {
             #endif
             newIndexEntryData = NewIndexEntryData(project: project, prefilledKeyword: trimmedText)
         }
+    }
+
+    /// Find an existing index entry for keyword using relationship data first,
+    /// then a direct store fetch as a fallback.
+    private func findExistingIndexEntry(keyword: String, project: Project) -> IndexEntry? {
+        let normalized = keyword.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return nil }
+
+        if let relationshipMatch = project.indexEntries?.first(where: {
+            $0.keyword.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized
+        }) {
+            return relationshipMatch
+        }
+
+        let projectID = project.id
+        let descriptor = FetchDescriptor<IndexEntry>(
+            predicate: #Predicate<IndexEntry> { entry in
+                entry.project?.id == projectID
+            }
+        )
+
+        if let entries = try? modelContext.fetch(descriptor) {
+            return entries.first(where: {
+                $0.keyword.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized
+            })
+        }
+
+        return nil
     }
     
     /// Insert an index marker at the current cursor position
@@ -7970,46 +8068,14 @@ struct FileEditView: View {
                         #endif
                     }
                     
-                    // Calculate scale to fit image to window width
-                    if let uiImage = UIImage(data: compressedData),
-                       let textView = self.textViewCoordinator.textView {
-                        let imageWidth = uiImage.size.width
-                        // Get available width (text view width minus container insets)
-                        let availableWidth = textView.frame.width - textView.textContainerInset.left - textView.textContainerInset.right - (textView.textContainer.lineFragmentPadding * 2)
-                        
-                        #if DEBUG
-                        print("🖼️ Image size check:")
-                        #endif
-                        #if DEBUG
-                        print("   - uiImage.size: \(uiImage.size)")
-                        #endif
-                        #if DEBUG
-                        print("   - uiImage.scale: \(uiImage.scale)")
-                        #endif
-                        #if DEBUG
-                        print("   - imageWidth (points): \(imageWidth)")
-                        #endif
-                        #if DEBUG
-                        print("   - availableWidth: \(availableWidth)")
-                        #endif
-                        #if DEBUG
-                        print("   - textView.frame.width: \(textView.frame.width)")
-                        #endif
-                        
-                        // Only scale down if image is wider than available space
-                        if imageWidth > availableWidth {
-                            let fitToWidthScale = availableWidth / imageWidth
-                            // Clamp to valid range (0.1 to 2.0)
-                            scale = max(0.1, min(2.0, fitToWidthScale))
-                            #if DEBUG
-                            print("🖼️ Image scaled to fit window: \(imageWidth)px → \(availableWidth)px, scale=\(scale)")
-                            #endif
-                        } else {
-                            #if DEBUG
-                            print("🖼️ Image fits naturally, using scale=\(scale)")
-                            #endif
-                        }
-                    }
+                    // NOTE: Do NOT bake a device-specific "fit to width" scale into the
+                    // image here. `scale` is interpreted as a fraction of the text
+                    // column width (1.0 == fill the column) and the display size is
+                    // computed per-device at layout time (see ImageAttachment.displaySize
+                    // and attachmentBounds). Computing a fit factor from this device's
+                    // window would make the image render at the wrong size on other
+                    // devices and on the printed page. We keep the stylesheet default
+                    // scale so the image fills the column on every device.
                     
                     #if DEBUG
                     print("🖼️ Inserting image with settings from stylesheet")
