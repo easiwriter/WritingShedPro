@@ -6147,16 +6147,16 @@ struct FileEditView: View {
             if let (attachment, range) = mutableContent.footnoteAttachment(withID: footnote.attachmentID) {
                 var needsReplace = false
                 if attachment.number != footnote.number {
-                    attachment.number = footnote.number
                     needsReplace = true
                 }
                 if attachment.markerStyle != markerStyle {
-                    attachment.markerStyle = markerStyle
                     needsReplace = true
                 }
                 if needsReplace {
                     // Replace the attachment character to force image regeneration
-                    let newAttachmentString = NSAttributedString(attachment: attachment)
+                    let replacement = FootnoteAttachment(footnoteID: attachment.footnoteID, number: footnote.number)
+                    replacement.markerStyle = markerStyle
+                    let newAttachmentString = NSAttributedString(attachment: replacement)
                     mutableContent.replaceCharacters(in: range, with: newAttachmentString)
                     needsUpdate = true
                 }

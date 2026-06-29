@@ -58,8 +58,12 @@ struct FootnoteInsertionHelper {
             context: context
         )
         
-        // Update the attachment to match the authoritative model number
-        attachment.number = footnote.number
+        // Replace with a fresh attachment carrying the authoritative number. Mutating
+        // an attachment already in NSTextStorage can leave the current glyph draw blank
+        // until the text view is scrolled/redrawn.
+        let numberedAttachment = FootnoteAttachment(footnoteID: attachmentID, number: footnote.number)
+        numberedAttachment.markerStyle = markerStyle
+        mutableText.replaceCharacters(in: NSRange(location: safePosition, length: 1), with: NSAttributedString(attachment: numberedAttachment))
         
         return (mutableText, footnote)
     }
@@ -110,8 +114,12 @@ struct FootnoteInsertionHelper {
             context: context
         )
         
-        // Update the attachment to match the authoritative model number
-        attachment.number = footnote.number
+        // Replace with a fresh attachment carrying the authoritative number. Mutating
+        // an attachment already in NSTextStorage can leave the current glyph draw blank
+        // until the text view is scrolled/redrawn.
+        let numberedAttachment = FootnoteAttachment(footnoteID: attachmentID, number: footnote.number)
+        numberedAttachment.markerStyle = markerStyle
+        textStorage.replaceCharacters(in: NSRange(location: insertPosition, length: 1), with: NSAttributedString(attachment: numberedAttachment))
         
         return footnote
     }
@@ -147,11 +155,9 @@ struct FootnoteInsertionHelper {
         
         // Find the footnote attachment
         if let (attachment, range) = attributedText.footnoteAttachment(withID: footnoteID) {
-            // Update the number
-            attachment.number = newNumber
-            
-            // Create new attachment string with updated number
-            let newAttachmentString = NSAttributedString(attachment: attachment)
+            let replacement = FootnoteAttachment(footnoteID: attachment.footnoteID, number: newNumber)
+            replacement.markerStyle = attachment.markerStyle
+            let newAttachmentString = NSAttributedString(attachment: replacement)
             
             // Replace the old attachment
             mutableText.replaceCharacters(in: range, with: newAttachmentString)
@@ -186,20 +192,17 @@ struct FootnoteInsertionHelper {
         for footnote in footnotes {
             if let (attachment, range) = mutableText.footnoteAttachment(withID: footnote.attachmentID) {
                 var needsReplace = false
-                // Check if number needs updating
                 if attachment.number != footnote.number {
-                    attachment.number = footnote.number
                     needsReplace = true
                 }
-                // Check if marker style needs updating
                 if attachment.markerStyle != markerStyle {
-                    attachment.markerStyle = markerStyle
                     needsReplace = true
                 }
                 
                 if needsReplace {
-                    // Create new attachment string
-                    let newAttachmentString = NSAttributedString(attachment: attachment)
+                    let replacement = FootnoteAttachment(footnoteID: attachment.footnoteID, number: footnote.number)
+                    replacement.markerStyle = markerStyle
+                    let newAttachmentString = NSAttributedString(attachment: replacement)
                     
                     // Replace the old attachment
                     mutableText.replaceCharacters(in: range, with: newAttachmentString)

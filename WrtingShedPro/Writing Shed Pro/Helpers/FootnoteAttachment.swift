@@ -19,12 +19,10 @@ final class FootnoteAttachment: NSTextAttachment {
     /// The footnote number to display
     var number: Int {
         didSet {
-            // Clear cached image when number changes to force regeneration
             if number != oldValue {
-                self.image = nil
-                self.contents = nil
+                refreshMarkerImage()
                 #if DEBUG
-                print("🔄 FootnoteAttachment: Number changed from \(oldValue) to \(number), clearing cached image")
+                print("🔄 FootnoteAttachment: Number changed from \(oldValue) to \(number), refreshing marker image")
                 #endif
             }
         }
@@ -34,8 +32,7 @@ final class FootnoteAttachment: NSTextAttachment {
     var markerStyle: FootnoteMarkerStyle = .numeric {
         didSet {
             if markerStyle != oldValue {
-                self.image = nil
-                self.contents = nil
+                refreshMarkerImage()
             }
         }
     }
@@ -64,6 +61,7 @@ final class FootnoteAttachment: NSTextAttachment {
         self.footnoteID = footnoteID
         self.number = number
         super.init(data: nil, ofType: nil)
+        refreshMarkerImage()
     }
     
     required init?(coder: NSCoder) {
@@ -89,6 +87,7 @@ final class FootnoteAttachment: NSTextAttachment {
         #endif
         
         super.init(data: nil, ofType: nil)
+        refreshMarkerImage()
     }
     
     override func encode(with coder: NSCoder) {
@@ -126,6 +125,15 @@ final class FootnoteAttachment: NSTextAttachment {
         print("📝🎨 FootnoteAttachment.image() generating - footnoteID: \(footnoteID), number: \(number)")
         #endif
         
+        return self.image ?? renderMarkerImage()
+    }
+
+    private func refreshMarkerImage() {
+        self.image = renderMarkerImage()
+        self.contents = nil
+    }
+
+    private func renderMarkerImage() -> UIImage? {
         // Create attributed string for the marker
         let numberString = displayString
         
@@ -280,8 +288,9 @@ final class FootnoteAttachment: NSTextAttachment {
         textStorage.enumerateAttribute(.attachment, in: NSRange(location: 0, length: textStorage.length), options: []) { value, range, _ in
             guard let attachment = value as? FootnoteAttachment else { return }
             if attachment.markerStyle != markerStyle {
-                attachment.markerStyle = markerStyle
-                replacements.append((range, attachment))
+                let replacement = FootnoteAttachment(footnoteID: attachment.footnoteID, number: attachment.number)
+                replacement.markerStyle = markerStyle
+                replacements.append((range, replacement))
             }
         }
         
