@@ -10,9 +10,9 @@ import Foundation
 
 enum AppConstants {
     // MARK: - Website URLs
-    static let websiteURL = URL(string: "https://writingshedpro.com")!
-    static let supportURL = URL(string: "https://writingshedpro.com/support")!
-    static let privacyURL = URL(string: "https://writingshedpro.com/privacy")!
+    static let websiteURL = URL(string: "https://appworks.pro")!
+    static let supportURL = URL(string: "https://appworks.pro/contact/")!
+    static let privacyURL = URL(string: "https://appworks.pro/wsp-privacy-policy/")!
     
     // MARK: - App Store
     static let appStoreURL = URL(string: "https://apps.apple.com/gb/app/writing-shed-pro/id6747890719")!

@@ -7,11 +7,6 @@
 //
 
 import SwiftUI
-#if os(iOS)
-import UIKit
-#elseif os(macOS)
-import AppKit
-#endif
 
 struct ReaderSettingsView: View {
     @Environment(ReaderAppState.self) var appState
@@ -97,37 +92,6 @@ struct ReaderSettingsView: View {
                         }
                     }
                 }
-                
-                // Upgrade
-                Section {
-                    Button {
-                        openAppStore()
-                    } label: {
-                        HStack {
-                            Image(systemName: "pencil.and.outline")
-                                .foregroundStyle(.brown)
-                            
-                            VStack(alignment: .leading) {
-                                Text("Get Writing Shed Pro")
-                                    .foregroundStyle(.primary)
-                                
-                                Text("Create and edit your own documents")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            
-                            Spacer()
-                            
-                            Image(systemName: "arrow.up.right.square")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                } header: {
-                    Text("Writing Shed Pro")
-                } footer: {
-                    Text("WSP Reader lets you view documents. To create and edit, get Writing Shed Pro.")
-                }
             }
             .navigationTitle("Settings")
             #if os(iOS)
@@ -139,13 +103,5 @@ struct ReaderSettingsView: View {
             }
             #endif
         }
-    }
-    
-    private func openAppStore() {
-        #if os(iOS)
-        UIApplication.shared.open(AppConstants.appStoreURL)
-        #elseif os(macOS)
-        NSWorkspace.shared.open(AppConstants.appStoreURL)
-        #endif
     }
 }

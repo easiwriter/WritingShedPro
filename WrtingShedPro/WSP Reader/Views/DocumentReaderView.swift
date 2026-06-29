@@ -8,6 +8,15 @@
 
 import SwiftUI
 #if canImport(UIKit)
+
+// MARK: - Comments Context
+
+struct CommentsContext: Identifiable {
+    let id = UUID()
+    let fileID: String
+    let versionID: String
+    let originalComments: [WSPReaderComment]
+}
 import UIKit
 #elseif canImport(AppKit)
 import AppKit
@@ -25,7 +34,12 @@ struct DocumentReaderView: View {
     @State private var selection: DetailSelection?
     @State private var showSidebar: Bool = true
     @State private var showDocumentInfo: Bool = false
+    @State private var commentsContext: CommentsContext? = nil
     @State private var statusFilter: String = "All"
+    @State private var exportedFileURL: URL? = nil
+    @State private var showExportPicker: Bool = false
+    @State private var exportInProgress: Bool = false
+    @State private var exportError: String? = nil
 
     // Convenience for code that still needs the selected file
     private var selectedFile: WSPReaderFile? {
@@ -55,6 +69,52 @@ struct DocumentReaderView: View {
         .sheet(isPresented: $showDocumentInfo) {
             DocumentInfoView(document: document, isPresented: $showDocumentInfo)
         }
+#if !targetEnvironment(macCatalyst)
+        .sheet(item: $commentsContext) { ctx in
+            CommentsSheet(
+                onRequestClose: {
+                    commentsContext = nil
+                },
+                originalComments: ctx.originalComments,
+                fileID: ctx.fileID,
+                versionID: ctx.versionID,
+                documentName: document.projectName
+            )
+            .environment(appState)
+        }
+#endif
+        .sheet(isPresented: $showExportPicker) {
+            if let url = exportedFileURL {
+                DocumentExportPicker(fileURL: url)
+            }
+        }
+#if targetEnvironment(macCatalyst)
+        .overlay {
+            if let ctx = commentsContext {
+                commentsOverlay(ctx: ctx)
+            }
+        }
+#endif
+        .overlay {
+            if exportInProgress {
+                ZStack {
+                    Color.black.opacity(0.2).ignoresSafeArea()
+                    VStack(spacing: 10) {
+                        ProgressView()
+                        Text("Preparing Export…")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(20)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
+        }
+        .alert("Export Failed", isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
+            Button("OK") { exportError = nil }
+        } message: {
+            Text(exportError ?? "")
+        }
     }
     
     // MARK: - Sidebar
@@ -75,6 +135,17 @@ struct DocumentReaderView: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button { appState.closeDocument() } label: {
                             Label("Back", systemImage: "chevron.backward")
+                        }
+                    }
+
+                    if appState.hasLocalComments(forDocument: document.projectName) {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button {
+                                exportAnnotatedCopy()
+                            } label: {
+                                Image(systemName: "square.and.arrow.up")
+                            }
+                            .help("Export a copy of this project with your comments included")
                         }
                     }
                 }
@@ -111,6 +182,17 @@ struct DocumentReaderView: View {
             ToolbarItem(placement: .topBarLeading) {
                 Button { appState.closeDocument() } label: {
                     Label("Back", systemImage: "chevron.backward")
+                }
+            }
+
+            if appState.hasLocalComments(forDocument: document.projectName) {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        exportAnnotatedCopy()
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .help("Export a copy of this project with your comments included")
                 }
             }
 
@@ -191,7 +273,10 @@ struct DocumentReaderView: View {
                 fontSize: appState.fontSize,
                 onNavigateToFile: navigateToFile,
                 onNavigatePrev: { navigateAdjacent(to: file, forward: false) },
-                onNavigateNext: { navigateAdjacent(to: file, forward: true) }
+                onNavigateNext: { navigateAdjacent(to: file, forward: true) },
+                onShowComments: { ctx in
+                    commentsContext = ctx
+                }
             )
         case .manuscript:
             ManuscriptReaderView(
@@ -217,7 +302,38 @@ struct DocumentReaderView: View {
             )
         }
     }
-    
+
+#if targetEnvironment(macCatalyst)
+    // MARK: - Comments Overlay (Catalyst)
+    //
+    // Catalyst's SwiftUI sheet presentation from a NavigationSplitView detail
+    // toolbar is unreliable — the sheet window can present empty and hang. To
+    // avoid that entire class of cross-window bugs, comments are shown as an
+    // in-window overlay panel in the same view hierarchy.
+    @ViewBuilder
+    private func commentsOverlay(ctx: CommentsContext) -> some View {
+        ZStack {
+            Color.black.opacity(0.25)
+                .ignoresSafeArea()
+                .onTapGesture { commentsContext = nil }
+
+            CommentsSheet(
+                onRequestClose: { commentsContext = nil },
+                originalComments: ctx.originalComments,
+                fileID: ctx.fileID,
+                versionID: ctx.versionID,
+                documentName: document.projectName
+            )
+            .environment(appState)
+            .frame(width: 520, height: 480)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .shadow(radius: 30)
+        }
+        .transition(.opacity)
+    }
+#endif
+
     // MARK: - Navigation
     
     private func navigateToFile(_ fileId: String) {
@@ -275,6 +391,15 @@ struct DocumentReaderView: View {
             } label: {
                 Image(systemName: "info.circle")
             }
+
+            if appState.hasLocalComments(forDocument: document.projectName) {
+                Button {
+                    exportAnnotatedCopy()
+                } label: {
+                    Label("Export Annotated Copy", systemImage: "square.and.arrow.up")
+                }
+                .help("Export a copy of this project with your comments included")
+            }
         }
         #else
         ToolbarItem(placement: .automatic) {
@@ -309,7 +434,36 @@ struct DocumentReaderView: View {
     }
     
     // MARK: - Helpers
-    
+
+    private func exportAnnotatedCopy() {
+        exportInProgress = true
+        let allLocalComments = appState.localComments.filter {
+            $0.documentName == document.projectName
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let data = try document.exportDataMergingLocalComments(allLocalComments)
+                let dir = FileManager.default.temporaryDirectory
+                let safeName = document.projectName
+                    .components(separatedBy: .init(charactersIn: "/\\:*?\"<>|"))
+                    .joined(separator: "_")
+                let fileURL = dir.appendingPathComponent("\(safeName) (Annotated).wsp")
+                try data.write(to: fileURL, options: .atomic)
+
+                DispatchQueue.main.async {
+                    exportInProgress = false
+                    exportedFileURL = fileURL
+                    showExportPicker = true
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    exportInProgress = false
+                    exportError = error.localizedDescription
+                }
+            }
+        }
+    }
+
     private var projectIcon: String {
         switch document.projectType {
         case "poetry": return "text.quote"
@@ -695,3 +849,19 @@ struct FileRow: View {
         .cornerRadius(6)
     }
 }
+
+// MARK: - Document Export Picker
+
+#if canImport(UIKit)
+struct DocumentExportPicker: UIViewControllerRepresentable {
+    let fileURL: URL
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forExporting: [fileURL], asCopy: true)
+        picker.shouldShowFileExtensions = true
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+}
+#endif

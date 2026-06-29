@@ -2,38 +2,82 @@
 //  WSP_ReaderUITests.swift
 //  WSP ReaderUITests
 //
-//  Created by Keith Lander on 25/01/2026.
-//
 
 import XCTest
 
 final class WSP_ReaderUITests: XCTestCase {
 
     override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
         continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
     }
 
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
+    // MARK: - Home Screen
+
+    @MainActor
+    func testHomeScreenShowsTitle() throws {
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(
+            app.navigationBars["WSP Reader"].exists ||
+            app.staticTexts["WSP Reader"].exists,
+            "Home screen should display 'WSP Reader' title"
+        )
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
+    func testHomeScreenHasAddButton() throws {
         let app = XCUIApplication()
         app.launch()
-
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+        // + button is in the navigation bar; accessibility label is "Open WSP Project"
+        let addButton = app.buttons["Open WSP Project"].firstMatch
+        let navButton = app.navigationBars.buttons.element(boundBy: 0)
+        XCTAssertTrue(
+            addButton.exists || navButton.exists,
+            "A button to open a WSP file should be present on the home screen"
+        )
     }
+
+    @MainActor
+    func testHomeScreenRendersWithoutCrash() throws {
+        let app = XCUIApplication()
+        app.launch()
+        // Either empty state or recent documents list should be shown.
+        let noProjects = app.staticTexts["No Projects"]
+        let openButton = app.buttons["Open WSP File"]
+        XCTAssertTrue(
+            noProjects.exists || openButton.exists || app.cells.count > 0,
+            "Home screen should show empty state or recent documents"
+        )
+    }
+
+    // MARK: - Help (Catalyst only)
+
+    @MainActor
+    func testHelpMenuItemOpensSomeContent() throws {
+        #if !targetEnvironment(macCatalyst)
+        throw XCTSkip("Help menu only exists on Mac Catalyst")
+        #endif
+        let app = XCUIApplication()
+        app.launch()
+        let helpMenu = app.menuBars.menuBarItems["Help"]
+        guard helpMenu.exists else {
+            throw XCTSkip("Help menu bar item not found")
+        }
+        helpMenu.click()
+        let helpItem = app.menuItems["WSP Reader Help"]
+        XCTAssertTrue(helpItem.exists, "WSP Reader Help item should appear in the Help menu")
+        helpItem.click()
+        let helpTitle = app.staticTexts["WSP Reader Help"].firstMatch
+        XCTAssertTrue(
+            helpTitle.waitForExistence(timeout: 3),
+            "Help sheet should appear after tapping WSP Reader Help"
+        )
+    }
+
+    // MARK: - Performance
 
     @MainActor
     func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {
             XCUIApplication().launch()
         }

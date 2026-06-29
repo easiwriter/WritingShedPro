@@ -21,9 +21,9 @@ struct FileReaderView: View {
     var onNavigateToFile: ((String) -> Void)? = nil
     var onNavigatePrev: (() -> Void)? = nil
     var onNavigateNext: (() -> Void)? = nil
+    var onShowComments: ((CommentsContext) -> Void)? = nil
 
     @Environment(ReaderAppState.self) private var appState
-    @State private var showComments: Bool = false
     /// Index of the version currently being read. Starts at the file's current version.
     @State private var selectedVersionIndex: Int
     /// Cached scaled attributed string — rebuilt only when file or fontSize changes.
@@ -44,7 +44,8 @@ struct FileReaderView: View {
         fontSize: CGFloat,
         onNavigateToFile: ((String) -> Void)? = nil,
         onNavigatePrev: (() -> Void)? = nil,
-        onNavigateNext: (() -> Void)? = nil
+        onNavigateNext: (() -> Void)? = nil,
+        onShowComments: ((CommentsContext) -> Void)? = nil
     ) {
         self.file = file
         self.projectType = projectType
@@ -53,6 +54,7 @@ struct FileReaderView: View {
         self.onNavigateToFile = onNavigateToFile
         self.onNavigatePrev = onNavigatePrev
         self.onNavigateNext = onNavigateNext
+        self.onShowComments = onShowComments
         _selectedVersionIndex = State(initialValue: file.currentVersionIndex)
     }
 
@@ -91,15 +93,17 @@ struct FileReaderView: View {
             .navigationTitle(file.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .secondaryAction) {
-                    if !comments.isEmpty {
-                        Button {
-                            showComments.toggle()
-                        } label: {
-                            Label("Comments", systemImage: "text.bubble")
-                        }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Comments") {
+                        onShowComments?(CommentsContext(
+                            fileID: file.id,
+                            versionID: selectedVersion?.id
+                                ?? file.currentVersion?.id
+                                ?? file.versions.first?.id
+                                ?? "",
+                            originalComments: comments
+                        ))
                     }
-
                 }
             }
             #else
@@ -111,21 +115,20 @@ struct FileReaderView: View {
             .navigationTitle(file.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .secondaryAction) {
-                    if !comments.isEmpty {
-                        Button {
-                            showComments.toggle()
-                        } label: {
-                            Label("Comments", systemImage: "text.bubble")
-                        }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Comments") {
+                        onShowComments?(CommentsContext(
+                            fileID: file.id,
+                            versionID: selectedVersion?.id
+                                ?? file.currentVersion?.id
+                                ?? file.versions.first?.id
+                                ?? "",
+                            originalComments: comments
+                        ))
                     }
-
                 }
             }
             #endif
-        }
-        .sheet(isPresented: $showComments) {
-            CommentsSheet(comments: comments)
         }
         .onAppear {
             #if targetEnvironment(macCatalyst)
@@ -420,6 +423,20 @@ struct FileReaderView: View {
 
     private var comments: [WSPReaderComment] {
         selectedVersion?.comments ?? []
+    }
+
+    private var documentName: String {
+        // Walk up via ReaderAppState to get the document name
+        appState.currentDocument?.projectName ?? ""
+    }
+
+    private var allComments: [Any] {
+        let local = appState.localComments(
+            forFileID: file.id,
+            versionID: selectedVersion?.id ?? "",
+            documentName: documentName
+        )
+        return comments + local
     }
 
     private static let dateFormatter: DateFormatter = {
@@ -786,50 +803,192 @@ struct FootnotesSheet: View {
 }
 
 // MARK: - Comments Sheet
+//
+// The add-comment form is shown inline (no nested sheet) to avoid Catalyst's
+// nested-sheet dismiss bug where environment dismiss never fires.
 
 struct CommentsSheet: View {
-    let comments: [WSPReaderComment]
-    @Environment(\.dismiss) private var dismiss
-    
+    let onRequestClose: () -> Void
+    let originalComments: [WSPReaderComment]
+    let fileID: String
+    let versionID: String
+    let documentName: String
+    @Environment(ReaderAppState.self) private var appState
+
+    // When true, the compose form replaces the list inside the same NavigationStack.
+    @State private var composing = false
+    @State private var newCommentText = ""
+    @State private var showAuthorPrompt = false
+    @State private var pendingAuthorName = ""
+    @FocusState private var editorFocused: Bool
+
+    private var localComments: [ReaderLocalComment] {
+        appState.localComments(forFileID: fileID, versionID: versionID, documentName: documentName)
+    }
+
     var body: some View {
-        NavigationStack {
-            List(comments) { comment in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(comment.author)
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                        
-                        Spacer()
-                        
-                        Text(formattedDate(comment.createdAt))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    Text(comment.text)
-                        .font(.body)
-                    
-                    if comment.isResolved {
-                        Label("Resolved", systemImage: "checkmark.circle.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.green)
-                    }
-                }
-                .padding(.vertical, 4)
+        VStack(spacing: 0) {
+            headerBar
+            Divider()
+            if composing {
+                composeView
+            } else {
+                listView
             }
-            .navigationTitle("Comments")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+        }
+        .alert("Your Name", isPresented: $showAuthorPrompt) {
+            TextField("Name", text: $pendingAuthorName)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") {
+                let trimmed = pendingAuthorName.trimmingCharacters(in: .whitespaces)
+                if !trimmed.isEmpty {
+                    appState.readerAuthorName = trimmed
+                    newCommentText = ""
+                    composing = true
                 }
+            }
+        } message: {
+            Text("Enter your name so the author knows who left this comment.")
+        }
+        #if targetEnvironment(macCatalyst)
+        .frame(minWidth: 460, idealWidth: 520, minHeight: 400, idealHeight: 480)
+        #endif
+    }
+
+    private var headerBar: some View {
+        HStack {
+            if composing {
+                Button("Cancel") {
+                    newCommentText = ""
+                    composing = false
+                }
+                Spacer()
+                Text("New Comment")
+                    .font(.headline)
+                Spacer()
+                Button("Save") { saveComment() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(newCommentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            } else {
+                Text("Comments")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    if appState.readerAuthorName.isEmpty {
+                        pendingAuthorName = ""
+                        showAuthorPrompt = true
+                    } else {
+                        newCommentText = ""
+                        composing = true
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .padding(.trailing, 8)
+                Button("Done") {
+                    onRequestClose()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+    }
+
+    // MARK: - List
+
+    private var listView: some View {
+        List {
+            if !localComments.isEmpty {
+                Section("Your Comments") {
+                    ForEach(localComments) { comment in
+                        commentRow(author: comment.author, text: comment.text,
+                                   date: comment.createdAt, isResolved: false)
+                    }
+                    .onDelete { offsets in
+                        let ids = offsets.map { localComments[$0].id }
+                        ids.forEach { appState.deleteLocalComment(id: $0) }
+                    }
+                }
+            }
+            if !originalComments.isEmpty {
+                Section("Original Comments") {
+                    ForEach(originalComments) { comment in
+                        commentRow(author: comment.author, text: comment.text,
+                                   date: comment.createdAt, isResolved: comment.isResolved)
+                    }
+                }
+            }
+            if localComments.isEmpty && originalComments.isEmpty {
+                ContentUnavailableView("No Comments", systemImage: "text.bubble",
+                                       description: Text("Tap + to add a comment"))
             }
         }
     }
-    
+
+    // MARK: - Compose
+
+    private var composeView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Add a comment for the author. Your name will be attached.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal)
+                .padding(.top, 8)
+
+            TextEditor(text: $newCommentText)
+                .focused($editorFocused)
+                .frame(minHeight: 140)
+                .padding(8)
+                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal)
+
+            Spacer()
+        }
+        .onAppear { editorFocused = true }
+    }
+
+    // MARK: - Actions
+
+    private func saveComment() {
+        let trimmed = newCommentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let comment = ReaderLocalComment(
+            text: trimmed,
+            author: appState.readerAuthorName,
+            versionID: versionID,
+            fileID: fileID,
+            documentName: documentName
+        )
+        appState.addLocalComment(comment)
+        newCommentText = ""
+        composing = false
+    }
+
+    // MARK: - Helpers
+
+    private func commentRow(author: String, text: String, date: Date, isResolved: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(author.isEmpty ? "Anonymous" : author)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(formattedDate(date))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Text(text)
+                .font(.body)
+            if isResolved {
+                Label("Resolved", systemImage: "checkmark.circle.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.green)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
     private func formattedDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .short

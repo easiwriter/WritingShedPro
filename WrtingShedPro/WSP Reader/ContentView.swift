@@ -11,7 +11,8 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Environment(ReaderAppState.self) var appState
-    
+    @State private var showHelp = false
+
     var body: some View {
         @Bindable var appState = appState
         #if targetEnvironment(macCatalyst)
@@ -43,6 +44,8 @@ struct ContentView: View {
         .onDrop(of: [.wspDocument, .fileURL], isTargeted: nil) { providers in
             handleDrop(providers: providers)
         }
+        .sheet(isPresented: $showHelp) { ReaderHelpView() }
+        .onReceive(NotificationCenter.default.publisher(for: .wspReaderShowHelp)) { _ in showHelp = true }
         #else
         Group {
             if let document = appState.currentDocument {
@@ -90,6 +93,8 @@ struct ContentView: View {
         .onDrop(of: [.wspDocument, .fileURL], isTargeted: nil) { providers in
             handleDrop(providers: providers)
         }
+        .sheet(isPresented: $showHelp) { ReaderHelpView() }
+        .onReceive(NotificationCenter.default.publisher(for: .wspReaderShowHelp)) { _ in showHelp = true }
         #endif
     }
     
@@ -146,8 +151,6 @@ struct ContentView: View {
 
 struct HomeView: View {
     @Environment(ReaderAppState.self) var appState
-    @Environment(\.openURL) private var openURL
-    @State private var homeMode: HomeMode = .openFiles
 
     var body: some View {
         #if targetEnvironment(macCatalyst)
@@ -159,129 +162,35 @@ struct HomeView: View {
 
     @ViewBuilder
     private var homeContent: some View {
-        VStack(spacing: 0) {
-            Picker("Home Mode", selection: $homeMode) {
-                ForEach(HomeMode.allCases) { mode in
-                    Label(mode.title, systemImage: mode.systemImage)
-                        .tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            .padding(.top, 8)
-            .padding(.bottom, 12)
-
-            Group {
-                switch homeMode {
-                case .openFiles:
-                    if appState.recentDocuments.isEmpty {
-                        emptyState
-                    } else {
-                        projectList
-                    }
-                case .videos:
-                    videoLinks
-                case .samples:
-                    sampleProjects
-                }
+        Group {
+            if appState.recentDocuments.isEmpty {
+                emptyState
+            } else {
+                projectList
             }
         }
         .navigationTitle("WSP Reader")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
-            if homeMode == .openFiles {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        appState.openFilePicker()
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .help("Open WSP Project")
+            #if !targetEnvironment(macCatalyst)
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    NotificationCenter.default.post(name: .wspReaderShowHelp, object: nil)
+                } label: {
+                    Image(systemName: "questionmark.circle")
                 }
+                .help("WSP Reader Help")
+            }
+            #endif
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    appState.openFilePicker()
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .help("Open WSP Project")
             }
         }
-    }
-
-    private var videoLinks: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("See How Writing Shed Pro Works")
-                        .font(.headline)
-                    Text("These short videos show real workflows in the full app. Open any project here, then explore these demos to see what you can create.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 4)
-            }
-
-            Section("Video Walkthroughs") {
-                ForEach(ReaderPromoVideo.all) { video in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(video.title)
-                            .font(.headline)
-                        Text(video.commentary)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-
-                        Button {
-                            openURL(video.url)
-                        } label: {
-                            Label("Watch video", systemImage: "play.rectangle")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.brown)
-                    }
-                    .padding(.vertical, 6)
-                }
-            }
-
-            Section {
-                GetWSPButton()
-            }
-        }
-        .listStyle(.insetGrouped)
-    }
-
-    private var sampleProjects: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Sample Projects")
-                        .font(.headline)
-                    Text("Download ready-to-read WSP examples that demonstrate poetry forms, drama formatting, and fiction manuscripts.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 4)
-            }
-
-            Section("Available Samples") {
-                ForEach(ReaderSampleProject.all) { sample in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(sample.title)
-                            .font(.headline)
-                        Text(sample.commentary)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-
-                        Button {
-                            appState.openRemoteSample(named: sample.title, from: sample.url)
-                        } label: {
-                            Label("Open sample", systemImage: "arrow.down.doc")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.brown)
-                    }
-                    .padding(.vertical, 6)
-                }
-            }
-
-            Section {
-                GetWSPButton()
-            }
-        }
-        .listStyle(.insetGrouped)
     }
 
     // MARK: - Empty State
@@ -324,9 +233,6 @@ struct HomeView: View {
             .padding(.top, 8)
 
             Spacer()
-
-            GetWSPButton()
-                .padding(.bottom, 24)
         }
         .padding()
     }
@@ -346,99 +252,10 @@ struct HomeView: View {
                 .onDelete { offsets in
                     appState.removeRecentDocuments(at: offsets)
                 }
-            } footer: {
-                GetWSPButton()
-                    .padding(.top, 16)
             }
         }
         .listStyle(.insetGrouped)
     }
-}
-
-private enum HomeMode: String, CaseIterable, Identifiable {
-    case openFiles
-    case videos
-    case samples
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .openFiles:
-            return "Open Files"
-        case .videos:
-            return "Videos"
-        case .samples:
-            return "Samples"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .openFiles:
-            return "doc.badge.plus"
-        case .videos:
-            return "play.rectangle"
-        case .samples:
-            return "shippingbox"
-        }
-    }
-}
-
-private struct ReaderPromoVideo: Identifiable {
-    let id: String
-    let title: String
-    let commentary: String
-    let url: URL
-
-    static let all: [ReaderPromoVideo] = [
-        ReaderPromoVideo(
-            id: "introduction",
-            title: "Writing Shed Pro Introduction",
-            commentary: "A fast overview of the writing workspace, project types, and how everything stays organized while you draft.",
-            url: URL(string: "https://wsp-support.wsp-support.workers.dev/tutorials/Introduction.mov")!
-        ),
-        ReaderPromoVideo(
-            id: "quick-start-guide",
-            title: "Quick Start Guide",
-            commentary: "See the quickest path from creating a project to writing your first pages with ready-to-use defaults.",
-            url: URL(string: "https://wsp-support.wsp-support.workers.dev/tutorials/QuickStart.mov")!
-        ),
-        ReaderPromoVideo(
-            id: "tutorial-1",
-            title: "First Poem Walkthrough",
-            commentary: "A focused demo of poetry tools including structure support and editing flow in a real poem project.",
-            url: URL(string: "https://wsp-support.wsp-support.workers.dev/tutorials/FirstPoem.mov")!
-        ),
-    ]
-}
-
-private struct ReaderSampleProject: Identifiable {
-    let id: String
-    let title: String
-    let commentary: String
-    let url: URL
-
-    static let all: [ReaderSampleProject] = [
-        ReaderSampleProject(
-            id: "poetry-forms",
-            title: "Poetry Forms",
-            commentary: "A poetry project containing one poem for each supported poetry form.",
-            url: URL(string: "https://wsp-support.wsp-support.workers.dev/samples/Poetry%20forms.wsp")!
-        ),
-        ReaderSampleProject(
-            id: "a-play-for-today",
-            title: "A Play for Today",
-            commentary: "A short drama project demonstrating DML script formatting in context.",
-            url: URL(string: "https://wsp-support.wsp-support.workers.dev/samples/A%20Play%20for%20Today.wsp")!
-        ),
-        ReaderSampleProject(
-            id: "devils-triangle",
-            title: "The Devil's Triangle",
-            commentary: "A fiction project demonstrating novel structure and manuscript assembly.",
-            url: URL(string: "https://wsp-support.wsp-support.workers.dev/samples/The%20Devil's%20Triangle.wsp")!
-        ),
-    ]
 }
 
 // MARK: - Project Row
@@ -533,46 +350,3 @@ struct ProjectRow: View {
     }
 }
 
-// MARK: - Get WSP Button
-
-struct GetWSPButton: View {
-    var body: some View {
-        Button {
-            openAppStore()
-        } label: {
-            HStack {
-                Image(systemName: "pencil.and.outline")
-                    .foregroundStyle(.brown)
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Get Writing Shed Pro")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.primary)
-                    Text("Create and manage your writing projects")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "arrow.up.right.square")
-                    .foregroundStyle(.secondary)
-            }
-            .padding()
-            .background(.quaternary.opacity(0.5))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func openAppStore() {
-        if let url = URL(string: AppConstants.appStoreURL.absoluteString) {
-            #if os(iOS)
-            UIApplication.shared.open(url)
-            #elseif os(macOS)
-            NSWorkspace.shared.open(url)
-            #endif
-        }
-    }
-}

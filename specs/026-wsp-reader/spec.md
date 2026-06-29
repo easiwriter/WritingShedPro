@@ -246,23 +246,29 @@ Extract from main WSP codebase:
 
 ### App Description (Draft)
 ```
-WSP Reader lets you read and enjoy documents created with 
-Writing Shed Pro - the professional writing app for authors.
+WSP Reader is the companion app for Writing Shed Pro.
 
-Perfect for:
-• Reading manuscripts shared by writers
-• Viewing the Writing Shed Pro manual
-• Previewing .wsp documents before editing
+Its purpose is simple: open and read .wsp project files from Writing Shed Pro on iPhone, iPad, and Mac without carrying the full writing and editing workspace with you.
 
-Features:
-• Beautiful, distraction-free reading experience
-• Navigate complex documents with ease
-• Support for all WSP formatting
-• Clickable links and cross-references
-• Works with all .wsp files
+Use WSP Reader to:
+• Open exported Writing Shed Pro project files (.wsp)
+• Browse project structure and files quickly
+• Read formatted text in a clean, focused layout
+• View manuscript flow for continuous reading
+• Follow internal links and references while reviewing
+• Access your content across Apple devices in one lightweight reader app
 
-WSP Reader is free and works with any .wsp document.
-To create and edit documents, get Writing Shed Pro.
+WSP Reader is built for reading and review, not writing.
+It does not replace Writing Shed Pro's editing tools. Instead, it gives you a fast, distraction-free way to review your work anywhere.
+
+Ideal for:
+• Proofreading drafts away from your main writing setup
+• Reviewing manuscripts before submission
+• Reading your work on the go
+• Sharing projects for read-only access
+
+If you want full project creation and editing, use Writing Shed Pro.
+If you want clear, portable, read-focused access to your exported projects, use WSP Reader.
 ```
 
 ### Keywords

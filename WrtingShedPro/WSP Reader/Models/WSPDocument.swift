@@ -266,7 +266,10 @@ class WSPDocument {
 
     /// Submissions with linked files
     let submissions: [WSPReaderSubmission]
-    
+
+    /// Raw parsed export data — retained so we can re-encode with reader comments merged in.
+    private(set) var rawExportData: WSPExportData
+
     // MARK: - Initialization
 
     private static func sectionNameLookup(from data: WSPExportData) -> [String: String] {
@@ -357,11 +360,73 @@ class WSPDocument {
         self.submissions = wspData.submissions
             .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
             .map { WSPReaderSubmission(from: $0, fileByID: fileByID) }
-        
+
+        self.rawExportData = wspData
+
         print("[WSPDocument] Loaded: \(projectName) type=\(projectType) folders=\(folders.count) files=\(allFiles.count)")
         } catch let decodeError {
             print("[WSPDocument] JSON decode FAILED: \(decodeError)")
             throw decodeError
+        }
+    }
+
+    // MARK: - Annotated Export
+
+    /// Builds a new WSP JSON payload with the given reader comments appended to
+    /// each matching version's `notes` field as plain text.
+    ///
+    /// We deliberately avoid the `comments` array: those require a valid
+    /// NSTextAttachment anchor ID in the attributed string. Injecting comments
+    /// with empty attachmentIDs causes Writing Shed Pro to fail to resolve the
+    /// anchor and can corrupt the displayed content. The `notes` field is plain
+    /// text and is safe to write to without any text-range dependency.
+    func exportDataMergingLocalComments(_ readerComments: [ReaderLocalComment]) throws -> Data {
+        var export = rawExportData
+
+        // Build a lookup: versionID → formatted notes lines
+        var notesByVersionID: [String: [String]] = [:]
+        let dateFmt = DateFormatter()
+        dateFmt.dateStyle = .medium
+        dateFmt.timeStyle = .short
+        for rc in readerComments {
+            let line = "[\(rc.author), \(dateFmt.string(from: rc.createdAt))]: \(rc.text)"
+            notesByVersionID[rc.versionID, default: []].append(line)
+        }
+
+        guard !notesByVersionID.isEmpty else {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            return try encoder.encode(export)
+        }
+
+        // Walk all folders → textFiles → versions and append to notes
+        for fi in export.folders.indices {
+            mergeNotes(into: &export.folders[fi], lookup: notesByVersionID)
+        }
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(export)
+    }
+
+    private func mergeNotes(into folder: inout WSPFolderData, lookup: [String: [String]]) {
+        for fi in folder.textFiles.indices {
+            for vi in folder.textFiles[fi].versions.indices {
+                let versionID = folder.textFiles[fi].versions[vi].id
+                guard let lines = lookup[versionID], !lines.isEmpty else { continue }
+                let header = "--- Reader Comments ---"
+                let block = ([header] + lines).joined(separator: "\n")
+                let existing = folder.textFiles[fi].versions[vi].notes ?? ""
+                // Avoid appending duplicate blocks if exported more than once
+                if !existing.contains(header) {
+                    folder.textFiles[fi].versions[vi].notes = existing.isEmpty ? block : existing + "\n\n" + block
+                }
+            }
+        }
+        for si in folder.subfolders.indices {
+            mergeNotes(into: &folder.subfolders[si], lookup: lookup)
         }
     }
     
