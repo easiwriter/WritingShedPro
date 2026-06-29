@@ -79,6 +79,9 @@ struct FileListView: View {
     /// Optional: Collection groups for displaying files grouped by collection (Poetry projects)
     /// When provided, a toggle button appears in the toolbar to switch between flat and collection-grouped views
     let collectionGroups: [CollectionGroup]?
+
+    /// Whether there are any collections available for Add to Collection action.
+    let hasAvailableCollectionsForAddToCollection: Bool
     
     // MARK: - State
     
@@ -99,6 +102,12 @@ struct FileListView: View {
     @State private var showRenameModal = false
     @State private var renameText = ""
     @State private var showRenameDuplicateWarning = false
+    @State private var showNoCollectionsWarning = false
+    @State private var showCollectionEligibilityWarning = false
+    @State private var skippedCollectionIneligibleCount = 0
+    @State private var pendingCollectionReadyFileIDs: Set<UUID> = []
+    @State private var showSubmissionEligibilityWarning = false
+    @State private var skippedSubmissionIneligibleCount = 0
 
     /// Tracks which alphabetical sections are expanded (collapsed by default)
     @State private var expandedSections: Set<String> = []
@@ -152,6 +161,21 @@ struct FileListView: View {
     private var showToolbar: Bool {
         isEditMode && !selectedFileIDs.isEmpty
     }
+
+    /// Selected files that are eligible for adding to a collection.
+    private var selectedReadyFilesForCollection: [TextFile] {
+        selectedFiles.filter { $0.workflowStatus == .ready }
+    }
+
+    /// Add to Collection should be available when at least one selected file is ready.
+    private var canAddSelectedFilesToCollection: Bool {
+        !selectedReadyFilesForCollection.isEmpty
+    }
+
+    /// Add to Submission should be available when at least one selected file is ready.
+    private var canAddSelectedFilesToSubmission: Bool {
+        !selectedReadyFilesForCollection.isEmpty
+    }
     
     /// Alphabetically grouped sections of files
     private var sections: [AlphabeticalSectionHelper.Section<TextFile>] {
@@ -172,6 +196,11 @@ struct FileListView: View {
     private var useCollectionGrouping: Bool {
         collectionGroups != nil && !(collectionGroups?.isEmpty ?? true)
     }
+
+    /// Whether every file in the current list is selected.
+    private var allFilesSelected: Bool {
+        !uniqueFiles.isEmpty && selectedFileIDs.count == uniqueFiles.count
+    }
     
     // MARK: - Body
     
@@ -184,7 +213,9 @@ struct FileListView: View {
             .toolbar {
                 // Top toolbar for alphabetical expand/collapse (only when using sections and not in edit mode)
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    if useSections && !isEditMode {
+                    if isEditMode {
+                        selectAllToggleButton
+                    } else if useSections {
                         expandCollapseButtons
                     }
                 }
@@ -232,6 +263,26 @@ struct FileListView: View {
         } message: {
             Text("fileList.rename.duplicateMessage")
         }
+        .alert(NSLocalizedString("fileList.noCollections.title", comment: "No collections available"), isPresented: $showNoCollectionsWarning) {
+            Button("button.ok", role: .cancel) { }
+        } message: {
+            Text(NSLocalizedString("fileList.noCollections.message", comment: "Create a collection first"))
+        }
+        .alert(NSLocalizedString("fileList.partialSelection.title", comment: "Some files were skipped"), isPresented: $showCollectionEligibilityWarning) {
+            Button("button.cancel", role: .cancel) {
+                pendingCollectionReadyFileIDs.removeAll()
+            }
+            Button("button.continue") {
+                continueAddToCollectionAfterWarning()
+            }
+        } message: {
+            Text(String(format: NSLocalizedString("fileList.partialSelection.message", comment: "Skipped non-ready files message"), skippedCollectionIneligibleCount))
+        }
+        .alert(NSLocalizedString("fileList.partialSelection.title", comment: "Some files were skipped"), isPresented: $showSubmissionEligibilityWarning) {
+            Button("button.ok", role: .cancel) { }
+        } message: {
+            Text(String(format: NSLocalizedString("fileList.partialSelection.message", comment: "Skipped non-ready files message"), skippedSubmissionIneligibleCount))
+        }
         .sheet(item: $fileForFormChange) { file in
             PoetryFormPickerSheet(file: file)
         }
@@ -276,6 +327,28 @@ struct FileListView: View {
         } else if useSections {
             loadLastOpenedSection()
         }
+    }
+
+    private func continueAddToCollectionAfterWarning() {
+        guard hasAvailableCollectionsForAddToCollection else {
+            pendingCollectionReadyFileIDs.removeAll()
+            showNoCollectionsWarning = true
+            return
+        }
+
+        guard let onAddToCollection = onAddToCollection else {
+            pendingCollectionReadyFileIDs.removeAll()
+            return
+        }
+
+        let readyFiles = uniqueFiles.filter { pendingCollectionReadyFileIDs.contains($0.id) }
+        guard !readyFiles.isEmpty else {
+            pendingCollectionReadyFileIDs.removeAll()
+            return
+        }
+
+        onAddToCollection(readyFiles)
+        pendingCollectionReadyFileIDs.removeAll()
     }
     
     // MARK: - Extracted Content
@@ -525,6 +598,25 @@ struct FileListView: View {
             "fileList.collapseAll.hint" :
             "fileList.expandAll.hint"))
     }
+
+    @ViewBuilder
+    private var selectAllToggleButton: some View {
+        Button {
+            if allFilesSelected {
+                selectedFileIDs.removeAll()
+            } else {
+                selectedFileIDs = Set(uniqueFiles.map { $0.id })
+            }
+        } label: {
+            Text(allFilesSelected
+                ? NSLocalizedString("fileList.deselectAll", comment: "Deselect All")
+                : NSLocalizedString("fileList.selectAll", comment: "Select All"))
+        }
+        .disabled(uniqueFiles.isEmpty)
+        .accessibilityLabel(allFilesSelected
+            ? NSLocalizedString("fileList.deselectAll.accessibility", comment: "Deselect all files")
+            : NSLocalizedString("fileList.selectAll.accessibility", comment: "Select all files"))
+    }
     
     /// Collection section header with name, count, and expand/collapse
     @ViewBuilder
@@ -588,21 +680,42 @@ struct FileListView: View {
         }
         
         // Add to Collection button (if onAddToCollection callback provided - Poetry projects)
-        if let onAddToCollection = onAddToCollection {
+        if onAddToCollection != nil {
             Button {
-                onAddToCollection(selectedFiles)
+                guard hasAvailableCollectionsForAddToCollection else {
+                    showNoCollectionsWarning = true
+                    return
+                }
+
+                let readyFiles = selectedReadyFilesForCollection
+                let skippedCount = selectedFiles.count - readyFiles.count
+                if skippedCount > 0 {
+                    pendingCollectionReadyFileIDs = Set(readyFiles.map { $0.id })
+                    skippedCollectionIneligibleCount = skippedCount
+                    showCollectionEligibilityWarning = true
+                } else {
+                    onAddToCollection?(readyFiles)
+                }
             } label: {
                 Label(
                     NSLocalizedString("fileList.addToCollection", comment: "Add to Collection"),
                     systemImage: "doc.text"
                 )
             }
+            .disabled(!canAddSelectedFilesToCollection)
         }
         
         // Add to submission button (if onSubmit callback provided)
         if let onSubmit = onSubmit {
             Button {
-                onSubmit(selectedFiles)
+                let readyFiles = selectedReadyFilesForCollection
+                let skippedCount = selectedFiles.count - readyFiles.count
+                onSubmit(readyFiles)
+
+                if skippedCount > 0 {
+                    skippedSubmissionIneligibleCount = skippedCount
+                    showSubmissionEligibilityWarning = true
+                }
                 exitEditMode()
             } label: {
                 Label(
@@ -610,7 +723,7 @@ struct FileListView: View {
                     systemImage: "tray.and.arrow.down"
                 )
             }
-            .disabled(selectedFiles.isEmpty)
+            .disabled(!canAddSelectedFilesToSubmission)
         }
         
         // Rename button (only when exactly 1 file is selected)

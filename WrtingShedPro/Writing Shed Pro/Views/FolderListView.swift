@@ -1445,6 +1445,18 @@ struct FolderRowView: View {
     private var isMixedContentFolder: Bool {
         FolderCapabilityService.canAddSubfolder(to: folder) && FolderCapabilityService.canAddFile(to: folder)
     }
+
+    private var observedTextFileCount: Int {
+        folder.textFiles?.count ?? 0
+    }
+
+    private var observedSubfolderCount: Int {
+        folder.folders?.count ?? 0
+    }
+
+    private var observedTrashedItemsCount: Int {
+        folder.project?.trashedItems?.count ?? 0
+    }
     
     var body: some View {
         HStack(spacing: 12) {
@@ -1464,14 +1476,20 @@ struct FolderRowView: View {
         .task {
             await loadFolderCounts()
         }
-        .onChange(of: folder.textFiles?.count ?? 0) { _, _ in
-            Task { await loadFolderCounts() }
+        .onChange(of: observedTextFileCount) { _, _ in
+            refreshFolderCounts()
         }
-        .onChange(of: folder.folders?.count ?? 0) { _, _ in
-            Task { await loadFolderCounts() }
+        .onChange(of: observedSubfolderCount) { _, _ in
+            refreshFolderCounts()
         }
-        .onChange(of: folder.project?.trashedItems?.count ?? 0) { _, _ in
-            Task { await loadFolderCounts() }
+        .onChange(of: observedTrashedItemsCount) { _, _ in
+            refreshFolderCounts()
+        }
+    }
+
+    private func refreshFolderCounts() {
+        Task {
+            await loadFolderCounts()
         }
     }
     

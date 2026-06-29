@@ -10,8 +10,20 @@ struct ManuscriptAnalystPaywallView: View {
     @State private var purchaseError: String?
     var onSubscribe: (() -> Void)?
 
+    private var purchaseErrorPresented: Binding<Bool> {
+        Binding(
+            get: { purchaseError != nil },
+            set: { if !$0 { purchaseError = nil } }
+        )
+    }
+
     var body: some View {
         NavigationStack {
+            paywallContent
+        }
+    }
+
+    private var paywallContent: some View {
             VStack(spacing: 10) {
                 // Hero section
                 VStack(spacing: 12) {
@@ -141,15 +153,11 @@ struct ManuscriptAnalystPaywallView: View {
             } message: {
                 Text("First month free, then $5.99/month. Cancel anytime in App Store subscription settings. Billed to your Apple ID account.")
             }
-            .alert("Purchase Error", isPresented: Binding(
-                get: { purchaseError != nil },
-                set: { if !$0 { purchaseError = nil } }
-            )) {
+            .alert("Purchase Error", isPresented: purchaseErrorPresented) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(purchaseError ?? "")
             }
-        }
     }
 
     private func cancelFlow() {

@@ -16,6 +16,8 @@ struct SettingsSheet: View {
     let onSyncNow: () -> Void
     
     @Environment(\.requestReview) var requestReview
+    @State private var receiveOperatorMessages = SupportMessagesService.receiveOperatorMessages
+    @State private var allowCriticalOperatorMessages = SupportMessagesService.allowCriticalWhenOptedOut
     
     var body: some View {
         NavigationStack {
@@ -122,6 +124,15 @@ struct SettingsSheet: View {
                     } label: {
                         Label("Support Messages", systemImage: "text.bubble")
                     }
+
+                    Toggle(isOn: $receiveOperatorMessages) {
+                        Label("Receive operator messages", systemImage: "megaphone")
+                    }
+
+                    Toggle(isOn: $allowCriticalOperatorMessages) {
+                        Label("Allow critical messages when opted out", systemImage: "exclamationmark.triangle")
+                    }
+                    .disabled(receiveOperatorMessages)
                     
                     Button {
                         Task {
@@ -167,6 +178,12 @@ struct SettingsSheet: View {
 #endif
             }
             .scrollIndicatorsFlash(onAppear: true)
+            .onChange(of: receiveOperatorMessages) { _, newValue in
+                SupportMessagesService.receiveOperatorMessages = newValue
+            }
+            .onChange(of: allowCriticalOperatorMessages) { _, newValue in
+                SupportMessagesService.allowCriticalWhenOptedOut = newValue
+            }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

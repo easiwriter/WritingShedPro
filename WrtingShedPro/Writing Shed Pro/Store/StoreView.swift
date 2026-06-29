@@ -347,10 +347,10 @@ struct StoreView: View {
     private var legalSection: some View {
         VStack(spacing: 8) {
             HStack(spacing: 16) {
-                Link("Terms of Use", destination: URL(string: "https://writingshedpro.com/terms")!)
+                Link("Terms of Use", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
                 Text("•")
                     .foregroundColor(.secondary)
-                Link("Privacy Policy", destination: URL(string: "https://writingshedpro.com/privacy")!)
+                Link("Privacy Policy", destination: URL(string: "https://appworks.pro/wsp-privacy-policy/")!)
             }
             .font(.caption)
         }

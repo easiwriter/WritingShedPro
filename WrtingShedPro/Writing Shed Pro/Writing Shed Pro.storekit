@@ -9,13 +9,13 @@
       }
     ]
   },
-  "identifier" : "A4CED0F2",
+  "identifier" : "F63D4764",
   "nonRenewingSubscriptions" : [
 
   ],
   "products" : [
     {
-      "displayPrice" : "79.99",
+      "displayPrice" : "39.99",
       "familyShareable" : true,
       "internalID" : "6758569572",
       "localizations" : [
@@ -30,7 +30,7 @@
       "type" : "NonConsumable"
     },
     {
-      "displayPrice" : "34.99",
+      "displayPrice" : "19.99",
       "familyShareable" : false,
       "internalID" : "6758569505",
       "localizations" : [
@@ -45,7 +45,7 @@
       "type" : "NonConsumable"
     },
     {
-      "displayPrice" : "29.99",
+      "displayPrice" : "19.99",
       "familyShareable" : false,
       "internalID" : "6758569423",
       "localizations" : [
@@ -60,7 +60,7 @@
       "type" : "NonConsumable"
     },
     {
-      "displayPrice" : "19.99",
+      "displayPrice" : "9.99",
       "familyShareable" : false,
       "internalID" : "6758569451",
       "localizations" : [
@@ -75,7 +75,7 @@
       "type" : "NonConsumable"
     },
     {
-      "displayPrice" : "24.99",
+      "displayPrice" : "19.99",
       "familyShareable" : false,
       "internalID" : "6758569394",
       "localizations" : [
@@ -98,7 +98,7 @@
     "_developerTeamID" : "SK6C3MP32D",
     "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 801045528.31926501,
+    "_lastSynchronizedDate" : 803803804.41566098,
     "_locale" : "en_US",
     "_renewalBillingIssuesEnabled" : false,
     "_storefront" : "USA",
@@ -141,7 +141,7 @@
           "internalID" : "6771675601",
           "introductoryOffer" : {
             "billingPlanType" : "BILLED_UPFRONT",
-            "internalID" : "7A47C933",
+            "internalID" : "A4D6BF76",
             "numberOfPeriods" : 1,
             "paymentMode" : "free",
             "subscriptionPeriod" : "P1M"
@@ -149,7 +149,7 @@
           "introductoryOffers" : [
             {
               "billingPlanType" : "BILLED_UPFRONT",
-              "internalID" : "7A47C933",
+              "internalID" : "A4D6BF76",
               "numberOfPeriods" : 1,
               "paymentMode" : "free",
               "subscriptionPeriod" : "P1M"

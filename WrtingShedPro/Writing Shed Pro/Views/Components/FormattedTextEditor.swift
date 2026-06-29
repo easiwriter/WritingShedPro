@@ -199,14 +199,22 @@ struct FormattedTextEditor: UIViewRepresentable {
             coordinator?.parent.onReferenceTapped?(attachment, position)
         }
         
-        // Wire up glossary add requested callback (Feature 029)
-        textView.onGlossaryAddRequested = { [weak coordinator] selectedText in
-            coordinator?.parent.onGlossaryAddRequested?(selectedText)
+        // Wire up glossary/index callbacks only when enabled by the parent.
+        // This controls whether actions appear in the native context menu.
+        if onGlossaryAddRequested != nil {
+            textView.onGlossaryAddRequested = { [weak coordinator] selectedText in
+                coordinator?.parent.onGlossaryAddRequested?(selectedText)
+            }
+        } else {
+            textView.onGlossaryAddRequested = nil
         }
-        
-        // Wire up index add requested callback (Feature 033)
-        textView.onIndexAddRequested = { [weak coordinator] selectedText in
-            coordinator?.parent.onIndexAddRequested?(selectedText)
+
+        if onIndexAddRequested != nil {
+            textView.onIndexAddRequested = { [weak coordinator] selectedText in
+                coordinator?.parent.onIndexAddRequested?(selectedText)
+            }
+        } else {
+            textView.onIndexAddRequested = nil
         }
         
         // Wire up Tab/Shift+Tab callbacks for list indent/outdent (Feature 016)
@@ -429,6 +437,22 @@ struct FormattedTextEditor: UIViewRepresentable {
             customTextView.onShiftTabPressed = { [weak coordinator] in
                 coordinator?.parent.onShiftTabPressed?()
             }
+
+            if onGlossaryAddRequested != nil {
+                customTextView.onGlossaryAddRequested = { [weak coordinator] selectedText in
+                    coordinator?.parent.onGlossaryAddRequested?(selectedText)
+                }
+            } else {
+                customTextView.onGlossaryAddRequested = nil
+            }
+
+            if onIndexAddRequested != nil {
+                customTextView.onIndexAddRequested = { [weak coordinator] selectedText in
+                    coordinator?.parent.onIndexAddRequested?(selectedText)
+                }
+            } else {
+                customTextView.onIndexAddRequested = nil
+            }
         }
         
         // Update line-number/invisibles flags on layout manager
@@ -604,7 +628,8 @@ struct FormattedTextEditor: UIViewRepresentable {
                 // Recalculate the image frame with the new scale
                 let glyphRange = textView.layoutManager.glyphRange(forCharacterRange: textView.selectedRange, actualCharacterRange: nil)
                 let glyphBounds = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
-                let imageSize = attachment.bounds.size
+                let availableWidth = ImageAttachment.availableWidth(for: textView.textContainer)
+                let imageSize = attachment.displaySize(forAvailableWidth: availableWidth)
                 
                 let adjustedBounds = CGRect(
                     x: glyphBounds.origin.x + textView.textContainerInset.left,
@@ -1502,10 +1527,13 @@ struct FormattedTextEditor: UIViewRepresentable {
             let glyphRange = textView.layoutManager.glyphRange(forCharacterRange: NSRange(location: position, length: 1), actualCharacterRange: nil)
             let glyphBounds = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
             
-            // Use the attachment's actual bounds for accurate size
-            let imageSize = attachment.bounds.size
+            // Size the selection from the LIVE text-column width, exactly as the
+            // renderer does via attachmentBounds(for:). attachment.bounds is baked
+            // from the fallback column width and would be too small on wider columns.
+            let availableWidth = ImageAttachment.availableWidth(for: textView.textContainer)
+            let imageSize = attachment.displaySize(forAvailableWidth: availableWidth)
             
-            // Calculate position from glyph bounds, but use attachment size
+            // Calculate position from glyph bounds, but use rendered image size
             let adjustedBounds = CGRect(
                 x: glyphBounds.origin.x + textView.textContainerInset.left,
                 y: glyphBounds.origin.y + textView.textContainerInset.top,
@@ -1595,11 +1623,13 @@ struct FormattedTextEditor: UIViewRepresentable {
             let glyphRange = textView.layoutManager.glyphRange(forCharacterRange: NSRange(location: characterIndex, length: 1), actualCharacterRange: nil)
             let glyphBounds = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
             
-            // Use the attachment's actual bounds for accurate size
-            // The attachment.bounds has the correct displaySize based on scale
-            let imageSize = attachment.bounds.size
+            // Size the selection from the LIVE text-column width, exactly as the
+            // renderer does via attachmentBounds(for:). attachment.bounds is baked
+            // from the fallback column width and would be too small on wider columns.
+            let availableWidth = ImageAttachment.availableWidth(for: textView.textContainer)
+            let imageSize = attachment.displaySize(forAvailableWidth: availableWidth)
             
-            // Calculate position from glyph bounds, but use attachment size
+            // Calculate position from glyph bounds, but use rendered image size
             let adjustedBounds = CGRect(
                 x: glyphBounds.origin.x + textView.textContainerInset.left,
                 y: glyphBounds.origin.y + textView.textContainerInset.top,
@@ -2249,24 +2279,28 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             
             // Only add glossary option if text is selected and not empty
             if !selectedText.isEmpty {
-                let addToGlossaryAction = UIAction(
-                    title: NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add to Glossary"),
-                    image: UIImage(systemName: "text.book.closed.fill"),
-                    handler: { [weak self] _ in
-                        self?.onGlossaryAddRequested?(selectedText)
-                    }
-                )
-                menuChildren.append(addToGlossaryAction)
-                
+                if onGlossaryAddRequested != nil {
+                    let addToGlossaryAction = UIAction(
+                        title: NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add to Glossary"),
+                        image: UIImage(systemName: "text.book.closed.fill"),
+                        handler: { [weak self] _ in
+                            self?.onGlossaryAddRequested?(selectedText)
+                        }
+                    )
+                    menuChildren.append(addToGlossaryAction)
+                }
+
                 // Feature 033: Add "Add to Index" action
-                let addToIndexAction = UIAction(
-                    title: NSLocalizedString("insertMenu.addIndexEntry", comment: "Add to Index"),
-                    image: UIImage(systemName: "list.number"),
-                    handler: { [weak self] _ in
-                        self?.onIndexAddRequested?(selectedText)
-                    }
-                )
-                menuChildren.append(addToIndexAction)
+                if onIndexAddRequested != nil {
+                    let addToIndexAction = UIAction(
+                        title: NSLocalizedString("insertMenu.addIndexEntry", comment: "Add to Index"),
+                        image: UIImage(systemName: "list.number"),
+                        handler: { [weak self] _ in
+                            self?.onIndexAddRequested?(selectedText)
+                        }
+                    )
+                    menuChildren.append(addToIndexAction)
+                }
             }
         }
         
@@ -2472,11 +2506,15 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         let glyphRange = layoutManager.glyphRange(forCharacterRange: NSRange(location: position, length: 1), actualCharacterRange: nil)
         let glyphBounds = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
         
+        // Size from the LIVE text-column width, matching attachmentBounds(for:).
+        let availableWidth = ImageAttachment.availableWidth(for: textContainer)
+        let imageSize = attachment.displaySize(forAvailableWidth: availableWidth)
+        
         let adjustedBounds = CGRect(
             x: glyphBounds.origin.x + textContainerInset.left,
             y: glyphBounds.origin.y + textContainerInset.top,
-            width: attachment.bounds.size.width,
-            height: attachment.bounds.size.height
+            width: imageSize.width,
+            height: imageSize.height
         )
         
         // Update the selection border frame

@@ -851,7 +851,7 @@ class PrintService {
         }
         
         let activityViewController = UIActivityViewController(
-            activityItems: [url],
+            activityItems: [ShareActivityItemSource(url: url, facebookText: "Shared from Writing Shed Pro: \(url.lastPathComponent)")],
             applicationActivities: nil
         )
         
