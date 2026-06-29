@@ -2639,32 +2639,6 @@ struct FileEditView: View {
                 return AttributedStringSerializer.containsInlineHeadingStyleArtifacts(in: raw, text: file.currentVersion?.content ?? "")
             }()
 
-            #if DEBUG
-            print("📂 ======== STYLE DIAG: LOAD START ========")
-            print("📂 File: \(file.name)")
-            print("📂 Content length: \(savedContent.length)")
-            if let rawData = file.currentVersion?.formattedContent {
-                let prefix = String(data: rawData.prefix(20), encoding: .utf8) ?? "<binary>"
-                let isJSON = prefix.trimmingCharacters(in: .whitespaces).hasPrefix("[")
-                let isRTF = prefix.contains("rtf") || prefix.contains("{\\")
-                print("📂 formattedContent format: \(isJSON ? "JSON" : isRTF ? "RTF" : "UNKNOWN") (\(rawData.count) bytes, starts with: \(prefix.prefix(20)))")
-            } else {
-                print("📂 formattedContent is NIL")
-            }
-            // Count style traits in loaded content
-            var boldRanges = 0, italicRanges = 0, headingRanges = 0
-            savedContent.enumerateAttributes(in: NSRange(location: 0, length: savedContent.length), options: []) { attrs, range, _ in
-                if let font = attrs[.font] as? UIFont {
-                    if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldRanges += 1 }
-                    if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { italicRanges += 1 }
-                }
-                if let ts = attrs[.textStyle] as? String, ts != UIFont.TextStyle.body.rawValue {
-                    headingRanges += 1
-                }
-            }
-            print("📂 Loaded traits: bold=\(boldRanges) italic=\(italicRanges) headings=\(headingRanges)")
-            print("📂 ======== STYLE DIAG: LOAD END ========")
-            #endif
             // Strip adaptive colors (black/white/gray) to support dark mode properly
             var processedContent = AttributedStringSerializer.stripAdaptiveColors(from: savedContent)
             
@@ -2846,14 +2820,14 @@ struct FileEditView: View {
                 // Legacy imports have direct formatting (bold/italic) baked in, not stylesheet styles
                 // Reapplying styles would destroy all the bold/italic formatting
                 // Modern JSON format documents SHOULD have styles reapplied
-                let isLegacyRTF = file.currentVersion?.formattedContent != nil && 
-                                  !AttributedStringSerializer.isJSONFormat(file.currentVersion?.formattedContent)
+                let isLegacyRTF = AttributedStringSerializer.isLegacyRTFFormat(file.currentVersion?.formattedContent)
                 
-                if !isLegacyRTF && !hasMissingAttachments {
+                if !isLegacyRTF && !hasMissingAttachments && shouldReapplyStylesOnOpen(for: project) {
                     #if DEBUG
                     print("📝 onAppear: Reapplying styles to pick up any changes")
                     #endif
                     reapplyAllStyles(registerUndo: false)  // Don't register undo for initial load
+                    markStylesReappliedOnOpen(for: project)
                 } else {
                     #if DEBUG
                     if hasMissingAttachments {
@@ -7550,7 +7524,41 @@ struct FileEditView: View {
         print("🔄 ========== REAPPLY ALL STYLES END ==========")
         #endif
     }
-    
+
+    private func styleReapplyCacheKey(for project: Project) -> String? {
+        guard let styleSheet = project.styleSheet else { return nil }
+        return "FileEditView.lastStyleReapply.\(file.id.uuidString).\(styleSheet.id.uuidString)"
+    }
+
+    private func shouldReapplyStylesOnOpen(for project: Project) -> Bool {
+        guard let styleSheet = project.styleSheet,
+              let cacheKey = styleReapplyCacheKey(for: project) else {
+            return false
+        }
+
+        let styleModified = styleSheet.modifiedDate.timeIntervalSinceReferenceDate
+        let lastApplied = UserDefaults.standard.double(forKey: cacheKey)
+        if lastApplied >= styleModified {
+            return false
+        }
+
+        if lastApplied == 0,
+           file.modifiedDate >= styleSheet.modifiedDate {
+            UserDefaults.standard.set(styleModified, forKey: cacheKey)
+            return false
+        }
+
+        return true
+    }
+
+    private func markStylesReappliedOnOpen(for project: Project) {
+        guard let styleSheet = project.styleSheet,
+              let cacheKey = styleReapplyCacheKey(for: project) else {
+            return
+        }
+        UserDefaults.standard.set(styleSheet.modifiedDate.timeIntervalSinceReferenceDate, forKey: cacheKey)
+    }
+
     /// Apply a paragraph style to the current selection
     private func applyParagraphStyle(_ style: UIFont.TextStyle) {
         #if DEBUG
@@ -8488,37 +8496,9 @@ struct FileEditView: View {
             print("🧪 [FootnoteDiag] saveChanges FROM textView current=\(footnoteDebugSummary(currentContent)) binding=\(footnoteDebugSummary(attributedContent))")
             #endif
             
-            // On iPhone, content is already normalized to 12pt for display
-            // Save it as-is - no scaling needed since we normalize on load, not on save
-            #if DEBUG
-            // STYLE DIAG: Log traits being saved
-            var saveBoldCount = 0, saveItalicCount = 0, saveHeadingCount = 0
-            currentContent.enumerateAttributes(in: NSRange(location: 0, length: currentContent.length), options: []) { attrs, range, _ in
-                if let font = attrs[.font] as? UIFont {
-                    if font.fontDescriptor.symbolicTraits.contains(.traitBold) { saveBoldCount += 1 }
-                    if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { saveItalicCount += 1 }
-                }
-                if let ts = attrs[.textStyle] as? String, ts != UIFont.TextStyle.body.rawValue {
-                    saveHeadingCount += 1
-                }
-            }
-            print("💾 ======== STYLE DIAG: SAVE ========")
-            print("💾 File: \(file.name)")
-            print("💾 Content length: \(currentContent.length)")
-            print("💾 Traits being saved: bold=\(saveBoldCount) italic=\(saveItalicCount) headings=\(saveHeadingCount)")
-            #endif
-            
+            // On iPhone, content is already normalized to 12pt for display.
+            // Save it as-is - no scaling needed since we normalize on load, not on save.
             file.currentVersion?.attributedContent = currentContent
-            
-            #if DEBUG
-            // Verify what was actually stored
-            if let storedData = file.currentVersion?.formattedContent {
-                let prefix = String(data: storedData.prefix(20), encoding: .utf8) ?? "<binary>"
-                let isJSON = prefix.trimmingCharacters(in: .whitespaces).hasPrefix("[")
-                print("💾 Stored as: \(isJSON ? "JSON" : "OTHER") (\(storedData.count) bytes)")
-            }
-            print("💾 ======== STYLE DIAG: SAVE END ========")
-            #endif
             
             // FEATURE 029: Extract and save reference metadata
             let referenceMetadata = extractReferenceMetadata(from: currentContent)

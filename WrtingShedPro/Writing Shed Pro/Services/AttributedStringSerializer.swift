@@ -526,6 +526,13 @@ struct AttributedStringSerializer {
             return false
         }
     }
+
+    /// Cheaply identifies legacy RTF payloads before using Foundation's RTF decoder.
+    static func isLegacyRTFFormat(_ data: Data?) -> Bool {
+        guard let data = data, !data.isEmpty else { return false }
+        let prefix = String(data: data.prefix(16), encoding: .ascii) ?? ""
+        return prefix.hasPrefix("{\\rtf") || prefix.hasPrefix("{\\urtf")
+    }
     
     /// Decode Data to NSAttributedString using plain text and attribute data
     /// - Parameters:
@@ -602,10 +609,6 @@ struct AttributedStringSerializer {
                 if let fontName = jsonAttributes.fontName,
                    let fontSize = effectiveFontSize {
                     
-                    #if DEBUG
-                    print("🔍 DECODE font: '\(fontName)' size:\(fontSize) bold:\(jsonAttributes.bold ?? false) italic:\(jsonAttributes.italic ?? false) textStyle:\(effectiveTextStyle ?? "nil")")
-                    #endif
-                    
                     var font: UIFont
                     var isBold = jsonAttributes.bold ?? false
                     let isItalic = jsonAttributes.italic ?? false
@@ -665,9 +668,6 @@ struct AttributedStringSerializer {
                             // Successfully created font with PostScript name - check if size matches
                             if abs(directFont.pointSize - fontSize) < 0.5 {
                                 font = directFont
-                                #if DEBUG
-                                print("✅ Direct font creation succeeded: \(fontName) at \(fontSize)pt")
-                                #endif
                             } else {
                                 // Font created but wrong size - fallback to system font
                                 #if DEBUG

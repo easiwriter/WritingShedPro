@@ -573,9 +573,10 @@ final class Version {
                 return plainText
             }
             
-            // Try to decode as RTF first (for legacy imports)
-            // Legacy imports from Writing Shed 1.0 store RTF data with font scaling
-            if let rtfDecoded = AttributedStringSerializer.fromLegacyRTF(data) {
+            // Legacy imports from Writing Shed 1.0 store RTF data with font scaling.
+            // Modern content is encoded as a plist, so avoid paying a failing RTF decode on every cache miss.
+            if AttributedStringSerializer.isLegacyRTFFormat(data),
+               let rtfDecoded = AttributedStringSerializer.fromLegacyRTF(data) {
                 // DEBUG: Check what traits are in the final result being returned
                 var boldCount = 0
                 var italicCount = 0
@@ -597,24 +598,9 @@ final class Version {
                 return rtfDecoded
             }
             
-            // Fall back to JSON format (for current app format)
+            // Fall back to plist format (for current app format)
             // If decoding fails, it will return plain text with default formatting
-            #if DEBUG
-            print("[Version] 📦 Trying JSON decode (not legacy RTF)")
-            #endif
             let decoded = AttributedStringSerializer.decode(data, text: content)
-            
-            // DEBUG: Check traits in JSON decoded result
-            var boldCount = 0
-            decoded.enumerateAttribute(.font, in: NSRange(location: 0, length: decoded.length)) { value, _, _ in
-                if let font = value as? UIFont {
-                    if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldCount += 1 }
-                }
-            }
-            #if DEBUG
-            print("[Version] 📦 JSON decoded has \(boldCount) bold ranges")
-            #endif
-            
             // If decode returned empty or very short content, but we have plain text content, fall back
             if decoded.length < content.count / 2 && !content.isEmpty {
                 #if DEBUG
@@ -635,49 +621,12 @@ final class Version {
             // Cache the result
             _cachedAttributedContent = decoded
             _cachedFormattedContentHash = data
-            #if DEBUG
-            print("[Version] 🎯 RETURNING JSON decoded content with \(boldCount) bold ranges")
-            #endif
-            
             return decoded
         }
         set {
             if let attributed = newValue {
-                #if DEBUG
-                var setBoldCount = 0, setItalicCount = 0
-                attributed.enumerateAttribute(.font, in: NSRange(location: 0, length: attributed.length), options: []) { value, _, _ in
-                    if let font = value as? UIFont {
-                        if font.fontDescriptor.symbolicTraits.contains(.traitBold) { setBoldCount += 1 }
-                        if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { setItalicCount += 1 }
-                    }
-                }
-                print("🔧 ======== STYLE DIAG: SETTER ========")
-                print("🔧 attributedContent setter called, length=\(attributed.length)")
-                print("🔧 Input traits: bold=\(setBoldCount) italic=\(setItalicCount)")
-                #endif
-                
                 // Encode using AttributedStringSerializer (extracts font traits)
                 formattedContent = AttributedStringSerializer.encode(attributed)
-                
-                #if DEBUG
-                // Verify the encode → decode round-trip
-                if let encodedData = formattedContent {
-                    let roundTripped = AttributedStringSerializer.decode(encodedData, text: attributed.string)
-                    var rtBoldCount = 0, rtItalicCount = 0
-                    roundTripped.enumerateAttribute(.font, in: NSRange(location: 0, length: roundTripped.length), options: []) { value, _, _ in
-                        if let font = value as? UIFont {
-                            if font.fontDescriptor.symbolicTraits.contains(.traitBold) { rtBoldCount += 1 }
-                            if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { rtItalicCount += 1 }
-                        }
-                    }
-                    if rtBoldCount != setBoldCount || rtItalicCount != setItalicCount {
-                        print("🔧 ⚠️ ROUND-TRIP MISMATCH! Input: bold=\(setBoldCount) italic=\(setItalicCount) → Output: bold=\(rtBoldCount) italic=\(rtItalicCount)")
-                    } else {
-                        print("🔧 ✅ Round-trip OK: bold=\(rtBoldCount) italic=\(rtItalicCount)")
-                    }
-                }
-                print("🔧 ======== STYLE DIAG: SETTER END ========")
-                #endif
                 
                 // CRITICAL: Update plain text for search/compatibility
                 // MUST preserve attachment characters (U+FFFC) for proper reconstruction
