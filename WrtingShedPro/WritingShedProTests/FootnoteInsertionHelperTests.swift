@@ -159,6 +159,51 @@ final class FootnoteInsertionHelperTests: XCTestCase {
         XCTAssertEqual(attachment2?.number, 2)
     }
 
+    func testSyncFootnotesWithMarkersUsesTextOrderAsSourceOfTruth() throws {
+        let firstID = UUID()
+        let secondID = UUID()
+
+        let firstFootnote = FootnoteModel(
+            version: testVersion,
+            characterPosition: 50,
+            attachmentID: firstID,
+            text: "Original first",
+            number: 1
+        )
+        let secondFootnote = FootnoteModel(
+            version: testVersion,
+            characterPosition: 10,
+            attachmentID: secondID,
+            text: "Original second",
+            number: 1
+        )
+        modelContext.insert(firstFootnote)
+        modelContext.insert(secondFootnote)
+
+        let content = NSMutableAttributedString(string: "ABCD")
+        let firstMarker = FootnoteAttachment(footnoteID: firstID, number: 1)
+        let secondMarker = FootnoteAttachment(footnoteID: secondID, number: 1)
+        content.insert(NSAttributedString(attachment: secondMarker), at: 3)
+        content.insert(NSAttributedString(attachment: firstMarker), at: 1)
+
+        let changed = FootnoteInsertionHelper.syncFootnotesWithMarkers(
+            in: content,
+            forVersion: testVersion,
+            context: modelContext
+        )
+
+        XCTAssertTrue(changed)
+        XCTAssertEqual(firstFootnote.number, 1)
+        XCTAssertEqual(firstFootnote.characterPosition, 1)
+        XCTAssertEqual(secondFootnote.number, 2)
+        XCTAssertEqual(secondFootnote.characterPosition, 4)
+
+        let firstAttachment = content.attribute(.attachment, at: 1, effectiveRange: nil) as? FootnoteAttachment
+        let secondAttachment = content.attribute(.attachment, at: 4, effectiveRange: nil) as? FootnoteAttachment
+        XCTAssertEqual(firstAttachment?.number, 1)
+        XCTAssertEqual(secondAttachment?.number, 2)
+    }
+
     func testInsertFootnotePrunesOrphanedModelBeforeNumbering() throws {
         let orphan = FootnoteModel(
             version: testVersion,

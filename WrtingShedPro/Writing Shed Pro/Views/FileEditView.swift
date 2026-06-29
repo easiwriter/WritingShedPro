@@ -3125,37 +3125,18 @@ struct FileEditView: View {
     
     /// Update footnote attachment numbers in the attributed string
     private func updateFootnoteAttachmentNumbers() {
-        guard file.currentVersion != nil else { return }
+        guard let currentVersion = file.currentVersion else { return }
         
         let markerStyle = file.project?.styleSheet?.footnoteMarkerStyle ?? .numeric
         let sourceContent = textViewCoordinator.textView?.attributedText ?? attributedContent
         let mutableContent = NSMutableAttributedString(attributedString: sourceContent)
-        var needsUpdate = false
-        
-        // Enumerate through all attachments
-        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, stop in
-            guard let attachment = value as? FootnoteAttachment else { return }
-            
-            // CRITICAL: Look up by attachmentID, not id!
-            // attachment.footnoteID corresponds to FootnoteModel.attachmentID
-            if let footnote = FootnoteManager.shared.getFootnoteByAttachment(attachmentID: attachment.footnoteID, context: modelContext) {
-                if attachment.number != footnote.number || attachment.markerStyle != markerStyle {
-                    #if DEBUG
-                    print("🔢 Updating attachment \(attachment.footnoteID) from \(attachment.number) to \(footnote.number)")
-                    #endif
-                    let replacement = FootnoteAttachment(footnoteID: attachment.footnoteID, number: footnote.number)
-                    replacement.markerStyle = markerStyle
-                    mutableContent.replaceCharacters(in: range, with: NSAttributedString(attachment: replacement))
-                    needsUpdate = true
-                }
-            } else {
-                #if DEBUG
-                print("⚠️ Footnote not found in database for attachmentID: \(attachment.footnoteID)")
-                #endif
-            }
-        }
-        
-        if needsUpdate {
+
+        if FootnoteInsertionHelper.syncFootnotesWithMarkers(
+            in: mutableContent,
+            forVersion: currentVersion,
+            context: modelContext,
+            markerStyle: markerStyle
+        ) {
             // Update the attributed content
             attributedContent = mutableContent
 
@@ -6127,61 +6108,15 @@ struct FileEditView: View {
         guard let currentVersion = file.currentVersion else { return }
         
         let markerStyle = file.project?.styleSheet?.footnoteMarkerStyle ?? .numeric
-        
-        // Collect all footnote attachment IDs currently present in the text
-        var attachmentIDsInText = Set<UUID>()
-        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
-        
-        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, _, _ in
-            if let attachment = value as? FootnoteAttachment {
-                attachmentIDsInText.insert(attachment.footnoteID)
-            }
-        }
-        
-        // Delete orphaned footnote models whose markers are no longer in the text
-        if let allFootnotes = currentVersion.footnotes {
-            let orphans = allFootnotes.filter { !attachmentIDsInText.contains($0.attachmentID) }
-            for orphan in orphans {
-                #if DEBUG
-                print("🗑️ Removing orphaned footnote model: \(orphan.attachmentID.uuidString.prefix(8)) (no marker in text)")
-                #endif
-                modelContext.delete(orphan)
-            }
-            if !orphans.isEmpty {
-                WriteCoalescer.shared?.requestSave()
-            }
-        }
-        
-        // Renumber remaining models so the database is authoritative
-        FootnoteManager.shared.renumberFootnotes(forVersion: currentVersion, context: modelContext)
-        
-        // Sync text attachment numbers and marker style with the database.
-        // CRITICAL: Replace attachment characters (not just mutate the object in place)
-        // to force the text system to regenerate the marker image. Mutating the
-        // FootnoteAttachment's properties alone doesn't trigger a redraw because
-        // NSTextStorage doesn't observe changes on attachment objects.
-        var needsUpdate = false
-        let footnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: currentVersion, context: modelContext)
-        
-        for footnote in footnotes {
-            if let (attachment, range) = mutableContent.footnoteAttachment(withID: footnote.attachmentID) {
-                var needsReplace = false
-                if attachment.number != footnote.number {
-                    needsReplace = true
-                }
-                if attachment.markerStyle != markerStyle {
-                    needsReplace = true
-                }
-                if needsReplace {
-                    // Replace the attachment character to force image regeneration
-                    let replacement = FootnoteAttachment(footnoteID: attachment.footnoteID, number: footnote.number)
-                    replacement.markerStyle = markerStyle
-                    let newAttachmentString = NSAttributedString(attachment: replacement)
-                    mutableContent.replaceCharacters(in: range, with: newAttachmentString)
-                    needsUpdate = true
-                }
-            }
-        }
+
+        let sourceContent = textViewCoordinator.textView?.attributedText ?? attributedContent
+        let mutableContent = NSMutableAttributedString(attributedString: sourceContent)
+        let needsUpdate = FootnoteInsertionHelper.syncFootnotesWithMarkers(
+            in: mutableContent,
+            forVersion: currentVersion,
+            context: modelContext,
+            markerStyle: markerStyle
+        )
         
         if needsUpdate {
             attributedContent = mutableContent

@@ -57,13 +57,8 @@ struct FootnoteInsertionHelper {
             text: footnoteText,
             context: context
         )
-        
-        // Replace with a fresh attachment carrying the authoritative number. Mutating
-        // an attachment already in NSTextStorage can leave the current glyph draw blank
-        // until the text view is scrolled/redrawn.
-        let numberedAttachment = FootnoteAttachment(footnoteID: attachmentID, number: footnote.number)
-        numberedAttachment.markerStyle = markerStyle
-        mutableText.replaceCharacters(in: NSRange(location: safePosition, length: 1), with: NSAttributedString(attachment: numberedAttachment))
+
+        syncFootnotesWithMarkers(in: mutableText, forVersion: version, context: context, markerStyle: markerStyle)
         
         return (mutableText, footnote)
     }
@@ -113,15 +108,77 @@ struct FootnoteInsertionHelper {
             text: footnoteText,
             context: context
         )
-        
-        // Replace with a fresh attachment carrying the authoritative number. Mutating
-        // an attachment already in NSTextStorage can leave the current glyph draw blank
-        // until the text view is scrolled/redrawn.
-        let numberedAttachment = FootnoteAttachment(footnoteID: attachmentID, number: footnote.number)
-        numberedAttachment.markerStyle = markerStyle
-        textStorage.replaceCharacters(in: NSRange(location: insertPosition, length: 1), with: NSAttributedString(attachment: numberedAttachment))
+
+        syncFootnotesWithMarkers(in: textStorage, forVersion: version, context: context, markerStyle: markerStyle)
         
         return footnote
+    }
+
+    /// Make the visible marker order in attributed text authoritative for footnote
+    /// positions and numbers, then replace marker attachments to match those numbers.
+    @MainActor
+    @discardableResult
+    static func syncFootnotesWithMarkers(
+        in attributedText: NSMutableAttributedString,
+        forVersion version: Version,
+        context: ModelContext,
+        markerStyle: FootnoteMarkerStyle = .numeric,
+        deleteMissingModels: Bool = true
+    ) -> Bool {
+        var markers: [(attachment: FootnoteAttachment, range: NSRange)] = []
+        attributedText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedText.length), options: []) { value, range, _ in
+            if let attachment = value as? FootnoteAttachment {
+                markers.append((attachment, range))
+            }
+        }
+
+        let markersByID = Dictionary(grouping: markers, by: { $0.attachment.footnoteID })
+        let activeFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
+        var footnotesByAttachmentID: [UUID: FootnoteModel] = [:]
+        for footnote in activeFootnotes where footnotesByAttachmentID[footnote.attachmentID] == nil {
+            footnotesByAttachmentID[footnote.attachmentID] = footnote
+        }
+        var changed = false
+
+        if deleteMissingModels {
+            for footnote in activeFootnotes where markersByID[footnote.attachmentID] == nil {
+                FootnoteManager.shared.deleteFootnote(footnote, context: context)
+                footnotesByAttachmentID[footnote.attachmentID] = nil
+                changed = true
+            }
+        }
+
+        var seenAttachmentIDs = Set<UUID>()
+        let orderedMarkers = markers
+            .sorted { $0.range.location < $1.range.location }
+            .filter { seenAttachmentIDs.insert($0.attachment.footnoteID).inserted }
+
+        for (index, marker) in orderedMarkers.enumerated() {
+            guard let footnote = footnotesByAttachmentID[marker.attachment.footnoteID] else { continue }
+            let expectedNumber = index + 1
+            let expectedPosition = marker.range.location
+
+            if footnote.number != expectedNumber {
+                footnote.updateNumber(expectedNumber)
+                changed = true
+            }
+            if footnote.characterPosition != expectedPosition {
+                footnote.updatePosition(expectedPosition)
+                changed = true
+            }
+            if marker.attachment.number != expectedNumber || marker.attachment.markerStyle != markerStyle {
+                let replacement = FootnoteAttachment(footnoteID: marker.attachment.footnoteID, number: expectedNumber)
+                replacement.markerStyle = markerStyle
+                attributedText.replaceCharacters(in: marker.range, with: NSAttributedString(attachment: replacement))
+                changed = true
+            }
+        }
+
+        if changed {
+            WriteCoalescer.shared?.requestSave()
+        }
+
+        return changed
     }
 
     @MainActor
