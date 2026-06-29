@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D737479B2FE9129700364704 /* Writing Shed Pro.storekit in Resources */ = {isa = PBXBuildFile; fileRef = D737479A2FE9129700364704 /* Writing Shed Pro.storekit */; };
 		D786773B2F9DF4F80087BC02 /* TestPlan.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = D786773A2F9DF4F80087BC02 /* TestPlan.xctestplan */; };
-		D78F5BA22FBEFC14005ED3FB /* Writing Shed Pro.storekit in Resources */ = {isa = PBXBuildFile; fileRef = D78F5BA12FBEFC14005ED3FB /* Writing Shed Pro.storekit */; };
 		D79879872F2F4874007DE592 /* StoreKitManager in Frameworks */ = {isa = PBXBuildFile; productRef = D79879862F2F4874007DE592 /* StoreKitManager */; };
 		D7B1F4D72EACFFE400B7F3C8 /* ToolbarSUI in Frameworks */ = {isa = PBXBuildFile; productRef = D7B1F4D62EACFFE400B7F3C8 /* ToolbarSUI */; };
 		D7QLEXT012F05000000000001 /* WSPQuickLook.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D7QLEXT002F05000000000001 /* WSPQuickLook.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -60,16 +60,16 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D737479A2FE9129700364704 /* Writing Shed Pro.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = "Writing Shed Pro.storekit"; path = "Writing Shed Pro/Writing Shed Pro.storekit"; sourceTree = "<group>"; };
 		D741DF6C2EA76292003629E8 /* Writing Shed Pro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Writing Shed Pro.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D741DF7D2EA76295003629E8 /* Writing Shed ProTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Writing Shed ProTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D76ABF582F260E6C002D8588 /* WSP Reader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WSP Reader.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		D7MSGAPP0000000000000001 /* WSP Messages Operator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WSP Messages Operator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D76ABF682F260E6F002D8588 /* WSP ReaderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "WSP ReaderTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D76ABF722F260E70002D8588 /* WSP ReaderUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "WSP ReaderUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D786773A2F9DF4F80087BC02 /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
-		D78F5BA12FBEFC14005ED3FB /* Writing Shed Pro.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = "Writing Shed Pro.storekit"; path = "Writing Shed Pro/Writing Shed Pro.storekit"; sourceTree = "<group>"; };
 		D7A1B2C3D4E5F6A700000001 /* Versioning.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Versioning.xcconfig; sourceTree = SOURCE_ROOT; };
 		D7B100000000000000000001 /* WSP Reader/Versioning.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "WSP Reader/Versioning.xcconfig"; sourceTree = SOURCE_ROOT; };
+		D7MSGAPP0000000000000001 /* WSP Messages Operator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WSP Messages Operator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D7QLEXT002F05000000000001 /* WSPQuickLook.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WSPQuickLook.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -97,6 +97,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				Versioning.xcconfig,
 			);
 			target = D76ABF572F260E6C002D8588 /* WSP Reader */;
 		};
@@ -235,7 +236,7 @@
 		D741DF632EA76292003629E8 = {
 			isa = PBXGroup;
 			children = (
-				D78F5BA12FBEFC14005ED3FB /* Writing Shed Pro.storekit */,
+				D737479A2FE9129700364704 /* Writing Shed Pro.storekit */,
 				D786773A2F9DF4F80087BC02 /* TestPlan.xctestplan */,
 				D741DF6E2EA76292003629E8 /* Writing Shed Pro */,
 				D741DF802EA76295003629E8 /* WritingShedProTests */,
@@ -337,28 +338,6 @@
 			productReference = D76ABF582F260E6C002D8588 /* WSP Reader.app */;
 			productType = "com.apple.product-type.application";
 		};
-		D7MSGAPP0000000000000007 /* WSP Messages Operator */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = D7MSGAPP000000000000000B /* Build configuration list for PBXNativeTarget "WSP Messages Operator" */;
-			buildPhases = (
-				D7MSGAPP0000000000000004 /* Sources */,
-				D7MSGAPP0000000000000005 /* Frameworks */,
-				D7MSGAPP0000000000000006 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				D7MSGAPP0000000000000003 /* WSP Messages Operator */,
-			);
-			name = "WSP Messages Operator";
-			packageProductDependencies = (
-			);
-			productName = "WSP Messages Operator";
-			productReference = D7MSGAPP0000000000000001 /* WSP Messages Operator.app */;
-			productType = "com.apple.product-type.application";
-		};
 		D76ABF672F260E6F002D8588 /* WSP ReaderTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D76ABF822F260E70002D8588 /* Build configuration list for PBXNativeTarget "WSP ReaderTests" */;
@@ -405,6 +384,28 @@
 			productReference = D76ABF722F260E70002D8588 /* WSP ReaderUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		D7MSGAPP0000000000000007 /* WSP Messages Operator */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D7MSGAPP000000000000000B /* Build configuration list for PBXNativeTarget "WSP Messages Operator" */;
+			buildPhases = (
+				D7MSGAPP0000000000000004 /* Sources */,
+				D7MSGAPP0000000000000005 /* Frameworks */,
+				D7MSGAPP0000000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D7MSGAPP0000000000000003 /* WSP Messages Operator */,
+			);
+			name = "WSP Messages Operator";
+			packageProductDependencies = (
+			);
+			productName = "WSP Messages Operator";
+			productReference = D7MSGAPP0000000000000001 /* WSP Messages Operator.app */;
+			productType = "com.apple.product-type.application";
+		};
 		D7QLEXT042F05000000000001 /* WSPQuickLook */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D7QLEXT0A2F05000000000001 /* Build configuration list for PBXNativeTarget "WSPQuickLook" */;
@@ -434,7 +435,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2620;
-				LastUpgradeCheck = 2630;
+				LastUpgradeCheck = 2650;
 				TargetAttributes = {
 					D741DF6B2EA76292003629E8 = {
 						CreatedOnToolsVersion = 16.4;
@@ -457,9 +458,6 @@
 					D76ABF572F260E6C002D8588 = {
 						CreatedOnToolsVersion = 26.2;
 					};
-					D7MSGAPP0000000000000007 = {
-						CreatedOnToolsVersion = 26.2;
-					};
 					D76ABF672F260E6F002D8588 = {
 						CreatedOnToolsVersion = 26.2;
 						TestTargetID = D76ABF572F260E6C002D8588;
@@ -467,6 +465,9 @@
 					D76ABF712F260E70002D8588 = {
 						CreatedOnToolsVersion = 26.2;
 						TestTargetID = D76ABF572F260E6C002D8588;
+					};
+					D7MSGAPP0000000000000007 = {
+						CreatedOnToolsVersion = 26.2;
 					};
 					D7QLEXT042F05000000000001 = {
 						CreatedOnToolsVersion = 16.4;
@@ -522,7 +523,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D786773B2F9DF4F80087BC02 /* TestPlan.xctestplan in Resources */,
-				D78F5BA22FBEFC14005ED3FB /* Writing Shed Pro.storekit in Resources */,
+				D737479B2FE9129700364704 /* Writing Shed Pro.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -976,92 +977,6 @@
 			};
 			name = Debug;
 		};
-		D7MSGAPP0000000000000009 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = SK6C3MP32D;
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "WSP Messages Operator/Info.plist";
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
-				PRODUCT_BUNDLE_IDENTIFIER = com.appworks.wspmessagesoperator;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				REGISTER_APP_GROUPS = YES;
-				SDKROOT = auto;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
-				SUPPORTS_MACCATALYST = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				XROS_DEPLOYMENT_TARGET = 26.2;
-			};
-			name = Debug;
-		};
-		D7MSGAPP000000000000000A /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = SK6C3MP32D;
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "WSP Messages Operator/Info.plist";
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
-				PRODUCT_BUNDLE_IDENTIFIER = com.appworks.wspmessagesoperator;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				REGISTER_APP_GROUPS = YES;
-				SDKROOT = auto;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
-				SUPPORTS_MACCATALYST = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				XROS_DEPLOYMENT_TARGET = 26.2;
-			};
-			name = Release;
-		};
 		D76ABF7B2F260E70002D8588 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D7B100000000000000000001 /* WSP Reader/Versioning.xcconfig */;
@@ -1214,6 +1129,94 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
 				TEST_TARGET_NAME = "WSP Reader";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
+		D7MSGAPP0000000000000009 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "WSP Messages Operator/WSPMessagesOperator.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = SK6C3MP32D;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "WSP Messages Operator/Info.plist";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.appworks.wspmessagesoperator;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		D7MSGAPP000000000000000A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "WSP Messages Operator/WSPMessagesOperator.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = SK6C3MP32D;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "WSP Messages Operator/Info.plist";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.appworks.wspmessagesoperator;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
 				XROS_DEPLOYMENT_TARGET = 26.2;
 			};
 			name = Release;

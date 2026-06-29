@@ -181,7 +181,8 @@ def create_flyer():
             "Rich text editor",
             "Style sheet manager",
             "Footnotes & comments",
-            "Search & replace"
+            "Search & replace",
+            "Manuscript analyser"
         ], SOFT_TEAL),
         ("Seamless Sync", [
             "iCloud across devices",
@@ -267,7 +268,14 @@ def create_flyer():
     # Footer
     c.setFillColor(white)
     c.setFont("Helvetica-Bold", 11)
-    c.drawCentredString(WIDTH/2, 6*mm, "writingshedpro.com")
+    footer_label = "appworks.pro"
+    footer_y = 6*mm
+    c.drawCentredString(WIDTH/2, footer_y, footer_label)
+    footer_text_width = c.stringWidth(footer_label, "Helvetica-Bold", 11)
+    c.linkURL("https://appworks.pro",
+              (WIDTH/2 - footer_text_width/2, footer_y - 1*mm,
+               WIDTH/2 + footer_text_width/2, footer_y + 4*mm),
+              relative=0)
     
     c.save()
     print(f"✅ Flyer created successfully: {output_path}")
