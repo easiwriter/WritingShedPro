@@ -3659,7 +3659,6 @@ struct FileEditView: View {
                 hasMissingAttachments = false
                 saveChanges()
                 WriteCoalescer.shared?.flush()
-                refreshTrigger = UUID()
             }
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
