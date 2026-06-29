@@ -484,6 +484,11 @@ struct FormattedTextEditor: UIViewRepresentable {
         let newString = attributedText.string
         let stringsMatch = textViewString == newString
         let attachmentsMatch = attachmentSignature(in: textViewAttrs) == attachmentSignature(in: attributedText)
+        #if DEBUG
+        if !attachmentsMatch || textViewAttrs.footnoteAttachments().count != attributedText.footnoteAttachments().count {
+            print("🧪 [FootnoteDiag] updateUIView compare stringsMatch=\(stringsMatch) attachmentsMatch=\(attachmentsMatch) textView=\(footnoteDebugSummary(textViewAttrs)) binding=\(footnoteDebugSummary(attributedText))")
+        }
+        #endif
         
         // PERFORMANCE FIX: Only update text storage if text content actually changed
         // The expensive isEqual(to:) comparison was causing update loops with large documents
@@ -494,6 +499,9 @@ struct FormattedTextEditor: UIViewRepresentable {
         // the same U+FFFC character in the string, but the marker/image/comment disappears visually.
         if !stringsMatch || !attachmentsMatch {
             // Text content changed - need to update
+            #if DEBUG
+            print("🧪 [FootnoteDiag] updateUIView APPLY textViewBefore=\(footnoteDebugSummary(textViewAttrs)) binding=\(footnoteDebugSummary(attributedText))")
+            #endif
             
             // Set flag to prevent feedback from delegate
             context.coordinator.isUpdatingFromSwiftUI = true
@@ -582,6 +590,9 @@ struct FormattedTextEditor: UIViewRepresentable {
             textView.setNeedsDisplay()
             textView.setNeedsLayout()
             textView.layoutIfNeeded()
+            #if DEBUG
+            print("🧪 [FootnoteDiag] updateUIView AFTER APPLY textView=\(footnoteDebugSummary(textView.attributedText))")
+            #endif
             
             // Restore selection if it's still valid
             if oldSelectedRange.location <= attributedText.length {
@@ -721,6 +732,20 @@ struct FormattedTextEditor: UIViewRepresentable {
 
         return signature
     }
+
+    #if DEBUG
+    private func footnoteDebugSummary(_ content: NSAttributedString?) -> String {
+        guard let content else { return "nil" }
+
+        var markers: [String] = []
+        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length), options: []) { value, range, _ in
+            guard let attachment = value as? FootnoteAttachment else { return }
+            markers.append("@\(range.location)#\(attachment.number):\(attachment.footnoteID.uuidString.prefix(8))")
+        }
+
+        return "len=\(content.length) markers=[\(markers.joined(separator: ","))]"
+    }
+    #endif
     
     private func setupKeyboardNotifications(for textView: UITextView, coordinator: Coordinator) {
         NotificationCenter.default.addObserver(
@@ -1121,6 +1146,7 @@ struct FormattedTextEditor: UIViewRepresentable {
             
             #if DEBUG
             print("📝 textViewDidChange called - text: '\(textView.attributedText?.string.prefix(50) ?? "")'")
+            print("🧪 [FootnoteDiag] textViewDidChange BEGIN textView=\(parent.footnoteDebugSummary(textView.attributedText)) previousTextLength=\(previousTextLength) selected=\(textView.selectedRange)")
             
             // Log color information at the start of text
             if let attrText = textView.attributedText, attrText.length > 0 {
@@ -1237,6 +1263,7 @@ struct FormattedTextEditor: UIViewRepresentable {
                 #if DEBUG
                 print("📝 Text or formatting changed - updating binding")
                 print("📝 Binding will be set to: '\(attributedText.string.prefix(50))'")
+                print("🧪 [FootnoteDiag] textViewDidChange SET binding=\(parent.footnoteDebugSummary(attributedText))")
                 #endif
                 parent.attributedText = attributedText
                 parent.onTextChange?(attributedText)

@@ -132,6 +132,14 @@ struct FootnoteInsertionHelper {
             }
         }
 
+        #if DEBUG
+        let markerSummary = markers
+            .sorted { $0.range.location < $1.range.location }
+            .map { "@\($0.range.location)#\($0.attachment.number):\($0.attachment.footnoteID.uuidString.prefix(8))" }
+            .joined(separator: ",")
+        print("🧪 [FootnoteDiag] syncFootnotesWithMarkers BEGIN len=\(attributedText.length) markers=[\(markerSummary)] deleteMissing=\(deleteMissingModels)")
+        #endif
+
         let markersByID = Dictionary(grouping: markers, by: { $0.attachment.footnoteID })
         let activeFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
         var footnotesByAttachmentID: [UUID: FootnoteModel] = [:]
@@ -177,6 +185,16 @@ struct FootnoteInsertionHelper {
         if changed {
             WriteCoalescer.shared?.requestSave()
         }
+
+        #if DEBUG
+        let finalSummary = orderedMarkers
+            .map { marker -> String in
+                let footnote = footnotesByAttachmentID[marker.attachment.footnoteID]
+                return "@\(marker.range.location):\(marker.attachment.footnoteID.uuidString.prefix(8))->model#\(footnote?.number ?? -1)pos\(footnote?.characterPosition ?? -1)"
+            }
+            .joined(separator: ",")
+        print("🧪 [FootnoteDiag] syncFootnotesWithMarkers END changed=\(changed) [\(finalSummary)]")
+        #endif
 
         return changed
     }

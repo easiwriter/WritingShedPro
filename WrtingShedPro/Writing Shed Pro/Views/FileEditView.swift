@@ -3616,6 +3616,9 @@ struct FileEditView: View {
         // Insert footnote at cursor position
         if let textView = textViewCoordinator.textView {
             let markerStyle = file.project?.styleSheet?.footnoteMarkerStyle ?? .numeric
+            #if DEBUG
+            print("🧪 [FootnoteDiag] insertNewFootnote BEFORE insert textView=\(footnoteDebugSummary(textView.attributedText)) binding=\(footnoteDebugSummary(attributedContent)) selected=\(textView.selectedRange)")
+            #endif
             isPerformingUndoRedo = true
             let footnote = FootnoteInsertionHelper.insertFootnoteAtCursor(
                 in: textView,
@@ -3628,6 +3631,7 @@ struct FileEditView: View {
             if let footnote = footnote {
                 #if DEBUG
                 print("🔢 Footnote inserted: \(footnote.text)")
+                print("🧪 [FootnoteDiag] insertNewFootnote AFTER helper textView=\(footnoteDebugSummary(textView.attributedText)) modelAttachment=\(footnote.attachmentID.uuidString.prefix(8)) modelNumber=\(footnote.number) modelPosition=\(footnote.characterPosition)")
                 #endif
                 
                 // CRITICAL: Update all footnote numbers in the text to match database
@@ -3637,6 +3641,10 @@ struct FileEditView: View {
                     context: modelContext,
                     markerStyle: file.project?.styleSheet?.footnoteMarkerStyle ?? .numeric
                 )
+
+                #if DEBUG
+                print("🧪 [FootnoteDiag] insertNewFootnote AFTER updateAll updatedContent=\(footnoteDebugSummary(updatedContent))")
+                #endif
                 
                 // Update the text view with renumbered footnotes
                 textView.textStorage.setAttributedString(updatedContent)
@@ -3653,12 +3661,18 @@ struct FileEditView: View {
                 attributedContent = updatedContent
                 previousContent = updatedContent.string
                 previousAttributedContent = updatedContent
+                #if DEBUG
+                print("🧪 [FootnoteDiag] insertNewFootnote AFTER binding textView=\(footnoteDebugSummary(textView.attributedText)) binding=\(footnoteDebugSummary(attributedContent))")
+                #endif
                 // Explicit user action — always allow save even if orphaned U+FFFC
                 // set hasMissingAttachments on load (programmatic textStorage edits
                 // may not trigger textViewDidChange to clear the flag).
                 hasMissingAttachments = false
                 saveChanges()
                 WriteCoalescer.shared?.flush()
+                #if DEBUG
+                print("🧪 [FootnoteDiag] insertNewFootnote AFTER save/flush textView=\(footnoteDebugSummary(textView.attributedText)) binding=\(footnoteDebugSummary(attributedContent)) stored=\(footnoteDebugSummary(currentVersion.attributedContent))")
+                #endif
             }
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -4896,6 +4910,7 @@ struct FileEditView: View {
     private func handleFootnoteMarkerDeleted(_ attachments: [FootnoteAttachment], in deletionRange: NSRange) {
         #if DEBUG
         print("🗑️📝 handleFootnoteMarkerDeleted called")
+        print("🧪 [FootnoteDiag] handleFootnoteMarkerDeleted range=\(deletionRange) textView=\(footnoteDebugSummary(textViewCoordinator.textView?.attributedText)) binding=\(footnoteDebugSummary(attributedContent))")
         for attachment in attachments {
             print("   FootnoteID: \(attachment.footnoteID.uuidString.prefix(8))")
         }
@@ -4929,6 +4944,7 @@ struct FileEditView: View {
         alert.addAction(UIAlertAction(title: NSLocalizedString("footnotesList.confirmDelete.button", comment: "Delete"), style: .destructive) { _ in
             #if DEBUG
             print("✅ User confirmed footnote deletion - deleting text and moving to trash")
+            print("🧪 [FootnoteDiag] confirmed footnote deletion BEFORE textView=\(self.footnoteDebugSummary(textView.attributedText))")
             #endif
             
             // Set flag to bypass undo stack - footnote deletion is not undoable
@@ -4955,6 +4971,9 @@ struct FileEditView: View {
             textView.textStorage.replaceCharacters(in: safeRange, with: "")
             textView.selectedRange = NSRange(location: safeRange.location, length: 0)
             self.attributedContent = textView.attributedText ?? NSAttributedString()
+            #if DEBUG
+            print("🧪 [FootnoteDiag] confirmed footnote deletion AFTER text removal textView=\(self.footnoteDebugSummary(textView.attributedText)) binding=\(self.footnoteDebugSummary(self.attributedContent))")
+            #endif
             
             // Move the footnote(s) to trash using FootnoteManager (handles renumbering)
             for attachment in attachments {
@@ -4970,6 +4989,9 @@ struct FileEditView: View {
             
             // Save changes
             self.saveChanges()
+            #if DEBUG
+            print("🧪 [FootnoteDiag] confirmed footnote deletion AFTER save textView=\(self.footnoteDebugSummary(textView.attributedText)) binding=\(self.footnoteDebugSummary(self.attributedContent))")
+            #endif
             
             // Reset flag after update completes
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -8413,6 +8435,20 @@ struct FileEditView: View {
         
         return mutable
     }
+
+    #if DEBUG
+    private func footnoteDebugSummary(_ content: NSAttributedString?) -> String {
+        guard let content else { return "nil" }
+
+        var markers: [String] = []
+        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length), options: []) { value, range, _ in
+            guard let attachment = value as? FootnoteAttachment else { return }
+            markers.append("@\(range.location)#\(attachment.number):\(attachment.footnoteID.uuidString.prefix(8))")
+        }
+
+        return "len=\(content.length) markers=[\(markers.joined(separator: ","))]"
+    }
+    #endif
     
     private func saveChanges() {
         // IMPORTANT: Do NOT save if formattedContent is incomplete from CloudKit sync.
@@ -8439,6 +8475,9 @@ struct FileEditView: View {
         // IMPORTANT: Get the current content from the textView to include all attachments (comments, images)
         if let textView = textViewCoordinator.textView {
             let currentContent = textView.attributedText ?? NSAttributedString()
+            #if DEBUG
+            print("🧪 [FootnoteDiag] saveChanges FROM textView current=\(footnoteDebugSummary(currentContent)) binding=\(footnoteDebugSummary(attributedContent))")
+            #endif
             
             // On iPhone, content is already normalized to 12pt for display
             // Save it as-is - no scaling needed since we normalize on load, not on save
@@ -8506,6 +8545,9 @@ struct FileEditView: View {
             #endif
         } else {
             let contentToSave = attributedContent
+            #if DEBUG
+            print("🧪 [FootnoteDiag] saveChanges FROM binding content=\(footnoteDebugSummary(contentToSave))")
+            #endif
 
             file.currentVersion?.attributedContent = contentToSave
             
