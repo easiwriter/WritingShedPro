@@ -483,13 +483,16 @@ struct FormattedTextEditor: UIViewRepresentable {
         let textViewString = textViewAttrs.string
         let newString = attributedText.string
         let stringsMatch = textViewString == newString
+        let attachmentsMatch = attachmentSignature(in: textViewAttrs) == attachmentSignature(in: attributedText)
         
         // PERFORMANCE FIX: Only update text storage if text content actually changed
         // The expensive isEqual(to:) comparison was causing update loops with large documents
         // because it compares every attribute of every character (O(n) where n = length × attributes)
         // and dictionary key ordering differences caused false positives.
-        // For attribute-only updates from formatting, textViewDidChange will handle it.
-        if !stringsMatch {
+        // For most attribute-only updates from formatting, textViewDidChange will handle it.
+        // Attachment identity is the important exception: losing the attachment attribute leaves
+        // the same U+FFFC character in the string, but the marker/image/comment disappears visually.
+        if !stringsMatch || !attachmentsMatch {
             // Text content changed - need to update
             
             // Set flag to prevent feedback from delegate
@@ -653,7 +656,7 @@ struct FormattedTextEditor: UIViewRepresentable {
                     textView.selectedRange = selectedRange
                 }
             }
-        } // End of if !stringsMatch
+        } // End of if !stringsMatch || !attachmentsMatch
         
         // Update appearance properties (always, regardless of content changes)
         // NOTE: Don't set textView.textColor - it overrides attributed string colors!
@@ -689,6 +692,35 @@ struct FormattedTextEditor: UIViewRepresentable {
     }
     
     // MARK: - Private Methods
+
+    private func attachmentSignature(in attributedString: NSAttributedString) -> [String] {
+        var signature: [String] = []
+        let fullRange = NSRange(location: 0, length: attributedString.length)
+
+        attributedString.enumerateAttribute(.attachment, in: fullRange, options: []) { value, range, _ in
+            guard let attachment = value as? NSTextAttachment else { return }
+
+            let identity: String
+            switch attachment {
+            case let footnote as FootnoteAttachment:
+                identity = "footnote:\(footnote.footnoteID.uuidString)"
+            case let comment as CommentAttachment:
+                identity = "comment:\(comment.commentID.uuidString)"
+            case let reference as ReferenceAttachment:
+                identity = "reference:\(reference.referenceType.rawValue):\(reference.entryID.uuidString)"
+            case let image as ImageAttachment:
+                identity = "image:\(image.imageID.uuidString)"
+            case is PageBreakAttachment:
+                identity = "pageBreak"
+            default:
+                identity = String(describing: type(of: attachment))
+            }
+
+            signature.append("\(range.location):\(range.length):\(identity)")
+        }
+
+        return signature
+    }
     
     private func setupKeyboardNotifications(for textView: UITextView, coordinator: Coordinator) {
         NotificationCenter.default.addObserver(
