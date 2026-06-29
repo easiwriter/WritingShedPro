@@ -8436,6 +8436,15 @@ struct FileEditView: View {
         return mutable
     }
 
+    private func footnoteAttachmentIDs(in content: NSAttributedString) -> Set<UUID> {
+        var ids = Set<UUID>()
+        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length), options: []) { value, _, _ in
+            guard let attachment = value as? FootnoteAttachment else { return }
+            ids.insert(attachment.footnoteID)
+        }
+        return ids
+    }
+
     #if DEBUG
     private func footnoteDebugSummary(_ content: NSAttributedString?) -> String {
         guard let content else { return "nil" }
@@ -8581,6 +8590,16 @@ struct FileEditView: View {
             #endif
             return
         }
+        // Do not replace the live editor while it is focused. CloudKit remote-change
+        // notifications can include echoes of older local state while a just-saved edit
+        // is still moving through persistent history; applying them here can remove a
+        // newly inserted attachment from the visible UITextView.
+        if textViewCoordinator.textView?.isFirstResponder == true {
+            #if DEBUG
+            print("⬇️ [Remote Refresh] Skipping reload — editor is focused")
+            #endif
+            return
+        }
         // Skip when in preview mode — editor shows converted content, not real content
         guard !isPreviewingAsAlternateFormat else { return }
         // Skip during undo/redo operations
@@ -8600,6 +8619,18 @@ struct FileEditView: View {
         ))?.first else { return }
 
         guard let freshContent = freshVersion.attributedContent else { return }
+
+        let localContent = textViewCoordinator.textView?.attributedText ?? attributedContent
+        let localFootnoteIDs = footnoteAttachmentIDs(in: localContent)
+        let freshFootnoteIDs = footnoteAttachmentIDs(in: freshContent)
+        let missingLocalFootnotes = localFootnoteIDs.subtracting(freshFootnoteIDs)
+        guard missingLocalFootnotes.isEmpty else {
+            #if DEBUG
+            let missing = missingLocalFootnotes.map { $0.uuidString.prefix(8) }.joined(separator: ",")
+            print("⬇️ [Remote Refresh] Skipping reload — remote content would drop local footnote marker(s): [\(missing)] local=\(footnoteDebugSummary(localContent)) remote=\(footnoteDebugSummary(freshContent))")
+            #endif
+            return
+        }
 
         // Only reload if content actually differs (check attributes too — e.g. underline removal
         // changes no plain text but the formatted attributes are different).
