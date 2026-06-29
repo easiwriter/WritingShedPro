@@ -18,6 +18,7 @@ struct VirtualPageScrollView: UIViewRepresentable {
     let layoutManager: PaginatedTextLayoutManager
     let pageSetup: PageSetup
     let zoomScale: CGFloat
+    let footnotes: [ManuscriptFootnote]
     let version: Version?
     let modelContext: ModelContext
     let project: Project?
@@ -40,6 +41,7 @@ struct VirtualPageScrollView: UIViewRepresentable {
         let scrollView = VirtualPageScrollViewImpl(
             layoutManager: layoutManager,
             pageSetup: pageSetup,
+            footnotes: footnotes,
             version: version,
             modelContext: modelContext,
             project: project,
@@ -64,7 +66,7 @@ struct VirtualPageScrollView: UIViewRepresentable {
         _ = calculatedPageCount
         
         // Update if layout manager or page setup changed
-        uiView.updateLayout(layoutManager: layoutManager, pageSetup: pageSetup, version: version, modelContext: modelContext, project: project, showActualPageNumbers: showActualPageNumbers, startingPageNumber: startingPageNumber)
+        uiView.updateLayout(layoutManager: layoutManager, pageSetup: pageSetup, footnotes: footnotes, version: version, modelContext: modelContext, project: project, showActualPageNumbers: showActualPageNumbers, startingPageNumber: startingPageNumber)
         // Update zoom scale to adjust content insets
         uiView.updateZoomScale(zoomScale)
     }
@@ -192,14 +194,14 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     private struct PageViewInfo {
         let pageIndex: Int
         let textView: UITextView
-        let footnoteHostingController: UIHostingController<FootnoteRenderer<FootnoteModel>>?
+        let footnoteHostingController: UIViewController?
         let headerView: UIView?
         let footerView: UIView?
         let pageBackgroundView: UIView
         let frame: CGRect
         let isLoadingPlaceholder: Bool
         
-        init(pageIndex: Int, textView: UITextView, footnoteHostingController: UIHostingController<FootnoteRenderer<FootnoteModel>>?, headerView: UIView?, footerView: UIView?, pageBackgroundView: UIView, frame: CGRect, isLoadingPlaceholder: Bool = false) {
+        init(pageIndex: Int, textView: UITextView, footnoteHostingController: UIViewController?, headerView: UIView?, footerView: UIView?, pageBackgroundView: UIView, frame: CGRect, isLoadingPlaceholder: Bool = false) {
             self.pageIndex = pageIndex
             self.textView = textView
             self.footnoteHostingController = footnoteHostingController
@@ -216,6 +218,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     private var layoutManager: PaginatedTextLayoutManager
     private var pageSetup: PageSetup
     private var pageLayout: PageLayoutCalculator.PageLayout
+    private var footnotes: [ManuscriptFootnote]
     private var version: Version?
     private var modelContext: ModelContext
     private var project: Project?
@@ -284,10 +287,11 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     
     // MARK: - Initialization
     
-    init(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?, showActualPageNumbers: Bool = false, startingPageNumber: Int = 1) {
+    init(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, footnotes: [ManuscriptFootnote], version: Version?, modelContext: ModelContext, project: Project?, showActualPageNumbers: Bool = false, startingPageNumber: Int = 1) {
         self.layoutManager = layoutManager
         self.pageSetup = pageSetup
         self.pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
+        self.footnotes = footnotes
         self.version = version
         self.modelContext = modelContext
         self.project = project
@@ -331,7 +335,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     private func setupScrollView() {
         // Calculate layout if needed (pass version and context for footnote-aware layout)
         if !layoutManager.isLayoutValid {
-            layoutManager.calculateLayout(version: version, context: modelContext)
+            layoutManager.calculateLayout(assembledFootnotes: footnotes)
         }
         
         guard let result = layoutManager.layoutResult else { return }
@@ -420,8 +424,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     /// Track the last seen page count to detect when more pages become available
     private var lastSeenPageCount: Int = 0
     
-    func updateLayout(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?, showActualPageNumbers: Bool = false, startingPageNumber: Int = 1) {
+    func updateLayout(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, footnotes: [ManuscriptFootnote], version: Version?, modelContext: ModelContext, project: Project?, showActualPageNumbers: Bool = false, startingPageNumber: Int = 1) {
         let isNewLayoutManager = self.layoutManager !== layoutManager
+        let footnotesChanged = footnoteSignature(self.footnotes) != footnoteSignature(footnotes)
         // Compare page setup VALUES that affect layout, not the ID
         // CloudKit sync can create new PageSetup instances with different IDs but same values
         let pageSetupChanged = !self.pageSetup.isLayoutEquivalent(to: pageSetup)
@@ -441,6 +446,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         self.layoutManager = layoutManager
         self.pageSetup = pageSetup
         self.pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
+        self.footnotes = footnotes
         self.version = version
         self.modelContext = modelContext
         self.project = project
@@ -448,7 +454,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         self.startingPageNumber = startingPageNumber
         
         // If layout manager or page setup changed, clear all pages and recalculate
-        if isNewLayoutManager || pageSetupChanged {
+        if isNewLayoutManager || pageSetupChanged || footnotesChanged {
             clearAllPages()
             
             // Reset scroll position to top when layout changes
@@ -457,7 +463,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             
             // Recalculate layout with new page setup (pass version and context for footnote-aware layout)
             if !layoutManager.isLayoutValid {
-                layoutManager.calculateLayout(version: version, context: modelContext)
+                layoutManager.calculateLayout(assembledFootnotes: footnotes)
             }
         }
         
@@ -483,6 +489,12 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         
         // Update visible pages (this will replace loading placeholders with real content)
         updateVisiblePages()
+    }
+
+    private func footnoteSignature(_ footnotes: [ManuscriptFootnote]) -> [String] {
+        footnotes.map { footnote in
+            "\(footnote.attachmentID.uuidString)|\(footnote.number)|\(footnote.characterPosition)|\(footnote.text)"
+        }
     }
     
     func updateZoomScale(_ scale: CGFloat) {
@@ -699,50 +711,48 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         }
         
         // Query footnotes for this page FIRST (needed to calculate text area)
-        var footnoteController: UIHostingController<FootnoteRenderer<FootnoteModel>>? = nil
+        var footnoteController: UIViewController? = nil
         var footnoteHeight: CGFloat = 0
         
         // Maximum footnote height - must match PaginatedTextLayoutManager
         let maxFootnoteHeight = pageLayout.contentRect.height * 0.5
         
-        if let version = version {
-            let footnotes = layoutManager.getFootnotesForPage(pageIndex, version: version, context: modelContext)
-            
+        let footnotes = layoutManager.getFootnotesForPage(pageIndex, assembledFootnotes: self.footnotes)
+
+        #if DEBUG
+        if !footnotes.isEmpty {
+            print("📄 Page \(pageIndex): Found \(footnotes.count) footnotes")
+            for fn in footnotes {
+                print("   📝 Footnote #\(fn.number) at pos \(fn.characterPosition): '\(fn.text.prefix(50))...'")
+            }
+        }
+        #endif
+
+        // Create footnote renderer if footnotes exist
+        if !footnotes.isEmpty {
+            // Use contentRect width for footnotes (respects page margins)
+            let contentWidth = pageLayout.contentRect.width
+
+            // Calculate footnote height for text area adjustment, capped to max
+            let rawFootnoteHeight = layoutManager.calculateFootnoteHeight(for: footnotes, pageWidth: contentWidth)
+            footnoteHeight = min(rawFootnoteHeight, maxFootnoteHeight)
+
+            // Pass maxHeight to renderer so it clips overflow
+            let renderer = FootnoteRenderer(
+                footnotes: footnotes,
+                pageWidth: contentWidth,
+                stylesheet: project?.styleSheet,
+                maxHeight: footnoteHeight
+            )
+            footnoteController = UIHostingController(rootView: renderer)
+
             #if DEBUG
-            if !footnotes.isEmpty {
-                print("📄 Page \(pageIndex): Found \(footnotes.count) footnotes")
-                for fn in footnotes {
-                    print("   📝 Footnote #\(fn.number) at pos \(fn.characterPosition): '\(fn.text.prefix(50))...'")
-                }
+            if rawFootnoteHeight > maxFootnoteHeight {
+                print("📏 Footnote height for page \(pageIndex): \(rawFootnoteHeight)pt, CAPPED to \(footnoteHeight)pt")
+            } else {
+                print("📏 Footnote height for page \(pageIndex): \(footnoteHeight)pt")
             }
             #endif
-            
-            // Create footnote renderer if footnotes exist
-            if !footnotes.isEmpty {
-                // Use contentRect width for footnotes (respects page margins)
-                let contentWidth = pageLayout.contentRect.width
-                
-                // Calculate footnote height for text area adjustment, capped to max
-                let rawFootnoteHeight = layoutManager.calculateFootnoteHeight(for: footnotes, pageWidth: contentWidth)
-                footnoteHeight = min(rawFootnoteHeight, maxFootnoteHeight)
-                
-                // Pass maxHeight to renderer so it clips overflow
-                let renderer = FootnoteRenderer(
-                    footnotes: footnotes,
-                    pageWidth: contentWidth,
-                    stylesheet: project?.styleSheet,
-                    maxHeight: footnoteHeight
-                )
-                footnoteController = UIHostingController(rootView: renderer)
-                
-                #if DEBUG
-                if rawFootnoteHeight > maxFootnoteHeight {
-                    print("📏 Footnote height for page \(pageIndex): \(rawFootnoteHeight)pt, CAPPED to \(footnoteHeight)pt")
-                } else {
-                    print("📏 Footnote height for page \(pageIndex): \(footnoteHeight)pt")
-                }
-                #endif
-            }
         }
         
         // Get or create text view
@@ -938,9 +948,8 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             
             // Recalculate and reposition footnote view if present
             var footnoteHeight: CGFloat = 0
-            if let footnoteController = pageViewInfo.footnoteHostingController,
-               let version = version {
-                let footnotes = layoutManager.getFootnotesForPage(pageIndex, version: version, context: modelContext)
+            if let footnoteController = pageViewInfo.footnoteHostingController {
+                let footnotes = layoutManager.getFootnotesForPage(pageIndex, assembledFootnotes: self.footnotes)
                 
                 // Use contentRect width for footnotes (respects page margins)
                 let contentWidth = pageLayout.contentRect.width

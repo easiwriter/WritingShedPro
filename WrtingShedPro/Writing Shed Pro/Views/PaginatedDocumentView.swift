@@ -32,6 +32,7 @@ struct PaginatedDocumentView: View {
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
     @State private var upgradePromptReason: UpgradePromptReason?
+    @State private var previewFootnotes: [ManuscriptFootnote] = []
     
     // No longer using global page setup; use per-project pageSetup
     
@@ -52,6 +53,7 @@ struct PaginatedDocumentView: View {
                     layoutManager: layoutManager,
                     pageSetup: pageSetup,
                     zoomScale: zoomScale,
+                    footnotes: previewFootnotes,
                     version: textFile.currentVersion,
                     modelContext: modelContext,
                     project: project,
@@ -322,19 +324,17 @@ struct PaginatedDocumentView: View {
             textStorage: textStorage,
             pageSetup: pageSetup
         )
+        let version = textFile.currentVersion
+        let footnotes = collectPreviewFootnotes(from: textStorage, version: version)
+        previewFootnotes = footnotes
         
         // Store manager immediately - it will set isLayoutValid=true as soon as
         // initial pages are calculated, allowing the view to display immediately
         self.layoutManager = manager
         
         // Calculate layout (async to avoid blocking UI)
-        // Pass version and context for footnote-aware pagination
-        // Pages are calculated incrementally and become available as calculated
-        let version = textFile.currentVersion
-        let context = modelContext
-        
         DispatchQueue.global(qos: .userInitiated).async {
-            let _ = manager.calculateLayout(version: version, context: context)
+            let _ = manager.calculateLayout(assembledFootnotes: footnotes)
             #if DEBUG
             print("   ✅ Layout calculated: \(manager.pageCount) pages")
             #endif
@@ -387,12 +387,12 @@ struct PaginatedDocumentView: View {
             
             existingManager.updatePageSetup(pageSetup)
             
-            // Pass version and context for footnote-aware pagination
             let version = textFile.currentVersion
-            let context = modelContext
+            let footnotes = collectPreviewFootnotes(from: existingManager.textStorage, version: version)
+            previewFootnotes = footnotes
             
             DispatchQueue.global(qos: .userInitiated).async {
-                let _ = existingManager.calculateLayout(version: version, context: context)
+                let _ = existingManager.calculateLayout(assembledFootnotes: footnotes)
                 #if DEBUG
                 print("   ✅ Recalculated: \(existingManager.pageCount) pages")
                 #endif
@@ -403,6 +403,42 @@ struct PaginatedDocumentView: View {
             #endif
             setupLayoutManager()
         }
+    }
+
+    private func collectPreviewFootnotes(from textStorage: NSTextStorage, version: Version?) -> [ManuscriptFootnote] {
+        guard let version else { return [] }
+
+        var markerPositions: [(attachmentID: UUID, position: Int)] = []
+        textStorage.enumerateAttribute(.attachment, in: NSRange(location: 0, length: textStorage.length), options: []) { value, range, _ in
+            if let footnoteAttachment = value as? FootnoteAttachment {
+                markerPositions.append((footnoteAttachment.footnoteID, range.location))
+            }
+        }
+
+        guard !markerPositions.isEmpty else { return [] }
+
+        let activeFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: modelContext)
+        let activeByAttachmentID = Dictionary(uniqueKeysWithValues: activeFootnotes.map { ($0.attachmentID, $0) })
+
+        return markerPositions.compactMap { marker in
+            let footnote = activeByAttachmentID[marker.attachmentID]
+                ?? FootnoteManager.shared.getFootnoteByAttachment(attachmentID: marker.attachmentID, context: modelContext)
+
+            guard let footnote else {
+                #if DEBUG
+                print("⚠️ Preview marker has no matching FootnoteModel: \(marker.attachmentID)")
+                #endif
+                return nil
+            }
+
+            return ManuscriptFootnote(
+                attachmentID: footnote.attachmentID,
+                text: footnote.text,
+                number: footnote.number,
+                characterPosition: marker.position
+            )
+        }
+        .sorted { $0.characterPosition < $1.characterPosition }
     }
     
     // MARK: - Font Scaling Helper
