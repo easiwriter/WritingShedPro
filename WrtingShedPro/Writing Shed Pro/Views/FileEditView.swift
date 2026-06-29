@@ -636,6 +636,7 @@ struct FileEditView: View {
                 textFile: file,
                 project: project
             )
+            .id(refreshTrigger)
             .transition(.opacity)
         } else {
             ContentUnavailableView(
@@ -3127,7 +3128,8 @@ struct FileEditView: View {
         guard file.currentVersion != nil else { return }
         
         let markerStyle = file.project?.styleSheet?.footnoteMarkerStyle ?? .numeric
-        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        let sourceContent = textViewCoordinator.textView?.attributedText ?? attributedContent
+        let mutableContent = NSMutableAttributedString(attributedString: sourceContent)
         var needsUpdate = false
         
         // Enumerate through all attachments
@@ -3137,15 +3139,13 @@ struct FileEditView: View {
             // CRITICAL: Look up by attachmentID, not id!
             // attachment.footnoteID corresponds to FootnoteModel.attachmentID
             if let footnote = FootnoteManager.shared.getFootnoteByAttachment(attachmentID: attachment.footnoteID, context: modelContext) {
-                if attachment.number != footnote.number {
+                if attachment.number != footnote.number || attachment.markerStyle != markerStyle {
                     #if DEBUG
                     print("🔢 Updating attachment \(attachment.footnoteID) from \(attachment.number) to \(footnote.number)")
                     #endif
-                    attachment.number = footnote.number
-                    needsUpdate = true
-                }
-                if attachment.markerStyle != markerStyle {
-                    attachment.markerStyle = markerStyle
+                    let replacement = FootnoteAttachment(footnoteID: attachment.footnoteID, number: footnote.number)
+                    replacement.markerStyle = markerStyle
+                    mutableContent.replaceCharacters(in: range, with: NSAttributedString(attachment: replacement))
                     needsUpdate = true
                 }
             } else {
@@ -3158,6 +3158,23 @@ struct FileEditView: View {
         if needsUpdate {
             // Update the attributed content
             attributedContent = mutableContent
+
+            textViewCoordinator.modifyTypingAttributes { textView in
+                let savedSelection = textView.selectedRange
+                textView.textStorage.setAttributedString(mutableContent)
+                if savedSelection.location <= textView.textStorage.length {
+                    textView.selectedRange = savedSelection
+                }
+                textView.layoutManager.invalidateLayout(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length), actualCharacterRange: nil)
+                textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                textView.setNeedsDisplay()
+            }
+
+            saveDebounceTimer?.invalidate()
+            saveDebounceTimer = nil
+            hasMissingAttachments = false
+            saveChanges()
+            refreshTrigger = UUID()
             #if DEBUG
             print("✅ Footnote attachment numbers updated")
             #endif
@@ -3661,6 +3678,7 @@ struct FileEditView: View {
                 hasMissingAttachments = false
                 saveChanges()
                 WriteCoalescer.shared?.flush()
+                refreshTrigger = UUID()
             }
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -4706,6 +4724,7 @@ struct FileEditView: View {
                     #endif
                 }
             }
+            self.reconcileFootnoteNumbers()
             
             // Update back matter
             self.updateBackMatterFiles()
@@ -4967,6 +4986,7 @@ struct FileEditView: View {
                     #endif
                 }
             }
+            self.reconcileFootnoteNumbers()
             
             // Save changes
             self.saveChanges()
