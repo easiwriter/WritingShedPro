@@ -3613,6 +3613,7 @@ struct FileEditView: View {
         // Insert footnote at cursor position
         if let textView = textViewCoordinator.textView {
             let markerStyle = file.project?.styleSheet?.footnoteMarkerStyle ?? .numeric
+            isPerformingUndoRedo = true
             let footnote = FootnoteInsertionHelper.insertFootnoteAtCursor(
                 in: textView,
                 footnoteText: newFootnoteText,
@@ -3636,6 +3637,9 @@ struct FileEditView: View {
                 
                 // Update the text view with renumbered footnotes
                 textView.textStorage.setAttributedString(updatedContent)
+                textView.layoutManager.invalidateLayout(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length), actualCharacterRange: nil)
+                textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                textView.setNeedsDisplay()
                 
                 // Cancel any pending debounce timer to prevent it from overwriting
                 // our save with stale pre-footnote content
@@ -3652,6 +3656,10 @@ struct FileEditView: View {
                 hasMissingAttachments = false
                 saveChanges()
                 WriteCoalescer.shared?.flush()
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self.isPerformingUndoRedo = false
             }
         }
         
