@@ -1114,6 +1114,8 @@ class PaginatedTextLayoutManager {
     /// Invalidate the current layout (call when text or page setup changes)
     func invalidateLayout() {
         isLayoutValid = false
+        isLayoutComplete = false
+        isCalculating = false
         layoutResult = nil
     }
     

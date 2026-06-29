@@ -43,9 +43,9 @@ struct PaginatedDocumentView: View {
             Color(uiColor: .systemGray6)
                 .ignoresSafeArea()
             
-            // Main content layer - show immediately when layout manager exists
-            // Pages are loaded progressively as they're calculated
-            if let layoutManager = layoutManager, layoutManager.isLayoutValid {
+            // Main content layer - wait for final footnote-aware layout so pages
+            // are first rendered with their footnote areas in place.
+            if let layoutManager = layoutManager, layoutManager.isLayoutValid, layoutManager.isLayoutComplete {
                 // Use per-project page setup
                 let pageSetup = project.pageSetup ?? PageSetup.createWithDefaults()
                 VirtualPageScrollView(
@@ -68,7 +68,7 @@ struct PaginatedDocumentView: View {
                 .accessibilityHint("paginatedDocument.pages.hint")
                 .accessibilityAddTraits(.allowsDirectInteraction)
             } else {
-                // Show brief loading indicator only before layout manager is created
+                // Show loading while the footnote-aware layout is still calculating.
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
