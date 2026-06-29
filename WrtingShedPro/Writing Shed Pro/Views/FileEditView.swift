@@ -2157,7 +2157,8 @@ struct FileEditView: View {
                             showNotesList = false
                         },
                         onNoteChanged: {
-                            saveChanges()
+                            WriteCoalescer.shared?.flush()
+                            forceRefresh.toggle()
                         },
                         onNoteDeleted: { note in
                             removeNoteMarkers(for: note)
@@ -2217,7 +2218,8 @@ struct FileEditView: View {
                             showGlossaryList = false
                         },
                         onTermChanged: {
-                            saveChanges()
+                            WriteCoalescer.shared?.flush()
+                            forceRefresh.toggle()
                         },
                         onTermDeleted: { term in
                             removeGlossaryMarkers(for: term)
@@ -2263,7 +2265,8 @@ struct FileEditView: View {
                             showIndexList = false
                         },
                         onEntryChanged: {
-                            saveChanges()
+                            WriteCoalescer.shared?.flush()
+                            forceRefresh.toggle()
                         },
                         onEntryDeleted: { entry in
                             removeIndexMarkers(for: entry)
@@ -3796,44 +3799,59 @@ struct FileEditView: View {
         #endif
     }
     
+    private func removeReferenceMarkersFromStoredContent(entryID: UUID, referenceType: ReferenceType? = nil) -> (content: NSAttributedString, removedCount: Int) {
+        let sourceContent = file.currentVersion?.attributedContent ?? attributedContent
+        let mutableContent = NSMutableAttributedString(attributedString: sourceContent)
+        var rangesToRemove: [NSRange] = []
+
+        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
+            guard let attachment = value as? ReferenceAttachment,
+                  attachment.entryID == entryID else {
+                return
+            }
+
+            if let referenceType, attachment.referenceType != referenceType {
+                return
+            }
+
+            rangesToRemove.append(range)
+        }
+
+        for range in rangesToRemove.reversed() {
+            mutableContent.deleteCharacters(in: range)
+        }
+
+        return (mutableContent, rangesToRemove.count)
+    }
+
+    private func persistReferenceMarkerRemoval(_ content: NSAttributedString) {
+        if let textView = textViewCoordinator.textView {
+            textView.textStorage.setAttributedString(content)
+        }
+
+        file.currentVersion?.attributedContent = content
+        previousContent = content.string
+        previousAttributedContent = content
+        file.modifiedDate = Date()
+        attributedContent = content
+
+        WriteCoalescer.shared?.requestSave()
+        WriteCoalescer.shared?.flush()
+    }
+
     /// Remove all markers for a deleted note from the text
     private func removeNoteMarkers(for note: NoteEntry) {
-        guard let textView = textViewCoordinator.textView else {
-            #if DEBUG
-            print("❌ Cannot remove note markers: no text view")
-            #endif
-            return
-        }
-        
         #if DEBUG
         print("🗑️ Removing markers for note \(note.id)")
         #endif
         
         isPerformingUndoRedo = true
-        
-        let mutableContent = NSMutableAttributedString(attributedString: textView.attributedText ?? NSAttributedString())
-        var removedCount = 0
-        
-        // Find and remove all reference attachments for this note
-        // Iterate backwards to preserve indices
-        var rangesToRemove: [NSRange] = []
-        
-        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
-            if let attachment = value as? ReferenceAttachment,
-               attachment.entryID == note.id {
-                rangesToRemove.append(range)
-            }
-        }
-        
-        // Remove in reverse order
-        for range in rangesToRemove.reversed() {
-            mutableContent.deleteCharacters(in: range)
-            removedCount += 1
-        }
+
+        let result = removeReferenceMarkersFromStoredContent(entryID: note.id)
+        let removedCount = result.removedCount
         
         if removedCount > 0 {
-            textView.attributedText = mutableContent
-            attributedContent = mutableContent
+            persistReferenceMarkerRemoval(result.content)
             
             // Update reference count
             note.referenceCount -= removedCount
@@ -3844,8 +3862,6 @@ struct FileEditView: View {
             } else {
                 note.referencingFileIDs.removeAll { $0 == file.id }
             }
-            
-            saveChanges()
             
             // Update back matter files after removing note markers
             updateBackMatterFiles()
@@ -5133,43 +5149,17 @@ struct FileEditView: View {
     
     /// Remove all markers for a deleted glossary term from the text
     private func removeGlossaryMarkers(for term: GlossaryEntry) {
-        guard let textView = textViewCoordinator.textView else {
-            #if DEBUG
-            print("❌ Cannot remove glossary markers: no text view")
-            #endif
-            return
-        }
-        
         #if DEBUG
         print("🗑️ Removing markers for glossary term: \(term.term)")
         #endif
         
         isPerformingUndoRedo = true
-        
-        let mutableContent = NSMutableAttributedString(attributedString: textView.attributedText ?? NSAttributedString())
-        var removedCount = 0
-        
-        // Find and remove all reference attachments for this term
-        var rangesToRemove: [NSRange] = []
-        
-        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
-            if let attachment = value as? ReferenceAttachment,
-               attachment.referenceType == .glossary,
-               attachment.entryID == term.id {
-                rangesToRemove.append(range)
-            }
-        }
-        
-        // Remove in reverse order
-        for range in rangesToRemove.reversed() {
-            mutableContent.deleteCharacters(in: range)
-            removedCount += 1
-        }
+
+        let result = removeReferenceMarkersFromStoredContent(entryID: term.id, referenceType: .glossary)
+        let removedCount = result.removedCount
         
         if removedCount > 0 {
-            textView.attributedText = mutableContent
-            attributedContent = mutableContent
-            saveChanges()
+            persistReferenceMarkerRemoval(result.content)
             
             // Regenerate back matter files to update the glossary
             if let project = file.project {
@@ -5535,43 +5525,17 @@ struct FileEditView: View {
     
     /// Remove all markers for a deleted index entry from the text
     private func removeIndexMarkers(for entry: IndexEntry) {
-        guard let textView = textViewCoordinator.textView else {
-            #if DEBUG
-            print("❌ Cannot remove index markers: no text view")
-            #endif
-            return
-        }
-        
         #if DEBUG
         print("🗑️ Removing markers for index entry: \(entry.keyword)")
         #endif
         
         isPerformingUndoRedo = true
-        
-        let mutableContent = NSMutableAttributedString(attributedString: textView.attributedText ?? NSAttributedString())
-        var removedCount = 0
-        
-        // Find and remove all reference attachments for this entry
-        var rangesToRemove: [NSRange] = []
-        
-        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
-            if let attachment = value as? ReferenceAttachment,
-               attachment.referenceType == .index,
-               attachment.entryID == entry.id {
-                rangesToRemove.append(range)
-            }
-        }
-        
-        // Remove in reverse order
-        for range in rangesToRemove.reversed() {
-            mutableContent.deleteCharacters(in: range)
-            removedCount += 1
-        }
+
+        let result = removeReferenceMarkersFromStoredContent(entryID: entry.id, referenceType: .index)
+        let removedCount = result.removedCount
         
         if removedCount > 0 {
-            textView.attributedText = mutableContent
-            attributedContent = mutableContent
-            saveChanges()
+            persistReferenceMarkerRemoval(result.content)
             
             #if DEBUG
             print("✅ Removed \(removedCount) markers for index entry: \(entry.keyword)")
@@ -5681,43 +5645,17 @@ struct FileEditView: View {
     
     /// Remove all markers for a deleted reference from the text
     private func removeReferenceMarkers(for reference: ReferenceEntry) {
-        guard let textView = textViewCoordinator.textView else {
-            #if DEBUG
-            print("❌ Cannot remove reference markers: no text view")
-            #endif
-            return
-        }
-        
         #if DEBUG
         print("🗑️ Removing markers for reference: \(reference.author), \(reference.publicationDate)")
         #endif
         
         isPerformingUndoRedo = true
-        
-        let mutableContent = NSMutableAttributedString(attributedString: textView.attributedText ?? NSAttributedString())
-        var removedCount = 0
-        
-        // Find and remove all reference attachments for this reference
-        var rangesToRemove: [NSRange] = []
-        
-        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
-            if let attachment = value as? ReferenceAttachment,
-               attachment.referenceType == .reference,
-               attachment.entryID == reference.id {
-                rangesToRemove.append(range)
-            }
-        }
-        
-        // Remove in reverse order
-        for range in rangesToRemove.reversed() {
-            mutableContent.deleteCharacters(in: range)
-            removedCount += 1
-        }
+
+        let result = removeReferenceMarkersFromStoredContent(entryID: reference.id, referenceType: .reference)
+        let removedCount = result.removedCount
         
         if removedCount > 0 {
-            textView.attributedText = mutableContent
-            attributedContent = mutableContent
-            saveChanges()
+            persistReferenceMarkerRemoval(result.content)
             
             #if DEBUG
             print("✅ Removed \(removedCount) markers for reference: \(reference.author)")
