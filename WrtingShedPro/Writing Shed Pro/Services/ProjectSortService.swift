@@ -9,6 +9,12 @@ enum SortOrder: String, CaseIterable {
 }
 
 struct ProjectSortService {
+    static func preferredDefaultSortOrder(for projects: [Project], hasStoredSortOrder: Bool) -> SortOrder? {
+        guard !hasStoredSortOrder else { return nil }
+        guard projects.contains(where: { $0.userOrder != nil }) else { return nil }
+        return .byUserOrder
+    }
+
     static func sortProjects(_ projects: [Project], by order: SortOrder) -> [Project] {
         switch order {
         case .byName:

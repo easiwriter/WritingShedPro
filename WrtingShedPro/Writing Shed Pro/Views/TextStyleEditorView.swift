@@ -64,6 +64,7 @@ struct TextStyleEditorView: View {
                 paragraphSettingsSection
                 numberingSection
                 followOnStyleSection
+                firstParagraphStyleSection
                 tocSection
             }
         }
@@ -586,6 +587,30 @@ struct TextStyleEditorView: View {
                 .foregroundStyle(.secondary)
         }
     }
+
+    private var firstParagraphStyleSection: some View {
+        Section {
+            Toggle(isOn: Binding(
+                get: { style.isFirstParagraphStyle },
+                set: { newValue in
+                    if newValue {
+                        style.styleSheet?.setFirstParagraphStyle(style)
+                    } else {
+                        style.isFirstParagraphStyle = false
+                    }
+                    hasUnsavedChanges = true
+                }
+            )) {
+                Text("textStyleEditor.firstParagraphStyle.toggle")
+            }
+        } header: {
+            Text("textStyleEditor.firstParagraphStyle.header")
+        } footer: {
+            Text("textStyleEditor.firstParagraphStyle.footer")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
     
     /// Section for Table of Contents settings
     /// Only shown for heading-category styles
@@ -683,6 +708,11 @@ struct TextStyleEditorView: View {
     
     private func saveChanges() {
         style.displayName = editedDisplayName
+
+        // Defend against duplicate flags from sync/artifacts by normalizing on save.
+        if style.isFirstParagraphStyle {
+            style.styleSheet?.setFirstParagraphStyle(style)
+        }
         
         // Update stylesheet's modified date to trigger view updates
         if let stylesheet = style.styleSheet {
@@ -865,6 +895,7 @@ struct TextStyleEditorView: View {
         newStyle.parentStyleName = style.parentStyleName
         newStyle.includeInTOC = style.includeInTOC
         newStyle.tocLevel = style.tocLevel
+        newStyle.isFirstParagraphStyle = false
         
         // Add to stylesheet
         newStyle.styleSheet = stylesheet

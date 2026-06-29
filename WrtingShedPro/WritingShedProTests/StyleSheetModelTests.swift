@@ -190,6 +190,27 @@ final class StyleSheetModelTests: XCTestCase {
         XCTAssertEqual(style.alignment, .natural)
         XCTAssertEqual(style.numberFormat, .none)
         XCTAssertEqual(style.styleCategory, .text)
+        XCTAssertFalse(style.isFirstParagraphStyle)
+    }
+
+    func testSetFirstParagraphStyleAllowsOnlyOneSelectedStyle() throws {
+        // Given
+        let stylesheet = StyleSheet(name: "Test")
+        let bodyStyle = TextStyleModel(name: "body", displayName: "Body", displayOrder: 0)
+        let headingStyle = TextStyleModel(name: "title1", displayName: "Title 1", displayOrder: 1)
+
+        bodyStyle.styleSheet = stylesheet
+        headingStyle.styleSheet = stylesheet
+        context.insert(stylesheet)
+        try context.save()
+
+        // When
+        stylesheet.setFirstParagraphStyle(headingStyle)
+
+        // Then
+        XCTAssertFalse(bodyStyle.isFirstParagraphStyle)
+        XCTAssertTrue(headingStyle.isFirstParagraphStyle)
+        XCTAssertEqual(stylesheet.firstParagraphStyle?.id, headingStyle.id)
     }
     
     func testTextStyleModelComputedProperties() throws {

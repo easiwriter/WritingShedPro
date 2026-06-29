@@ -370,7 +370,7 @@ struct PoetryFormMigrationService {
     }
     
     private static func loadFormsFromJSON() -> [PoetryForm] {
-        guard let url = Bundle.main.url(forResource: "PoetryForms", withExtension: "json") else {
+        guard let url = poetryFormsJSONURL() else {
             #if DEBUG
             print("[PoetryFormMigration] ❌ PoetryForms.json not found in bundle")
             #endif
@@ -388,6 +388,12 @@ struct PoetryFormMigrationService {
             #endif
             return [createDefaultFreeVerse()]
         }
+    }
+
+    private static func poetryFormsJSONURL() -> URL? {
+        [Bundle.main, Bundle(for: PoetryFormService.self)]
+            .compactMap { $0.url(forResource: "PoetryForms", withExtension: "json") }
+            .first
     }
     
     private static func createDefaultFreeVerse() -> PoetryForm {

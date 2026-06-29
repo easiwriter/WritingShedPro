@@ -267,12 +267,13 @@ final class PoetryFormServiceTests: XCTestCase {
     func testGetCategories() {
         let categories = service.getCategories()
         
-        XCTAssertEqual(categories.count, 5)
+        XCTAssertEqual(categories.count, 6)
         XCTAssertEqual(categories[0], .japanese)
         XCTAssertEqual(categories[1], .rhymed)
-        XCTAssertEqual(categories[2], .metered)
-        XCTAssertEqual(categories[3], .free)
-        XCTAssertEqual(categories[4], .custom)
+        XCTAssertEqual(categories[2], .structured)
+        XCTAssertEqual(categories[3], .metered)
+        XCTAssertEqual(categories[4], .free)
+        XCTAssertEqual(categories[5], .custom)
     }
     
     // MARK: - Template Generation Tests

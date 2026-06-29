@@ -115,6 +115,34 @@ final class ProjectSortServiceTests: XCTestCase {
         XCTAssertTrue(sorted[1].name == "NoOrder1" || sorted[1].name == "NoOrder2")
         XCTAssertTrue(sorted[2].name == "NoOrder1" || sorted[2].name == "NoOrder2")
     }
+
+    func testPreferredDefaultSortOrderUsesUserOrderWhenAvailable() {
+        let projects = [
+            Project(name: "First", type: .prose, userOrder: 0),
+            Project(name: "Second", type: .poetry, userOrder: 1)
+        ]
+
+        let preferred = ProjectSortService.preferredDefaultSortOrder(
+            for: projects,
+            hasStoredSortOrder: false
+        )
+
+        XCTAssertEqual(preferred, .byUserOrder)
+    }
+
+    func testPreferredDefaultSortOrderRespectsStoredPreference() {
+        let projects = [
+            Project(name: "First", type: .prose, userOrder: 0),
+            Project(name: "Second", type: .poetry, userOrder: 1)
+        ]
+
+        let preferred = ProjectSortService.preferredDefaultSortOrder(
+            for: projects,
+            hasStoredSortOrder: true
+        )
+
+        XCTAssertNil(preferred)
+    }
     
     func testUpdateUserOrder() {
         // Arrange

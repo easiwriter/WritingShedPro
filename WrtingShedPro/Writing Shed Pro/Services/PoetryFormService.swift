@@ -373,6 +373,13 @@ final class PoetryFormService {
         do {
             let models = try context.fetch(descriptor)
             let forms = deduplicateByID(models.map { $0.toPoetryForm() })
+
+            guard !forms.isEmpty else {
+                #if DEBUG
+                print("[PoetryFormService] ⚠️ Database returned no forms, falling back to JSON")
+                #endif
+                return loadPredefinedFormsFromJSON()
+            }
             
             #if DEBUG
             print("[PoetryFormService] ✅ Loaded \(forms.count) forms from database")
@@ -396,7 +403,16 @@ final class PoetryFormService {
         
         do {
             let models = try context.fetch(descriptor)
-            return deduplicateByID(models.map { $0.toPoetryForm() })
+            let forms = deduplicateByID(models.map { $0.toPoetryForm() })
+
+            guard !forms.isEmpty else {
+                #if DEBUG
+                print("[PoetryFormService] ⚠️ No predefined forms in database, falling back to JSON")
+                #endif
+                return loadPredefinedFormsFromJSON()
+            }
+
+            return forms
         } catch {
             #if DEBUG
             print("[PoetryFormService] ❌ Failed to load predefined forms: \(error)")
@@ -425,7 +441,7 @@ final class PoetryFormService {
     
     /// Fallback: Load predefined forms from JSON bundle
     private func loadPredefinedFormsFromJSON() -> [PoetryForm] {
-        guard let url = Bundle.main.url(forResource: "PoetryForms", withExtension: "json") else {
+        guard let url = poetryFormsJSONURL() else {
             #if DEBUG
             print("[PoetryFormService] ❌ PoetryForms.json not found in bundle")
             #endif
@@ -448,6 +464,12 @@ final class PoetryFormService {
             #endif
             return [createDefaultFreeVerse()]
         }
+    }
+
+    private func poetryFormsJSONURL() -> URL? {
+        [Bundle.main, Bundle(for: PoetryFormService.self)]
+            .compactMap { $0.url(forResource: "PoetryForms", withExtension: "json") }
+            .first
     }
     
     private func buildCategoryCache(from forms: [PoetryForm]) {

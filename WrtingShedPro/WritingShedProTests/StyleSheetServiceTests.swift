@@ -108,13 +108,36 @@ final class StyleSheetServiceTests: XCTestCase {
         XCTAssertNotNil(bodyStyle)
         XCTAssertEqual(bodyStyle?.displayName, "Body")
         XCTAssertTrue(bodyStyle?.isSystemStyle ?? false)
+        XCTAssertTrue(bodyStyle?.isFirstParagraphStyle ?? false)
         
         let title1Style = styles.first(where: { $0.name == UIFont.TextStyle.title1.rawValue })
         XCTAssertNotNil(title1Style)
         XCTAssertEqual(title1Style?.displayName, "Title 1")
         XCTAssertGreaterThan(title1Style?.fontSize ?? 0, 17) // Title should be larger than body
     }
-    
+
+    func testInitializeMigratesFirstParagraphStyleForExistingStylesheets() throws {
+        // Given: legacy stylesheet rows with no first-paragraph style selected
+        let stylesheet = StyleSheet(name: "Default", isSystemStyleSheet: true)
+        let bodyStyle = TextStyleModel(name: UIFont.TextStyle.body.rawValue, displayName: "Body", displayOrder: 0)
+        let titleStyle = TextStyleModel(name: UIFont.TextStyle.title1.rawValue, displayName: "Title 1", displayOrder: 1)
+        bodyStyle.styleSheet = stylesheet
+        titleStyle.styleSheet = stylesheet
+        context.insert(stylesheet)
+        try context.save()
+
+        XCTAssertFalse(bodyStyle.isFirstParagraphStyle)
+        XCTAssertFalse(titleStyle.isFirstParagraphStyle)
+
+        // When
+        StyleSheetService.initializeStyleSheetsIfNeeded(context: context)
+
+        // Then
+        XCTAssertTrue(bodyStyle.isFirstParagraphStyle)
+        XCTAssertFalse(titleStyle.isFirstParagraphStyle)
+        XCTAssertEqual(stylesheet.firstParagraphStyle?.id, bodyStyle.id)
+    }
+
     // MARK: - Lookup Tests
     
     func testGetDefaultStyleSheet() throws {
