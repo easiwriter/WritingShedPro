@@ -25,14 +25,18 @@ struct PaginatedDocumentView: View {
     
     @Environment(\.modelContext) private var modelContext
     
-    @State private var layoutManager: PaginatedTextLayoutManager?
+    @State private var previewLayout: PreviewLayout?
     @State private var currentPage: Int = 0
     @State private var zoomScale: CGFloat = 1.0
     @State private var lastZoomScale: CGFloat = 1.0
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
     @State private var upgradePromptReason: UpgradePromptReason?
-    @State private var previewFootnotes: [ManuscriptFootnote] = []
+
+    private struct PreviewLayout {
+        let manager: PaginatedTextLayoutManager
+        let footnotes: [ManuscriptFootnote]
+    }
     
     // No longer using global page setup; use per-project pageSetup
     
@@ -46,14 +50,14 @@ struct PaginatedDocumentView: View {
             
             // Main content layer - wait for final footnote-aware layout so pages
             // are first rendered with their footnote areas in place.
-            if let layoutManager = layoutManager, layoutManager.isLayoutValid, layoutManager.isLayoutComplete {
+            if let previewLayout, previewLayout.manager.isLayoutValid, previewLayout.manager.isLayoutComplete {
                 // Use per-project page setup
                 let pageSetup = project.pageSetup ?? PageSetup.createWithDefaults()
                 VirtualPageScrollView(
-                    layoutManager: layoutManager,
+                    layoutManager: previewLayout.manager,
                     pageSetup: pageSetup,
                     zoomScale: zoomScale,
-                    footnotes: previewFootnotes,
+                    footnotes: previewLayout.footnotes,
                     version: textFile.currentVersion,
                     modelContext: modelContext,
                     project: project,
@@ -93,7 +97,7 @@ struct PaginatedDocumentView: View {
             }
             
             // Always recalculate on appear in case version changed while in edit mode
-            if layoutManager != nil {
+            if previewLayout != nil {
                 #if DEBUG
                 print("   - Recalculating layout on appear")
                 #endif
@@ -148,7 +152,7 @@ struct PaginatedDocumentView: View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 // Page info
-                if let layoutManager = layoutManager, layoutManager.isLayoutValid {
+                if let layoutManager = previewLayout?.manager, layoutManager.isLayoutValid {
                     Label {
                         Text(String(format: NSLocalizedString("paginatedDocument.pageIndicator", comment: "Page indicator"), currentPage + 1, layoutManager.pageCount))
                             .font(.caption)
@@ -175,7 +179,7 @@ struct PaginatedDocumentView: View {
             .padding(.vertical, 8)
             
             // Progress bar while pages are still being calculated
-            if let layoutManager = layoutManager, layoutManager.isCalculating || !layoutManager.isLayoutComplete {
+            if let layoutManager = previewLayout?.manager, layoutManager.isCalculating || !layoutManager.isLayoutComplete {
                 let calculated = layoutManager.layoutResult?.pageInfos.count ?? 0
                 let estimated = max(layoutManager.estimatedPageCount, calculated)
                 let fraction = estimated > 0 ? min(Double(calculated) / Double(estimated), 1.0) : 0
@@ -326,11 +330,10 @@ struct PaginatedDocumentView: View {
         )
         let version = textFile.currentVersion
         let footnotes = collectPreviewFootnotes(from: textStorage, version: version)
-        previewFootnotes = footnotes
         
         // Store manager immediately - it will set isLayoutValid=true as soon as
         // initial pages are calculated, allowing the view to display immediately
-        self.layoutManager = manager
+        self.previewLayout = PreviewLayout(manager: manager, footnotes: footnotes)
         
         // Calculate layout (async to avoid blocking UI)
         DispatchQueue.global(qos: .userInitiated).async {
@@ -359,7 +362,7 @@ struct PaginatedDocumentView: View {
         let pageSetup = project.pageSetup ?? PageSetup.createWithDefaults()
         // ...existing code...
         
-        if let existingManager = layoutManager {
+        if let existingManager = previewLayout?.manager {
             #if DEBUG
             print("   ♻️ Updating existing manager")
             #endif
@@ -389,7 +392,7 @@ struct PaginatedDocumentView: View {
             
             let version = textFile.currentVersion
             let footnotes = collectPreviewFootnotes(from: existingManager.textStorage, version: version)
-            previewFootnotes = footnotes
+            previewLayout = PreviewLayout(manager: existingManager, footnotes: footnotes)
             
             DispatchQueue.global(qos: .userInitiated).async {
                 let _ = existingManager.calculateLayout(assembledFootnotes: footnotes)
