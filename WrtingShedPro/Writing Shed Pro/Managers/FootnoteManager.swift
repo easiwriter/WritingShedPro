@@ -44,11 +44,13 @@ final class FootnoteManager: ObservableObject {
         text: String,
         context: ModelContext
     ) -> FootnoteModel {
+        let effectiveContext = version.modelContext ?? context
+
         // Determine the footnote number based on current position
         let number = calculateFootnoteNumber(
             forVersion: version,
             at: characterPosition,
-            context: context
+            context: effectiveContext
         )
         
         let footnote = FootnoteModel(
@@ -59,11 +61,11 @@ final class FootnoteManager: ObservableObject {
             number: number
         )
         
-        context.insert(footnote)
+        effectiveContext.insert(footnote)
         WriteCoalescer.shared?.requestSave()
         
         // Renumber all footnotes after insertion
-        renumberFootnotes(forVersion: version, context: context)
+        renumberFootnotes(forVersion: version, context: effectiveContext)
         
         // Post notification so views can update footnote attachment numbers
         NotificationCenter.default.post(
@@ -179,7 +181,8 @@ final class FootnoteManager: ObservableObject {
     ///   - version: The version to renumber footnotes for
     ///   - context: SwiftData model context
     func renumberFootnotes(forVersion version: Version, context: ModelContext) {
-        let activeFootnotes = getActiveFootnotes(forVersion: version, context: context)
+        let effectiveContext = version.modelContext ?? context
+        let activeFootnotes = getActiveFootnotes(forVersion: version, context: effectiveContext)
         
         // Sort by position
         let sortedFootnotes = activeFootnotes.sorted()
@@ -212,7 +215,8 @@ final class FootnoteManager: ObservableObject {
         lengthDelta: Int,
         context: ModelContext
     ) {
-        let footnotes = getActiveFootnotes(forVersion: version, context: context)
+        let effectiveContext = version.modelContext ?? context
+        let footnotes = getActiveFootnotes(forVersion: version, context: effectiveContext)
         
         for footnote in footnotes {
             // Only update positions after the edit point
@@ -224,7 +228,7 @@ final class FootnoteManager: ObservableObject {
         
         WriteCoalescer.shared?.requestSave()
         // Renumber in case order changed
-        renumberFootnotes(forVersion: version, context: context)
+        renumberFootnotes(forVersion: version, context: effectiveContext)
     }
     
     // MARK: - Query Methods
@@ -235,6 +239,7 @@ final class FootnoteManager: ObservableObject {
     ///   - context: SwiftData model context
     /// - Returns: Array of footnotes sorted by position
     nonisolated func getAllFootnotes(forVersion version: Version, context: ModelContext) -> [FootnoteModel] {
+        let effectiveContext = version.modelContext ?? context
         // Use FetchDescriptor to query database directly instead of relying on cached relationship
         let versionID = version.id
         let descriptor = FetchDescriptor<FootnoteModel>(
@@ -243,7 +248,7 @@ final class FootnoteManager: ObservableObject {
             },
             sortBy: [SortDescriptor(\.characterPosition, order: .forward)]
         )
-        return (try? context.fetch(descriptor)) ?? []
+        return (try? effectiveContext.fetch(descriptor)) ?? []
     }
     
     /// Get all footnotes for a version
@@ -252,6 +257,7 @@ final class FootnoteManager: ObservableObject {
     ///   - context: SwiftData model context
     /// - Returns: Array of footnotes sorted by position
     nonisolated func getActiveFootnotes(forVersion version: Version, context: ModelContext) -> [FootnoteModel] {
+        let effectiveContext = version.modelContext ?? context
         // Use FetchDescriptor to query database directly instead of relying on cached relationship.
         // Filter by persistentModelID (not UUID) to avoid returning footnotes from a different
         // project's version that happens to share the same UUID (e.g. after WSP re-import).
@@ -262,7 +268,7 @@ final class FootnoteManager: ObservableObject {
             },
             sortBy: [SortDescriptor(\.characterPosition, order: .forward)]
         )
-        return (try? context.fetch(descriptor)) ?? []
+        return (try? effectiveContext.fetch(descriptor)) ?? []
     }
     
     /// Get footnote count for a version
