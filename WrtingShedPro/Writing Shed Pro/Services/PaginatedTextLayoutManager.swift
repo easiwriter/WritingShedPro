@@ -1252,7 +1252,11 @@ class PaginatedTextLayoutManager {
             }
         }
         
-        return assembledFootnotes.filter { fn in
+        let uniqueFootnotes = Dictionary(grouping: assembledFootnotes, by: \.attachmentID)
+            .compactMap { $0.value.first }
+            .sorted { $0.characterPosition < $1.characterPosition }
+
+        return uniqueFootnotes.filter { fn in
             guard let actualPosition = actualPositions[fn.attachmentID] else {
                 return false
             }

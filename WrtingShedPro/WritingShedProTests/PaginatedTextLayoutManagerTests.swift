@@ -697,6 +697,33 @@ final class PaginatedTextLayoutManagerTests: XCTestCase {
             XCTAssertTrue(NSLocationInRange(footnote.characterPosition, page0Range))
         }
     }
+
+    func testGetFootnotesForPage_DeduplicatesAssembledFootnotesByAttachmentID() throws {
+        let attachmentID = UUID()
+        let attachment = FootnoteAttachment(footnoteID: attachmentID, number: 1)
+        let text = NSMutableAttributedString(string: "Text before ")
+        text.append(NSAttributedString(attachment: attachment))
+        text.append(NSAttributedString(string: " text after."))
+
+        let layoutManager = PaginatedTextLayoutManager(
+            textStorage: NSTextStorage(attributedString: text),
+            pageSetup: pageSetup
+        )
+
+        let result = layoutManager.calculateLayout(assembledFootnotes: [
+            ManuscriptFootnote(attachmentID: attachmentID, text: "Duplicated footnote", number: 1, characterPosition: 12),
+            ManuscriptFootnote(attachmentID: attachmentID, text: "Duplicated footnote", number: 1, characterPosition: 12)
+        ])
+
+        XCTAssertFalse(result.pageInfos.isEmpty)
+        let footnotes = layoutManager.getFootnotes(in: NSRange(location: 0, length: text.length), assembledFootnotes: [
+            ManuscriptFootnote(attachmentID: attachmentID, text: "Duplicated footnote", number: 1, characterPosition: 12),
+            ManuscriptFootnote(attachmentID: attachmentID, text: "Duplicated footnote", number: 1, characterPosition: 12)
+        ])
+
+        XCTAssertEqual(footnotes.count, 1)
+        XCTAssertEqual(footnotes.first?.attachmentID, attachmentID)
+    }
     
     @MainActor
     func testGetFootnotesForPage_DeletedFootnotesExcluded() throws {

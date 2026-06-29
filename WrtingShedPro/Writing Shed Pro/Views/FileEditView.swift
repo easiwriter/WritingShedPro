@@ -77,6 +77,7 @@ struct FileEditView: View {
     @State private var showNewFootnoteDialog = false
     @State private var newFootnoteText: String = ""
     @State private var selectedFootnoteForDetail: FootnoteModel?
+    @State private var isInsertingFootnote = false
     
     // Feature 029: Notes & Endnotes (Back Matter)
     @State private var showNotesList = false
@@ -3603,12 +3604,16 @@ struct FileEditView: View {
     
     private func insertNewFootnote() {
         guard !newFootnoteText.isEmpty else { return }
+        guard !isInsertingFootnote else { return }
         guard let currentVersion = file.currentVersion else {
             #if DEBUG
             print("❌ Cannot insert footnote: no current version")
             #endif
             return
         }
+
+        isInsertingFootnote = true
+        defer { isInsertingFootnote = false }
         
         // Insert footnote at cursor position
         if let textView = textViewCoordinator.textView {
@@ -8903,7 +8908,6 @@ private struct NewFootnoteSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("button.add") {
                         onAdd()
-                        dismiss()
                     }
                     .disabled(footnoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
