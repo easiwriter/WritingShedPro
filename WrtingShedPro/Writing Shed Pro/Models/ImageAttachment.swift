@@ -79,6 +79,14 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     /// Maximum width for images (prevents oversized images)
     static let maxWidth: CGFloat = 2048
     
+    /// Fallback text-column width used only when the real container/text-view
+    /// width is not yet known (e.g. before the attachment has been laid out).
+    /// The actual display width is computed per-device from the live text
+    /// container width at layout time — see `displaySize(forAvailableWidth:)`
+    /// and the `attachmentBounds(for:...)` override. Sized for a standard
+    /// A4/US Letter text column (page width minus ~1" margins).
+    static let fallbackColumnWidth: CGFloat = 480
+    
     // MARK: - Helper Methods
     
     /// Load UIImage from data with proper scale for the device
@@ -111,16 +119,40 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     
     // MARK: - Computed Properties
     
-    /// Calculate display size based on original image size and scale
-    /// Includes caption height if caption is enabled
+    /// Calculate display size using the fallback column width.
+    /// Prefer `displaySize(forAvailableWidth:)` wherever the live text container
+    /// width is known so the image is sized correctly for the current device.
     var displaySize: CGSize {
+        return displaySize(forAvailableWidth: ImageAttachment.fallbackColumnWidth)
+    }
+    
+    /// Calculate the on-screen display size of this image for a given available
+    /// text-column width.
+    ///
+    /// The `scale` property is interpreted as a fraction of the available column
+    /// width (1.0 == fill the column), NOT a fraction of the image's pixel size.
+    /// This is what makes images render at a sensible size on every device and on
+    /// the printed page: the same document opened on a phone, iPad or Mac fits its
+    /// own text column instead of inheriting the pixel dimensions of whichever
+    /// device first inserted the image. The image is never upscaled beyond its
+    /// natural point size.
+    /// - Parameter availableWidth: Width of the text column on the current device
+    ///   (text container width minus line-fragment padding).
+    func displaySize(forAvailableWidth availableWidth: CGFloat) -> CGSize {
         guard let image = image else {
             return CGSize(width: 300, height: 200) // Default size
         }
         
         let originalSize = image.size
-        let width = originalSize.width * scale
-        var height = originalSize.height * scale
+        let column = (availableWidth.isFinite && availableWidth > 1)
+            ? availableWidth
+            : ImageAttachment.fallbackColumnWidth
+        let aspectRatio = originalSize.height / max(originalSize.width, 1)
+        
+        // Apply the user's scale to the column width, but never exceed the image's
+        // natural point width (no upscaling of small images).
+        let width = min(column * scale, originalSize.width)
+        var height = width * aspectRatio
         
         // Add caption height if caption is enabled
         if hasCaption, let captionText = captionText, !captionText.isEmpty {
@@ -129,6 +161,21 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         }
         
         return CGSize(width: width, height: height)
+    }
+    
+    /// Resolve the available text-column width from a text container, falling back
+    /// to the proposed line fragment and finally the fixed fallback width.
+    static func availableWidth(for textContainer: NSTextContainer?, proposedLineFragment lineFrag: CGRect = .zero) -> CGFloat {
+        if let container = textContainer {
+            let usable = container.size.width - container.lineFragmentPadding * 2
+            if usable.isFinite && usable > 1 {
+                return usable
+            }
+        }
+        if lineFrag.width.isFinite && lineFrag.width > 1 {
+            return lineFrag.width
+        }
+        return fallbackColumnWidth
     }
     
     /// Estimate caption height for bounds calculation
@@ -315,6 +362,19 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     /// Update the bounds based on current scale and original image size
     func updateBounds() {
         bounds = CGRect(origin: .zero, size: displaySize)
+    }
+    
+    /// TextKit asks the attachment for its bounds during layout. We compute the
+    /// size from the LIVE text container width so the image fits the text column
+    /// on the current device / printed page, regardless of which device inserted
+    /// it. This drives both the editor (TextKit) and the paginated/print layout
+    /// (NSLayoutManager + NSTextContainer).
+    override func attachmentBounds(for textContainer: NSTextContainer?,
+                                   proposedLineFragment lineFrag: CGRect,
+                                   glyphPosition position: CGPoint,
+                                   characterIndex charIndex: Int) -> CGRect {
+        let available = ImageAttachment.availableWidth(for: textContainer, proposedLineFragment: lineFrag)
+        return CGRect(origin: .zero, size: displaySize(forAvailableWidth: available))
     }
     
     /// Get scale as percentage string (e.g., "95.00 %")

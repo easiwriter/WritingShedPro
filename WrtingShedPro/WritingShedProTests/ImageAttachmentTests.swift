@@ -271,18 +271,39 @@ final class ImageAttachmentTests: XCTestCase {
 
     
     func testDisplaySizeWithImage() {
-        // Given
+        // Given a small image (narrower than the column) — scale is applied to the
+        // column width but never upscales beyond the image's natural width.
         let attachment = ImageAttachment()
         let testImage = createTestImage(width: 400, height: 200)
         attachment.image = testImage
         attachment.setScale(0.5)
         
-        // When
-        let displaySize = attachment.displaySize
+        // When fitting to an 800pt column at 50% scale
+        let displaySize = attachment.displaySize(forAvailableWidth: 800)
         
-        // Then
-        XCTAssertEqual(displaySize.width, 200, accuracy: 0.1, "Display width should be 400 * 0.5 = 200")
-        XCTAssertEqual(displaySize.height, 100, accuracy: 0.1, "Display height should be 200 * 0.5 = 100")
+        // Then width is 800 * 0.5 = 400 (equals natural width, no upscale), aspect preserved
+        XCTAssertEqual(displaySize.width, 400, accuracy: 0.1, "Display width should be min(800 * 0.5, 400) = 400")
+        XCTAssertEqual(displaySize.height, 200, accuracy: 0.1, "Display height should preserve aspect ratio")
+    }
+    
+    func testDisplaySizeScalesWithColumnWidth() {
+        // The same image/scale must produce different display widths on different
+        // devices (column widths) — scale is a fraction of the available column.
+        let attachment = ImageAttachment()
+        let testImage = createTestImage(width: 3000, height: 1500)
+        attachment.image = testImage
+        attachment.setScale(1.0)
+        
+        // A large source image fills the column on each device, never overflowing it.
+        XCTAssertEqual(attachment.displaySize(forAvailableWidth: 400).width, 400, accuracy: 0.1,
+                       "At 100% scale the image fills a 400pt column")
+        XCTAssertEqual(attachment.displaySize(forAvailableWidth: 600).width, 600, accuracy: 0.1,
+                       "At 100% scale the image fills a 600pt column")
+        
+        // Reducing the scale immediately shrinks the image relative to the column.
+        attachment.setScale(0.5)
+        XCTAssertEqual(attachment.displaySize(forAvailableWidth: 600).width, 300, accuracy: 0.1,
+                       "At 50% scale the image occupies half the 600pt column")
     }
     
     func testDisplaySizeWithoutImage() {

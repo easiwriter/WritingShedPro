@@ -782,6 +782,23 @@ struct AttributedStringSerializer {
                     if let alignmentString = jsonAttributes.imageAlignment,
                        let alignment = ImageAttachment.ImageAlignment(rawValue: alignmentString) {
                         attachment.alignment = alignment
+
+                        // Keep visual paragraph alignment in sync with attachment metadata.
+                        // Older/partial payloads can carry imageAlignment but lack the expected
+                        // paragraph alignment, which makes an image marked "center" render left.
+                        let paragraphStyle = (attributes[.paragraphStyle] as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle
+                            ?? NSMutableParagraphStyle()
+                        switch alignment {
+                        case .left:
+                            paragraphStyle.alignment = .left
+                        case .center:
+                            paragraphStyle.alignment = .center
+                        case .right:
+                            paragraphStyle.alignment = .right
+                        case .inline:
+                            paragraphStyle.alignment = .natural
+                        }
+                        attributes[.paragraphStyle] = paragraphStyle
                     }
                     
                     // Restore caption

@@ -21,11 +21,17 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
     
     /// File ID for accessing the correct stylesheet
     private var fileID: UUID?
+
+    /// Parent text view (if available) for fallback width resolution when
+    /// TextKit's textContainer hasn't been sized yet.
+    private weak var parentTextView: UITextView?
     
     // MARK: - Initialization
     
     override init(textAttachment: NSTextAttachment, parentView: UIView?, textLayoutManager: NSTextLayoutManager?, location: NSTextLocation) {
         super.init(textAttachment: textAttachment, parentView: parentView, textLayoutManager: textLayoutManager, location: location)
+
+        self.parentTextView = parentView as? UITextView
         
         // Listen for stylesheet changes to refresh caption styling
         NotificationCenter.default.addObserver(
@@ -90,6 +96,29 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
     
     // MARK: - View Creation Helpers
     
+    /// Width of the live text column on the current device, used to size the image
+    /// so it fits the editor's text container instead of using the raw pixel size.
+    private var availableColumnWidth: CGFloat {
+        if let container = textLayoutManager?.textContainer {
+            let usable = container.size.width - container.lineFragmentPadding * 2
+            if usable.isFinite && usable > 1 {
+                return usable
+            }
+        }
+
+        if let textView = parentTextView {
+            let usable = textView.bounds.width
+                - textView.textContainerInset.left
+                - textView.textContainerInset.right
+                - textView.textContainer.lineFragmentPadding * 2
+            if usable.isFinite && usable > 1 {
+                return usable
+            }
+        }
+
+        return ImageAttachment.fallbackColumnWidth
+    }
+    
     private func createContainerView(for attachment: ImageAttachment) -> UIView {
         let container = UIStackView()
         container.axis = .vertical
@@ -107,8 +136,9 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
             imageView.clipsToBounds = true
             imageView.isUserInteractionEnabled = false
             
-            // Set image size based on attachment's displaySize
-            let imageSize = attachment.displaySize
+            // Set image size based on the attachment's display size for the live
+            // text column width (computed per-device, not baked in at insert time).
+            let imageSize = attachment.displaySize(forAvailableWidth: availableColumnWidth)
             imageView.translatesAutoresizingMaskIntoConstraints = false
             
             #if DEBUG
@@ -165,6 +195,7 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         let captionLabel = UILabel()
         captionLabel.numberOfLines = 0 // Allow multiple lines
         captionLabel.lineBreakMode = .byWordWrapping
+        let captionAlignment = textAlignment(for: attachment.alignment)
         
         // Get caption components
         let prefix = attachment.captionPrefix ?? ""
@@ -217,11 +248,15 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
                 }
             }
             
-            let attributes = captionStyle.generateAttributes()
+            let baseAttributes = captionStyle.generateAttributes()
+            let paragraphStyle = (baseAttributes[.paragraphStyle] as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle
+                ?? NSMutableParagraphStyle()
+            paragraphStyle.alignment = captionAlignment
+
+            var attributes = baseAttributes
+            attributes[.paragraphStyle] = paragraphStyle
             captionLabel.attributedText = NSAttributedString(string: captionText, attributes: attributes)
-            
-            // Apply alignment relative to image bounds
-            captionLabel.textAlignment = captionStyle.alignment
+            captionLabel.textAlignment = captionAlignment
             
             #if DEBUG
             print("📝 Applied caption style '\(captionStyleName)' - alignment: \(captionStyle.alignment.rawValue), final caption: '\(captionText)'")
@@ -232,7 +267,7 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
             captionLabel.text = captionText
             captionLabel.font = UIFont.systemFont(ofSize: 14)
             captionLabel.textColor = .secondaryLabel
-            captionLabel.textAlignment = .center
+            captionLabel.textAlignment = captionAlignment
             
             #if DEBUG
             print("⚠️ Caption style not found, using fallback")
@@ -241,7 +276,7 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         
         // Set width to match image width
         captionLabel.translatesAutoresizingMaskIntoConstraints = false
-        let imageWidth = attachment.displaySize.width
+        let imageWidth = attachment.displaySize(forAvailableWidth: availableColumnWidth).width
         
         NSLayoutConstraint.activate([
             captionLabel.widthAnchor.constraint(equalToConstant: imageWidth)
@@ -249,10 +284,24 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         
         return captionLabel
     }
+
+    private func textAlignment(for imageAlignment: ImageAttachment.ImageAlignment) -> NSTextAlignment {
+        switch imageAlignment {
+        case .left:
+            return .left
+        case .center:
+            return .center
+        case .right:
+            return .right
+        case .inline:
+            return .natural
+        }
+    }
     
     private func calculateContainerSize(for attachment: ImageAttachment) -> CGSize {
-        var height = attachment.displaySize.height
-        let width = attachment.displaySize.width
+        let displaySize = attachment.displaySize(forAvailableWidth: availableColumnWidth)
+        var height = displaySize.height
+        let width = displaySize.width
         
         // Add caption height if present
         if attachment.hasCaption, let captionText = attachment.captionText, !captionText.isEmpty {

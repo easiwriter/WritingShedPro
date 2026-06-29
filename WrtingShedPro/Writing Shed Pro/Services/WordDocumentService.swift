@@ -197,7 +197,7 @@ class WordDocumentService {
             try docxData.write(to: tempURL)
             
             let activityVC = UIActivityViewController(
-                activityItems: [tempURL],
+                activityItems: [ShareActivityItemSource(url: tempURL, facebookText: "Shared from Writing Shed Pro: \(tempURL.lastPathComponent)")],
                 applicationActivities: nil
             )
             
@@ -240,7 +240,7 @@ class WordDocumentService {
             try rtfData.write(to: tempURL)
             
             let activityVC = UIActivityViewController(
-                activityItems: [tempURL],
+                activityItems: [ShareActivityItemSource(url: tempURL, facebookText: "Shared from Writing Shed Pro: \(tempURL.lastPathComponent)")],
                 applicationActivities: nil
             )
             
