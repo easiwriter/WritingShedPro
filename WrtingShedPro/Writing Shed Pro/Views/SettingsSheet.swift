@@ -14,10 +14,12 @@ struct SettingsSheet: View {
     let projects: [Project]
     let onImport: () -> Void
     let onSyncNow: () -> Void
+    let onRestartOnboarding: () -> Void
     
     @Environment(\.requestReview) var requestReview
     @State private var receiveOperatorMessages = SupportMessagesService.receiveOperatorMessages
     @State private var allowCriticalOperatorMessages = SupportMessagesService.allowCriticalWhenOptedOut
+    @State private var showRestartOnboardingConfirmation = false
     
     var body: some View {
         NavigationStack {
@@ -50,6 +52,12 @@ struct SettingsSheet: View {
                         state.showManageStyles = true
                     } label: {
                         Label("Stylesheet Editor", systemImage: "paintbrush")
+                    }
+
+                    Button {
+                        showRestartOnboardingConfirmation = true
+                    } label: {
+                        Label(NSLocalizedString("onboarding.settings.restart", comment: "Restart onboarding"), systemImage: "sparkles")
                     }
                 }
                 
@@ -171,7 +179,25 @@ struct SettingsSheet: View {
                         Label("Reset Paywall Capture State", systemImage: "arrow.counterclockwise")
                     }
 
+                    Toggle(isOn: Binding(
+                        get: {
+                            OnboardingCoordinator.debugForceNewUserModeEnabled
+                        },
+                        set: { isEnabled in
+                            OnboardingCoordinator.debugForceNewUserModeEnabled = isEnabled
+                            if isEnabled {
+                                onRestartOnboarding()
+                            }
+                        }
+                    )) {
+                        Label("Force New User Onboarding", systemImage: "sparkles")
+                    }
+
                     Text("When enabled, the app ignores existing purchases so creating a second project/file shows the upgrade paywall for screenshots.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    Text("When enabled, onboarding ignores existing projects and completion state. Real project data is not deleted or hidden.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -183,6 +209,14 @@ struct SettingsSheet: View {
             }
             .onChange(of: allowCriticalOperatorMessages) { _, newValue in
                 SupportMessagesService.allowCriticalWhenOptedOut = newValue
+            }
+            .alert(NSLocalizedString("onboarding.restart.title", comment: "Restart onboarding alert title"), isPresented: $showRestartOnboardingConfirmation) {
+                Button(NSLocalizedString("onboarding.restart.confirm", comment: "Restart onboarding confirmation"), role: .destructive) {
+                    onRestartOnboarding()
+                }
+                Button(NSLocalizedString("common.cancel", comment: "Cancel"), role: .cancel) { }
+            } message: {
+                Text(NSLocalizedString("onboarding.restart.message", comment: "Restart onboarding warning"))
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)

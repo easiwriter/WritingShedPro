@@ -27,6 +27,8 @@ final class ContentViewState {
     var showingJSONImportPicker = false
     var showImportError = false
     var importErrorMessage = ""
+    var showOnboarding = false
+    var showOnboardingEditorIntro = false
     
     // Sort order - stored property that syncs with UserDefaults for persistence
     private static let sortOrderKey = "projectSortOrder"
@@ -135,6 +137,17 @@ final class ContentViewState {
         if rememberForResume {
             rememberOpenedProject(project)
         }
+    }
+
+    func showProjectAndFile(_ project: Project, file: TextFile) {
+        navigationPath = NavigationPath()
+
+        var newPath = NavigationPath()
+        newPath.append(project)
+        newPath.append(file)
+        navigationPath = newPath
+
+        rememberOpenedProject(project)
     }
 
     func hideExistingProjects(from projects: [Project]) {

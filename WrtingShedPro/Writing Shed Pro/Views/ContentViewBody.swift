@@ -32,6 +32,9 @@ struct ContentViewBody: View {
     let onHandleJSONImport: (Result<[URL], Error>) -> Void
     let onPrefetchProjectData: () -> Void
     let onRunMigrations: () -> Void
+    @Bindable var onboardingCoordinator: OnboardingCoordinator
+    let onEvaluateOnboarding: () -> Void
+    let onRestartOnboarding: () -> Void
     let onOpenProject: (Project) -> Void
     
     @Environment(\.requestReview) var requestReview
@@ -106,6 +109,7 @@ struct ContentViewBody: View {
                 }
 
                 restoreLastOpenedProjectIfNeeded()
+                onEvaluateOnboarding()
             }
             .onChange(of: projects.count) { _, _ in
                 adoptUserOrderSortIfNeeded()
@@ -134,7 +138,17 @@ struct ContentViewBody: View {
                     state: state,
                     projects: projects,
                     onImport: onHandleImportMenu,
-                    onSyncNow: onSyncNow
+                    onSyncNow: onSyncNow,
+                    onRestartOnboarding: onRestartOnboarding
+                )
+            }
+            .sheet(isPresented: $state.showOnboarding) {
+                OnboardingView(
+                    coordinator: onboardingCoordinator,
+                    onSkip: {
+                        state.showOnboarding = false
+                    },
+                    onCreate: createOnboardingProjectAndFile
                 )
             }
             .sheet(isPresented: $state.showManageStyles) {
@@ -194,6 +208,16 @@ struct ContentViewBody: View {
             } message: {
                 Text(NSLocalizedString("messages.launchAlert.body", comment: ""))
             }
+            .navigationDestination(for: TextFile.self) { file in
+                editorDestination(for: file)
+                    .alert(NSLocalizedString("onboarding.editorIntro.title", comment: "Editor introduction title"), isPresented: $state.showOnboardingEditorIntro) {
+                        Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) {
+                            onboardingCoordinator.markEditorIntroShown()
+                        }
+                    } message: {
+                        Text(NSLocalizedString("onboarding.editorIntro.body", comment: "Editor introduction body"))
+                    }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: GuideNavigationService.openGuideSectionNotification)) { notification in
             let section = notification.userInfo?["section"] as? String
@@ -233,6 +257,46 @@ struct ContentViewBody: View {
 
         if state.selectedSortOrder != preferredSortOrder {
             state.selectedSortOrder = preferredSortOrder
+        }
+    }
+
+    @ViewBuilder
+    private func editorDestination(for file: TextFile) -> some View {
+        let isNamedCoverInMatterFolder = (file.parentFolder?.isFrontMatterFolder == true || file.parentFolder?.isBackMatterFolder == true)
+            && (file.name == FrontMatterItem.frontCover.fileName || file.name == BackMatterItem.backCover.fileName)
+
+        if let project = file.project,
+           project.type == .drama,
+           let folder = file.parentFolder,
+           FolderCapabilityService.isContentFolder(folder) {
+            DramaSceneEditorView(file: file, project: project)
+        } else if file.isCoverFile || isNamedCoverInMatterFolder {
+            CoverImageEditorView(file: file)
+        } else if let project = file.project,
+                  BackMatterGeneratedContentView.isGeneratedBackMatterFile(file) {
+            BackMatterGeneratedContentView(file: file, project: project)
+        } else {
+            FileEditView(file: file)
+        }
+    }
+
+    private func createOnboardingProjectAndFile(_ defaults: OnboardingDefaults, projectName: String, fileName: String) throws {
+        let (project, file) = try OnboardingCreationService.createStarterProjectAndFile(
+            defaults: defaults,
+            projectName: projectName,
+            fileName: fileName,
+            allProjects: projects,
+            modelContext: modelContext
+        )
+
+        onboardingCoordinator.markCompleted()
+        state.showOnboarding = false
+        state.showProjectAndFile(project, file: file)
+
+        guard !onboardingCoordinator.hasShownEditorIntro else { return }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            state.showOnboardingEditorIntro = true
         }
     }
 }

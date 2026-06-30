@@ -124,52 +124,13 @@ struct AddFileSheet: View {
     }
     
     private func addFile() {
-        // Explicitly check if name is empty first
         let trimmedName = fileName.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedName.isEmpty {
             errorMessage = NSLocalizedString("addFile.nameRequired", comment: "File name is required")
             showErrorAlert = true
             return
         }
-        
-        // Check entitlement for free tier limits
-        if let projectType = parentFolder.project?.type {
-            let existingFileCount = parentFolder.project.map { ProjectGateCounterService.activeFileCount(in: $0) } ?? 0
-            if !EntitlementManager.shared.canCreateFile(forProjectType: projectType, existingCount: existingFileCount) {
-                upgradePromptReason = .fileLimit(projectType: projectType)
-                return
-            }
-        }
-        
-        // Check if folder allows files
-        guard FolderCapabilityService.canAddFile(to: parentFolder) else {
-            errorMessage = FolderCapabilityService.disallowedOperationMessage(for: parentFolder, operation: .addFile)
-            showErrorAlert = true
-            return
-        }
-        
-        // Validate file name format
-        do {
-            try NameValidator.validateFileName(trimmedName)
-        } catch {
-            errorMessage = error.localizedDescription
-            showErrorAlert = true
-            return
-        }
-        
-        // Check uniqueness
-        if !UniquenessChecker.isFileNameUnique(fileName, in: parentFolder) {
-            // Determine if conflict is with active file or trashed file
-            let conflict = UniquenessChecker.getFileNameConflict(fileName, in: parentFolder)
-            if conflict == "trash" {
-                errorMessage = NSLocalizedString("addFile.duplicateNameInTrash", comment: "File with this name exists in Trash")
-            } else {
-                errorMessage = NSLocalizedString("addFile.duplicateName", comment: "Duplicate file name error")
-            }
-            showErrorAlert = true
-            return
-        }
-        
+
         // Store poetry form info (but don't insert template - show reference sheet instead)
         var poetryFormId: UUID? = nil
         var poetryFormName: String? = nil
@@ -179,52 +140,31 @@ struct AddFileSheet: View {
             poetryFormId = selectedPoetryForm?.id ?? PoetryForm.freeVerseId
             poetryFormName = selectedPoetryForm?.name ?? "Free Verse"
         }
-        
-        // Create TextFile with empty content
-        // Poetry form reference will auto-show when document opens
-        let newFile = TextFile(
-            name: fileName,
-            initialContent: "",
-            parentFolder: parentFolder,
-            poetryFormId: poetryFormId,
-            poetryFormName: poetryFormName
-        )
-        
-        // Set content type (Poetry and Drama projects always use rich text)
-        if supportsMarkdown {
-            newFile.contentType = selectedContentType
-        }
-        
-        // Set initial workflow status for content folders (Poems, Scenes, Scripts)
-        if FolderCapabilityService.isContentFolder(parentFolder) {
-            newFile.workflowStatus = .draft
-        }
-        
-        modelContext.insert(newFile)
-        if parentFolder.textFiles == nil {
-            parentFolder.textFiles = []
-        }
-        if parentFolder.textFiles?.contains(where: { $0.id == newFile.id }) != true {
-            parentFolder.textFiles?.append(newFile)
-        }
-        
-        // Save context to ensure relationships are updated immediately
-        // This prevents duplicate name issues when quickly creating multiple files
+
         do {
-            try modelContext.save()
-            
-            // Record significant event for review prompts
-            ReviewManager.shared.recordSignificantEvent()
-        } catch {
-            #if DEBUG
-            print("Error saving new file: \(error)")
-            #endif
-            errorMessage = "Failed to save file: \(error.localizedDescription)"
+            _ = try TextFileCreationService.createTextFile(
+                name: trimmedName,
+                parentFolder: parentFolder,
+                modelContext: modelContext,
+                poetryFormId: poetryFormId,
+                poetryFormName: poetryFormName,
+                contentType: supportsMarkdown ? selectedContentType : .richText
+            )
+            isPresented = false
+        } catch OnboardingCreationError.fileLimit(let projectType) {
+            upgradePromptReason = .fileLimit(projectType: projectType)
+        } catch OnboardingCreationError.folderDoesNotAllowFiles {
+            errorMessage = FolderCapabilityService.disallowedOperationMessage(for: parentFolder, operation: .addFile)
             showErrorAlert = true
-            return
+        } catch {
+            if !UniquenessChecker.isFileNameUnique(trimmedName, in: parentFolder),
+               UniquenessChecker.getFileNameConflict(trimmedName, in: parentFolder) == "trash" {
+                errorMessage = NSLocalizedString("addFile.duplicateNameInTrash", comment: "File with this name exists in Trash")
+            } else {
+                errorMessage = error.localizedDescription
+            }
+            showErrorAlert = true
         }
-        
-        isPresented = false
     }
     
 }

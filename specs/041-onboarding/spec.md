@@ -107,29 +107,65 @@ Add an onboarding process for first-time users of Writing Shed Pro. When the app
 - The import wait must time out after 60 seconds so a genuinely new user is not stuck.
 - Project/file creation must produce normal SwiftData changes that sync through CloudKit.
 
+### 7. Implementation Surface
+- `ContentView.swift`: own the launch-time eligibility check and CloudKit wait task.
+- `ContentViewBody.swift`: present onboarding and coordinate with existing project-list navigation.
+- `ContentViewState.swift`: hold any onboarding presentation/navigation flags needed by the root view.
+- `AddProjectSheet.swift`: move creation logic into a shared service and keep the sheet using that service.
+- `AddFileSheet.swift`: move creation logic into a shared service and keep the sheet using that service.
+- `ProjectTemplateService.swift`: continue to own default folder creation.
+- `CloudKitSyncThrottler.swift`: provide import completion/in-progress signals for onboarding eligibility.
+- `SettingsSheet.swift`: add the restart onboarding action and warning.
+
 ## Implementation Plan
 
-### Phase 1: Discovery
-1. Identify existing launch, project creation, folder selection, and file creation paths.
-2. Identify existing CloudKit import status signals and choose the onboarding timeout behavior.
-3. Confirm genre-to-folder and type-to-default-name mappings.
+### Phase 1: Extract Reusable Creation Services
+1. Add an `OnboardingDefaults` helper that maps genre/fiction class to default project name, starter file name, and destination folder name.
+2. Extract the project creation logic from `AddProjectSheet` into a reusable service method that validates names, checks uniqueness, checks entitlements, sets fiction/story structure fields, assigns the default stylesheet, clears tombstones, creates default folders through `ProjectTemplateService`, saves, and returns the created `Project`.
+3. Extract the file creation logic from `AddFileSheet` into a reusable service method that validates names, checks entitlements, checks `FolderCapabilityService`, assigns poetry form defaults for Poetry and Verse Novel episodes, creates the `TextFile`, applies draft workflow status for content folders, saves, and returns the created `TextFile`.
+4. Update `AddProjectSheet` and `AddFileSheet` to call the shared services so onboarding and normal creation cannot drift.
 
-### Phase 2: Core Implementation
-1. Add onboarding state and first-run eligibility checks.
-2. Build the genre tick-list, fiction subtype step, project name step, and starter file name step.
-3. Reuse existing project and file creation logic.
-4. Navigate to the folders screen and then editor after creation.
+### Phase 2: Add Onboarding State and Eligibility
+1. Add an `@Observable` onboarding coordinator/state object, using `@Observable` rather than `ObservableObject` or `@Published`.
+2. Persist onboarding completion with UserDefaults.
+3. Track skip-for-now only in memory for the current launch so onboarding returns on next launch.
+4. Add a first-run eligibility check that uses a fresh `ModelContext(modelContext.container)` to count active projects directly from the persistent store instead of trusting `@Query` alone.
+5. Gate eligibility behind CloudKit initial import status from `CloudKitSyncThrottler`: wait until import completes/succeeds, existing projects appear, or the 60-second timeout elapses, then re-check the persistent store before deciding whether to present onboarding.
+6. Do not mark onboarding complete until the starter project and starter file are successfully created.
 
-### Phase 3: UX Polish
-1. Add the one-time editor introduction sheet.
-2. Add Settings restart action with confirmation warning.
-3. Localize all onboarding strings and defaults.
+### Phase 3: Build the Onboarding Flow
+1. Add an `OnboardingView` presented from `ContentViewBody` as a sheet or full-screen cover, depending on platform layout needs.
+2. Screen 1: explain projects, genres, and first-file setup; provide Continue and Skip for Now.
+3. Screen 2: show the single-selection tick-list for Poetry, Prose, Fiction, and Drama.
+4. Screen 3: if Fiction was selected, show Novel, Short Fiction, and Verse Novel subtype choices.
+5. Screen 4: project name entry with the mapped default value.
+6. Screen 5: starter file name entry with the mapped default value.
+7. Confirm creates the project, finds the destination folder by localized folder name or capability fallback, creates the starter file, and hands both objects back to the coordinator.
+8. Surface validation and entitlement failures inside onboarding using the same error messages as normal creation.
 
-### Phase 4: Validation
-1. Validate fresh install with no CloudKit data.
-2. Validate fresh install while CloudKit import is pending.
-3. Validate skip-for-now and next-launch behavior.
-4. Validate Settings restart behavior does not affect existing data.
+### Phase 4: Navigation and Editor Introduction
+1. Extend `ContentViewState` navigation support if needed so onboarding can open the new project and then the new file.
+2. Navigate first to the newly created project using the existing `showProject(_:)` path.
+3. Add a route or notification for opening the starter file in `FolderFilesView`/`FileEditView` after the project route is active.
+4. Present the one-time editor introduction sheet only after the editor is visible.
+5. Persist the editor introduction sheet display state so it is not shown again for normal editing.
+6. Ensure auto-open-last-project does not compete with onboarding on the same launch.
+
+### Phase 5: Settings Restart and Localization
+1. Add a Settings row for restarting onboarding.
+2. Show a confirmation alert warning that restarting onboarding does not delete existing work and may create another project.
+3. Restarting onboarding should clear the onboarding-complete flag but not delete data, hide projects, reset CloudKit, or alter existing navigation state beyond presenting onboarding.
+4. Add all new strings to `Resources/en.lproj/Localizable.strings` at the same time as the Swift code.
+
+### Phase 6: Validation
+1. Unit test `OnboardingDefaults` mappings.
+2. Unit test onboarding eligibility with completed, skipped-for-now, existing-project, empty-store, import-completed, import-in-progress, and timeout cases.
+3. Unit test shared project/file creation services where practical, using existing project-template tests as a model.
+4. UI/manual test a fresh install with no CloudKit data.
+5. UI/manual test a fresh install while CloudKit import is pending to confirm onboarding waits up to 60 seconds and does not create duplicates when projects arrive.
+6. UI/manual test skip-for-now returning on next launch.
+7. UI/manual test Settings restart and confirmation warning.
+8. UI/manual test Poetry, Prose, Novel, Short Fiction, Verse Novel, and Drama flows on iPhone, iPad, and Mac/Catalyst.
 
 ## Testing
 

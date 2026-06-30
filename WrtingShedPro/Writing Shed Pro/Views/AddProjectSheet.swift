@@ -77,7 +77,7 @@ struct AddProjectSheet: View {
                 Section(NSLocalizedString("addProject.details", comment: "Section header for project details")) {
                     TextEditor(text: $details)
                         .frame(height: 100)
-                        .accessibilityLabel(NSLocalizedString("addProject.detailsAccessibility", comment: "Accessibility label for project details field"))
+                        .accessibilityLabel(NSLocalizedString("addProject.detailsAccessibility", comment: "Accessibility label for details field"))
                 }
             }
             .navigationTitle(NSLocalizedString("addProject.title", comment: "Title for add project sheet"))
@@ -112,87 +112,24 @@ struct AddProjectSheet: View {
     }
     
     private func addProject() {
-        let visibleProjects = DeduplicationService.presentedProjects(from: allProjects)
-
-        // Validate project name
         do {
-            try NameValidator.validateProjectName(projectName)
+            _ = try ProjectCreationService.createProject(
+                name: projectName,
+                type: selectedType,
+                fictionClass: selectedType == .fiction ? selectedFictionClass : nil,
+                storyStructure: selectedStoryStructure,
+                details: details,
+                styleSheet: selectedStyleSheet,
+                allProjects: allProjects,
+                modelContext: modelContext
+            )
+            isPresented = false
+        } catch OnboardingCreationError.projectLimit(let projectType) {
+            upgradePromptReason = .projectLimit(projectType: projectType)
         } catch {
             errorMessage = error.localizedDescription
             showErrorAlert = true
-            return
         }
-        
-        // Check uniqueness
-        if !UniquenessChecker.isProjectNameUnique(projectName, in: visibleProjects) {
-            errorMessage = NSLocalizedString("addProject.duplicateName", comment: "Error when project name already exists")
-            showErrorAlert = true
-            return
-        }
-        
-        // Check entitlement for free tier limits
-        // Use all non-trashed projects for entitlement gating so UI-level
-        // presentation collapsing cannot undercount and bypass free-tier limits.
-        let existingProjectsOfType = ProjectGateCounterService.activeProjectCount(
-            ofType: selectedType,
-            in: allProjects
-        )
-        if !EntitlementManager.shared.canCreateProject(ofType: selectedType, existingCount: existingProjectsOfType) {
-            upgradePromptReason = .projectLimit(projectType: selectedType)
-            return
-        }
-        
-        // Create project with userOrder set to maintain custom order
-        let newProject = Project(
-            name: projectName,
-            type: selectedType,
-            details: details.isEmpty ? nil : details,
-            userOrder: ProjectSortService.nextUserOrder(for: allProjects)
-        )
-        
-        // Set fiction-specific properties if applicable
-        if selectedType == .fiction {
-            newProject.fictionClassRaw = selectedFictionClass.rawValue
-        }
-        
-        // Set monomyth property for fiction and drama projects
-        if selectedType == .fiction || selectedType == .drama {
-            newProject.storyStructure = selectedStoryStructure
-        }
-        
-        // Assign selected stylesheet
-        newProject.styleSheet = selectedStyleSheet
-        
-        modelContext.insert(newProject)
-        
-        // Clear any tombstone for this name+type so the new project isn't treated as a zombie
-        DeduplicationService.clearTombstone(name: projectName, typeRaw: newProject.typeRaw)
-        
-        // Create default folder structure
-        ProjectTemplateService.createDefaultFolders(for: newProject, in: modelContext)
-        
-        // Explicitly save to trigger CloudKit sync
-        do {
-            #if DEBUG
-            print("💾 [AddProjectSheet] Attempting to save new project: \(projectName)")
-            #endif
-            try modelContext.save()
-            #if DEBUG
-            print("✅ [AddProjectSheet] Project saved to local database — CloudKit export will trigger automatically")
-            #endif
-            
-            // Record significant event for review prompts
-            ReviewManager.shared.recordSignificantEvent()
-        } catch {
-            #if DEBUG
-            print("❌ [AddProjectSheet] Failed to save project: \(error.localizedDescription)")
-            #endif
-            errorMessage = "Failed to save project: \(error.localizedDescription)"
-            showErrorAlert = true
-            return
-        }
-        
-        isPresented = false
     }
     
     private func loadStyleSheets() {

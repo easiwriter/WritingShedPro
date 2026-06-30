@@ -976,6 +976,47 @@
 "common.error" = "Error";
 "common.ok" = "OK";
 
+/* Onboarding */
+"onboarding.title" = "Welcome";
+"onboarding.skipForNow" = "Skip for Now";
+"onboarding.continue" = "Continue";
+"onboarding.next" = "Next";
+"onboarding.create" = "Create Project";
+"onboarding.error.title" = "Onboarding Error";
+"onboarding.welcome.heading" = "Start with a project";
+"onboarding.welcome.body" = "Writing Shed Pro stores your work in named projects. Each project is set up for a genre, with folders and tools suited to the way you write.";
+"onboarding.welcome.guide.prefix" = "The User Guide includes tutorials and deeper help. You can open it at any time by tapping the ";
+"onboarding.welcome.guide.suffix" = " button.";
+"onboarding.genre.section" = "Choose a genre";
+"onboarding.fictionClass.section" = "Choose a fiction type";
+"onboarding.projectName.section" = "Name your first project";
+"onboarding.projectName.placeholder" = "Project name";
+"onboarding.projectName.footer" = "You can rename the project later.";
+"onboarding.fileName.section" = "Name your first file";
+"onboarding.fileName.placeholder" = "File name";
+"onboarding.fileName.footer" = "This file will open in the editor after setup.";
+"onboarding.defaultProject.poetry" = "My Poetry Collection";
+"onboarding.defaultProject.prose" = "My Prose Project";
+"onboarding.defaultProject.novel" = "My Novel";
+"onboarding.defaultProject.shortFiction" = "My Short Fiction";
+"onboarding.defaultProject.verseNovel" = "My Verse Novel";
+"onboarding.defaultProject.drama" = "My Play";
+"onboarding.defaultFile.poetry" = "Untitled Poem";
+"onboarding.defaultFile.prose" = "Untitled Prose";
+"onboarding.defaultFile.novel" = "Untitled Chapter";
+"onboarding.defaultFile.shortFiction" = "Untitled Scene";
+"onboarding.defaultFile.verseNovel" = "Untitled Episode";
+"onboarding.defaultFile.drama" = "Untitled Scene";
+"onboarding.error.projectLimit" = "You have reached the project limit for this genre.";
+"onboarding.error.fileLimit" = "You have reached the file limit for this project.";
+"onboarding.error.destinationMissing" = "The %@ folder could not be found.";
+"onboarding.editorIntro.title" = "You are in the editor";
+"onboarding.editorIntro.body" = "This is your editor. Start writing here; your work is saved automatically and stored inside your project.";
+"onboarding.settings.restart" = "Restart Onboarding";
+"onboarding.restart.title" = "Restart Onboarding?";
+"onboarding.restart.message" = "This will show onboarding again and may create another project. It will not delete or reset any existing work.";
+"onboarding.restart.confirm" = "Restart";
+
 /* TipKit Tips */
 "tip.gettingStarted.title" = "Welcome to Writing Shed Pro";
 "tip.gettingStarted.message" = "Tap + to create your first project, or tap the ? button to explore the User Guide.";

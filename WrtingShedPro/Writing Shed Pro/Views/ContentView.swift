@@ -30,6 +30,9 @@ struct ContentView: View {
     /// Running this while CloudKit import is inflight can create duplicate system defaults.
     @State private var hasInitializedStyleSheets = false
     @State private var styleSheetInitTask: Task<Void, Never>?
+    @State private var onboardingCoordinator = OnboardingCoordinator()
+    @State private var hasEvaluatedOnboardingThisLaunch = false
+    @State private var onboardingEligibilityTask: Task<Void, Never>?
 
     /// Last time we auto-normalized project userOrder values.
     /// Used to avoid repeated writes during prolonged CloudKit churn.
@@ -67,6 +70,9 @@ struct ContentView: View {
             onHandleJSONImport: handleJSONImport,
             onPrefetchProjectData: prefetchProjectData,
             onRunMigrations: runMigrations,
+            onboardingCoordinator: onboardingCoordinator,
+            onEvaluateOnboarding: evaluateOnboardingIfNeeded,
+            onRestartOnboarding: restartOnboardingFromSettings,
             onOpenProject: { project in
                 state.showProject(project)
             }
@@ -222,6 +228,63 @@ struct ContentView: View {
         let ext = url.pathExtension.lowercased()
         guard ext == "wsp" || ext == "wsd" || ext == "json" else { return }
         handleJSONImport(.success([url]))
+    }
+
+    private func evaluateOnboardingIfNeeded() {
+        guard !hasEvaluatedOnboardingThisLaunch else { return }
+        let forceNewUserMode = OnboardingCoordinator.debugForceNewUserModeEnabled
+        guard forceNewUserMode || !onboardingCoordinator.hasCompletedOnboarding else { return }
+        guard !onboardingCoordinator.skippedForCurrentLaunch else { return }
+
+        hasEvaluatedOnboardingThisLaunch = true
+        onboardingEligibilityTask?.cancel()
+        onboardingEligibilityTask = Task { @MainActor in
+            if forceNewUserMode {
+                state.showOnboarding = true
+                return
+            }
+
+            let timeout: TimeInterval = 60
+            let deadline = Date().addingTimeInterval(timeout)
+
+            while Date() < deadline {
+                guard !Task.isCancelled else { return }
+                guard !onboardingCoordinator.hasCompletedOnboarding else { return }
+                guard !onboardingCoordinator.skippedForCurrentLaunch else { return }
+
+                if activeProjectCountFromPersistentStore() > 0 {
+                    return
+                }
+
+                let throttler = CloudKitSyncThrottler.shared
+                if throttler.importCompleted && !throttler.importInProgress {
+                    break
+                }
+
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+
+            guard !Task.isCancelled else { return }
+            guard !onboardingCoordinator.hasCompletedOnboarding else { return }
+            guard !onboardingCoordinator.skippedForCurrentLaunch else { return }
+            guard activeProjectCountFromPersistentStore() == 0 else { return }
+
+            state.showOnboarding = true
+        }
+    }
+
+    private func restartOnboardingFromSettings() {
+        onboardingCoordinator.resetCompletionForRestart()
+        hasEvaluatedOnboardingThisLaunch = true
+        state.showSettings = false
+        state.showOnboarding = true
+    }
+
+    private func activeProjectCountFromPersistentStore() -> Int {
+        let freshContext = ModelContext(modelContext.container)
+        let descriptor = FetchDescriptor<Project>()
+        guard let projects = try? freshContext.fetch(descriptor) else { return projects.filter { !$0.isTrashed }.count }
+        return projects.filter { !$0.isTrashed }.count
     }
     
     // MARK: - Foreground Resume Sync
