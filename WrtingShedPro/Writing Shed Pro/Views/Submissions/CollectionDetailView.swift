@@ -54,8 +54,6 @@ struct CollectionDetailView: View {
     @State private var showCopyResult = false
     @State private var copyResultMessage = ""
     @State private var copyResultIsError = false
-    
-    // Edit Dates state
     @State private var showEditDates = false
     
     // Edit mode state

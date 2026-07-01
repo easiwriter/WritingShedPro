@@ -794,13 +794,16 @@ struct FormattedTextEditor: UIViewRepresentable {
         }
 
         private func refreshLineNumberDisplay(in textView: UITextView, from location: Int) {
-            let invalidateStart = max(0, location)
-            let invalidateLength = max(1, textView.textStorage.length - invalidateStart)
+            let textLength = textView.textStorage.length
+            let invalidateStart = min(max(0, location), textLength)
+            let invalidateLength = textLength - invalidateStart
             let invalidateRange = NSRange(location: invalidateStart, length: invalidateLength)
 
-            textView.layoutManager.invalidateLayout(forCharacterRange: invalidateRange, actualCharacterRange: nil)
+            if invalidateRange.length > 0 {
+                textView.layoutManager.invalidateLayout(forCharacterRange: invalidateRange, actualCharacterRange: nil)
+                textView.layoutManager.invalidateDisplay(forCharacterRange: invalidateRange)
+            }
             textView.layoutManager.ensureLayout(for: textView.textContainer)
-            textView.layoutManager.invalidateDisplay(forCharacterRange: invalidateRange)
             textView.setNeedsDisplay()
         }
         
@@ -1143,6 +1146,11 @@ struct FormattedTextEditor: UIViewRepresentable {
         
         func textViewDidChange(_ textView: UITextView) {
             guard !isUpdatingFromSwiftUI else { return }
+
+            if let layoutManager = textView.layoutManager as? NumberingLayoutManager,
+               layoutManager.showDocumentLineNumbers {
+                refreshLineNumberDisplay(in: textView, from: textView.selectedRange.location)
+            }
             
             #if DEBUG
             print("📝 textViewDidChange called - text: '\(textView.attributedText?.string.prefix(50) ?? "")'")

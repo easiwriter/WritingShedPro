@@ -45,6 +45,45 @@ class SubmittedFile {
         self.project = project
         self.createdDate = Date()
         self.modifiedDate = Date()
+        linkInverseRelationships()
+    }
+
+    private func linkInverseRelationships() {
+        if let submission {
+            if submission.submittedFiles == nil {
+                submission.submittedFiles = []
+            }
+            if submission.submittedFiles?.contains(where: { $0.id == id }) != true {
+                submission.submittedFiles?.append(self)
+            }
+        }
+
+        if let textFile {
+            if textFile.submittedFiles == nil {
+                textFile.submittedFiles = []
+            }
+            if textFile.submittedFiles?.contains(where: { $0.id == id }) != true {
+                textFile.submittedFiles?.append(self)
+            }
+        }
+
+        if let version {
+            if version.submittedFiles == nil {
+                version.submittedFiles = []
+            }
+            if version.submittedFiles?.contains(where: { $0.id == id }) != true {
+                version.submittedFiles?.append(self)
+            }
+        }
+
+        if let project {
+            if project.submittedFiles == nil {
+                project.submittedFiles = []
+            }
+            if project.submittedFiles?.contains(where: { $0.id == id }) != true {
+                project.submittedFiles?.append(self)
+            }
+        }
     }
     
     // MARK: - Computed Properties

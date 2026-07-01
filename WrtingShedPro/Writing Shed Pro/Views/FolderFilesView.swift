@@ -877,7 +877,7 @@ struct FolderFilesView: View {
         let duplicateCheck = FetchDescriptor<Submission>(predicate: duplicatePredicate)
         let matchingSubmissions = (try? modelContext.fetch(duplicateCheck)) ?? []
         let hasDuplicate = matchingSubmissions.contains { submission in
-            submission.project?.id == projectID
+            submission.projectId == projectID || submission.project?.id == projectID
         }
         if hasDuplicate {
             createdSubmissionName = trimmedName
@@ -908,6 +908,7 @@ struct FolderFilesView: View {
         }
         
         try? modelContext.save()
+        NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
         createdSubmissionName = trimmedName
         showSubmissionCreated = true
     }
@@ -930,6 +931,7 @@ struct FolderFilesView: View {
         }
         
         try? modelContext.save()
+        NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
         createdSubmissionName = submission.name ?? ""
         showSubmissionCreated = true
     }

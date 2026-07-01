@@ -27,7 +27,7 @@ struct PublicationsListView: View {
         let projectID: UUID = project.id
         return publications.filter { (publication: Publication) -> Bool in
             // Check project match
-            let projectMatches: Bool = publication.project?.id == projectID
+            let projectMatches: Bool = publication.projectId == projectID || publication.project?.id == projectID
             
             // Check type match (if filter specified)
             let typeMatches: Bool = publicationType == nil || publication.type == publicationType

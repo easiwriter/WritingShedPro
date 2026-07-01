@@ -9,9 +9,14 @@
 import Foundation
 import SwiftData
 
+extension Notification.Name {
+    static let projectContentCountsDidChange = Notification.Name("projectContentCountsDidChange")
+}
+
 @Model
 class Submission {
     var id: UUID = UUID()
+    var projectId: UUID?
     var publication: Publication?
     var project: Project?
     
@@ -55,11 +60,33 @@ class Submission {
         self.id = id
         self.publication = publication
         self.project = project
+        self.projectId = project?.id
         self.submittedDate = submittedDate
         self.notes = notes
         self.submittedFiles = []
         self.createdDate = Date()
         self.modifiedDate = Date()
+        linkInverseRelationships()
+    }
+
+    private func linkInverseRelationships() {
+        if let project {
+            if project.submissions == nil {
+                project.submissions = []
+            }
+            if project.submissions?.contains(where: { $0.id == id }) != true {
+                project.submissions?.append(self)
+            }
+        }
+
+        if let publication {
+            if publication.submissions == nil {
+                publication.submissions = []
+            }
+            if publication.submissions?.contains(where: { $0.id == id }) != true {
+                publication.submissions?.append(self)
+            }
+        }
     }
     
     // MARK: - Computed Properties

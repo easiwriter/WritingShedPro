@@ -335,7 +335,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     private func setupScrollView() {
         // Calculate layout if needed (pass version and context for footnote-aware layout)
         if !layoutManager.isLayoutValid {
-            layoutManager.calculateLayout(assembledFootnotes: footnotes)
+            _ = layoutManager.calculateLayout(assembledFootnotes: footnotes)
         }
         
         guard let result = layoutManager.layoutResult else { return }
@@ -463,7 +463,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             
             // Recalculate layout with new page setup (pass version and context for footnote-aware layout)
             if !layoutManager.isLayoutValid {
-                layoutManager.calculateLayout(assembledFootnotes: footnotes)
+                _ = layoutManager.calculateLayout(assembledFootnotes: footnotes)
             }
         }
         

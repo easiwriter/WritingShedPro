@@ -26,9 +26,7 @@ struct FileSubmissionsView: View {
     
     // Filter to only submitted files for this specific file
     private var fileSubmissions: [SubmittedFile] {
-        let fileID: UUID = file.id
-        return allSubmittedFiles
-            .filter { (sf: SubmittedFile) -> Bool in sf.textFile?.id == fileID }
+        (file.submittedFiles ?? allSubmittedFiles.filter { (sf: SubmittedFile) -> Bool in sf.textFile?.id == file.id })
             .sorted { (a: SubmittedFile, b: SubmittedFile) -> Bool in (a.submission?.submittedDate ?? Date.distantPast) > (b.submission?.submittedDate ?? Date.distantPast) }
     }
     
@@ -144,8 +142,7 @@ private struct SubmissionFilesView: View {
     
     private var filesInSubmission: [SubmittedFile] {
         let submissionID: UUID = submission.id
-        return allSubmittedFiles
-            .filter { (sf: SubmittedFile) -> Bool in sf.submission?.id == submissionID }
+        return (submission.submittedFiles ?? allSubmittedFiles.filter { (sf: SubmittedFile) -> Bool in sf.submission?.id == submissionID })
             .sorted { (a: SubmittedFile, b: SubmittedFile) -> Bool in (a.textFile?.name ?? "") < (b.textFile?.name ?? "") }
     }
     

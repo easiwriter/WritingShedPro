@@ -22,10 +22,6 @@ struct SubmissionPickerView: View {
     @State private var showingNewPublicationSheet = false
     @State private var submissionName: String = ""
     @State private var selectedPublication: Publication? = nil
-    @State private var setExpectedResponseDate: Bool = false
-    @State private var expectedResponseDate: Date = Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date()
-    @State private var setReminder: Bool = false
-    @State private var reminderDate: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date()) ?? Date()
     
     private var projectID: UUID {
         project.id
@@ -34,7 +30,7 @@ struct SubmissionPickerView: View {
     // Filter publications for this project
     private var projectPublications: [Publication] {
         let filtered = allPublications.filter { publication in
-            publication.project?.id == projectID
+            publication.projectId == projectID || publication.project?.id == projectID
         }
         return filtered.sorted { lhs, rhs in
             lhs.name < rhs.name
@@ -73,14 +69,6 @@ struct SubmissionPickerView: View {
         trimmedSubmissionName.isEmpty ? defaultSubmissionName : trimmedSubmissionName
     }
 
-    private var selectedReminderDate: Date? {
-        (setExpectedResponseDate && setReminder) ? reminderDate : nil
-    }
-
-    private var resolvedExpectedDate: Date? {
-        setExpectedResponseDate ? expectedResponseDate : nil
-    }
-
     @ViewBuilder
     private var submissionNameSection: some View {
         Section {
@@ -89,40 +77,6 @@ struct SubmissionPickerView: View {
                 .accessibilityLabel(Text("submissions.name.label"))
         } header: {
             Text(NSLocalizedString("submissions.name.header", comment: "Submission Name"))
-        }
-    }
-
-    @ViewBuilder
-    private var expectedResponseSection: some View {
-        Section {
-            Toggle(NSLocalizedString("submissions.setExpectedDate", comment: "Set expected response date"), isOn: $setExpectedResponseDate)
-
-            if setExpectedResponseDate {
-                DatePicker(
-                    NSLocalizedString("submissions.expectedBy.label", comment: "Expected by"),
-                    selection: $expectedResponseDate,
-                    in: Date()...,
-                    displayedComponents: .date
-                )
-                .onChange(of: expectedResponseDate) { _, newDate in
-                    reminderDate = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: newDate) ?? newDate
-                }
-
-                Toggle(isOn: $setReminder) {
-                    Label(NSLocalizedString("reminder.set", comment: "Set Reminder"), systemImage: "bell")
-                }
-
-                if setReminder {
-                    DatePicker(
-                        NSLocalizedString("reminder.date.label", comment: "Reminder Date"),
-                        selection: $reminderDate,
-                        in: Date()...,
-                        displayedComponents: [.date, .hourAndMinute]
-                    )
-                }
-            }
-        } header: {
-            Text(NSLocalizedString("submissions.response.section", comment: "Response"))
         }
     }
 
@@ -136,18 +90,8 @@ struct SubmissionPickerView: View {
         }
     }
 
-    private func expectedDate(for publication: Publication) -> Date? {
-        if let chosen = resolvedExpectedDate {
-            return chosen
-        }
-        if let days = publication.typicalResponseDays {
-            return Calendar.current.date(byAdding: .day, value: days, to: Date())
-        }
-        return nil
-    }
-
     private func selectPublication(_ publication: Publication) {
-        onPublicationSelected(publication, resolvedSubmissionName, expectedDate(for: publication), selectedReminderDate)
+        onPublicationSelected(publication, resolvedSubmissionName, nil, nil)
         dismiss()
     }
 
@@ -206,7 +150,6 @@ struct SubmissionPickerView: View {
     private var pickerList: some View {
         List {
             submissionNameSection
-            expectedResponseSection
             addPublicationSection
             existingPublicationsSection
         }
@@ -220,7 +163,7 @@ struct SubmissionPickerView: View {
                 collectionToSubmit: collectionToSubmit,
                 onPublicationCreated: { publication in
                     showingNewPublicationSheet = false
-                    onPublicationSelected(publication, resolvedSubmissionName, resolvedExpectedDate, selectedReminderDate)
+                    onPublicationSelected(publication, resolvedSubmissionName, nil, nil)
                 },
                 onCancel: {
                     showingNewPublicationSheet = false
@@ -285,7 +228,7 @@ struct NewPublicationForSubmissionView: View {
     private var projectPublications: [Publication] {
         let projectID = project.id
         return allPublications.filter { publication in
-            publication.project?.id == projectID
+            publication.projectId == projectID || publication.project?.id == projectID
         }
     }
 
@@ -432,10 +375,17 @@ struct NewPublicationForSubmissionView: View {
         )
         project.modifiedDate = Date()
         modelContext.insert(publication)
-        
-        // Notify parent to create submission
-        onPublicationCreated(publication)
-        dismiss()
+
+        do {
+            try modelContext.save()
+            NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
+            // Notify parent to create submission
+            onPublicationCreated(publication)
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+            showingError = true
+        }
     }
     
     private func hasDuplicateName(_ name: String) -> Bool {

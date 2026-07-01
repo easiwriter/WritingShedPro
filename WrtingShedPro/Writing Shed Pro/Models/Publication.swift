@@ -12,6 +12,7 @@ import SwiftData
 @Model
 class Publication {
     var id: UUID = UUID()
+    var projectId: UUID?
     var name: String = ""
     var type: PublicationType?
     var url: String?
@@ -50,9 +51,22 @@ class Publication {
         self.notes = notes
         self.deadline = deadline
         self.project = project
+        self.projectId = project?.id
         self.submissions = []
         self.createdDate = Date()
         self.modifiedDate = Date()
+        linkInverseRelationships()
+    }
+
+    private func linkInverseRelationships() {
+        if let project {
+            if project.publications == nil {
+                project.publications = []
+            }
+            if project.publications?.contains(where: { $0.id == id }) != true {
+                project.publications?.append(self)
+            }
+        }
     }
     
     // MARK: - Computed Properties

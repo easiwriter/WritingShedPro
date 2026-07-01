@@ -18,8 +18,6 @@ struct AddSubmissionView: View {
     @Query private var allFiles: [TextFile]
     @State private var selectedFiles: Set<TextFile> = []
     @State private var submissionDate: Date = Date()
-    @State private var returnExpectedBy: Date?
-    @State private var showExpectedDate: Bool = false
     @State private var notes: String = ""
     
     // Filter files for this project and exclude already submitted versions
@@ -114,18 +112,6 @@ struct AddSubmissionView: View {
                         displayedComponents: .date
                     )
                     
-                    Toggle(NSLocalizedString("submissions.setExpectedDate", comment: "Set expected response date"), isOn: $showExpectedDate)
-                    
-                    if showExpectedDate {
-                        DatePicker(
-                            NSLocalizedString("submissions.expectedBy.label", comment: "Response Expected"),
-                            selection: Binding(
-                                get: { returnExpectedBy ?? Date().addingTimeInterval(90 * 24 * 60 * 60) },
-                                set: { returnExpectedBy = $0 }
-                            ),
-                            displayedComponents: .date
-                        )
-                    }
                 } header: {
                     Text(NSLocalizedString("submissions.date.label", comment: "Date"))
                 }
@@ -161,13 +147,6 @@ struct AddSubmissionView: View {
                 }
             }
         }
-        .onAppear {
-            // Auto-populate expected response date from publication's typical response time
-            if let days = publication.typicalResponseDays {
-                showExpectedDate = true
-                returnExpectedBy = Calendar.current.date(byAdding: .day, value: days, to: Date())
-            }
-        }
     }
     
     private func toggleFileSelection(_ file: TextFile) {
@@ -186,14 +165,6 @@ struct AddSubmissionView: View {
             submittedDate: submissionDate,
             notes: notes.isEmpty ? nil : notes
         )
-        
-        // Set expected response date if enabled
-        if showExpectedDate {
-            submission.returnExpectedBy = returnExpectedBy
-        }
-        
-        // Copy expected response time from publication
-        submission.typicalResponseDays = publication.typicalResponseDays
         
         project.modifiedDate = Date()
         modelContext.insert(submission)

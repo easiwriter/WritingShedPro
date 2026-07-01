@@ -16,6 +16,7 @@ struct FolderListView: View {
     @State private var isLoadingFolders = true
     @State private var loadedFolders: [Folder] = []
     @State private var loadedSubfolders: [Folder] = []
+    @State private var projectContentRefreshID = UUID()
     
     // Manuscript export/preview/print state
     @State private var isExporting = false
@@ -185,13 +186,13 @@ struct FolderListView: View {
 
     private func publicationDestination(for folderName: String) -> AnyView? {
         guard let publicationType = publicationTypeForFolder(folderName) else { return nil }
-        return AnyView(PublicationsListView(project: project, publicationType: publicationType))
+        return AnyView(PublicationsListView(project: project, publicationType: publicationType).id(projectContentRefreshID))
     }
 
     private func standardFolderDestination(for folderName: String, folder: Folder) -> AnyView? {
         switch folderName {
         case "Submissions":
-            return AnyView(SubmissionsView(project: project))
+            return AnyView(SubmissionsView(project: project).id(projectContentRefreshID))
         case "Manuscript":
             return AnyView(FolderListView(project: project, selectedFolder: folder))
         default:
@@ -258,6 +259,7 @@ struct FolderListView: View {
         if let destination = resolvedFolderDestination(for: folder) {
             NavigationLink(destination: destination) {
                 FolderRowView(folder: folder)
+                    .id(folderRowID(for: folder))
             }
         } else {
             capabilityBasedLink(for: folder)
@@ -273,6 +275,7 @@ struct FolderListView: View {
         if isManuscriptBodyFolder {
             NavigationLink(destination: BodyMatterView(project: project)) {
                 FolderRowView(folder: subfolder)
+                    .id(folderRowID(for: subfolder))
             }
         } else {
             capabilityBasedLink(for: subfolder)
@@ -287,16 +290,23 @@ struct FolderListView: View {
         if canAddFile {
             NavigationLink(destination: FolderFilesView(folder: folder)) {
                 FolderRowView(folder: folder)
+                    .id(folderRowID(for: folder))
             }
         } else if canAddSubfolder {
             NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
                 FolderRowView(folder: folder)
+                    .id(folderRowID(for: folder))
             }
         } else {
             NavigationLink(destination: FolderFilesView(folder: folder)) {
                 FolderRowView(folder: folder)
+                    .id(folderRowID(for: folder))
             }
         }
+    }
+
+    private func folderRowID(for folder: Folder) -> String {
+        "\(folder.id.uuidString)-\(projectContentRefreshID.uuidString)"
     }
     
     // Get subfolders for the selected folder
@@ -338,6 +348,23 @@ struct FolderListView: View {
         .task {
             // Load folders asynchronously to avoid blocking navigation
             await loadFolders()
+        }
+        .onAppear {
+            projectContentRefreshID = UUID()
+            scheduleProjectContentRefresh()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .projectContentCountsDidChange)) { _ in
+            projectContentRefreshID = UUID()
+            scheduleProjectContentRefresh()
+        }
+    }
+
+    private func scheduleProjectContentRefresh() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            projectContentRefreshID = UUID()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            projectContentRefreshID = UUID()
         }
     }
     
@@ -665,7 +692,7 @@ struct FolderListView: View {
         }
         let duplicateCheck = FetchDescriptor<Submission>(predicate: duplicatePredicate)
         let duplicateSubmissions: [Submission] = (try? modelContext.fetch(duplicateCheck)) ?? []
-        let hasDuplicate = duplicateSubmissions.contains { $0.project?.id == projectID }
+        let hasDuplicate = duplicateSubmissions.contains { $0.projectId == projectID || $0.project?.id == projectID }
         if hasDuplicate {
             createdSubmissionName = trimmedName
             showDuplicateSubmission = true
@@ -695,6 +722,7 @@ struct FolderListView: View {
         }
         
         try? modelContext.save()
+        NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
         createdSubmissionName = trimmedName
         showSubmissionCreated = true
         manuscriptFilesToSubmit = []
@@ -1223,10 +1251,16 @@ struct FolderListView: View {
 
 struct FolderRowView: View {
     let folder: Folder
+    @Environment(\.modelContext) private var modelContext
     
     @State private var fileCount: Int = 0
     @State private var subfolderCount: Int = 0
     @State private var bodyMatterWordCount: Int = 0
+    @State private var fetchedSubmissionCount: Int = 0
+
+    @Query private var allSubmissions: [Submission]
+    @Query private var allSubmittedFiles: [SubmittedFile]
+    @Query private var allPublications: [Publication]
     
     // Check if this is a publication folder
     private var isPublicationFolder: Bool {
@@ -1354,8 +1388,33 @@ struct FolderRowView: View {
     
     // Get submission count for Submissions folder
     private var submissionCount: Int {
+        max(liveSubmissionCount, fetchedSubmissionCount)
+    }
+
+    private var liveSubmissionCount: Int {
         guard isSubmissionsFolder, let project = folder.project else { return 0 }
-        return (project.submissions ?? []).filter { !$0.isCollection }.count
+        let projectID = project.id
+        var submissionIDs = Set(allSubmissions.compactMap { submission -> UUID? in
+            guard !submission.isCollection,
+                  submission.projectId == projectID || submission.project?.id == projectID else {
+                return nil
+            }
+            return submission.id
+        })
+
+        submissionIDs.formUnion(allSubmittedFiles.compactMap { submittedFile -> UUID? in
+            guard let submission = submittedFile.submission,
+                  !submission.isCollection,
+                  submission.projectId == projectID || submission.project?.id == projectID || submittedFile.project?.id == projectID else {
+                return nil
+            }
+            return submission.id
+        })
+
+        let relationshipIDs = Set((project.submissions ?? []).filter { !$0.isCollection }.map(\.id))
+        submissionIDs.formUnion(relationshipIDs)
+
+        return submissionIDs.count
     }
     
     // Get publication count for this folder type
@@ -1381,7 +1440,12 @@ struct FolderRowView: View {
             return 0
         }
         
-        return (project.publications ?? []).filter { $0.type == publicationType }.count
+        let projectID = project.id
+        let queryCount = allPublications.filter {
+            ($0.projectId == projectID || $0.project?.id == projectID) && $0.type == publicationType
+        }.count
+        let relationshipCount = (project.publications ?? []).filter { $0.type == publicationType }.count
+        return max(queryCount, relationshipCount)
     }
     
     private var isManuscriptBodyFolder: Bool {
@@ -1476,6 +1540,11 @@ struct FolderRowView: View {
         .task {
             await loadFolderCounts()
         }
+        .onAppear {
+            refreshFetchedSubmissionCount()
+            refreshFolderCounts()
+            scheduleFollowUpCountRefresh()
+        }
         .onChange(of: observedTextFileCount) { _, _ in
             refreshFolderCounts()
         }
@@ -1485,11 +1554,64 @@ struct FolderRowView: View {
         .onChange(of: observedTrashedItemsCount) { _, _ in
             refreshFolderCounts()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .projectContentCountsDidChange)) { _ in
+            refreshFetchedSubmissionCount()
+            refreshFolderCounts()
+            scheduleFollowUpCountRefresh()
+        }
+    }
+
+    private func refreshFetchedSubmissionCount() {
+        guard isSubmissionsFolder, let project = folder.project else { return }
+        let projectID = project.id
+
+        do {
+            let submissions = try modelContext.fetch(FetchDescriptor<Submission>())
+            var submissionIDs = Set(submissions.compactMap { submission -> UUID? in
+                guard !submission.isCollection,
+                      submission.projectId == projectID || submission.project?.id == projectID else {
+                    return nil
+                }
+                return submission.id
+            })
+
+            let submittedFiles = try modelContext.fetch(FetchDescriptor<SubmittedFile>())
+            submissionIDs.formUnion(submittedFiles.compactMap { submittedFile -> UUID? in
+                guard let submission = submittedFile.submission,
+                      !submission.isCollection,
+                      submission.projectId == projectID || submission.project?.id == projectID || submittedFile.project?.id == projectID else {
+                    return nil
+                }
+                return submission.id
+            })
+
+            fetchedSubmissionCount = submissionIDs.count
+        } catch {
+            print("Failed to refresh fetched submission count: \(error)")
+        }
     }
 
     private func refreshFolderCounts() {
         Task {
             await loadFolderCounts()
+        }
+    }
+
+    private func scheduleFollowUpCountRefresh() {
+        DispatchQueue.main.async {
+            refreshFolderCounts()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            refreshFolderCounts()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            refreshFetchedSubmissionCount()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            refreshFetchedSubmissionCount()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            refreshFetchedSubmissionCount()
         }
     }
     
@@ -1516,6 +1638,19 @@ struct FolderRowView: View {
             fileCount = folder.textFiles?.count ?? 0
             subfolderCount = folder.folders?.count ?? 0
             bodyMatterWordCount = 0
+        }
+
+    }
+
+    private var publicationTypeForCurrentFolder: PublicationType? {
+        switch folder.name ?? "" {
+        case "Magazines": return .magazine
+        case "Competitions": return .competition
+        case "Commissions": return .commission
+        case "Publishers": return .publisher
+        case "Agents": return .agent
+        case "Other": return .other
+        default: return nil
         }
     }
 

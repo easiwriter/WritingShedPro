@@ -366,6 +366,15 @@ final class OnboardingCoordinator {
     private static let editorIntroShownKey = "onboarding.editorIntroShown"
     private static let debugForceNewUserModeKey = "onboarding.debug.forceNewUserMode"
 
+    private static var syncedCompletionStore: NSUbiquitousKeyValueStore {
+        NSUbiquitousKeyValueStore.default
+    }
+
+    private static var hasSyncedCompletion: Bool {
+        syncedCompletionStore.synchronize()
+        return syncedCompletionStore.bool(forKey: completedKey)
+    }
+
     static var debugForceNewUserModeEnabled: Bool {
         get {
             #if DEBUG || targetEnvironment(simulator)
@@ -392,7 +401,20 @@ final class OnboardingCoordinator {
     var showError = false
 
     var hasCompletedOnboarding: Bool {
-        UserDefaults.standard.bool(forKey: Self.completedKey)
+        if Self.debugForceNewUserModeEnabled {
+            return false
+        }
+
+        if UserDefaults.standard.bool(forKey: Self.completedKey) {
+            return true
+        }
+
+        if Self.hasSyncedCompletion {
+            UserDefaults.standard.set(true, forKey: Self.completedKey)
+            return true
+        }
+
+        return false
     }
 
     var hasShownEditorIntro: Bool {
@@ -432,6 +454,8 @@ final class OnboardingCoordinator {
 
     func markCompleted() {
         UserDefaults.standard.set(true, forKey: Self.completedKey)
+        Self.syncedCompletionStore.set(true, forKey: Self.completedKey)
+        Self.syncedCompletionStore.synchronize()
     }
 
     func resetCompletionForRestart() {

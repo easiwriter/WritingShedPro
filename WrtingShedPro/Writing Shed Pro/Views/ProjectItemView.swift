@@ -84,12 +84,12 @@ struct ProjectItemView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+
+                    Spacer()
                 }
                 .contentShape(Rectangle())
             }
-            
-            Spacer()
-            
+
             projectOptionsMenu
         }
         .padding(.horizontal, 12)
@@ -139,9 +139,11 @@ struct ProjectItemView: View {
                 Image(systemName: "ellipsis.circle")
                     .imageScale(.large)
                     .foregroundStyle(.blue)
-                    .padding(EdgeInsets(top: 0, leading: 5, bottom: 0, trailing: 0))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
                     .accessibilityHidden(true)
             }
+            .buttonStyle(.plain)
             .accessibilityLabel(NSLocalizedString("projectItem.projectOptions", comment: "Project options menu"))
             .accessibilityHint("Double tap to open options for this project")
         }

@@ -34,11 +34,12 @@ struct SubmissionsView: View {
     @State private var showNewSubmissionSheet = false
     @State private var newSubmissionName = ""
     
-    // State for editing dates
-    @State private var editingSubmissionDates: Submission?
+    @State private var isCheckingForSubmissions = true
+    @State private var fetchedSubmissions: [Submission] = []
     
     // Query all Submissions for this project where publication is not nil
     @Query private var allSubmissions: [Submission]
+    @Query private var allSubmittedFiles: [SubmittedFile]
     
     init(project: Project) {
         self.project = project
@@ -58,9 +59,26 @@ struct SubmissionsView: View {
     // Additional filtering to ensure ONLY submissions for THIS project appear
     private var sortedSubmissions: [Submission] {
         let projectID: UUID = project.id
-        let submissionsForProject: [Submission] = allSubmissions.filter { (sub: Submission) -> Bool in
-            !sub.isCollection && sub.project?.id == projectID
+        var submissionsByID: [UUID: Submission] = [:]
+
+        for sub in fetchedSubmissions where !sub.isCollection && (sub.projectId == projectID || sub.project?.id == projectID) {
+            submissionsByID[sub.id] = sub
         }
+
+        for sub in allSubmissions where !sub.isCollection && (sub.projectId == projectID || sub.project?.id == projectID) {
+            submissionsByID[sub.id] = sub
+        }
+
+        for submittedFile in allSubmittedFiles {
+            guard let submission = submittedFile.submission,
+                  !submission.isCollection,
+                  submission.projectId == projectID || submission.project?.id == projectID || submittedFile.project?.id == projectID else {
+                continue
+            }
+            submissionsByID[submission.id] = submission
+        }
+
+        let submissionsForProject: [Submission] = Array(submissionsByID.values)
         
         // Sort by case-insensitive name
         return submissionsForProject.sorted { (a: Submission, b: Submission) -> Bool in
@@ -106,11 +124,6 @@ struct SubmissionsView: View {
             }
         }
         .listStyle(.plain)
-        .navigationDestination(for: UUID.self) { submissionID in
-            if let submission = sortedSubmissions.first(where: { $0.id == submissionID }) {
-                CollectionDetailView(submission: submission)
-            }
-        }
         .environment(\.editMode, $editMode)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -171,6 +184,8 @@ struct SubmissionsView: View {
         Group {
             if !sortedSubmissions.isEmpty {
                 submissionListView
+            } else if isCheckingForSubmissions {
+                checkingSubmissionsView
             } else {
                 emptyStateView
             }
@@ -230,8 +245,46 @@ struct SubmissionsView: View {
             .disabled(newSubmissionName.trimmingCharacters(in: .whitespaces).isEmpty)
             Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
         }
-        .sheet(item: $editingSubmissionDates) { submission in
-            EditSubmissionDatesView(submission: submission)
+        .onAppear {
+            startSubmissionCheckWindow()
+            refreshFetchedSubmissions()
+            scheduleFetchedSubmissionRefreshes()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .projectContentCountsDidChange)) { _ in
+            startSubmissionCheckWindow()
+            refreshFetchedSubmissions()
+            scheduleFetchedSubmissionRefreshes()
+        }
+    }
+
+    private func refreshFetchedSubmissions() {
+        do {
+            fetchedSubmissions = try modelContext.fetch(FetchDescriptor<Submission>(
+                sortBy: [SortDescriptor(\Submission.name, order: .forward)]
+            ))
+        } catch {
+            #if DEBUG
+            print("[SubmissionsView] Error fetching submissions: \(error)")
+            #endif
+        }
+    }
+
+    private func scheduleFetchedSubmissionRefreshes() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            refreshFetchedSubmissions()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            refreshFetchedSubmissions()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            refreshFetchedSubmissions()
+        }
+    }
+
+    private func startSubmissionCheckWindow() {
+        isCheckingForSubmissions = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+            isCheckingForSubmissions = false
         }
     }
     
@@ -251,6 +304,8 @@ struct SubmissionsView: View {
         
         do {
             try modelContext.save()
+            refreshFetchedSubmissions()
+            NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
         } catch {
             #if DEBUG
             print("[SubmissionsView] Error creating submission: \(error)")
@@ -266,11 +321,9 @@ struct SubmissionsView: View {
         for existingSubmission in selectedSubmissions {
             // Link the existing submission to the publication (don't create a new one)
             existingSubmission.publication = publication
+            existingSubmission.projectId = project.id
             existingSubmission.submittedDate = Date()
             existingSubmission.modifiedDate = Date()
-            
-            // Copy expected response time from publication
-            existingSubmission.typicalResponseDays = publication.typicalResponseDays
             
             // Update the name if one was provided, otherwise keep existing
             if !name.isEmpty {
@@ -310,10 +363,12 @@ struct SubmissionsView: View {
         
         do {
             try modelContext.save()
+            refreshFetchedSubmissions()
             selectedSubmissionIDs.removeAll()
             withAnimation {
                 editMode = .inactive
             }
+            NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
         } catch {
             #if DEBUG
             print("Error submitting to publication: \(error)")
@@ -324,11 +379,18 @@ struct SubmissionsView: View {
     // MARK: - Delete
     
     private func deleteSubmissions(_ submissions: [Submission]) {
-        for submission in submissions {
+        let submissionIDs = submissions.map(\.id)
+        let descriptor = FetchDescriptor<Submission>()
+        let ownedSubmissions = ((try? modelContext.fetch(descriptor)) ?? [])
+            .filter { submissionIDs.contains($0.id) }
+
+        for submission in ownedSubmissions {
             modelContext.delete(submission)
         }
         do {
             try modelContext.save()
+            fetchedSubmissions.removeAll { submissionIDs.contains($0.id) }
+            NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
         } catch {
             #if DEBUG
             print("Error deleting submissions: \(error)")
@@ -341,7 +403,7 @@ struct SubmissionsView: View {
     @ViewBuilder
     private func submissionRow(for submission: Submission) -> some View {
         HStack {
-            NavigationLink(value: submission.id) {
+            NavigationLink(destination: SubmissionDetailView(submission: submission)) {
                 VStack(alignment: .leading, spacing: 4) {
                     // Submission name
                     Text(submission.name ?? "Untitled Submission")
@@ -354,23 +416,8 @@ struct SubmissionsView: View {
                         .foregroundColor(.secondary)
                 }
                 .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            
-            // Edit Dates ellipsis menu
-            Menu {
-                Button {
-                    editingSubmissionDates = submission
-                } label: {
-                    Label(NSLocalizedString("submissions.editDates", comment: "Edit Dates"), systemImage: "calendar.badge.clock")
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-                    .imageScale(.large)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
             
             // Show submissions button if collection has publication submissions
             CollectionSubmissionsButton(collection: submission, submissionCount: publicationSubmissionCounts[submission.id] ?? 0)
@@ -394,6 +441,11 @@ struct SubmissionsView: View {
     }
     
     // MARK: - Empty State
+
+    private var checkingSubmissionsView: some View {
+        ProgressView()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
     
     private var emptyStateView: some View {
         VStack(spacing: 16) {

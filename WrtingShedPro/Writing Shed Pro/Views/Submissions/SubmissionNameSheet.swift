@@ -27,7 +27,7 @@ struct SubmissionNameSheet: View {
     private var existingSubmissions: [Submission] {
         let projectID = project.id
         return allSubmissions
-            .filter { $0.project?.id == projectID && !$0.isCollection }
+            .filter { ($0.projectId == projectID || $0.project?.id == projectID) && !$0.isCollection }
             .sorted { ($0.name ?? "") < ($1.name ?? "") }
     }
     
@@ -38,12 +38,6 @@ struct SubmissionNameSheet: View {
                 Section {
                     TextField(NSLocalizedString("submissions.name.placeholder", comment: "Name"), text: $newSubmissionName)
                         .textInputAutocapitalization(.words)
-                    
-                    Button(NSLocalizedString("button.create", comment: "Create")) {
-                        onCreateNew(newSubmissionName)
-                        dismiss()
-                    }
-                    .disabled(newSubmissionName.trimmingCharacters(in: .whitespaces).isEmpty)
                 } header: {
                     Text(NSLocalizedString("submissions.new.title", comment: "New Submission"))
                 } footer: {
@@ -89,6 +83,14 @@ struct SubmissionNameSheet: View {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
                         dismiss()
                     }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(NSLocalizedString("button.create", comment: "Create")) {
+                        onCreateNew(newSubmissionName)
+                        dismiss()
+                    }
+                    .disabled(newSubmissionName.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
         }

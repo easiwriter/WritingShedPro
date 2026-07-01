@@ -2602,8 +2602,8 @@ struct FileEditView: View {
 
         #if os(iOS) && !targetEnvironment(macCatalyst)
         if defaults.object(forKey: Self.showLineNumbersDefaultsKey) == nil {
-            showLineNumbers = true
-            defaults.set(true, forKey: Self.showLineNumbersDefaultsKey)
+            showLineNumbers = false
+            defaults.set(false, forKey: Self.showLineNumbersDefaultsKey)
         } else {
             showLineNumbers = defaults.bool(forKey: Self.showLineNumbersDefaultsKey)
         }

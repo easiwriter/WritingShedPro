@@ -10,6 +10,7 @@ import SwiftData
 
 struct EditSubmissionDatesView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     
     @Bindable var submission: Submission
     
@@ -20,6 +21,7 @@ struct EditSubmissionDatesView: View {
     @State private var returnedDate: Date = Date()
     @State private var hasReminderDate: Bool = false
     @State private var reminderDate: Date = Date()
+    @State private var showReminderPermissionAlert = false
     
     var body: some View {
         NavigationStack {
@@ -88,10 +90,16 @@ struct EditSubmissionDatesView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("button.save", comment: "Save")) {
-                        saveDates()
-                        dismiss()
+                        Task {
+                            await saveDates()
+                        }
                     }
                 }
+            }
+            .alert(NSLocalizedString("reminder.permission.title", comment: "Notifications Disabled"), isPresented: $showReminderPermissionAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(NSLocalizedString("reminder.permission.message", comment: "Please enable notifications in Settings"))
             }
             .onAppear {
                 loadDates()
@@ -112,11 +120,52 @@ struct EditSubmissionDatesView: View {
         reminderDate = submission.reminderDate ?? Date()
     }
     
-    private func saveDates() {
+    @MainActor
+    private func saveDates() async {
         submission.submittedDate = submittedDate
         submission.returnExpectedBy = hasExpectedDate ? expectedDate : nil
         submission.returnedOn = hasReturnedDate ? returnedDate : nil
-        submission.reminderDate = hasReminderDate ? reminderDate : nil
+
+        if hasReminderDate {
+            let granted = await NotificationReminderService.shared.requestPermission()
+            guard granted else {
+                await MainActor.run {
+                    showReminderPermissionAlert = true
+                }
+                return
+            }
+
+            if let existingReminderId = submission.reminderNotificationId {
+                NotificationReminderService.shared.cancelReminder(notificationId: existingReminderId)
+                submission.reminderNotificationId = nil
+            }
+
+            let notificationId = await NotificationReminderService.shared.scheduleSubmissionReminder(
+                submissionId: submission.id.uuidString,
+                publicationName: submission.publication?.name ?? NSLocalizedString("reminder.unknown.publication", comment: "Unknown Publication"),
+                submissionName: submission.name ?? NSLocalizedString("submissions.untitled", comment: "Untitled submission"),
+                reminderDate: reminderDate
+            )
+
+            submission.reminderDate = reminderDate
+            submission.reminderNotificationId = notificationId
+        } else {
+            if let existingReminderId = submission.reminderNotificationId {
+                NotificationReminderService.shared.cancelReminder(notificationId: existingReminderId)
+                submission.reminderNotificationId = nil
+            }
+            submission.reminderDate = nil
+        }
+
         submission.modifiedDate = Date()
+
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            #if DEBUG
+            print("[EditSubmissionDatesView] Error saving dates: \(error)")
+            #endif
+        }
     }
 }
