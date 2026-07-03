@@ -18,8 +18,6 @@ struct Write_App: App {
     @State private var syncHealthMonitor: SyncHealthMonitor
     
     var sharedModelContainer: ModelContainer = {
-        EnsemblesConfiguration.activateLicense()
-
         // CRITICAL: Register for remote notifications BEFORE creating the container.
         // NSPersistentCloudKitContainer needs the APNs device token to set up its
         // CKDatabaseSubscription.  If the token isn't available in time the container
@@ -108,7 +106,6 @@ struct Write_App: App {
             SceneCharacterLink.self,
             CharacterPlotElementLink.self,
             LocationPlotElementLink.self,
-            SceneLocationLink.self,
             // Reference & metadata models (explicit registration for CloudKit schema deployment)
             NoteEntry.self,
             GlossaryEntry.self,
