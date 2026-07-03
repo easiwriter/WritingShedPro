@@ -12,7 +12,7 @@ struct SyncStatusView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(monitor.healthState.displayText)
                     .font(.subheadline)
-                if monitor.healthState == .stalled || monitor.healthState == .degraded,
+                                if monitor.healthState == .stalled || monitor.healthState == .degraded || monitor.healthState == .blocked,
                    let exportTime = monitor.lastSuccessfulExportTime {
                     Text(String(format: NSLocalizedString("sync.status.lastSynced", comment: ""),
                                 exportTime.formatted(.relative(presentation: .named))))

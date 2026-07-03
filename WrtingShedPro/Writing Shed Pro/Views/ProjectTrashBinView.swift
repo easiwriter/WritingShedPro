@@ -10,6 +10,8 @@ struct ProjectTrashBinView: View {
     @State private var selectedProjectIDs: Set<UUID> = []
     @State private var showPutBackConfirmation = false
     @State private var showPermanentDeleteConfirmation = false
+    @State private var showDeleteError = false
+    @State private var deleteErrorMessage = ""
     @State private var projectsToPutBack: [Project] = []
     @State private var projectsToDelete: [Project] = []
 
@@ -81,9 +83,23 @@ struct ProjectTrashBinView: View {
                     for project in projectsToDelete {
                         DeduplicationService.permanentlyDeleteProjectFamily(project, context: modelContext)
                     }
-                    try? modelContext.save()
+                    do {
+                        try modelContext.save()
+                    } catch {
+                        deleteErrorMessage = String(
+                            format: NSLocalizedString("project.deleteForever.saveFailed.message", comment: "Delete failed message"),
+                            error.localizedDescription
+                        )
+                        showDeleteError = true
+                        return
+                    }
                     selectedProjectIDs.removeAll()
                 }
+            }
+            .alert(NSLocalizedString("project.deleteForever.saveFailed.title", comment: "Delete failed"), isPresented: $showDeleteError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(deleteErrorMessage)
             }
         }
     }

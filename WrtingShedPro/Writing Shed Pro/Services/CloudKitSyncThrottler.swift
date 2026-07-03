@@ -18,6 +18,10 @@ extension NSNotification.Name {
     /// Posted when NSPersistentCloudKitContainer reports an import end event with failure.
     /// `userInfo` may contain `errorDomain`, `errorCode`, and `errorMessage`.
     static let writingShedProCloudKitImportFailed = NSNotification.Name("WritingShedProCloudKitImportFailed")
+
+    /// Posted when NSPersistentCloudKitContainer reports an export end event with failure.
+    /// `userInfo` may contain `errorDomain`, `errorCode`, `errorMessage`, and `isBlockingExportFailure`.
+    static let writingShedProCloudKitExportFailed = NSNotification.Name("WritingShedProCloudKitExportFailed")
 }
 
 struct CloudKitEventLogEntry: Identifiable {
@@ -80,6 +84,17 @@ final class CloudKitSyncThrottler {
     /// SyncHealthMonitor to detect stalls (gap between local changes and
     /// successful exports).
     private(set) var lastSuccessfulExportTime: Date?
+
+    /// Most recent CloudKit export failure details. CKErrorDomain code 2 is
+    /// treated as blocking because it usually means the export queue contains
+    /// references to records CloudKit considers missing.
+    private(set) var lastExportFailureDomain: String?
+    private(set) var lastExportFailureCode: Int?
+    private(set) var lastExportFailureMessage: String?
+
+    var hasBlockingExportFailure: Bool {
+        lastExportFailureDomain == "CKErrorDomain" && lastExportFailureCode == 2
+    }
     
     /// Time of the last sync notification
     private(set) var lastSyncTime: Date?
@@ -461,6 +476,9 @@ final class CloudKitSyncThrottler {
         exportCompleted = false
         exportSucceeded = false
         lastSuccessfulExportTime = nil
+        lastExportFailureDomain = nil
+        lastExportFailureCode = nil
+        lastExportFailureMessage = nil
         rateLimitedUntil = nil
         consecutiveExportRateLimits = 0
         consecutiveImportNetworkFailures = 0
@@ -678,8 +696,12 @@ final class CloudKitSyncThrottler {
                             self.exportCompleted = true
                             self.exportSucceeded = true
                             self.lastSuccessfulExportTime = Date()
+                            self.lastExportFailureDomain = nil
+                            self.lastExportFailureCode = nil
+                            self.lastExportFailureMessage = nil
                             self.syncHealthMonitor?.recordExportSuccess()
                         } else {
+                            self.exportCompleted = true
                             self.exportSucceeded = false
                         }
                         let errorMessage = self.detailedErrorMessage(event.error)
@@ -696,6 +718,21 @@ final class CloudKitSyncThrottler {
                             let nsError = event.error as? NSError
                             let errorDomain = nsError?.domain ?? ""
                             let errorCode = nsError?.code ?? -1
+                            self.lastExportFailureDomain = errorDomain
+                            self.lastExportFailureCode = errorCode
+                            self.lastExportFailureMessage = errorMessage
+                            let isBlockingExportFailure = errorDomain == "CKErrorDomain" && errorCode == 2
+                            self.syncHealthMonitor?.recordExportFailure(isBlocking: isBlockingExportFailure)
+                            NotificationCenter.default.post(
+                                name: .writingShedProCloudKitExportFailed,
+                                object: nil,
+                                userInfo: [
+                                    "errorDomain": errorDomain,
+                                    "errorCode": errorCode,
+                                    "errorMessage": errorMessage,
+                                    "isBlockingExportFailure": isBlockingExportFailure
+                                ]
+                            )
                             let isRateLimited = (errorDomain == "CKErrorDomain" && (errorCode == 6 || errorCode == 7))
                             if isRateLimited {
                                 let retryAfter = (nsError?.userInfo["CKRetryAfter"] as? Double)
@@ -984,6 +1021,9 @@ final class CloudKitSyncThrottler {
         lastObservedActivityTime = now
         exportCompleted = false
         exportSucceeded = false
+        lastExportFailureDomain = nil
+        lastExportFailureCode = nil
+        lastExportFailureMessage = nil
         if !exportInProgress {
             exportInProgress = true
             exportStartTime = now

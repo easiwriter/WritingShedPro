@@ -51,6 +51,8 @@ struct ContentView: View {
     @State private var lastReconcileTriggerLogDate: Date = .distantPast
 
     @State private var showSyncRecoveryBanner = false
+    @State private var syncRecoveryBannerKey = "sync.recovery.banner"
+    @State private var syncRecoveryBannerIsBlocking = false
     @State private var syncRecoveryBannerTask: Task<Void, Never>?
 
     @State private var offlinePurchaseBannerDismissed = false
@@ -81,8 +83,9 @@ struct ContentView: View {
             VStack(spacing: 6) {
                 if showSyncRecoveryBanner {
                     HStack(spacing: 8) {
-                        Image(systemName: "arrow.triangle.2.circlepath.icloud")
-                        Text(NSLocalizedString("sync.recovery.banner", comment: "Sync delayed, retrying"))
+                        Image(systemName: syncRecoveryBannerIsBlocking ? "xmark.icloud.fill" : "arrow.triangle.2.circlepath.icloud")
+                            .foregroundStyle(syncRecoveryBannerIsBlocking ? .red : .primary)
+                        Text(NSLocalizedString(syncRecoveryBannerKey, comment: "Sync recovery status"))
                             .font(.caption)
                             .multilineTextAlignment(.leading)
                     }
@@ -186,6 +189,27 @@ struct ContentView: View {
                 print("⚠️ [ContentView] Observed CloudKit import failure: \(domain):\(code)")
             } else {
                 print("⚠️ [ContentView] Observed CloudKit import failure")
+            }
+            #endif
+        }
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: .writingShedProCloudKitExportFailed)
+                .receive(on: RunLoop.main)
+        ) { notification in
+            let isBlocking = notification.userInfo?["isBlockingExportFailure"] as? Bool ?? false
+            showSyncRecoveryBannerTemporarily(
+                messageKey: isBlocking ? "sync.recovery.blocked.banner" : "sync.recovery.banner",
+                isBlocking: isBlocking
+            )
+
+            #if DEBUG
+            if let userInfo = notification.userInfo,
+               let domain = userInfo["errorDomain"] as? String,
+               let code = userInfo["errorCode"] as? Int {
+                print("⚠️ [ContentView] Observed CloudKit export failure: \(domain):\(code)")
+            } else {
+                print("⚠️ [ContentView] Observed CloudKit export failure")
             }
             #endif
         }
@@ -621,9 +645,11 @@ struct ContentView: View {
         #endif
     }
     
-    private func showSyncRecoveryBannerTemporarily() {
+    private func showSyncRecoveryBannerTemporarily(messageKey: String = "sync.recovery.banner", isBlocking: Bool = false) {
         syncRecoveryBannerTask?.cancel()
         withAnimation {
+            syncRecoveryBannerKey = messageKey
+            syncRecoveryBannerIsBlocking = isBlocking
             showSyncRecoveryBanner = true
         }
 

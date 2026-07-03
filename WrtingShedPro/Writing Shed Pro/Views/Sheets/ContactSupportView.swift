@@ -86,8 +86,15 @@ struct ContactSupportView: View {
 
     private let supportEmail = "easiwriter@writing-shed.com"
 
-    init(initialReportType: ReportType = .bug, presentationMode: PresentationMode = .full) {
+    init(
+        initialReportType: ReportType = .bug,
+        presentationMode: PresentationMode = .full,
+        initialSubject: String = "",
+        initialDetails: String = ""
+    ) {
         _reportType = State(initialValue: initialReportType)
+        _subject = State(initialValue: initialSubject)
+        _details = State(initialValue: initialDetails)
         self.presentationMode = presentationMode
     }
 

@@ -9,7 +9,7 @@
 "projectDetail.moveToTrashConfirmMessage" = "Are you sure you want to move \"%@\" to the Trash? You can restore it later from the Trash bin.";
 
 /* Sync Recovery */
-"sync.recovery.banner" = "Sync looks delayed — retrying iCloud sync…";
+"sync.recovery.banner" = "Sync delayed. Go to Settings → Sync Troubleshooting before making more changes.";
 /* Localization strings for Write! app */
 
 /* Project types */
@@ -2982,7 +2982,11 @@
 "sync.status.degraded" = "Catching up…";
 "sync.status.stalled" = "Sync delayed";
 "sync.status.recovering" = "Restoring sync…";
+"sync.status.blocked" = "Sync blocked";
 "sync.status.lastSynced" = "Last synced %@";
+"sync.recovery.blocked.banner" = "Sync blocked. CloudKit rejected the last export. Go to Settings → Sync Troubleshooting → Contact Support before making more changes.";
+"project.deleteForever.saveFailed.title" = "Delete Failed";
+"project.deleteForever.saveFailed.message" = "The project was not permanently deleted because the local save failed: %@";
 
 // MARK: - Menu Bar
 "menu.help.userGuide" = "Writing Shed Pro User Guide";

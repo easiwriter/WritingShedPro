@@ -32,6 +32,8 @@ struct ProjectEditableList: View {
     @State private var showShareSheet = false
     @State private var showExportError = false
     @State private var exportErrorMessage = ""
+    @State private var showDeleteError = false
+    @State private var deleteErrorMessage = ""
     @State private var upgradePromptReason: UpgradePromptReason?
     @State private var lastSeenNameByProjectID: [UUID: String] = [:]
     @Query private var allProjects: [Project]
@@ -97,6 +99,11 @@ struct ProjectEditableList: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(exportErrorMessage)
+            }
+            .alert(NSLocalizedString("project.deleteForever.saveFailed.title", comment: "Delete failed"), isPresented: $showDeleteError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(deleteErrorMessage)
             }
             .upgradePrompt(reason: $upgradePromptReason) {
                 // User can retry the original action after upgrading.
@@ -357,7 +364,16 @@ struct ProjectEditableList: View {
             let project = sortedProjects[index]
             DeduplicationService.permanentlyDeleteProjectFamily(project, context: modelContext)
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            deleteErrorMessage = String(
+                format: NSLocalizedString("project.deleteForever.saveFailed.message", comment: "Delete failed message"),
+                error.localizedDescription
+            )
+            showDeleteError = true
+            return
+        }
         projectsToDelete = nil
         deleteInfo = nil
         showDeleteConfirmation = false

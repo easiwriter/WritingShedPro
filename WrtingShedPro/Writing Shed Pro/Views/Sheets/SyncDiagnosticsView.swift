@@ -61,6 +61,7 @@ struct SyncDiagnosticsView: View {
     @State private var showPurgeOrphansConfirmation = false
     @State private var guidedRecoveryStatus: String = ""
     @State private var isGuidedRecoveryInProgress = false
+    @State private var showSyncBlockedSupport = false
     @State private var convergenceStatus: String = "Checking…"
     @State private var convergenceMismatchCount: Int = 0
     @State private var convergenceLastCheckedAt: Date?
@@ -118,6 +119,7 @@ struct SyncDiagnosticsView: View {
         List {
             // ── Always visible to users ──────────────────────────────
             syncStatusSummarySection
+            syncBlockedRecoverySection
             debugActionsSection
 
             // ── Technical / developer-only sections ──────────────────
@@ -133,15 +135,89 @@ struct SyncDiagnosticsView: View {
         }
     }
 
+    @ViewBuilder
+    private var syncBlockedRecoverySection: some View {
+        if syncThrottler.hasBlockingExportFailure {
+            Section("Sync Blocked") {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "xmark.octagon.fill")
+                        .foregroundStyle(.red)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("CloudKit rejected the last export")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Text("Changes on this device may not have reached your other devices. Treat this device as the possible source of truth until recovery is complete.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.vertical, 2)
+
+                if let message = syncThrottler.lastExportFailureMessage, !message.isEmpty {
+                    Text(message)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Stop editing, importing, deleting, or renaming projects on other devices.", systemImage: "1.circle")
+                    Label("Check which device has the project list you want to keep.", systemImage: "2.circle")
+                    Label("Do not reset this device if it has the desired data.", systemImage: "3.circle")
+                    Label("Contact support from this screen before recovery.", systemImage: "4.circle")
+                    Label("If this device is the source of truth, use zone recovery from this device only; reset other devices only after export succeeds.", systemImage: "5.circle")
+                }
+                .font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+
+                Button("Contact Support") {
+                    showSyncBlockedSupport = true
+                }
+
+                Text("The support report includes sync diagnostics automatically. Reset Sync Database deletes local data on this device. Use it only on stale devices after the source-of-truth device has exported successfully.")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .sheet(isPresented: $showSyncBlockedSupport) {
+                ContactSupportView(
+                    initialReportType: .bug,
+                    initialSubject: "Sync blocked after CloudKit export failure",
+                    initialDetails: syncBlockedSupportDetails
+                )
+            }
+        }
+    }
+
+    private var syncBlockedSupportDetails: String {
+        var lines: [String] = []
+        lines.append("Sync is blocked because CloudKit rejected the last export.")
+        lines.append("")
+        lines.append("What I was doing before the error:")
+        lines.append("-")
+        lines.append("")
+        lines.append("Which device currently has the project list I want to keep:")
+        lines.append("-")
+        lines.append("")
+        if let message = syncThrottler.lastExportFailureMessage, !message.isEmpty {
+            lines.append("Last export failure:")
+            lines.append(message)
+        }
+        return lines.joined(separator: "\n")
+    }
+
     /// Compact status summary for release users.
     private var syncStatusSummarySection: some View {
         Section("iCloud Sync Status") {
             HStack {
+                let blocked = syncThrottler.hasBlockingExportFailure
                 let healthy = syncThrottler.importSucceeded && syncThrottler.exportSucceeded && !syncThrottler.isRateLimited
-                Image(systemName: healthy ? "checkmark.icloud.fill" : "exclamationmark.icloud.fill")
-                    .foregroundStyle(healthy ? .green : .orange)
+                Image(systemName: healthy ? "checkmark.icloud.fill" : (blocked ? "xmark.icloud.fill" : "exclamationmark.icloud.fill"))
+                    .foregroundStyle(healthy ? .green : (blocked ? .red : .orange))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(healthy ? "Sync is working normally" : "Sync may need attention")
+                    Text(healthy ? "Sync is working normally" : (blocked ? "Sync is blocked" : "Sync may need attention"))
                         .font(.subheadline)
                         .fontWeight(.medium)
                     if let lastSync = syncThrottler.lastSyncTime {
@@ -399,6 +475,10 @@ struct SyncDiagnosticsView: View {
         lines.append("importSucceeded: \(syncThrottler.importSucceeded)")
         lines.append("exportCompleted: \(syncThrottler.exportCompleted)")
         lines.append("exportSucceeded: \(syncThrottler.exportSucceeded)")
+        lines.append("hasBlockingExportFailure: \(syncThrottler.hasBlockingExportFailure)")
+        lines.append("lastExportFailureDomain: \(syncThrottler.lastExportFailureDomain ?? "nil")")
+        lines.append("lastExportFailureCode: \(syncThrottler.lastExportFailureCode.map(String.init) ?? "nil")")
+        lines.append("lastExportFailureMessage: \(syncThrottler.lastExportFailureMessage ?? "nil")")
         lines.append("isRateLimited: \(syncThrottler.isRateLimited)")
         lines.append("consecutiveExportRateLimits: \(syncThrottler.consecutiveExportRateLimits)")
         lines.append("isManualKickPaused: \(syncThrottler.isManualKickPaused)")
@@ -2126,16 +2206,22 @@ struct SyncDiagnosticsView: View {
 
             let throttler = CloudKitSyncThrottler.shared
             let transportHealthy = throttler.importCompleted && throttler.importSucceeded && throttler.exportCompleted && throttler.exportSucceeded && !throttler.isRateLimited
+            let exportBlocked = throttler.hasBlockingExportFailure
 
             var lines: [String] = []
             lines.append("\(transportHealthy ? "✅" : "⚠️") Guided recovery check complete")
             lines.append("CloudKit settled: \(settled ? "yes" : "no")")
             lines.append("Transport state: import=\(throttler.importSucceeded ? "ok" : "not-ok"), export=\(throttler.exportSucceeded ? "ok" : "not-ok"), rateLimited=\(throttler.isRateLimited ? "yes" : "no")")
+            if exportBlocked {
+                lines.append("Export blocked: CloudKit rejected the last export with CKErrorDomain code=2. Do not make further changes on other devices until source-of-truth recovery is complete.")
+            }
             lines.append("Local store: projects=\(totalProjects), files=\(totalFiles)")
             lines.append("Convergence signals: \(convergenceMismatchCount)")
 
             if transportHealthy {
                 lines.append("If one project is still stale on this device, use Reset Sync Database to rebuild local cache from iCloud.")
+            } else if exportBlocked {
+                lines.append("Repeated Guided Recovery will not clear this export queue. Preserve the source-of-truth device and use zone recovery only after confirming which device has the desired data.")
             } else {
                 lines.append("Sync transport is not fully healthy yet. Wait 1-2 minutes, then run Guided Recovery again before resetting local cache.")
             }

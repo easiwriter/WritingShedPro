@@ -12,6 +12,7 @@ enum SyncHealthState: String, CaseIterable {
     case degraded
     case stalled
     case recovering
+    case blocked
 
     var displayText: String {
         switch self {
@@ -20,6 +21,7 @@ enum SyncHealthState: String, CaseIterable {
         case .degraded:   return NSLocalizedString("sync.status.degraded", comment: "Sync catching up")
         case .stalled:    return NSLocalizedString("sync.status.stalled", comment: "Sync delayed")
         case .recovering: return NSLocalizedString("sync.status.recovering", comment: "Sync restoring")
+        case .blocked:    return NSLocalizedString("sync.status.blocked", comment: "Sync blocked")
         }
     }
 
@@ -30,6 +32,7 @@ enum SyncHealthState: String, CaseIterable {
         case .degraded:   return "exclamationmark.triangle.fill"
         case .stalled:    return "exclamationmark.triangle.fill"
         case .recovering: return "arrow.clockwise"
+        case .blocked:    return "xmark.octagon.fill"
         }
     }
 
@@ -40,6 +43,7 @@ enum SyncHealthState: String, CaseIterable {
         case .degraded:   return .yellow
         case .stalled:    return .orange
         case .recovering: return .blue
+        case .blocked:    return .red
         }
     }
 }
@@ -130,6 +134,16 @@ final class SyncHealthMonitor {
             #endif
         }
         checkHealth()
+    }
+
+    /// Called when CloudKitSyncThrottler reports an export failure.
+    func recordExportFailure(isBlocking: Bool) {
+        if isBlocking {
+            stallDetectedAt = Date()
+            transition(to: .blocked)
+        } else if healthState != .blocked {
+            transition(to: .degraded)
+        }
     }
 
     /// Evaluate current sync health based on time gaps.
