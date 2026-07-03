@@ -9,6 +9,9 @@
 /* Begin PBXBuildFile section */
 		D737479B2FE9129700364704 /* Writing Shed Pro.storekit in Resources */ = {isa = PBXBuildFile; fileRef = D737479A2FE9129700364704 /* Writing Shed Pro.storekit */; };
 		D786773B2F9DF4F80087BC02 /* TestPlan.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = D786773A2F9DF4F80087BC02 /* TestPlan.xctestplan */; };
+		D7E3A3012FF86B0000E35003 /* Ensembles in Frameworks */ = {isa = PBXBuildFile; productRef = D7E3A3002FF86B0000E35003 /* Ensembles */; };
+		D7E3A3032FF86B0000E35003 /* EnsemblesSwiftData in Frameworks */ = {isa = PBXBuildFile; productRef = D7E3A3022FF86B0000E35003 /* EnsemblesSwiftData */; };
+		D7E3A3052FF86B0000E35003 /* EnsemblesCloudKit in Frameworks */ = {isa = PBXBuildFile; productRef = D7E3A3042FF86B0000E35003 /* EnsemblesCloudKit */; };
 		D79879872F2F4874007DE592 /* StoreKitManager in Frameworks */ = {isa = PBXBuildFile; productRef = D79879862F2F4874007DE592 /* StoreKitManager */; };
 		D7B1F4D72EACFFE400B7F3C8 /* ToolbarSUI in Frameworks */ = {isa = PBXBuildFile; productRef = D7B1F4D62EACFFE400B7F3C8 /* ToolbarSUI */; };
 		D7QLEXT012F05000000000001 /* WSPQuickLook.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D7QLEXT002F05000000000001 /* WSPQuickLook.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -183,6 +186,9 @@
 			files = (
 				D7B1F4D72EACFFE400B7F3C8 /* ToolbarSUI in Frameworks */,
 				D79879872F2F4874007DE592 /* StoreKitManager in Frameworks */,
+				D7E3A3012FF86B0000E35003 /* Ensembles in Frameworks */,
+				D7E3A3032FF86B0000E35003 /* EnsemblesSwiftData in Frameworks */,
+				D7E3A3052FF86B0000E35003 /* EnsemblesCloudKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -288,6 +294,9 @@
 			packageProductDependencies = (
 				D7B1F4D62EACFFE400B7F3C8 /* ToolbarSUI */,
 				D79879862F2F4874007DE592 /* StoreKitManager */,
+				D7E3A3002FF86B0000E35003 /* Ensembles */,
+				D7E3A3022FF86B0000E35003 /* EnsemblesSwiftData */,
+				D7E3A3042FF86B0000E35003 /* EnsemblesCloudKit */,
 			);
 			productName = "Write!";
 			productReference = D741DF6C2EA76292003629E8 /* Writing Shed Pro.app */;
@@ -486,6 +495,7 @@
 			packageReferences = (
 				D7B1F4D52EACFFE400B7F3C8 /* XCRemoteSwiftPackageReference "ToolbarSUI" */,
 				D79879852F2F4874007DE592 /* XCRemoteSwiftPackageReference "StoreKitManager" */,
+				D7E3A2FF2FF86B0000E35003 /* XCRemoteSwiftPackageReference "Ensembles3" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D741DF6D2EA76292003629E8 /* Products */;
@@ -1377,6 +1387,14 @@
 				kind = branch;
 			};
 		};
+		D7E3A2FF2FF86B0000E35003 /* XCRemoteSwiftPackageReference "Ensembles3" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mentalfaculty/Ensembles3.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1389,6 +1407,21 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D7B1F4D52EACFFE400B7F3C8 /* XCRemoteSwiftPackageReference "ToolbarSUI" */;
 			productName = ToolbarSUI;
+		};
+		D7E3A3002FF86B0000E35003 /* Ensembles */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D7E3A2FF2FF86B0000E35003 /* XCRemoteSwiftPackageReference "Ensembles3" */;
+			productName = Ensembles;
+		};
+		D7E3A3022FF86B0000E35003 /* EnsemblesSwiftData */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D7E3A2FF2FF86B0000E35003 /* XCRemoteSwiftPackageReference "Ensembles3" */;
+			productName = EnsemblesSwiftData;
+		};
+		D7E3A3042FF86B0000E35003 /* EnsemblesCloudKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D7E3A2FF2FF86B0000E35003 /* XCRemoteSwiftPackageReference "Ensembles3" */;
+			productName = EnsemblesCloudKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
