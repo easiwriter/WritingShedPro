@@ -1352,6 +1352,11 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Network Recovery Eligibility") {
+                runCloudflareSyncPOCNetworkRecoveryEligibilitySummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Check And Pull Into Scratch Store") {
                 runCloudflareSyncPOCCheckAndPullIntoScratchStore()
             }
@@ -1399,6 +1404,11 @@ struct SyncDiagnosticsView: View {
 
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Run Transport Failure Classification Probe") {
                 runCloudflareSyncPOCTransportFailureClassificationProbe()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Run Network Recovery Eligibility Probe") {
+                runCloudflareSyncPOCNetworkRecoveryEligibilityProbe()
             }
             .disabled(isCloudflareSyncPOCRunning)
 
@@ -2084,6 +2094,21 @@ struct SyncDiagnosticsView: View {
         }
     }
 
+    private func runCloudflareSyncPOCNetworkRecoveryEligibilitySummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC network recovery eligibility…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.networkRecoveryEligibilitySummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
     private func runCloudflareSyncPOCCheckAndPullIntoScratchStore() {
         isCloudflareSyncPOCRunning = true
         cloudflareSyncPOCStatus = "Checking Cloudflare sync POC remote head and pulling into scratch store if needed…"
@@ -2271,6 +2296,21 @@ struct SyncDiagnosticsView: View {
         Task {
             let result = await MainActor.run {
                 CloudflareSyncPOCService.shared.transportFailureClassificationProbe()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCNetworkRecoveryEligibilityProbe() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Running Cloudflare sync POC network recovery eligibility probe…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.networkRecoveryEligibilityProbe()
             }
             await MainActor.run {
                 cloudflareSyncPOCStatus = "✅ \(result.message)"
