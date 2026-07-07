@@ -541,31 +541,25 @@ final class CloudflareSyncPOCService {
 
     @MainActor
     func networkRecoveryEligibilitySummary() -> CloudflareSyncPOCResult {
-        let now = Date()
-        let remainingDebounceSeconds: Int
-        if let lastRun = lastOrchestratedTriggerDates["network-recovery"] {
-            remainingDebounceSeconds = Int(ceil(max(0, noisyTriggerDebounceInterval - now.timeIntervalSince(lastRun))))
-        } else {
-            remainingDebounceSeconds = 0
-        }
-
-        let lastOutcome = lastTriggerStatus?.outcome ?? "none"
-        let lastTrigger = lastTriggerStatus?.trigger ?? "none"
-        let isEligible = lastOutcome == "transport-failure" && !isOrchestratedSyncInFlight && remainingDebounceSeconds == 0
-        let decision = isEligible ? "eligible" : "not eligible"
-        let reason: String
-        if isOrchestratedSyncInFlight {
-            reason = "another orchestrator dry run is in flight"
-        } else if remainingDebounceSeconds > 0 {
-            reason = "network-recovery is debounced for \(remainingDebounceSeconds)s more"
-        } else if lastOutcome == "transport-failure" {
-            reason = "last trigger outcome was transport-failure"
-        } else {
-            reason = "last trigger outcome was \(lastOutcome), not transport-failure"
-        }
+        let state = networkRecoveryEligibilityState()
 
         return CloudflareSyncPOCResult(
-            message: "Network recovery eligibility: \(decision). Reason: \(reason). Last trigger \(lastTrigger), last outcome \(lastOutcome). This did not contact the Worker and did not read or write scratch or production local data."
+            message: "Network recovery eligibility: \(state.decision). Reason: \(state.reason). Last trigger \(state.lastTrigger), last outcome \(state.lastOutcome). This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func networkRecoveryIfEligibleDryRun(projects: [Project]) async throws -> CloudflareSyncPOCResult {
+        let state = networkRecoveryEligibilityState()
+        guard state.isEligible else {
+            return CloudflareSyncPOCResult(
+                message: "Network recovery gated dry run skipped: \(state.decision). Reason: \(state.reason). Last trigger \(state.lastTrigger), last outcome \(state.lastOutcome). This did not contact the Worker and did not read or write scratch or production local data."
+            )
+        }
+
+        let result = try await networkRecoverySyncDryRun(projects: projects)
+        return CloudflareSyncPOCResult(
+            message: "Network recovery gated dry run was eligible and ran through the scratch-only orchestrator. \(result.message)"
         )
     }
 
@@ -892,6 +886,33 @@ final class CloudflareSyncPOCService {
 
     private func shouldDebounceTrigger(_ trigger: String) -> Bool {
         trigger == "foreground" || trigger == "network-recovery"
+    }
+
+    private func networkRecoveryEligibilityState() -> (isEligible: Bool, decision: String, reason: String, lastTrigger: String, lastOutcome: String) {
+        let now = Date()
+        let remainingDebounceSeconds: Int
+        if let lastRun = lastOrchestratedTriggerDates["network-recovery"] {
+            remainingDebounceSeconds = Int(ceil(max(0, noisyTriggerDebounceInterval - now.timeIntervalSince(lastRun))))
+        } else {
+            remainingDebounceSeconds = 0
+        }
+
+        let lastOutcome = lastTriggerStatus?.outcome ?? "none"
+        let lastTrigger = lastTriggerStatus?.trigger ?? "none"
+        let isEligible = lastOutcome == "transport-failure" && !isOrchestratedSyncInFlight && remainingDebounceSeconds == 0
+        let decision = isEligible ? "eligible" : "not eligible"
+        let reason: String
+        if isOrchestratedSyncInFlight {
+            reason = "another orchestrator dry run is in flight"
+        } else if remainingDebounceSeconds > 0 {
+            reason = "network-recovery is debounced for \(remainingDebounceSeconds)s more"
+        } else if lastOutcome == "transport-failure" {
+            reason = "last trigger outcome was transport-failure"
+        } else {
+            reason = "last trigger outcome was \(lastOutcome), not transport-failure"
+        }
+
+        return (isEligible, decision, reason, lastTrigger, lastOutcome)
     }
 
     private func triggerOutcome(for error: Error) -> String {

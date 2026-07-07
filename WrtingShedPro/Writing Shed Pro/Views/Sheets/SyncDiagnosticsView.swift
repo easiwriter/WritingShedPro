@@ -1387,6 +1387,11 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Network Recovery If Eligible Dry Run") {
+                runCloudflareSyncPOCNetworkRecoveryIfEligibleDryRun()
+            }
+            .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Silent Push Trigger Dry Run") {
                 runCloudflareSyncPOCSilentPushTriggerDryRun()
             }
@@ -2228,6 +2233,26 @@ struct SyncDiagnosticsView: View {
             } catch {
                 await MainActor.run {
                     cloudflareSyncPOCStatus = "❌ Network recovery trigger dry run failed: \(error.localizedDescription)"
+                    isCloudflareSyncPOCRunning = false
+                }
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCNetworkRecoveryIfEligibleDryRun() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Running Cloudflare sync POC gated network recovery dry run…"
+
+        Task {
+            do {
+                let result = try await CloudflareSyncPOCService.shared.networkRecoveryIfEligibleDryRun(projects: selectedCloudflareSyncPOCProjects)
+                await MainActor.run {
+                    cloudflareSyncPOCStatus = "✅ \(result.message)"
+                    isCloudflareSyncPOCRunning = false
+                }
+            } catch {
+                await MainActor.run {
+                    cloudflareSyncPOCStatus = "❌ Gated network recovery dry run failed: \(error.localizedDescription)"
                     isCloudflareSyncPOCRunning = false
                 }
             }
