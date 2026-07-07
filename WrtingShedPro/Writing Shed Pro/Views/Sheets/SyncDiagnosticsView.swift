@@ -1362,6 +1362,16 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Network Recovery Trigger Dry Run") {
+                runCloudflareSyncPOCNetworkRecoveryTriggerDryRun()
+            }
+            .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Silent Push Trigger Dry Run") {
+                runCloudflareSyncPOCSilentPushTriggerDryRun()
+            }
+            .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Lifecycle Sequence Dry Run") {
                 runCloudflareSyncPOCLifecycleSequenceDryRun()
             }
@@ -2096,6 +2106,46 @@ struct SyncDiagnosticsView: View {
             } catch {
                 await MainActor.run {
                     cloudflareSyncPOCStatus = "❌ Background refresh trigger dry run failed: \(error.localizedDescription)"
+                    isCloudflareSyncPOCRunning = false
+                }
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCNetworkRecoveryTriggerDryRun() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Running Cloudflare sync POC network recovery trigger dry run…"
+
+        Task {
+            do {
+                let result = try await CloudflareSyncPOCService.shared.networkRecoverySyncDryRun(projects: selectedCloudflareSyncPOCProjects)
+                await MainActor.run {
+                    cloudflareSyncPOCStatus = "✅ \(result.message)"
+                    isCloudflareSyncPOCRunning = false
+                }
+            } catch {
+                await MainActor.run {
+                    cloudflareSyncPOCStatus = "❌ Network recovery trigger dry run failed: \(error.localizedDescription)"
+                    isCloudflareSyncPOCRunning = false
+                }
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCSilentPushTriggerDryRun() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Running Cloudflare sync POC silent push trigger dry run…"
+
+        Task {
+            do {
+                let result = try await CloudflareSyncPOCService.shared.silentPushSyncDryRun(projects: selectedCloudflareSyncPOCProjects)
+                await MainActor.run {
+                    cloudflareSyncPOCStatus = "✅ \(result.message)"
+                    isCloudflareSyncPOCRunning = false
+                }
+            } catch {
+                await MainActor.run {
+                    cloudflareSyncPOCStatus = "❌ Silent push trigger dry run failed: \(error.localizedDescription)"
                     isCloudflareSyncPOCRunning = false
                 }
             }

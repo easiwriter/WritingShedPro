@@ -620,6 +620,16 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func networkRecoverySyncDryRun(projects: [Project]) async throws -> CloudflareSyncPOCResult {
+        try await requestSyncDryRun(projects: projects, trigger: "network-recovery")
+    }
+
+    @MainActor
+    func silentPushSyncDryRun(projects: [Project]) async throws -> CloudflareSyncPOCResult {
+        try await requestSyncDryRun(projects: projects, trigger: "silent-push")
+    }
+
+    @MainActor
     func lifecycleSequenceDryRun(projects: [Project]) async throws -> CloudflareSyncPOCResult {
         let launch = try await requestSyncDryRun(projects: projects, trigger: "launch")
         let foreground = try await requestSyncDryRun(projects: projects, trigger: "foreground")
