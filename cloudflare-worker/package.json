@@ -11,7 +11,12 @@
     "messages:d1:list": "wrangler d1 list",
     "messages:d1:migrate": "wrangler d1 execute wsp_messages --remote --file=./sql/messages_schema.sql",
     "messages:d1:migrate:local": "wrangler d1 execute wsp_messages --file=./sql/messages_schema.sql",
-    "messages:deploy": "npm run build && wrangler deploy"
+    "messages:deploy": "npm run build && wrangler deploy",
+    "sync:d1:create": "wrangler d1 create wsp_sync_poc",
+    "sync:d1:list": "wrangler d1 list",
+    "sync:d1:migrate": "wrangler d1 execute wsp_sync_poc --remote --file=./sql/sync_poc_schema.sql",
+    "sync:d1:migrate:local": "wrangler d1 execute wsp_sync_poc --file=./sql/sync_poc_schema.sql",
+    "sync:r2:create": "wrangler r2 bucket create wsp-sync-poc"
   },
   "devDependencies": {
     "wrangler": "^4.93.1"

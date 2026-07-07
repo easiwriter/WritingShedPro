@@ -61,6 +61,46 @@ Proxies user support queries from Writing Shed Pro to the OpenAI API.
 
 7. Update the endpoint URL in the app's `SupportService.swift` to match.
 
+## Cloudflare Sync POC
+
+Feature `042-cloudflare-sync-poc` adds `/api/sync/v1/*` routes for a sync proof of concept. The current server POC does not change production app sync; WSP still uses its existing SwiftData/CloudKit path until a later debug-only app client is added.
+
+Sync POC routes:
+
+- `GET /api/sync/v1/health` -> reports route version and whether optional sync bindings/secrets are configured.
+- `POST /api/sync/v1/bootstrap`
+- `POST /api/sync/v1/push`
+- `POST /api/sync/v1/pull`
+- `POST /api/sync/v1/snapshot`
+
+The POST routes require `Authorization: Bearer <SYNC_POC_TOKEN>`. They support bootstrap, operation push, cursor-based pull, and snapshot upload for POC testing.
+
+Create the optional POC resources:
+
+```bash
+npm run sync:d1:create
+npm run sync:d1:list
+npm run sync:r2:create
+npx wrangler secret put SYNC_POC_TOKEN
+```
+
+After `sync:d1:create`, copy the returned database id into the commented `SYNC_DB` block in `wrangler.toml`, then uncomment the `SYNC_DB` and `SYNC_BLOBS` bindings.
+
+Apply the schema:
+
+```bash
+npm run sync:d1:migrate
+npm run sync:d1:migrate:local
+```
+
+Local health check:
+
+```bash
+npm run build
+npx wrangler dev
+curl http://localhost:8787/api/sync/v1/health
+```
+
 ## Messages API
 
 Public:

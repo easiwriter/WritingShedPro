@@ -62,59 +62,7 @@ struct Write_App: App {
             #endif
         }
         
-        let schema = Schema([
-            Project.self,
-            Folder.self,
-            TextFile.self,
-            Version.self,
-            TrashItem.self,
-            StyleSheet.self,
-            TextStyleModel.self,
-            PageSetup.self,
-            PrinterPaper.self,
-            // Feature 008b: Publication Management
-            Publication.self,
-            Submission.self,
-            SubmittedFile.self,
-            // Feature 014: Comments
-            CommentModel.self,
-            // Feature 015: Footnotes
-            FootnoteModel.self,
-            // Feature 021 Phase 2: Custom Poetry Forms
-            PoetryFormModel.self,
-            // Feature 022: Smart Fiction Creation
-            StoryScene.self,
-            Chapter.self,
-            Character.self,
-            Location.self,
-            CustomAttribute.self,
-            PlotElement.self,
-            // Drama
-            Act.self,
-            // Prose
-            ProseSection.self,
-            // Feature 036: Project Folder Revamp
-            PoetryCollection.self,
-            Book.self,
-            // Join tables for CloudKit-compatible many-to-many relationships
-            TextFileSectionLink.self,
-            TextFileCollectionLink.self,
-            SceneChapterLink.self,
-            SceneActLink.self,
-            SceneBookLink.self,
-            ScenePlotElementLink.self,
-            SceneCharacterLink.self,
-            CharacterPlotElementLink.self,
-            LocationPlotElementLink.self,
-            // Reference & metadata models (explicit registration for CloudKit schema deployment)
-            NoteEntry.self,
-            GlossaryEntry.self,
-            ReferenceEntry.self,
-            CitationEntry.self,
-            IndexEntry.self,
-            ContributorEntry.self,
-            ImageStyle.self
-        ])
+        let schema = WritingShedModelSchema.schema
         
         #if DEBUG
         print("☁️ [Write_App] Initializing ModelContainer with CloudKit")

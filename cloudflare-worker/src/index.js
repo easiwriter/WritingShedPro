@@ -21,6 +21,12 @@ const MAX_MESSAGE_BODY_LENGTH = 4000;
 const TUTORIAL_VIDEO_ORDER_KEY = "tutorials/_order.json";
 const MAX_SINGLE_UPLOAD_BYTES = 95 * 1024 * 1024;
 const DEFAULT_MULTIPART_PART_SIZE_BYTES = 20 * 1024 * 1024;
+const SYNC_POC_API_VERSION = "2026-07-04-phase-4b";
+const MAX_SYNC_PUSH_OPERATIONS = 2000;
+const MAX_SYNC_PULL_OPERATIONS = 500;
+const MAX_SYNC_INLINE_PAYLOAD_CHARS = 100000;
+const SYNC_DELETE_OPERATION_TYPES = new Set(["delete", "trash", "tombstone"]);
+const SYNC_RESTORE_OPERATION_TYPES = new Set(["restore", "untrash"]);
 
 const ALLOWED_ANALYSIS_MODES = new Set(["file", "manuscript"]);
 const ALLOWED_PROJECT_TYPES = new Set(["fiction", "poetry", "drama", "prose"]);
@@ -159,6 +165,10 @@ export default {
 
         if (pathname.startsWith("/api/admin/tutorial-videos")) {
             return handleAdminTutorialVideos(request, env, pathname);
+        }
+
+        if (pathname.startsWith("/api/sync/v1")) {
+            return handleSyncPOC(request, env, pathname);
         }
 
         // Default: support handler
@@ -1174,6 +1184,642 @@ function formatTutorialTitle(fileName) {
             return word.charAt(0).toUpperCase() + word.slice(1);
         })
         .join(" ");
+}
+
+async function handleSyncPOC(request, env, pathname) {
+    const basePath = "/api/sync/v1";
+    const suffix = pathname.slice(basePath.length) || "/";
+
+    if (suffix === "/health") {
+        if (request.method !== "GET") {
+            return jsonResponse({ error: "Method not allowed" }, 405);
+        }
+
+        return jsonResponse(
+            {
+                ok: true,
+                service: "wsp-sync-poc",
+                version: SYNC_POC_API_VERSION,
+                phase: 1,
+                syncDbConfigured: Boolean(env.SYNC_DB),
+                syncBlobsConfigured: Boolean(env.SYNC_BLOBS),
+                authConfigured: Boolean(env.SYNC_POC_TOKEN),
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    }
+
+    if (!["/bootstrap", "/head", "/push", "/peek", "/pull", "/snapshot"].includes(suffix)) {
+        return jsonResponse({ error: "Not found" }, 404);
+    }
+
+    if (request.method !== "POST") {
+        return jsonResponse({ error: "Method not allowed" }, 405);
+    }
+
+    if (!isAuthorizedSyncPOCRequest(request, env)) {
+        return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
+    if (!env.SYNC_DB) {
+        return jsonResponse({ error: "Sync POC database is not configured" }, 503);
+    }
+
+    let body;
+    try {
+        body = await request.json();
+    } catch {
+        return jsonResponse({ error: "Invalid JSON" }, 400);
+    }
+
+    if (suffix === "/bootstrap") {
+        return handleSyncPOCBootstrap(body, env);
+    }
+    if (suffix === "/head") {
+        return handleSyncPOCHead(body, env);
+    }
+    if (suffix === "/push") {
+        return handleSyncPOCPush(body, env);
+    }
+    if (suffix === "/peek") {
+        return handleSyncPOCPeek(body, env);
+    }
+    if (suffix === "/pull") {
+        return handleSyncPOCPull(body, env);
+    }
+    if (suffix === "/snapshot") {
+        return handleSyncPOCSnapshot(body, env);
+    }
+
+    return jsonResponse({ error: "Not found" }, 404);
+}
+
+async function handleSyncPOCHead(body, env) {
+    const validation = validateSyncPOCIdentity(body);
+    if (validation.error) {
+        return jsonResponse({ error: validation.error }, 400);
+    }
+
+    const { projectId, deviceId, deviceName } = validation;
+    const lastKnownSequence = Number.isInteger(body?.lastKnownSequence) && body.lastKnownSequence >= 0
+        ? body.lastKnownSequence
+        : 0;
+    const now = new Date().toISOString();
+
+    try {
+        await upsertSyncPOCDevice(env, deviceId, deviceName, now);
+        await ensureSyncPOCCursor(env, projectId, deviceId, now);
+
+        const project = await env.SYNC_DB
+            .prepare("SELECT latest_sequence, updated_at FROM sync_projects WHERE id = ?")
+            .bind(projectId)
+            .first();
+        const cursor = await env.SYNC_DB
+            .prepare("SELECT last_pulled_sequence, last_pushed_sequence FROM sync_device_cursors WHERE project_id = ? AND device_id = ?")
+            .bind(projectId, deviceId)
+            .first();
+        const latestSequence = project?.latest_sequence ?? 0;
+        const cursorSequence = cursor?.last_pulled_sequence ?? 0;
+        const effectiveSequence = Math.max(lastKnownSequence, cursorSequence);
+
+        return jsonResponse(
+            {
+                ok: true,
+                projectId,
+                deviceId,
+                latestSequence,
+                lastKnownSequence,
+                cursorSequence,
+                lastPushedSequence: cursor?.last_pushed_sequence ?? 0,
+                hasChanges: latestSequence > effectiveSequence,
+                changeCount: Math.max(0, latestSequence - effectiveSequence),
+                updatedAt: project?.updated_at ?? null,
+                version: SYNC_POC_API_VERSION,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Sync POC head failed:", err);
+        return jsonResponse({ error: "Sync head failed" }, 502);
+    }
+}
+
+async function handleSyncPOCBootstrap(body, env) {
+    const validation = validateSyncPOCIdentity(body);
+    if (validation.error) {
+        return jsonResponse({ error: validation.error }, 400);
+    }
+
+    const { projectId, deviceId, projectName, deviceName } = validation;
+    const now = new Date().toISOString();
+
+    try {
+        await upsertSyncPOCDevice(env, deviceId, deviceName, now);
+        await upsertSyncPOCProject(env, projectId, projectName, now);
+        await ensureSyncPOCCursor(env, projectId, deviceId, now);
+
+        const project = await env.SYNC_DB
+            .prepare("SELECT latest_sequence FROM sync_projects WHERE id = ?")
+            .bind(projectId)
+            .first();
+
+        return jsonResponse(
+            {
+                ok: true,
+                projectId,
+                deviceId,
+                latestSequence: project?.latest_sequence ?? 0,
+                version: SYNC_POC_API_VERSION,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Sync POC bootstrap failed:", err);
+        return jsonResponse({ error: "Sync bootstrap failed" }, 502);
+    }
+}
+
+async function handleSyncPOCPush(body, env) {
+    const validation = validateSyncPOCIdentity(body);
+    if (validation.error) {
+        return jsonResponse({ error: validation.error }, 400);
+    }
+
+    const operations = Array.isArray(body?.operations) ? body.operations : null;
+    if (!operations) {
+        return jsonResponse({ error: "Missing required field: operations" }, 400);
+    }
+    if (operations.length > MAX_SYNC_PUSH_OPERATIONS) {
+        return jsonResponse({ error: `operations exceeds ${MAX_SYNC_PUSH_OPERATIONS}` }, 413);
+    }
+
+    const { projectId, deviceId, projectName, deviceName } = validation;
+    const accepted = [];
+    const rejected = [];
+    let latestSequence = 0;
+
+    try {
+        const now = new Date().toISOString();
+        await upsertSyncPOCDevice(env, deviceId, deviceName, now);
+        await upsertSyncPOCProject(env, projectId, projectName, now);
+        await ensureSyncPOCCursor(env, projectId, deviceId, now);
+
+        for (const rawOperation of operations) {
+            const operation = normalizeSyncPOCOperation(rawOperation);
+            if (operation.error) {
+                rejected.push({ clientOperationId: rawOperation?.id ?? null, reason: operation.error });
+                continue;
+            }
+
+            const tombstone = await env.SYNC_DB
+                .prepare(`
+                    SELECT server_sequence
+                    FROM sync_tombstones
+                    WHERE project_id = ? AND entity_type = ? AND entity_id = ?
+                `)
+                .bind(projectId, operation.entityType, operation.entityId)
+                .first();
+
+            const baseSequence = operation.baseSequence ?? -1;
+            const isRestore = SYNC_RESTORE_OPERATION_TYPES.has(operation.operationType);
+            const isDelete = SYNC_DELETE_OPERATION_TYPES.has(operation.operationType);
+            if (tombstone && !isRestore && !isDelete && baseSequence < tombstone.server_sequence) {
+                await recordSyncPOCConflict(env, {
+                    projectId,
+                    operationId: operation.id,
+                    deviceId,
+                    entityType: operation.entityType,
+                    entityId: operation.entityId,
+                    reason: "stale_update_after_tombstone",
+                    payloadJSON: operation.payloadJSON,
+                });
+                rejected.push({
+                    clientOperationId: operation.id,
+                    reason: "stale_update_after_tombstone",
+                    tombstoneSequence: tombstone.server_sequence,
+                });
+                continue;
+            }
+
+            latestSequence = await nextSyncPOCSequence(env, projectId);
+            await env.SYNC_DB
+                .prepare(`
+                    INSERT INTO sync_operations (
+                        id, project_id, device_id, server_sequence, client_timestamp,
+                        received_at, entity_type, entity_id, operation_type, base_sequence,
+                        payload_json, payload_r2_key, payload_hash
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `)
+                .bind(
+                    operation.id,
+                    projectId,
+                    deviceId,
+                    latestSequence,
+                    operation.clientTimestamp,
+                    now,
+                    operation.entityType,
+                    operation.entityId,
+                    operation.operationType,
+                    operation.baseSequence,
+                    operation.payloadJSON,
+                    operation.payloadR2Key,
+                    operation.payloadHash
+                )
+                .run();
+
+            if (isDelete) {
+                await env.SYNC_DB
+                    .prepare(`
+                        INSERT OR REPLACE INTO sync_tombstones (
+                            project_id, entity_type, entity_id, operation_id, server_sequence, deleted_at
+                        ) VALUES (?, ?, ?, ?, ?, ?)
+                    `)
+                    .bind(projectId, operation.entityType, operation.entityId, operation.id, latestSequence, now)
+                    .run();
+            } else if (isRestore) {
+                await env.SYNC_DB
+                    .prepare("DELETE FROM sync_tombstones WHERE project_id = ? AND entity_type = ? AND entity_id = ?")
+                    .bind(projectId, operation.entityType, operation.entityId)
+                    .run();
+            }
+
+            accepted.push({ clientOperationId: operation.id, serverSequence: latestSequence });
+        }
+
+        const projectAfterPush = await env.SYNC_DB
+            .prepare("SELECT latest_sequence FROM sync_projects WHERE id = ?")
+            .bind(projectId)
+            .first();
+        latestSequence = projectAfterPush?.latest_sequence ?? latestSequence;
+
+        await env.SYNC_DB
+            .prepare(`
+                INSERT INTO sync_device_cursors (project_id, device_id, last_pulled_sequence, last_pushed_sequence, updated_at)
+                VALUES (?, ?, 0, ?, ?)
+                ON CONFLICT(project_id, device_id) DO UPDATE SET
+                    last_pushed_sequence = excluded.last_pushed_sequence,
+                    updated_at = excluded.updated_at
+            `)
+            .bind(projectId, deviceId, latestSequence, new Date().toISOString())
+            .run();
+
+        return jsonResponse(
+            { ok: true, projectId, deviceId, accepted, rejected, latestSequence },
+            rejected.length > 0 ? 207 : 200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Sync POC push failed:", err);
+        return jsonResponse({ error: "Sync push failed" }, 502);
+    }
+}
+
+async function handleSyncPOCPull(body, env) {
+    const validation = validateSyncPOCIdentity(body);
+    if (validation.error) {
+        return jsonResponse({ error: validation.error }, 400);
+    }
+
+    const { projectId, deviceId, deviceName } = validation;
+    const afterSequence = Number.isInteger(body?.afterSequence) && body.afterSequence >= 0 ? body.afterSequence : 0;
+    const limit = Math.min(
+        Number.isInteger(body?.limit) && body.limit > 0 ? body.limit : MAX_SYNC_PULL_OPERATIONS,
+        MAX_SYNC_PULL_OPERATIONS
+    );
+    const now = new Date().toISOString();
+
+    try {
+        await upsertSyncPOCDevice(env, deviceId, deviceName, now);
+        await ensureSyncPOCCursor(env, projectId, deviceId, now);
+        const page = await fetchSyncPOCOperationPage(env, projectId, afterSequence, limit);
+
+        await env.SYNC_DB
+            .prepare(`
+                INSERT INTO sync_device_cursors (project_id, device_id, last_pulled_sequence, last_pushed_sequence, updated_at)
+                VALUES (?, ?, ?, 0, ?)
+                ON CONFLICT(project_id, device_id) DO UPDATE SET
+                    last_pulled_sequence = excluded.last_pulled_sequence,
+                    updated_at = excluded.updated_at
+            `)
+            .bind(projectId, deviceId, page.nextCursor, now)
+            .run();
+
+        return jsonResponse(
+            {
+                ok: true,
+                projectId,
+                deviceId,
+                afterSequence,
+                latestSequence: page.latestSequence,
+                nextCursor: page.nextCursor,
+                hasMore: page.hasMore,
+                operations: page.operations,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Sync POC pull failed:", err);
+        return jsonResponse({ error: "Sync pull failed" }, 502);
+    }
+}
+
+async function handleSyncPOCPeek(body, env) {
+    const validation = validateSyncPOCIdentity(body);
+    if (validation.error) {
+        return jsonResponse({ error: validation.error }, 400);
+    }
+
+    const { projectId, deviceId, deviceName } = validation;
+    const afterSequence = Number.isInteger(body?.afterSequence) && body.afterSequence >= 0 ? body.afterSequence : 0;
+    const limit = Math.min(
+        Number.isInteger(body?.limit) && body.limit > 0 ? body.limit : MAX_SYNC_PULL_OPERATIONS,
+        MAX_SYNC_PULL_OPERATIONS
+    );
+    const now = new Date().toISOString();
+
+    try {
+        await upsertSyncPOCDevice(env, deviceId, deviceName, now);
+        await ensureSyncPOCCursor(env, projectId, deviceId, now);
+        const page = await fetchSyncPOCOperationPage(env, projectId, afterSequence, limit);
+
+        return jsonResponse(
+            {
+                ok: true,
+                projectId,
+                deviceId,
+                afterSequence,
+                latestSequence: page.latestSequence,
+                nextCursor: page.nextCursor,
+                hasMore: page.hasMore,
+                operations: page.operations,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Sync POC peek failed:", err);
+        return jsonResponse({ error: "Sync peek failed" }, 502);
+    }
+}
+
+async function fetchSyncPOCOperationPage(env, projectId, afterSequence, limit) {
+    const { results } = await env.SYNC_DB
+        .prepare(`
+            SELECT id, project_id, device_id, server_sequence, client_timestamp, received_at,
+                   entity_type, entity_id, operation_type, base_sequence,
+                   payload_json, payload_r2_key, payload_hash
+            FROM sync_operations
+            WHERE project_id = ? AND server_sequence > ?
+            ORDER BY server_sequence ASC
+            LIMIT ?
+        `)
+        .bind(projectId, afterSequence, limit)
+        .all();
+
+    const operations = (results || []).map(mapSyncPOCOperationRow);
+    const nextCursor = operations.length > 0
+        ? operations[operations.length - 1].serverSequence
+        : afterSequence;
+    const project = await env.SYNC_DB
+        .prepare("SELECT latest_sequence FROM sync_projects WHERE id = ?")
+        .bind(projectId)
+        .first();
+    const latestSequence = project?.latest_sequence ?? nextCursor;
+
+    return {
+        operations,
+        latestSequence,
+        nextCursor,
+        hasMore: nextCursor < latestSequence,
+    };
+}
+
+async function handleSyncPOCSnapshot(body, env) {
+    const validation = validateSyncPOCIdentity(body);
+    if (validation.error) {
+        return jsonResponse({ error: validation.error }, 400);
+    }
+    if (!env.SYNC_BLOBS) {
+        return jsonResponse({ error: "Sync POC blob storage is not configured" }, 503);
+    }
+
+    const snapshot = body?.snapshot;
+    if (snapshot === undefined || snapshot === null) {
+        return jsonResponse({ error: "Missing required field: snapshot" }, 400);
+    }
+
+    const { projectId, deviceId, deviceName } = validation;
+    const now = new Date().toISOString();
+
+    try {
+        await upsertSyncPOCDevice(env, deviceId, deviceName, now);
+        const project = await env.SYNC_DB
+            .prepare("SELECT latest_sequence FROM sync_projects WHERE id = ?")
+            .bind(projectId)
+            .first();
+        if (!project) {
+            return jsonResponse({ error: "Project has not been bootstrapped" }, 404);
+        }
+
+        const snapshotId = typeof body?.snapshotId === "string" && body.snapshotId.trim()
+            ? body.snapshotId.trim().slice(0, 120)
+            : crypto.randomUUID();
+        const serverSequence = Number.isInteger(body?.serverSequence) && body.serverSequence >= 0
+            ? Math.min(body.serverSequence, project.latest_sequence)
+            : project.latest_sequence;
+        const payload = typeof snapshot === "string" ? snapshot : JSON.stringify(snapshot);
+        const contentHash = typeof body?.contentHash === "string" && body.contentHash.trim()
+            ? body.contentHash.trim()
+            : await sha256Hex(payload);
+        const r2Key = `sync-poc/${projectId}/snapshots/${snapshotId}.json`;
+
+        await env.SYNC_BLOBS.put(r2Key, payload, {
+            httpMetadata: { contentType: "application/json" },
+            customMetadata: { projectId, serverSequence: String(serverSequence), contentHash },
+        });
+        await env.SYNC_DB
+            .prepare(`
+                INSERT INTO sync_snapshots (id, project_id, server_sequence, r2_key, content_hash, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `)
+            .bind(snapshotId, projectId, serverSequence, r2Key, contentHash, now)
+            .run();
+
+        return jsonResponse(
+            { ok: true, snapshotId, projectId, serverSequence, r2Key, contentHash },
+            201,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Sync POC snapshot failed:", err);
+        return jsonResponse({ error: "Sync snapshot failed" }, 502);
+    }
+}
+
+function validateSyncPOCIdentity(body) {
+    const projectId = typeof body?.projectId === "string" ? body.projectId.trim() : "";
+    const deviceId = typeof body?.deviceId === "string" ? body.deviceId.trim() : "";
+    if (!projectId) {
+        return { error: "Missing required field: projectId" };
+    }
+    if (!deviceId) {
+        return { error: "Missing required field: deviceId" };
+    }
+
+    return {
+        projectId: projectId.slice(0, 120),
+        deviceId: deviceId.slice(0, 120),
+        projectName: typeof body?.projectName === "string" ? body.projectName.trim().slice(0, 240) : null,
+        deviceName: typeof body?.deviceName === "string" ? body.deviceName.trim().slice(0, 240) : null,
+    };
+}
+
+function normalizeSyncPOCOperation(rawOperation) {
+    const id = typeof rawOperation?.id === "string" && rawOperation.id.trim()
+        ? rawOperation.id.trim().slice(0, 120)
+        : crypto.randomUUID();
+    const entityType = typeof rawOperation?.entityType === "string" ? rawOperation.entityType.trim().slice(0, 80) : "";
+    const entityId = typeof rawOperation?.entityId === "string" ? rawOperation.entityId.trim().slice(0, 120) : "";
+    const operationType = typeof rawOperation?.operationType === "string" ? rawOperation.operationType.trim().slice(0, 80) : "";
+    if (!entityType || !entityId || !operationType) {
+        return { error: "Operation requires entityType, entityId, and operationType" };
+    }
+
+    const payload = rawOperation?.payload === undefined ? null : rawOperation.payload;
+    const payloadJSON = payload === null ? null : JSON.stringify(payload);
+    if (payloadJSON && payloadJSON.length > MAX_SYNC_INLINE_PAYLOAD_CHARS) {
+        return { error: `Operation payload exceeds ${MAX_SYNC_INLINE_PAYLOAD_CHARS} characters` };
+    }
+
+    return {
+        id,
+        entityType,
+        entityId,
+        operationType,
+        baseSequence: Number.isInteger(rawOperation?.baseSequence) ? rawOperation.baseSequence : null,
+        clientTimestamp: typeof rawOperation?.clientTimestamp === "string" ? rawOperation.clientTimestamp.slice(0, 80) : null,
+        payloadJSON,
+        payloadR2Key: typeof rawOperation?.payloadR2Key === "string" ? rawOperation.payloadR2Key.slice(0, 400) : null,
+        payloadHash: typeof rawOperation?.payloadHash === "string" ? rawOperation.payloadHash.slice(0, 160) : null,
+    };
+}
+
+async function upsertSyncPOCDevice(env, deviceId, displayName, now) {
+    await env.SYNC_DB
+        .prepare(`
+            INSERT INTO sync_devices (id, display_name, created_at, last_seen_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                display_name = COALESCE(excluded.display_name, sync_devices.display_name),
+                last_seen_at = excluded.last_seen_at
+        `)
+        .bind(deviceId, displayName, now, now)
+        .run();
+}
+
+async function upsertSyncPOCProject(env, projectId, projectName, now) {
+    await env.SYNC_DB
+        .prepare(`
+            INSERT INTO sync_projects (id, canonical_name, created_at, updated_at, latest_sequence)
+            VALUES (?, ?, ?, ?, 0)
+            ON CONFLICT(id) DO UPDATE SET
+                canonical_name = COALESCE(excluded.canonical_name, sync_projects.canonical_name),
+                updated_at = excluded.updated_at
+        `)
+        .bind(projectId, projectName, now, now)
+        .run();
+}
+
+async function ensureSyncPOCCursor(env, projectId, deviceId, now) {
+    await env.SYNC_DB
+        .prepare(`
+            INSERT OR IGNORE INTO sync_device_cursors (
+                project_id, device_id, last_pulled_sequence, last_pushed_sequence, updated_at
+            ) VALUES (?, ?, 0, 0, ?)
+        `)
+        .bind(projectId, deviceId, now)
+        .run();
+}
+
+async function nextSyncPOCSequence(env, projectId) {
+    const project = await env.SYNC_DB
+        .prepare("SELECT latest_sequence FROM sync_projects WHERE id = ?")
+        .bind(projectId)
+        .first();
+    const nextSequence = (project?.latest_sequence ?? 0) + 1;
+    await env.SYNC_DB
+        .prepare("UPDATE sync_projects SET latest_sequence = ?, updated_at = ? WHERE id = ?")
+        .bind(nextSequence, new Date().toISOString(), projectId)
+        .run();
+    return nextSequence;
+}
+
+async function recordSyncPOCConflict(env, conflict) {
+    await env.SYNC_DB
+        .prepare(`
+            INSERT INTO sync_conflicts (
+                id, project_id, operation_id, device_id, entity_type, entity_id,
+                reason, payload_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+        .bind(
+            crypto.randomUUID(),
+            conflict.projectId,
+            conflict.operationId,
+            conflict.deviceId,
+            conflict.entityType,
+            conflict.entityId,
+            conflict.reason,
+            conflict.payloadJSON,
+            new Date().toISOString()
+        )
+        .run();
+}
+
+function mapSyncPOCOperationRow(row) {
+    let payload = null;
+    if (row.payload_json) {
+        try {
+            payload = JSON.parse(row.payload_json);
+        } catch {
+            payload = null;
+        }
+    }
+
+    return {
+        id: row.id,
+        projectId: row.project_id,
+        deviceId: row.device_id,
+        serverSequence: row.server_sequence,
+        clientTimestamp: row.client_timestamp,
+        receivedAt: row.received_at,
+        entityType: row.entity_type,
+        entityId: row.entity_id,
+        operationType: row.operation_type,
+        baseSequence: row.base_sequence,
+        payload,
+        payloadR2Key: row.payload_r2_key,
+        payloadHash: row.payload_hash,
+    };
+}
+
+function isAuthorizedSyncPOCRequest(request, env) {
+    const configuredToken = env.SYNC_POC_TOKEN;
+    if (!configuredToken || typeof configuredToken !== "string") {
+        return false;
+    }
+
+    const authHeader = request.headers.get("Authorization") || "";
+    if (!authHeader.startsWith("Bearer ")) {
+        return false;
+    }
+
+    const token = authHeader.slice(7).trim();
+    return token.length > 0 && token === configuredToken;
 }
 
 async function handleAdminMessages(request, env, pathname) {
