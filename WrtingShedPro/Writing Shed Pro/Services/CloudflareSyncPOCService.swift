@@ -539,6 +539,34 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func productionApplyTransactionSafetySummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply transaction safety: remote operation windows must apply atomically to the production SwiftData store. A production applier must validate the full plan before mutation, apply the whole window in one transaction, save successfully, then advance the local cursor only after commit succeeds. Any validation, dependency, decode, relationship, save, or conflict failure must roll back or leave production data unchanged and leave the cursor unchanged. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyModelFamilyCoverageSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply model-family coverage: production apply must be verified across project hierarchy, text content and versions, styles and page setup, annotations and footnotes, publications and submissions, collections and join links, story planning records, reference/index/glossary records, review records, custom attributes, and trash metadata. Each family must prove create, update, delete, restore, dependency ordering, relationship repair, and rollback behavior before production SwiftData apply can be enabled. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyCloudKitCoexistenceSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply CloudKit coexistence: Cloudflare production apply must not be enabled until CloudKit coexistence or migration is explicitly decided. The production plan must define whether Cloudflare and CloudKit can run side by side, whether one sync path is disabled during migration, how duplicate remote changes are prevented, and how recovery works if either backend has newer data. Until that decision is made, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyMigrationCutoverSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply migration cutover: Cloudflare production apply must not be enabled until the migration plan defines the source of truth, backfill direction, cutover trigger, CloudKit disablement or coexistence behavior, rollback path, and user-visible recovery instructions. The cutover plan must prove that local SwiftData, CloudKit, and Cloudflare cannot each accept independent writes for the same project during migration. Until that plan is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
     func launchPolicySummary() -> CloudflareSyncPOCResult {
         CloudflareSyncPOCResult(
             message: "Launch policy: trigger launch is supported and not debounced. Production use should run once after the model container, debug token, and project selection are available. This POC does not wire automatic launch sync; the diagnostics button is manual only. Launch remains head-first with a cheap up-to-date exit, scratch-only materialization, no production SwiftData apply, and no Worker contact for this policy summary."

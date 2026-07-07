@@ -1362,6 +1362,26 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Transaction Safety") {
+                runCloudflareSyncPOCProductionApplyTransactionSafetySummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Model Family Coverage") {
+                runCloudflareSyncPOCProductionApplyModelFamilyCoverageSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply CloudKit Coexistence") {
+                runCloudflareSyncPOCProductionApplyCloudKitCoexistenceSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Migration Cutover") {
+                runCloudflareSyncPOCProductionApplyMigrationCutoverSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Launch Policy") {
                 runCloudflareSyncPOCLaunchPolicySummary()
             }
@@ -2191,6 +2211,66 @@ struct SyncDiagnosticsView: View {
         Task {
             let result = await MainActor.run {
                 CloudflareSyncPOCService.shared.productionApplyOperationCoverageSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyTransactionSafetySummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply transaction safety…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyTransactionSafetySummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyModelFamilyCoverageSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply model family coverage…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyModelFamilyCoverageSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyCloudKitCoexistenceSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply CloudKit coexistence…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyCloudKitCoexistenceSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyMigrationCutoverSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply migration cutover…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyMigrationCutoverSummary()
             }
             await MainActor.run {
                 cloudflareSyncPOCStatus = "✅ \(result.message)"
