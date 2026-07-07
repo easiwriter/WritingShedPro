@@ -607,6 +607,22 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func silentPushPayloadGuardrailProbe(projects: [Project]) throws -> CloudflareSyncPOCResult {
+        guard let project = selectProjectForPendingApply(projects) else {
+            throw CloudflareSyncPOCError.noProjectContent
+        }
+
+        let projectId = project.id.uuidString
+        let projectName = project.name ?? "Untitled"
+        let rememberedSequence = rememberedLastSequence(projectId: projectId)
+        let mismatchedProjectId = UUID().uuidString
+
+        return CloudflareSyncPOCResult(
+            message: "Silent push payload guardrail probe ignored synthetic wake payload for mismatched project \(mismatchedProjectId) while selected project was '\(projectName)' (\(projectId)). Remembered sequence remained \(rememberedSequence). This did not contact the Worker, did not trust a payload sequence, and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
     func transportFailureClassificationProbe() -> CloudflareSyncPOCResult {
         let error = URLError(.notConnectedToInternet)
         let detail = "Synthetic transport failure classification probe: \(error.localizedDescription). This did not contact the Worker and did not read or write scratch or production local data."
