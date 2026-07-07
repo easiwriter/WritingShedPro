@@ -1347,6 +1347,26 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Launch Policy") {
+                runCloudflareSyncPOCLaunchPolicySummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Foreground Policy") {
+                runCloudflareSyncPOCForegroundPolicySummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Network Recovery Policy") {
+                runCloudflareSyncPOCNetworkRecoveryPolicySummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Background Refresh Policy") {
+                runCloudflareSyncPOCBackgroundRefreshPolicySummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Debounce State") {
                 runCloudflareSyncPOCOrchestratorDebounceSummary()
             }
@@ -1372,6 +1392,11 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Run Foreground Debounce Skip Probe") {
+                runCloudflareSyncPOCForegroundDebounceSkipProbe()
+            }
+            .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Launch Trigger Dry Run") {
                 runCloudflareSyncPOCLaunchTriggerDryRun()
             }
@@ -1381,6 +1406,11 @@ struct SyncDiagnosticsView: View {
                 runCloudflareSyncPOCBackgroundRefreshTriggerDryRun()
             }
             .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Run Background Refresh Expired Budget Probe") {
+                runCloudflareSyncPOCBackgroundRefreshExpiredBudgetProbe()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
 
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Network Recovery Trigger Dry Run") {
                 runCloudflareSyncPOCNetworkRecoveryTriggerDryRun()
@@ -1419,6 +1449,11 @@ struct SyncDiagnosticsView: View {
 
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Run Network Recovery Debounce Eligibility Probe") {
                 runCloudflareSyncPOCNetworkRecoveryDebounceEligibilityProbe()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Run Network Recovery In-Flight Eligibility Probe") {
+                runCloudflareSyncPOCNetworkRecoveryInFlightEligibilityProbe()
             }
             .disabled(isCloudflareSyncPOCRunning)
 
@@ -2099,6 +2134,66 @@ struct SyncDiagnosticsView: View {
         }
     }
 
+    private func runCloudflareSyncPOCLaunchPolicySummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC launch policy…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.launchPolicySummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCForegroundPolicySummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC foreground policy…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.foregroundPolicySummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCNetworkRecoveryPolicySummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC network recovery policy…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.networkRecoveryPolicySummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCBackgroundRefreshPolicySummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC background refresh policy…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.backgroundRefreshPolicySummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
     private func runCloudflareSyncPOCOrchestratorDebounceSummary() {
         isCloudflareSyncPOCRunning = true
         cloudflareSyncPOCStatus = "Loading Cloudflare sync POC debounce state…"
@@ -2189,6 +2284,26 @@ struct SyncDiagnosticsView: View {
         }
     }
 
+    private func runCloudflareSyncPOCForegroundDebounceSkipProbe() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Running Cloudflare sync POC foreground debounce skip probe…"
+
+        Task {
+            do {
+                let result = try await CloudflareSyncPOCService.shared.foregroundDebounceSkipProbe(projects: selectedCloudflareSyncPOCProjects)
+                await MainActor.run {
+                    cloudflareSyncPOCStatus = "✅ \(result.message)"
+                    isCloudflareSyncPOCRunning = false
+                }
+            } catch {
+                await MainActor.run {
+                    cloudflareSyncPOCStatus = "❌ Foreground debounce skip probe failed: \(error.localizedDescription)"
+                    isCloudflareSyncPOCRunning = false
+                }
+            }
+        }
+    }
+
     private func runCloudflareSyncPOCLaunchTriggerDryRun() {
         isCloudflareSyncPOCRunning = true
         cloudflareSyncPOCStatus = "Running Cloudflare sync POC launch trigger dry run…"
@@ -2229,6 +2344,21 @@ struct SyncDiagnosticsView: View {
         }
     }
 
+    private func runCloudflareSyncPOCBackgroundRefreshExpiredBudgetProbe() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Running Cloudflare sync POC background refresh expired-budget probe…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.backgroundRefreshExpiredBudgetProbe()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
     private func runCloudflareSyncPOCNetworkRecoveryTriggerDryRun() {
         isCloudflareSyncPOCRunning = true
         cloudflareSyncPOCStatus = "Running Cloudflare sync POC network recovery trigger dry run…"
@@ -2265,6 +2395,21 @@ struct SyncDiagnosticsView: View {
                     cloudflareSyncPOCStatus = "❌ Gated network recovery dry run failed: \(error.localizedDescription)"
                     isCloudflareSyncPOCRunning = false
                 }
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCNetworkRecoveryInFlightEligibilityProbe() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Running Cloudflare sync POC network recovery in-flight eligibility probe…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.networkRecoveryInFlightEligibilityProbe()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
             }
         }
     }

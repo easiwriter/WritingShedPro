@@ -518,6 +518,34 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func launchPolicySummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Launch policy: trigger launch is supported and not debounced. Production use should run once after the model container, debug token, and project selection are available. This POC does not wire automatic launch sync; the diagnostics button is manual only. Launch remains head-first with a cheap up-to-date exit, scratch-only materialization, no production SwiftData apply, and no Worker contact for this policy summary."
+        )
+    }
+
+    @MainActor
+    func foregroundPolicySummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Foreground policy: trigger foreground is supported and debounced for \(Int(noisyTriggerDebounceInterval))s to avoid short background/foreground churn. Production use should run when the app returns active after required sync credentials and project context are available. This POC does not wire automatic foreground sync; the diagnostics button is manual only. Foreground remains head-first with a cheap up-to-date exit, scratch-only materialization, no production SwiftData apply, and no Worker contact for this policy summary."
+        )
+    }
+
+    @MainActor
+    func networkRecoveryPolicySummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Network recovery policy: trigger network-recovery is supported and debounced for \(Int(noisyTriggerDebounceInterval))s. Production use should run after connectivity returns only when the previous sync attempt failed for a transport reason, no orchestrator run is in flight, and the debounce window is clear. This POC does not wire automatic network reachability observers; the diagnostics buttons are manual only. Network recovery remains head-first with a cheap up-to-date exit, scratch-only materialization, no production SwiftData apply, and no Worker contact for this policy summary."
+        )
+    }
+
+    @MainActor
+    func backgroundRefreshPolicySummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Background refresh policy: trigger background-refresh is supported and not debounced, but production use must enter only through the system background task path. This POC does not register or schedule a durable background task; the diagnostics button is manual only. Background refresh remains head-first with a cheap up-to-date exit, scratch-only materialization, no production SwiftData apply, and no Worker contact for this policy summary."
+        )
+    }
+
+    @MainActor
     func orchestratorDebounceSummary() -> CloudflareSyncPOCResult {
         let now = Date()
         let triggerSummaries = ["foreground", "network-recovery"].map { trigger in
@@ -603,6 +631,31 @@ final class CloudflareSyncPOCService {
         let eligibility = networkRecoveryEligibilitySummary()
         return CloudflareSyncPOCResult(
             message: "Network recovery debounce eligibility probe recorded synthetic transport failure and an immediate network-recovery timestamp, then evaluated eligibility. \(eligibility.message)"
+        )
+    }
+
+    @MainActor
+    func networkRecoveryInFlightEligibilityProbe() -> CloudflareSyncPOCResult {
+        let error = URLError(.notConnectedToInternet)
+        lastTriggerStatus = SyncPOCTriggerStatus(
+            trigger: "network-recovery",
+            outcome: triggerOutcome(for: error),
+            recordedAt: Date(),
+            detail: "Synthetic network recovery in-flight eligibility probe: \(error.localizedDescription). This did not contact the Worker and did not read or write scratch or production local data.",
+            latestSequence: nil,
+            cursorSequence: nil,
+            changeCount: nil,
+            lastPushedSequence: nil,
+            version: nil
+        )
+
+        let previousInFlightState = isOrchestratedSyncInFlight
+        isOrchestratedSyncInFlight = true
+        let eligibility = networkRecoveryEligibilitySummary()
+        isOrchestratedSyncInFlight = previousInFlightState
+
+        return CloudflareSyncPOCResult(
+            message: "Network recovery in-flight eligibility probe recorded synthetic transport failure and temporary in-flight state, then evaluated eligibility. \(eligibility.message)"
         )
     }
 
@@ -789,6 +842,33 @@ final class CloudflareSyncPOCService {
     @MainActor
     func backgroundRefreshSyncDryRun(projects: [Project]) async throws -> CloudflareSyncPOCResult {
         try await requestSyncDryRun(projects: projects, trigger: "background-refresh")
+    }
+
+    @MainActor
+    func backgroundRefreshExpiredBudgetProbe() -> CloudflareSyncPOCResult {
+        let detail = "Background refresh expired-budget probe skipped before starting the orchestrator because no useful background execution budget remained. This did not contact the Worker and did not read or write scratch or production local data."
+        lastTriggerStatus = SyncPOCTriggerStatus(
+            trigger: "background-refresh",
+            outcome: "skipped",
+            recordedAt: Date(),
+            detail: detail,
+            latestSequence: nil,
+            cursorSequence: nil,
+            changeCount: nil,
+            lastPushedSequence: nil,
+            version: nil
+        )
+
+        return CloudflareSyncPOCResult(message: detail)
+    }
+
+    @MainActor
+    func foregroundDebounceSkipProbe(projects: [Project]) async throws -> CloudflareSyncPOCResult {
+        lastOrchestratedTriggerDates["foreground"] = Date()
+        let result = try await requestSyncDryRun(projects: projects, trigger: "foreground")
+        return CloudflareSyncPOCResult(
+            message: "Foreground debounce skip probe recorded an immediate foreground trigger timestamp, then requested foreground sync. \(result.message)"
+        )
     }
 
     @MainActor
