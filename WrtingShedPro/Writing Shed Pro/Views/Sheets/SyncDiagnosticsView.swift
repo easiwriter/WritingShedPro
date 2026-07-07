@@ -1397,6 +1397,11 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Run Transport Failure Classification Probe") {
+                runCloudflareSyncPOCTransportFailureClassificationProbe()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Run Remote Change Probe") {
                 runCloudflareSyncPOCRemoteChangeProbe()
             }
@@ -2255,6 +2260,21 @@ struct SyncDiagnosticsView: View {
                     cloudflareSyncPOCStatus = "❌ Single-flight guard probe failed: \(error.localizedDescription)"
                     isCloudflareSyncPOCRunning = false
                 }
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCTransportFailureClassificationProbe() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Running Cloudflare sync POC transport failure classification probe…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.transportFailureClassificationProbe()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
             }
         }
     }

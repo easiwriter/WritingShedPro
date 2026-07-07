@@ -540,6 +540,27 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func transportFailureClassificationProbe() -> CloudflareSyncPOCResult {
+        let error = URLError(.notConnectedToInternet)
+        let detail = "Synthetic transport failure classification probe: \(error.localizedDescription). This did not contact the Worker and did not read or write scratch or production local data."
+        lastTriggerStatus = SyncPOCTriggerStatus(
+            trigger: "network-recovery",
+            outcome: triggerOutcome(for: error),
+            recordedAt: Date(),
+            detail: detail,
+            latestSequence: nil,
+            cursorSequence: nil,
+            changeCount: nil,
+            lastPushedSequence: nil,
+            version: nil
+        )
+
+        return CloudflareSyncPOCResult(
+            message: "Transport failure classification probe recorded trigger network-recovery with outcome \(triggerOutcome(for: error)). \(detail)"
+        )
+    }
+
+    @MainActor
     func localCursorSummary(projects: [Project]) throws -> CloudflareSyncPOCResult {
         guard let project = selectProjectForPendingApply(projects) else {
             throw CloudflareSyncPOCError.noProjectContent
@@ -783,7 +804,7 @@ final class CloudflareSyncPOCService {
         } catch {
             lastTriggerStatus = SyncPOCTriggerStatus(
                 trigger: trigger,
-                outcome: "failure",
+                outcome: triggerOutcome(for: error),
                 recordedAt: Date(),
                 detail: error.localizedDescription,
                 latestSequence: nil,
@@ -798,6 +819,13 @@ final class CloudflareSyncPOCService {
 
     private func shouldDebounceTrigger(_ trigger: String) -> Bool {
         trigger == "foreground" || trigger == "network-recovery"
+    }
+
+    private func triggerOutcome(for error: Error) -> String {
+        if error is URLError {
+            return "transport-failure"
+        }
+        return "failure"
     }
 
     @MainActor
