@@ -1367,6 +1367,11 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Run Single-Flight Guard Probe") {
+                runCloudflareSyncPOCSingleFlightGuardProbe()
+            }
+            .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Run Remote Change Probe") {
                 runCloudflareSyncPOCRemoteChangeProbe()
             }
@@ -2111,6 +2116,26 @@ struct SyncDiagnosticsView: View {
             } catch {
                 await MainActor.run {
                     cloudflareSyncPOCStatus = "❌ Lifecycle sequence dry run failed: \(error.localizedDescription)"
+                    isCloudflareSyncPOCRunning = false
+                }
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCSingleFlightGuardProbe() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Running Cloudflare sync POC single-flight guard probe…"
+
+        Task {
+            do {
+                let result = try await CloudflareSyncPOCService.shared.singleFlightGuardProbe(projects: selectedCloudflareSyncPOCProjects)
+                await MainActor.run {
+                    cloudflareSyncPOCStatus = "✅ \(result.message)"
+                    isCloudflareSyncPOCRunning = false
+                }
+            } catch {
+                await MainActor.run {
+                    cloudflareSyncPOCStatus = "❌ Single-flight guard probe failed: \(error.localizedDescription)"
                     isCloudflareSyncPOCRunning = false
                 }
             }

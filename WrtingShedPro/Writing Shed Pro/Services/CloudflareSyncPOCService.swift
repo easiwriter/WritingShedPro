@@ -308,6 +308,7 @@ enum CloudflareSyncPOCError: LocalizedError {
     case invalidEndpoint
     case invalidResponse
     case serverError(Int, String)
+    case syncAlreadyInProgress(String)
     case noProjectContent
     case noPageSetup
     case noPrinterPaper
@@ -326,6 +327,8 @@ enum CloudflareSyncPOCError: LocalizedError {
             return "Cloudflare sync POC returned an invalid response."
         case .serverError(let status, let message):
             return "Cloudflare sync POC failed (HTTP \(status)): \(message)"
+        case .syncAlreadyInProgress(let trigger):
+            return "Cloudflare sync POC trigger '\(trigger)' skipped because another dry-run sync is already in progress."
         case .noProjectContent:
             return "No project content is available for the Cloudflare sync POC."
         case .noPageSetup:
@@ -371,6 +374,10 @@ final class CloudflareSyncPOCService {
     private let jsonDecoder = JSONDecoder()
     private let isoFormatter = ISO8601DateFormatter()
     private var lastTriggerStatus: SyncPOCTriggerStatus?
+    private var isOrchestratedSyncInFlight = false
+    private var lastOrchestratedTriggerDates: [String: Date] = [:]
+    private let noisyTriggerDebounceInterval: TimeInterval = 30
+    private var orchestratorProbeDelayNanoseconds: UInt64 = 0
 
     private init() { }
 
@@ -515,29 +522,29 @@ final class CloudflareSyncPOCService {
 
     @MainActor
     func syncNowDryRun(projects: [Project]) async throws -> CloudflareSyncPOCResult {
-        try await triggeredSyncDryRun(projects: projects, trigger: "manual")
+        try await requestSyncDryRun(projects: projects, trigger: "manual", bypassDebounce: true)
     }
 
     @MainActor
     func foregroundSyncDryRun(projects: [Project]) async throws -> CloudflareSyncPOCResult {
-        try await triggeredSyncDryRun(projects: projects, trigger: "foreground")
+        try await requestSyncDryRun(projects: projects, trigger: "foreground")
     }
 
     @MainActor
     func launchSyncDryRun(projects: [Project]) async throws -> CloudflareSyncPOCResult {
-        try await triggeredSyncDryRun(projects: projects, trigger: "launch")
+        try await requestSyncDryRun(projects: projects, trigger: "launch")
     }
 
     @MainActor
     func backgroundRefreshSyncDryRun(projects: [Project]) async throws -> CloudflareSyncPOCResult {
-        try await triggeredSyncDryRun(projects: projects, trigger: "background-refresh")
+        try await requestSyncDryRun(projects: projects, trigger: "background-refresh")
     }
 
     @MainActor
     func lifecycleSequenceDryRun(projects: [Project]) async throws -> CloudflareSyncPOCResult {
-        let launch = try await triggeredSyncDryRun(projects: projects, trigger: "launch")
-        let foreground = try await triggeredSyncDryRun(projects: projects, trigger: "foreground")
-        let backgroundRefresh = try await triggeredSyncDryRun(projects: projects, trigger: "background-refresh")
+        let launch = try await requestSyncDryRun(projects: projects, trigger: "launch")
+        let foreground = try await requestSyncDryRun(projects: projects, trigger: "foreground")
+        let backgroundRefresh = try await requestSyncDryRun(projects: projects, trigger: "background-refresh")
 
         return CloudflareSyncPOCResult(
             message: "Lifecycle sequence dry run completed. Launch: \(launch.message) Foreground: \(foreground.message) Background refresh: \(backgroundRefresh.message)"
@@ -545,10 +552,72 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
-    private func triggeredSyncDryRun(projects: [Project], trigger: String) async throws -> CloudflareSyncPOCResult {
+    func singleFlightGuardProbe(projects: [Project]) async throws -> CloudflareSyncPOCResult {
+        orchestratorProbeDelayNanoseconds = 1_000_000_000
+        defer { orchestratorProbeDelayNanoseconds = 0 }
+
+        async let first = requestSyncDryRun(projects: projects, trigger: "manual", bypassDebounce: true)
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        let secondDetail: String
+        let secondWasSkipped: Bool
         do {
+            let second = try await requestSyncDryRun(projects: projects, trigger: "foreground")
+            secondDetail = "second trigger unexpectedly ran: \(second.message)"
+            secondWasSkipped = false
+        } catch CloudflareSyncPOCError.syncAlreadyInProgress(let trigger) {
+            secondDetail = "second trigger '\(trigger)' was skipped by the single-flight guard"
+            secondWasSkipped = true
+        }
+
+        let firstResult = try await first
+        guard secondWasSkipped else {
+            throw CloudflareSyncPOCError.invalidResponse
+        }
+
+        return CloudflareSyncPOCResult(
+            message: "Single-flight guard probe completed: first trigger finished through orchestrator; \(secondDetail). First result: \(firstResult.message)"
+        )
+    }
+
+    @MainActor
+    private func requestSyncDryRun(projects: [Project], trigger: String, bypassDebounce: Bool = false) async throws -> CloudflareSyncPOCResult {
+        guard !isOrchestratedSyncInFlight else {
+            let error = CloudflareSyncPOCError.syncAlreadyInProgress(trigger)
+            lastTriggerStatus = SyncPOCTriggerStatus(
+                trigger: trigger,
+                outcome: "skipped",
+                recordedAt: Date(),
+                detail: error.localizedDescription
+            )
+            throw error
+        }
+
+        if !bypassDebounce,
+           shouldDebounceTrigger(trigger),
+           let lastRun = lastOrchestratedTriggerDates[trigger],
+           Date().timeIntervalSince(lastRun) < noisyTriggerDebounceInterval {
+            let remaining = max(0, noisyTriggerDebounceInterval - Date().timeIntervalSince(lastRun))
+            let message = "Cloudflare sync POC trigger '\(trigger)' skipped by lifecycle orchestrator debounce (\(Int(ceil(remaining)))s remaining). Scratch store was not changed and production local data was not changed."
+            lastTriggerStatus = SyncPOCTriggerStatus(
+                trigger: trigger,
+                outcome: "skipped",
+                recordedAt: Date(),
+                detail: message
+            )
+            return CloudflareSyncPOCResult(message: message)
+        }
+
+        isOrchestratedSyncInFlight = true
+        lastOrchestratedTriggerDates[trigger] = Date()
+        defer { isOrchestratedSyncInFlight = false }
+
+        do {
+            if orchestratorProbeDelayNanoseconds > 0 {
+                try await Task.sleep(nanoseconds: orchestratorProbeDelayNanoseconds)
+            }
             let result = try await checkAndPullPendingChangesIntoScratchStore(projects: projects)
-            let message = "Triggered sync dry run completed for \(trigger). \(result.message)"
+            let message = "Triggered sync dry run completed for \(trigger) via lifecycle orchestrator. \(result.message)"
             lastTriggerStatus = SyncPOCTriggerStatus(
                 trigger: trigger,
                 outcome: "success",
@@ -565,6 +634,10 @@ final class CloudflareSyncPOCService {
             )
             throw error
         }
+    }
+
+    private func shouldDebounceTrigger(_ trigger: String) -> Bool {
+        trigger == "foreground" || trigger == "network-recovery"
     }
 
     @MainActor

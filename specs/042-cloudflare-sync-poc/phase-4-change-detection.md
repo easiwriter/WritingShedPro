@@ -1387,3 +1387,48 @@ The production sync loop should use layered wakeups:
 - only when `hasChanges` is true does the app perform a full pull
 
 Missed silent pushes are harmless because the Worker operation log remains authoritative and the device cursor determines what still needs to be pulled.
+
+## Next Design Slice: Lifecycle Orchestrator
+
+The next production-shaped slice should introduce a single lifecycle orchestrator around the already-verified head-gated flow. This slice should still be debug-only and scratch-only: it may wire real app lifecycle events to the dry-run bridge, but it must not write pulled records into the production SwiftData store.
+
+Orchestrator responsibilities:
+
+- expose one entry point, for example `requestSync(trigger:)`, for launch, foreground resume, background refresh, network recovery, silent push, and manual Sync Now
+- serialize work with a single-flight guard so overlapping lifecycle events cannot run concurrent pulls for the same project/device cursor
+- debounce noisy triggers, especially foreground/network recovery, while allowing manual Sync Now to request an immediate run when no sync is active
+- call `/head` first and exit cheaply when `hasChanges == false`
+- call pull/materialization only when `/head` reports pending changes
+- advance the local remembered cursor only after the intended operation window has been pulled and scratch-applied successfully
+- preserve the fail-closed behavior: unsupported actions, dependency blockers, missing payloads, and existing-local destructive/restorative operations must leave the cursor unchanged
+- record last trigger status in a small diagnostic state object so Sync Diagnostics can show trigger, outcome, timestamp, latest sequence, cursor, change count, and failure reason
+
+Initial trigger policy:
+
+- `launch`: run once after the model container is available and the debug token/project selection are available
+- `foreground`: run when returning active, but debounce short background/foreground churn
+- `background-refresh`: run only through the system background task path and keep the existing head-first cheap exit
+- `manual`: run from Sync Diagnostics and bypass debounce if no other orchestrator run is active
+- `silent-push`: design only for now; the Worker can later send a wake signal, but correctness must not depend on delivery
+- `network-recovery`: design only for now; run after connectivity returns if the previous attempt failed for transport reasons
+
+Non-goals for this slice:
+
+- no production SwiftData remote applier
+- no CloudKit migration/removal
+- no automatic local edit capture beyond the existing POC probes
+- no durable background scheduler beyond documenting the entry points and proving the debug lifecycle wrapper can call them safely
+
+Acceptance checks:
+
+- already-caught-up lifecycle events perform `/head` and exit without changing scratch or production data
+- a ready pending operation window is scratch-applied exactly once and advances the remembered cursor once
+- foreground/background-refresh after that cursor advance are no-ops
+- a blocked pending operation records failure and leaves the remembered cursor unchanged
+- trigger status reports the last attempted trigger and outcome without contacting the Worker
+
+Implemented 2026-07-07: the existing debug trigger methods now route through a single `requestSyncDryRun(projects:trigger:bypassDebounce:)` service-level orchestrator. The wrapper provides a single-flight guard, records skipped in-flight attempts in trigger status, debounces noisy foreground-style triggers, keeps manual Sync Now immediate when no run is active, and preserves the same head-gated scratch apply/cursor advancement behavior. This still does not wire automatic lifecycle events or write pulled data into the production SwiftData store.
+
+Verified 2026-07-07: in a fresh app session, `Show Trigger Status` reported no recorded trigger dry run. A rapid `Foreground Trigger Dry Run` repeat was skipped by lifecycle orchestrator debounce with 28 seconds remaining and did not change the scratch store or production local data. `Sync Now Dry Run` still ran immediately through the orchestrator and reported the no-op path at sequence 75. `Lifecycle Sequence Dry Run` then ran `launch`, `foreground`, and `background-refresh` through the orchestrator; all three reported up-to-date at sequence 75, with scratch and production local data unchanged.
+
+Verified 2026-07-07: `Run Single-Flight Guard Probe` starts one manual orchestrator dry run with a short diagnostic-only delay, then immediately attempts a foreground trigger. The first trigger completed normally through the orchestrator. The second trigger was rejected by the single-flight guard. Remote head remained up to date at sequence 75, the scratch store was not changed, and production local data was not changed. If the second trigger runs instead of being skipped, the probe fails rather than reporting success.
