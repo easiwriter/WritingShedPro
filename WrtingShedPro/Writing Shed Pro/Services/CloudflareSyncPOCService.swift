@@ -567,6 +567,41 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func productionApplyConflictPolicySummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply conflict policy: Cloudflare production apply must not be enabled until conflict detection and resolution are defined for concurrent local, CloudKit, and Cloudflare edits. The production plan must compare local revision state with the incoming operation window before mutation, fail closed on stale or ambiguous ancestry, preserve both sides for user-visible recovery when automatic merge is unsafe, and advance the cursor only after the resolved production transaction commits. Until that policy is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyIdempotencySummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply idempotency: Cloudflare production apply must not be enabled until duplicate, retried, and overlapping operation windows are proven safe. A production applier must use stable remote ids and operation sequence bounds to make create, update, delete, and restore operations repeatable without duplicate rows, zombie resurrection, skipped dependencies, or cursor drift. Cursor advancement must remain tied to the committed production transaction, not to receiving or decoding a repeated window. Until idempotency is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyAuditTrailSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply audit trail: Cloudflare production apply must not be enabled until each committed operation window leaves a durable local audit record. The audit record must include project id, previous cursor, committed cursor, operation count, affected model families, conflict or merge outcome, transaction result, and enough error context to support diagnostics without exposing document content. Cursor advancement must be explainable from the audit trail after crash, relaunch, or support export. Until auditability is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyRolloutControlSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply rollout control: Cloudflare production apply must not be enabled without an explicit local feature flag, remote kill switch, and staged rollout plan. The production path must be able to disable SwiftData mutation immediately without disabling read-only head checks, scratch diagnostics, support export, or manual recovery. Rollout state must be visible in diagnostics, default to disabled for unknown builds or unsupported migrations, and fail closed before any production transaction starts. Until rollout control is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyCompatibilitySummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply compatibility: Cloudflare production apply must not be enabled until app build, local SwiftData schema, remote operation format, and migration version are explicitly compatible. The production path must fail closed before mutation when it sees unknown model families, unsupported operation versions, missing required fields, newer remote schema revisions, or local stores that still require migration. Compatibility state must be visible in diagnostics and must block cursor advancement on mismatch. Until compatibility is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
     func launchPolicySummary() -> CloudflareSyncPOCResult {
         CloudflareSyncPOCResult(
             message: "Launch policy: trigger launch is supported and not debounced. Production use should run once after the model container, debug token, and project selection are available. This POC does not wire automatic launch sync; the diagnostics button is manual only. Launch remains head-first with a cheap up-to-date exit, scratch-only materialization, no production SwiftData apply, and no Worker contact for this policy summary."

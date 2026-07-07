@@ -1382,6 +1382,31 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Conflict Policy") {
+                runCloudflareSyncPOCProductionApplyConflictPolicySummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Idempotency") {
+                runCloudflareSyncPOCProductionApplyIdempotencySummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Audit Trail") {
+                runCloudflareSyncPOCProductionApplyAuditTrailSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Rollout Control") {
+                runCloudflareSyncPOCProductionApplyRolloutControlSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Compatibility") {
+                runCloudflareSyncPOCProductionApplyCompatibilitySummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Launch Policy") {
                 runCloudflareSyncPOCLaunchPolicySummary()
             }
@@ -2271,6 +2296,81 @@ struct SyncDiagnosticsView: View {
         Task {
             let result = await MainActor.run {
                 CloudflareSyncPOCService.shared.productionApplyMigrationCutoverSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyConflictPolicySummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply conflict policy…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyConflictPolicySummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyIdempotencySummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply idempotency…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyIdempotencySummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyAuditTrailSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply audit trail…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyAuditTrailSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyRolloutControlSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply rollout control…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyRolloutControlSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyCompatibilitySummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply compatibility…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyCompatibilitySummary()
             }
             await MainActor.run {
                 cloudflareSyncPOCStatus = "✅ \(result.message)"
