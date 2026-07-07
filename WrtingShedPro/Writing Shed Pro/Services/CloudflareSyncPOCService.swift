@@ -591,6 +591,28 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func networkRecoveryDebounceEligibilityProbe() -> CloudflareSyncPOCResult {
+        let error = URLError(.notConnectedToInternet)
+        lastTriggerStatus = SyncPOCTriggerStatus(
+            trigger: "network-recovery",
+            outcome: triggerOutcome(for: error),
+            recordedAt: Date(),
+            detail: "Synthetic network recovery debounce eligibility probe: \(error.localizedDescription). This did not contact the Worker and did not read or write scratch or production local data.",
+            latestSequence: nil,
+            cursorSequence: nil,
+            changeCount: nil,
+            lastPushedSequence: nil,
+            version: nil
+        )
+        lastOrchestratedTriggerDates["network-recovery"] = Date()
+
+        let eligibility = networkRecoveryEligibilitySummary()
+        return CloudflareSyncPOCResult(
+            message: "Network recovery debounce eligibility probe recorded synthetic transport failure and an immediate network-recovery timestamp, then evaluated eligibility. \(eligibility.message)"
+        )
+    }
+
+    @MainActor
     func transportFailureClassificationProbe() -> CloudflareSyncPOCResult {
         let error = URLError(.notConnectedToInternet)
         let detail = "Synthetic transport failure classification probe: \(error.localizedDescription). This did not contact the Worker and did not read or write scratch or production local data."

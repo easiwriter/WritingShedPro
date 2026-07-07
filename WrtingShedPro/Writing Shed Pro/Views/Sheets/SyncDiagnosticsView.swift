@@ -1412,6 +1412,11 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Run Network Recovery Debounce Eligibility Probe") {
+                runCloudflareSyncPOCNetworkRecoveryDebounceEligibilityProbe()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Run Remote Change Probe") {
                 runCloudflareSyncPOCRemoteChangeProbe()
             }
@@ -2311,6 +2316,21 @@ struct SyncDiagnosticsView: View {
         Task {
             let result = await MainActor.run {
                 CloudflareSyncPOCService.shared.networkRecoveryEligibilityProbe()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCNetworkRecoveryDebounceEligibilityProbe() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Running Cloudflare sync POC network recovery debounce eligibility probe…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.networkRecoveryDebounceEligibilityProbe()
             }
             await MainActor.run {
                 cloudflareSyncPOCStatus = "✅ \(result.message)"
