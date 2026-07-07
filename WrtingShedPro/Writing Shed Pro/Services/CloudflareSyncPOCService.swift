@@ -525,6 +525,20 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func productionApplyReadinessSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply readiness: production SwiftData apply is disabled. Scratch materialization is still the only remote apply path, and cursor advancement is proven only after scratch apply succeeds. Unsupported operations must continue to fail closed without cursor advancement. Before production apply can be enabled, create, update, delete, restore, dependency ordering, relationship repair, and transaction rollback must be verified across the model families, and CloudKit coexistence or migration must be decided. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyOperationCoverageSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply operation coverage: scratch-only planning has exercised create-missing, update-existing, restore-missing, unsupported-operation fail-closed, missing-dependency fail-closed, satisfied-dependency ordering, and existing-local delete/restore guardrails. Production apply is not ready until those same operation classes are verified against real SwiftData transactions across model families, including rollback without cursor advancement on any failure. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
     func launchPolicySummary() -> CloudflareSyncPOCResult {
         CloudflareSyncPOCResult(
             message: "Launch policy: trigger launch is supported and not debounced. Production use should run once after the model container, debug token, and project selection are available. This POC does not wire automatic launch sync; the diagnostics button is manual only. Launch remains head-first with a cheap up-to-date exit, scratch-only materialization, no production SwiftData apply, and no Worker contact for this policy summary."

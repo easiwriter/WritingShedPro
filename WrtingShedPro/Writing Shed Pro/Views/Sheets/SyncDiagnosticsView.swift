@@ -1352,6 +1352,16 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Readiness") {
+                runCloudflareSyncPOCProductionApplyReadinessSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Operation Coverage") {
+                runCloudflareSyncPOCProductionApplyOperationCoverageSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Launch Policy") {
                 runCloudflareSyncPOCLaunchPolicySummary()
             }
@@ -2151,6 +2161,36 @@ struct SyncDiagnosticsView: View {
         Task {
             let result = await MainActor.run {
                 CloudflareSyncPOCService.shared.manualSyncPolicySummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyReadinessSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply readiness…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyReadinessSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyOperationCoverageSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply operation coverage…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyOperationCoverageSummary()
             }
             await MainActor.run {
                 cloudflareSyncPOCStatus = "✅ \(result.message)"
