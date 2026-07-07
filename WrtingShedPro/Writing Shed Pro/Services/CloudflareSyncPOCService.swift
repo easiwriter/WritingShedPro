@@ -507,6 +507,17 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func orchestratorPolicySummary() -> CloudflareSyncPOCResult {
+        let supportedTriggers = ["manual", "launch", "foreground", "background-refresh", "network-recovery", "silent-push"].joined(separator: ", ")
+        let debouncedTriggers = ["foreground", "network-recovery"].joined(separator: ", ")
+        let inFlightStatus = isOrchestratedSyncInFlight ? "in flight" : "idle"
+
+        return CloudflareSyncPOCResult(
+            message: "Lifecycle orchestrator policy: status \(inFlightStatus), supported triggers [\(supportedTriggers)], debounced triggers [\(debouncedTriggers)] at \(Int(noisyTriggerDebounceInterval))s, manual trigger bypasses debounce when idle. Automatic lifecycle wiring is disabled; production SwiftData apply is disabled; scratch-only head-gated dry runs remain the active path."
+        )
+    }
+
+    @MainActor
     func checkAndPullPendingChangesIntoScratchStore(projects: [Project]) async throws -> CloudflareSyncPOCResult {
         guard let project = selectProjectForPendingApply(projects) else {
             throw CloudflareSyncPOCError.noProjectContent

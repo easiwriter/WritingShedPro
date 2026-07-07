@@ -1337,6 +1337,11 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Orchestrator Policy") {
+                runCloudflareSyncPOCOrchestratorPolicySummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Check And Pull Into Scratch Store") {
                 runCloudflareSyncPOCCheckAndPullIntoScratchStore()
             }
@@ -2004,6 +2009,21 @@ struct SyncDiagnosticsView: View {
         Task {
             let result = await MainActor.run {
                 CloudflareSyncPOCService.shared.triggerStatusSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCOrchestratorPolicySummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC orchestrator policy…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.orchestratorPolicySummary()
             }
             await MainActor.run {
                 cloudflareSyncPOCStatus = "✅ \(result.message)"
