@@ -1332,6 +1332,11 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Local Cursor Summary") {
+                runCloudflareSyncPOCLocalCursorSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Trigger Status") {
                 runCloudflareSyncPOCTriggerStatusSummary()
             }
@@ -1996,6 +2001,28 @@ struct SyncDiagnosticsView: View {
             } catch {
                 await MainActor.run {
                     cloudflareSyncPOCStatus = "❌ Sync state summary failed: \(error.localizedDescription)"
+                    isCloudflareSyncPOCRunning = false
+                }
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCLocalCursorSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC local cursor summary…"
+
+        Task {
+            do {
+                let result = try await MainActor.run {
+                    try CloudflareSyncPOCService.shared.localCursorSummary(projects: selectedCloudflareSyncPOCProjects)
+                }
+                await MainActor.run {
+                    cloudflareSyncPOCStatus = "✅ \(result.message)"
+                    isCloudflareSyncPOCRunning = false
+                }
+            } catch {
+                await MainActor.run {
+                    cloudflareSyncPOCStatus = "❌ Local cursor summary failed: \(error.localizedDescription)"
                     isCloudflareSyncPOCRunning = false
                 }
             }

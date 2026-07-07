@@ -518,6 +518,24 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func localCursorSummary(projects: [Project]) throws -> CloudflareSyncPOCResult {
+        guard let project = selectProjectForPendingApply(projects) else {
+            throw CloudflareSyncPOCError.noProjectContent
+        }
+
+        let projectId = project.id.uuidString
+        let projectName = project.name ?? "Untitled"
+        let rememberedSequence = rememberedLastSequence(projectId: projectId)
+        let pendingProjectId = rememberedPendingApplyProjectId() ?? "none"
+        let scratchStoreURL = try isolatedStoreURL(basename: pendingApplyStoreBasename)
+        let scratchStoreExists = FileManager.default.fileExists(atPath: scratchStoreURL.path)
+
+        return CloudflareSyncPOCResult(
+            message: "Local cursor summary for '\(projectName)' (\(projectId)): remembered sequence \(rememberedSequence), pending apply project \(pendingProjectId), scratch store \(scratchStoreExists ? "present" : "absent") at \(scratchStoreURL.lastPathComponent). This did not contact the Worker and did not read or write production local data."
+        )
+    }
+
+    @MainActor
     func checkAndPullPendingChangesIntoScratchStore(projects: [Project]) async throws -> CloudflareSyncPOCResult {
         guard let project = selectProjectForPendingApply(projects) else {
             throw CloudflareSyncPOCError.noProjectContent
