@@ -23,6 +23,20 @@ private struct SyncPOCTriggerStatus {
     let outcome: String
     let recordedAt: Date
     let detail: String
+    let latestSequence: Int?
+    let cursorSequence: Int?
+    let changeCount: Int?
+    let lastPushedSequence: Int?
+    let version: String?
+}
+
+private struct SyncPOCTriggerRunResult {
+    let result: CloudflareSyncPOCResult
+    let latestSequence: Int
+    let cursorSequence: Int
+    let changeCount: Int
+    let lastPushedSequence: Int
+    let version: String
 }
 
 private struct SyncPOCApplyPlanItem {
@@ -476,8 +490,19 @@ final class CloudflareSyncPOCService {
             )
         }
 
+        let headSummary: String
+        if let latestSequence = status.latestSequence,
+           let cursorSequence = status.cursorSequence,
+           let changeCount = status.changeCount,
+           let lastPushedSequence = status.lastPushedSequence,
+           let version = status.version {
+            headSummary = " latest sequence \(latestSequence), cursor \(cursorSequence), change count \(changeCount), last pushed \(lastPushedSequence), version \(version)."
+        } else {
+            headSummary = ""
+        }
+
         return CloudflareSyncPOCResult(
-            message: "Last trigger dry run: trigger \(status.trigger), outcome \(status.outcome), recorded \(isoFormatter.string(from: status.recordedAt)). \(status.detail)"
+            message: "Last trigger dry run: trigger \(status.trigger), outcome \(status.outcome), recorded \(isoFormatter.string(from: status.recordedAt)).\(headSummary) \(status.detail)"
         )
     }
 
@@ -517,6 +542,60 @@ final class CloudflareSyncPOCService {
         let pullResult = try await pullPendingChangesIntoScratchStore(projects: [project])
         return CloudflareSyncPOCResult(
             message: "Remote head had \(response.changeCount) pending changes at latest sequence \(response.latestSequence). \(pullResult.message)"
+        )
+    }
+
+    @MainActor
+    private func checkAndPullPendingChangesIntoScratchStoreForTrigger(projects: [Project]) async throws -> SyncPOCTriggerRunResult {
+        guard let project = selectProjectForPendingApply(projects) else {
+            throw CloudflareSyncPOCError.noProjectContent
+        }
+
+        let deviceId = localDeviceId()
+        let deviceName = localDeviceName()
+        let projectId = project.id.uuidString
+        let projectName = project.name ?? "Untitled"
+
+        let bootstrap = SyncPOCBootstrapRequest(
+            projectId: projectId,
+            projectName: projectName,
+            deviceId: deviceId,
+            deviceName: deviceName
+        )
+        _ = try await post(path: "bootstrap", body: bootstrap) as SyncPOCBootstrapResponse
+
+        let lastKnownSequence = rememberedLastSequence(projectId: projectId)
+        let head = SyncPOCHeadRequest(
+            projectId: projectId,
+            deviceId: deviceId,
+            deviceName: deviceName,
+            lastKnownSequence: lastKnownSequence
+        )
+        let response: SyncPOCHeadResponse = try await post(path: "head", body: head)
+
+        if response.hasChanges {
+            let pullResult = try await pullPendingChangesIntoScratchStore(projects: [project])
+            return SyncPOCTriggerRunResult(
+                result: CloudflareSyncPOCResult(
+                    message: "Remote head had \(response.changeCount) pending changes at latest sequence \(response.latestSequence). \(pullResult.message)"
+                ),
+                latestSequence: response.latestSequence,
+                cursorSequence: rememberedLastSequence(projectId: projectId),
+                changeCount: response.changeCount,
+                lastPushedSequence: response.lastPushedSequence,
+                version: response.version
+            )
+        }
+
+        return SyncPOCTriggerRunResult(
+            result: CloudflareSyncPOCResult(
+                message: "Remote head is up to date: latest sequence \(response.latestSequence), local remembered \(response.lastKnownSequence), server cursor \(response.cursorSequence), last pushed \(response.lastPushedSequence), change count \(response.changeCount), version \(response.version). Scratch store was not changed and production local data was not changed."
+            ),
+            latestSequence: response.latestSequence,
+            cursorSequence: response.cursorSequence,
+            changeCount: response.changeCount,
+            lastPushedSequence: response.lastPushedSequence,
+            version: response.version
         )
     }
 
@@ -588,7 +667,12 @@ final class CloudflareSyncPOCService {
                 trigger: trigger,
                 outcome: "skipped",
                 recordedAt: Date(),
-                detail: error.localizedDescription
+                detail: error.localizedDescription,
+                latestSequence: nil,
+                cursorSequence: nil,
+                changeCount: nil,
+                lastPushedSequence: nil,
+                version: nil
             )
             throw error
         }
@@ -603,7 +687,12 @@ final class CloudflareSyncPOCService {
                 trigger: trigger,
                 outcome: "skipped",
                 recordedAt: Date(),
-                detail: message
+                detail: message,
+                latestSequence: nil,
+                cursorSequence: nil,
+                changeCount: nil,
+                lastPushedSequence: nil,
+                version: nil
             )
             return CloudflareSyncPOCResult(message: message)
         }
@@ -616,13 +705,18 @@ final class CloudflareSyncPOCService {
             if orchestratorProbeDelayNanoseconds > 0 {
                 try await Task.sleep(nanoseconds: orchestratorProbeDelayNanoseconds)
             }
-            let result = try await checkAndPullPendingChangesIntoScratchStore(projects: projects)
-            let message = "Triggered sync dry run completed for \(trigger) via lifecycle orchestrator. \(result.message)"
+            let runResult = try await checkAndPullPendingChangesIntoScratchStoreForTrigger(projects: projects)
+            let message = "Triggered sync dry run completed for \(trigger) via lifecycle orchestrator. \(runResult.result.message)"
             lastTriggerStatus = SyncPOCTriggerStatus(
                 trigger: trigger,
                 outcome: "success",
                 recordedAt: Date(),
-                detail: result.message
+                detail: runResult.result.message,
+                latestSequence: runResult.latestSequence,
+                cursorSequence: runResult.cursorSequence,
+                changeCount: runResult.changeCount,
+                lastPushedSequence: runResult.lastPushedSequence,
+                version: runResult.version
             )
             return CloudflareSyncPOCResult(message: message)
         } catch {
@@ -630,7 +724,12 @@ final class CloudflareSyncPOCService {
                 trigger: trigger,
                 outcome: "failure",
                 recordedAt: Date(),
-                detail: error.localizedDescription
+                detail: error.localizedDescription,
+                latestSequence: nil,
+                cursorSequence: nil,
+                changeCount: nil,
+                lastPushedSequence: nil,
+                version: nil
             )
             throw error
         }
