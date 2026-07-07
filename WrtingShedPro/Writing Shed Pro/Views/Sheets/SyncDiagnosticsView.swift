@@ -1427,6 +1427,11 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Silent Push Matching Payload Dry Run") {
+                runCloudflareSyncPOCSilentPushMatchingPayloadDryRun()
+            }
+            .disabled(isCloudflareSyncPOCRunning || projects.isEmpty)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Run Remote Change Probe") {
                 runCloudflareSyncPOCRemoteChangeProbe()
             }
@@ -2385,6 +2390,26 @@ struct SyncDiagnosticsView: View {
             } catch {
                 await MainActor.run {
                     cloudflareSyncPOCStatus = "❌ Silent push payload guardrail probe failed: \(error.localizedDescription)"
+                    isCloudflareSyncPOCRunning = false
+                }
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCSilentPushMatchingPayloadDryRun() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Running Cloudflare sync POC silent push matching-payload dry run…"
+
+        Task {
+            do {
+                let result = try await CloudflareSyncPOCService.shared.silentPushMatchingPayloadDryRun(projects: selectedCloudflareSyncPOCProjects)
+                await MainActor.run {
+                    cloudflareSyncPOCStatus = "✅ \(result.message)"
+                    isCloudflareSyncPOCRunning = false
+                }
+            } catch {
+                await MainActor.run {
+                    cloudflareSyncPOCStatus = "❌ Silent push matching-payload dry run failed: \(error.localizedDescription)"
                     isCloudflareSyncPOCRunning = false
                 }
             }

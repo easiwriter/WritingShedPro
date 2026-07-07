@@ -623,6 +623,23 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func silentPushMatchingPayloadDryRun(projects: [Project]) async throws -> CloudflareSyncPOCResult {
+        guard let project = selectProjectForPendingApply(projects) else {
+            throw CloudflareSyncPOCError.noProjectContent
+        }
+
+        let projectId = project.id.uuidString
+        let projectName = project.name ?? "Untitled"
+        let rememberedSequence = rememberedLastSequence(projectId: projectId)
+        let syntheticPayloadSequence = rememberedSequence + 1
+        let result = try await silentPushSyncDryRun(projects: [project])
+
+        return CloudflareSyncPOCResult(
+            message: "Silent push matching-payload dry run accepted synthetic wake payload for '\(projectName)' (\(projectId)) but ignored payload sequence \(syntheticPayloadSequence) and used local remembered sequence \(rememberedSequence) with the head endpoint. \(result.message)"
+        )
+    }
+
+    @MainActor
     func transportFailureClassificationProbe() -> CloudflareSyncPOCResult {
         let error = URLError(.notConnectedToInternet)
         let detail = "Synthetic transport failure classification probe: \(error.localizedDescription). This did not contact the Worker and did not read or write scratch or production local data."
