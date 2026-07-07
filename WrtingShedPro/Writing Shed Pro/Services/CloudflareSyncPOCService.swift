@@ -518,6 +518,28 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func orchestratorDebounceSummary() -> CloudflareSyncPOCResult {
+        let now = Date()
+        let triggerSummaries = ["foreground", "network-recovery"].map { trigger in
+            guard let lastRun = lastOrchestratedTriggerDates[trigger] else {
+                return "\(trigger): ready (no run recorded)"
+            }
+
+            let elapsed = now.timeIntervalSince(lastRun)
+            let remaining = max(0, noisyTriggerDebounceInterval - elapsed)
+            if remaining > 0 {
+                return "\(trigger): debounced for \(Int(ceil(remaining)))s more"
+            }
+            return "\(trigger): ready (last run \(Int(floor(elapsed)))s ago)"
+        }.joined(separator: "; ")
+        let inFlightStatus = isOrchestratedSyncInFlight ? "in flight" : "idle"
+
+        return CloudflareSyncPOCResult(
+            message: "Lifecycle orchestrator debounce state: status \(inFlightStatus), interval \(Int(noisyTriggerDebounceInterval))s, \(triggerSummaries). Manual, launch, background-refresh, and silent-push triggers are not debounced. This did not contact the Worker and did not read or write production local data."
+        )
+    }
+
+    @MainActor
     func localCursorSummary(projects: [Project]) throws -> CloudflareSyncPOCResult {
         guard let project = selectProjectForPendingApply(projects) else {
             throw CloudflareSyncPOCError.noProjectContent

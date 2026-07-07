@@ -1347,6 +1347,11 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Debounce State") {
+                runCloudflareSyncPOCOrchestratorDebounceSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Check And Pull Into Scratch Store") {
                 runCloudflareSyncPOCCheckAndPullIntoScratchStore()
             }
@@ -2051,6 +2056,21 @@ struct SyncDiagnosticsView: View {
         Task {
             let result = await MainActor.run {
                 CloudflareSyncPOCService.shared.orchestratorPolicySummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCOrchestratorDebounceSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC debounce state…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.orchestratorDebounceSummary()
             }
             await MainActor.run {
                 cloudflareSyncPOCStatus = "✅ \(result.message)"
