@@ -518,6 +518,13 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func manualSyncPolicySummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Manual sync policy: trigger manual is supported and bypasses debounce when no orchestrator run is in flight. Manual Sync Now must still respect the single-flight guard and must not run concurrently with another lifecycle dry run. Manual sync remains head-first with a cheap up-to-date exit, scratch-only materialization, no production SwiftData apply, and no Worker contact for this policy summary."
+        )
+    }
+
+    @MainActor
     func launchPolicySummary() -> CloudflareSyncPOCResult {
         CloudflareSyncPOCResult(
             message: "Launch policy: trigger launch is supported and not debounced. Production use should run once after the model container, debug token, and project selection are available. This POC does not wire automatic launch sync; the diagnostics button is manual only. Launch remains head-first with a cheap up-to-date exit, scratch-only materialization, no production SwiftData apply, and no Worker contact for this policy summary."
@@ -535,6 +542,13 @@ final class CloudflareSyncPOCService {
     func networkRecoveryPolicySummary() -> CloudflareSyncPOCResult {
         CloudflareSyncPOCResult(
             message: "Network recovery policy: trigger network-recovery is supported and debounced for \(Int(noisyTriggerDebounceInterval))s. Production use should run after connectivity returns only when the previous sync attempt failed for a transport reason, no orchestrator run is in flight, and the debounce window is clear. This POC does not wire automatic network reachability observers; the diagnostics buttons are manual only. Network recovery remains head-first with a cheap up-to-date exit, scratch-only materialization, no production SwiftData apply, and no Worker contact for this policy summary."
+        )
+    }
+
+    @MainActor
+    func silentPushPolicySummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Silent push policy: trigger silent-push is supported and not debounced. Production use should treat push payloads as wake signals only; payload project ids may select a target, but payload sequences must not advance cursors or authorize local apply. Correctness comes from the local remembered cursor and the Worker /head response. This POC does not wire a remote-notification handler; the diagnostics buttons are manual only. Silent push remains head-first with a cheap up-to-date exit, scratch-only materialization, no production SwiftData apply, and no Worker contact for this policy summary."
         )
     }
 

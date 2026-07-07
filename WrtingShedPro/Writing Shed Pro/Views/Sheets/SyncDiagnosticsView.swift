@@ -1347,6 +1347,11 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Manual Sync Policy") {
+                runCloudflareSyncPOCManualSyncPolicySummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Launch Policy") {
                 runCloudflareSyncPOCLaunchPolicySummary()
             }
@@ -1359,6 +1364,11 @@ struct SyncDiagnosticsView: View {
 
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Network Recovery Policy") {
                 runCloudflareSyncPOCNetworkRecoveryPolicySummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Silent Push Policy") {
+                runCloudflareSyncPOCSilentPushPolicySummary()
             }
             .disabled(isCloudflareSyncPOCRunning)
 
@@ -2134,6 +2144,21 @@ struct SyncDiagnosticsView: View {
         }
     }
 
+    private func runCloudflareSyncPOCManualSyncPolicySummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC manual sync policy…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.manualSyncPolicySummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
     private func runCloudflareSyncPOCLaunchPolicySummary() {
         isCloudflareSyncPOCRunning = true
         cloudflareSyncPOCStatus = "Loading Cloudflare sync POC launch policy…"
@@ -2171,6 +2196,21 @@ struct SyncDiagnosticsView: View {
         Task {
             let result = await MainActor.run {
                 CloudflareSyncPOCService.shared.networkRecoveryPolicySummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCSilentPushPolicySummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC silent push policy…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.silentPushPolicySummary()
             }
             await MainActor.run {
                 cloudflareSyncPOCStatus = "✅ \(result.message)"
