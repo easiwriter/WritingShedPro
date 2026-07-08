@@ -15,6 +15,7 @@ const routeSpecificSmokeCoverage = new Set([
     "/identity/check",
     "/identity/enrollment/preflight",
     "/entitlements/preflight",
+    "/environment/preflight",
     "/migration/preflight",
     "/assets/preflight",
     "/apply/preflight",
@@ -779,6 +780,132 @@ function makeReleaseReadinessDb() {
     };
 }
 
+function makeEnvironmentPreflightDb() {
+    const preparedStatements = [];
+    const forbiddenMutation = () => {
+        throw new Error("Production environment smoke DB mock received a mutation call");
+    };
+
+    return {
+        preparedStatements,
+        prepare(sql) {
+            preparedStatements.push(sql);
+            assert.match(sql, /^\s*SELECT\b/i, "Production environment preflight must only prepare SELECT statements");
+            assert.doesNotMatch(sql, /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE)\b/i, "Production environment preflight must not prepare mutation SQL");
+
+            return {
+                bind: forbiddenMutation,
+                async first() {
+                    if (sql.includes("FROM sync_environments")) {
+                        return {
+                            production_environment_count: 1,
+                            write_enabled_count: 0,
+                        };
+                    }
+                    if (sql.includes("FROM sync_rollout_flags")) {
+                        return {
+                            flag_count: 2,
+                            enabled_flag_count: 0,
+                            active_kill_switch_count: 0,
+                        };
+                    }
+                    throw new Error(`Unexpected environment preflight query: ${sql}`);
+                },
+                all: forbiddenMutation,
+                run: forbiddenMutation,
+                raw: forbiddenMutation,
+            };
+        },
+        batch: forbiddenMutation,
+        exec: forbiddenMutation,
+        dump: forbiddenMutation,
+    };
+}
+
+function makeBlockedEnvironmentPreflightDb() {
+    const preparedStatements = [];
+    const forbiddenMutation = () => {
+        throw new Error("Production blocked environment smoke DB mock received a mutation call");
+    };
+
+    return {
+        preparedStatements,
+        prepare(sql) {
+            preparedStatements.push(sql);
+            assert.match(sql, /^\s*SELECT\b/i, "Production blocked environment preflight must only prepare SELECT statements");
+            assert.doesNotMatch(sql, /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE)\b/i, "Production blocked environment preflight must not prepare mutation SQL");
+
+            return {
+                bind: forbiddenMutation,
+                async first() {
+                    if (sql.includes("FROM sync_environments")) {
+                        return {
+                            production_environment_count: 1,
+                            write_enabled_count: 1,
+                        };
+                    }
+                    if (sql.includes("FROM sync_rollout_flags")) {
+                        return {
+                            flag_count: 2,
+                            enabled_flag_count: 1,
+                            active_kill_switch_count: 1,
+                        };
+                    }
+                    throw new Error(`Unexpected blocked environment preflight query: ${sql}`);
+                },
+                all: forbiddenMutation,
+                run: forbiddenMutation,
+                raw: forbiddenMutation,
+            };
+        },
+        batch: forbiddenMutation,
+        exec: forbiddenMutation,
+        dump: forbiddenMutation,
+    };
+}
+
+function makeMissingEnvironmentPreflightDb() {
+    const preparedStatements = [];
+    const forbiddenMutation = () => {
+        throw new Error("Production missing environment smoke DB mock received a mutation call");
+    };
+
+    return {
+        preparedStatements,
+        prepare(sql) {
+            preparedStatements.push(sql);
+            assert.match(sql, /^\s*SELECT\b/i, "Production missing environment preflight must only prepare SELECT statements");
+            assert.doesNotMatch(sql, /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE)\b/i, "Production missing environment preflight must not prepare mutation SQL");
+
+            return {
+                bind: forbiddenMutation,
+                async first() {
+                    if (sql.includes("FROM sync_environments")) {
+                        return {
+                            production_environment_count: 0,
+                            write_enabled_count: 0,
+                        };
+                    }
+                    if (sql.includes("FROM sync_rollout_flags")) {
+                        return {
+                            flag_count: 0,
+                            enabled_flag_count: 0,
+                            active_kill_switch_count: 0,
+                        };
+                    }
+                    throw new Error(`Unexpected missing environment preflight query: ${sql}`);
+                },
+                all: forbiddenMutation,
+                run: forbiddenMutation,
+                raw: forbiddenMutation,
+            };
+        },
+        batch: forbiddenMutation,
+        exec: forbiddenMutation,
+        dump: forbiddenMutation,
+    };
+}
+
 async function readJson(response) {
     return JSON.parse(await response.text());
 }
@@ -801,7 +928,7 @@ function completeReleaseEvidence() {
     };
 }
 
-function makeAsset(index) {
+function makeAsset(index, overrides = {}) {
     return {
         id: `asset-${index}`,
         entityType: "TextFile",
@@ -810,6 +937,7 @@ function makeAsset(index) {
         byteCount: 1234,
         proposedR2Key: `assets/user-1/project-1/asset-${index}`,
         contentType: "application/octet-stream",
+        ...overrides,
     };
 }
 
@@ -1006,6 +1134,51 @@ assert.equal(assetReadyBody.appMutationEnabled, false, "Asset preflight must kee
 assert.deepEqual(assetReadyBody.blockers, []);
 assert.equal(assetReadyBody.manifest.requiresTransfer, true, "Asset preflight must report transfer requirement without performing transfer");
 assert.equal(assetReadyDb.preparedStatements.length, 4, "Asset preflight ready path should only query identity, device, project, and entitlement readiness");
+
+const duplicateAssetIdResponse = await worker.fetch(
+    makeRequest("/assets/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            assets: [makeAsset(1), makeAsset(1)],
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: makeNoQueryDb(),
+        SYNC_PRODUCTION_BLOBS: makeNoWriteBlobStorage(),
+    }
+);
+const duplicateAssetIdBody = await readJson(duplicateAssetIdResponse);
+assert.equal(duplicateAssetIdResponse.status, 400, "Asset preflight must reject duplicate asset ids before DB or blob work");
+assert.equal(duplicateAssetIdResponse.headers.get("Cache-Control"), "no-store", "Duplicate asset id response must be no-store");
+assert.deepEqual(duplicateAssetIdBody, { error: "Asset ids must be unique" });
+
+const duplicateAssetKeyResponse = await worker.fetch(
+    makeRequest("/assets/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            assets: [
+                makeAsset(1, { proposedR2Key: "assets/shared-key" }),
+                makeAsset(2, { proposedR2Key: "assets/shared-key" }),
+            ],
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: makeNoQueryDb(),
+        SYNC_PRODUCTION_BLOBS: makeNoWriteBlobStorage(),
+    }
+);
+const duplicateAssetKeyBody = await readJson(duplicateAssetKeyResponse);
+assert.equal(duplicateAssetKeyResponse.status, 400, "Asset preflight must reject duplicate proposed R2 keys before DB or blob work");
+assert.equal(duplicateAssetKeyResponse.headers.get("Cache-Control"), "no-store", "Duplicate asset key response must be no-store");
+assert.deepEqual(duplicateAssetKeyBody, { error: "Asset proposedR2Key values must be unique" });
 
 const oversizedAssetManifestResponse = await worker.fetch(
     makeRequest("/assets/preflight", {
@@ -1471,6 +1644,108 @@ assert.deepEqual(revokedEntitlementsBody.blockers, [
 ]);
 assert.equal(revokedEntitlementsDb.preparedStatements.length, 4, "Entitlements revoked path should only query identity, device, project, and entitlement readiness");
 
+const environmentPreflightDb = makeEnvironmentPreflightDb();
+const environmentPreflightResponse = await worker.fetch(
+    makeRequest("/environment/preflight", {
+        body: {},
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: environmentPreflightDb,
+    }
+);
+const environmentPreflightBody = await readJson(environmentPreflightResponse);
+assert.equal(environmentPreflightResponse.status, 200, "Environment preflight must return rollout state without enabling writes");
+assert.equal(environmentPreflightResponse.headers.get("Cache-Control"), "no-store", "Environment preflight response must be no-store");
+assert.equal(environmentPreflightBody.readyToEnableProductionWrites, false, "Environment preflight must not enable production writes");
+assert.equal(environmentPreflightBody.readyToRunProductionMigration, false, "Environment preflight must not enable production migration");
+assert.equal(environmentPreflightBody.readyToRunProductionApply, false, "Environment preflight must not enable production apply");
+assert.equal(environmentPreflightBody.writesEnabled, false, "Environment preflight must keep writes disabled");
+assert.equal(environmentPreflightBody.appMutationEnabled, false, "Environment preflight must keep app mutation disabled");
+assert.deepEqual(environmentPreflightBody.blockers, ["production_environment_writes_not_enabled"]);
+assert.deepEqual(environmentPreflightBody.environment, {
+    productionEnvironmentCount: 1,
+    writeEnabledCount: 0,
+});
+assert.deepEqual(environmentPreflightBody.rollout, {
+    flagCount: 2,
+    enabledFlagCount: 0,
+    activeKillSwitchCount: 0,
+});
+assert.equal(environmentPreflightBody.nextStep, "keep_production_writes_disabled_until_release_gate", "Environment preflight must point at release-gated enablement");
+assert.equal(environmentPreflightDb.preparedStatements.length, 2, "Environment preflight should only query environment and rollout summaries");
+
+const blockedEnvironmentPreflightDb = makeBlockedEnvironmentPreflightDb();
+const blockedEnvironmentPreflightResponse = await worker.fetch(
+    makeRequest("/environment/preflight", {
+        body: {},
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: blockedEnvironmentPreflightDb,
+    }
+);
+const blockedEnvironmentPreflightBody = await readJson(blockedEnvironmentPreflightResponse);
+assert.equal(blockedEnvironmentPreflightResponse.status, 200, "Environment preflight must report blocked rollout state without mutating it");
+assert.equal(blockedEnvironmentPreflightResponse.headers.get("Cache-Control"), "no-store", "Blocked environment preflight response must be no-store");
+assert.equal(blockedEnvironmentPreflightBody.readyToEnableProductionWrites, false, "Blocked environment preflight must not enable writes");
+assert.equal(blockedEnvironmentPreflightBody.readyToRunProductionMigration, false, "Blocked environment preflight must not enable migration");
+assert.equal(blockedEnvironmentPreflightBody.readyToRunProductionApply, false, "Blocked environment preflight must not enable apply");
+assert.equal(blockedEnvironmentPreflightBody.writesEnabled, false, "Blocked environment preflight must keep writes disabled");
+assert.equal(blockedEnvironmentPreflightBody.appMutationEnabled, false, "Blocked environment preflight must keep app mutation disabled");
+assert.deepEqual(blockedEnvironmentPreflightBody.blockers, [
+    "production_environment_writes_not_enabled",
+    "production_writes_already_enabled",
+    "rollout_kill_switch_active",
+]);
+assert.deepEqual(blockedEnvironmentPreflightBody.environment, {
+    productionEnvironmentCount: 1,
+    writeEnabledCount: 1,
+});
+assert.deepEqual(blockedEnvironmentPreflightBody.rollout, {
+    flagCount: 2,
+    enabledFlagCount: 1,
+    activeKillSwitchCount: 1,
+});
+assert.equal(blockedEnvironmentPreflightDb.preparedStatements.length, 2, "Blocked environment preflight should only query environment and rollout summaries");
+
+const missingEnvironmentPreflightDb = makeMissingEnvironmentPreflightDb();
+const missingEnvironmentPreflightResponse = await worker.fetch(
+    makeRequest("/environment/preflight", {
+        body: {},
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: missingEnvironmentPreflightDb,
+    }
+);
+const missingEnvironmentPreflightBody = await readJson(missingEnvironmentPreflightResponse);
+assert.equal(missingEnvironmentPreflightResponse.status, 200, "Environment preflight must report missing environment state without writing");
+assert.equal(missingEnvironmentPreflightResponse.headers.get("Cache-Control"), "no-store", "Missing environment preflight response must be no-store");
+assert.equal(missingEnvironmentPreflightBody.readyToEnableProductionWrites, false, "Missing environment preflight must not enable writes");
+assert.equal(missingEnvironmentPreflightBody.readyToRunProductionMigration, false, "Missing environment preflight must not enable migration");
+assert.equal(missingEnvironmentPreflightBody.readyToRunProductionApply, false, "Missing environment preflight must not enable apply");
+assert.equal(missingEnvironmentPreflightBody.writesEnabled, false, "Missing environment preflight must keep writes disabled");
+assert.equal(missingEnvironmentPreflightBody.appMutationEnabled, false, "Missing environment preflight must keep app mutation disabled");
+assert.deepEqual(missingEnvironmentPreflightBody.blockers, [
+    "production_environment_writes_not_enabled",
+    "production_environment_missing",
+    "rollout_flags_missing",
+]);
+assert.deepEqual(missingEnvironmentPreflightBody.environment, {
+    productionEnvironmentCount: 0,
+    writeEnabledCount: 0,
+});
+assert.deepEqual(missingEnvironmentPreflightBody.rollout, {
+    flagCount: 0,
+    enabledFlagCount: 0,
+    activeKillSwitchCount: 0,
+});
+assert.equal(missingEnvironmentPreflightDb.preparedStatements.length, 2, "Missing environment preflight should only query environment and rollout summaries");
+
 const migrationPreflightDb = makeMigrationPreflightDb();
 const migrationPlanOnlyResponse = await worker.fetch(
     makeRequest("/migration/preflight", {
@@ -1504,6 +1779,42 @@ assert.equal(migrationPlanOnlyBody.inventory.totalRecords, 78, "Migration prefli
 assert.equal(migrationPlanOnlyBody.estimatedOperationBatches, 1, "Migration preflight must estimate operation batches without writing");
 assert.equal(migrationPlanOnlyBody.estimatedAssetBatches, 1, "Migration preflight must estimate asset batches without uploading");
 assert.equal(migrationPreflightDb.preparedStatements.length, 4, "Migration preflight should only query identity, device, project, and entitlement readiness");
+
+const migrationBlockedEvidenceDb = makeMigrationPreflightDb();
+const migrationBlockedEvidenceResponse = await worker.fetch(
+    makeRequest("/migration/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            inventory: migrationInventory(),
+            backupExportVerified: false,
+            consentAcknowledged: false,
+            sourceSystem: "local-only",
+            cloudKitState: "importing",
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: migrationBlockedEvidenceDb,
+    }
+);
+const migrationBlockedEvidenceBody = await readJson(migrationBlockedEvidenceResponse);
+assert.equal(migrationBlockedEvidenceResponse.status, 200, "Migration preflight must report bad evidence as blockers without creating migration runs");
+assert.equal(migrationBlockedEvidenceResponse.headers.get("Cache-Control"), "no-store", "Migration blocked-evidence response must be no-store");
+assert.equal(migrationBlockedEvidenceBody.readyToPlanMigration, false, "Migration preflight must not plan migration with bad evidence");
+assert.equal(migrationBlockedEvidenceBody.readyToApplyMigration, false, "Migration blocked-evidence path must not allow apply");
+assert.equal(migrationBlockedEvidenceBody.writesEnabled, false, "Migration blocked-evidence path must keep writes disabled");
+assert.equal(migrationBlockedEvidenceBody.appMutationEnabled, false, "Migration blocked-evidence path must keep app mutation disabled");
+assert.deepEqual(migrationBlockedEvidenceBody.blockers, [
+    "request_consent_not_acknowledged",
+    "backup_export_not_verified",
+    "source_system_not_cloudkit",
+    "cloudkit_state_not_ready",
+]);
+assert.equal(migrationBlockedEvidenceBody.nextStep, "resolve_preflight_blockers", "Migration blocked-evidence path must point at blocker resolution");
+assert.equal(migrationBlockedEvidenceDb.preparedStatements.length, 4, "Migration blocked-evidence path should only query identity, device, project, and entitlement readiness");
 
 const db = makeAggregateOnlyDb();
 const successResponse = await worker.fetch(

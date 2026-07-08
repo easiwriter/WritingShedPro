@@ -175,6 +175,16 @@
       "requiredDocs": ["performs no writes", "readyToGrantProjectEntitlement: false"]
     },
     {
+      "route": "/environment/preflight",
+      "method": "POST",
+      "public": false,
+      "requiresAuth": true,
+      "requiresProductionDb": true,
+      "requiresProductionBlobs": false,
+      "requiredSource": ["readyToEnableProductionWrites: false", "readyToRunProductionMigration: false", "production_environment_writes_not_enabled"],
+      "requiredDocs": ["performs no writes", "readyToEnableProductionWrites: false"]
+    },
+    {
       "route": "/migration/preflight",
       "method": "POST",
       "public": false,

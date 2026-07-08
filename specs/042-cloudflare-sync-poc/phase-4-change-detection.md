@@ -1743,6 +1743,16 @@ Updated 2026-07-08, self-validated: project entitlement preflight smoke now cove
 
 Updated 2026-07-08, self-validated: project entitlement preflight smoke now covers missing consent state. The route returns `consent_not_granted` while keeping grant/update readiness disabled, preserving no-store caching, and limiting DB work to read-only identity/device/project/entitlement checks.
 
+Added 2026-07-08, self-validated: production environment preflight boundary added as `POST /api/sync/production/v1/environment/preflight`. The route is authenticated and production-DB-backed, but remains read-only: it reports production environment and rollout summaries, keeps `readyToEnableProductionWrites: false`, `readyToRunProductionMigration: false`, and `readyToRunProductionApply: false`, returns `production_environment_writes_not_enabled`, enables no rollout flags, and limits DB work to environment/rollout reads.
+
+Updated 2026-07-08, self-validated: production environment preflight smoke now covers blocked rollout state. If production writes are already enabled or a kill switch is active, the route returns `production_writes_already_enabled` and `rollout_kill_switch_active` blockers while keeping migration/apply/write readiness disabled and limiting DB work to environment/rollout reads.
+
+Updated 2026-07-08, self-validated: production environment preflight smoke now covers missing environment setup. If no production environment row or rollout flags exist, the route returns `production_environment_missing` and `rollout_flags_missing` blockers while keeping migration/apply/write readiness disabled and limiting DB work to environment/rollout reads.
+
+Updated 2026-07-08, self-validated: migration preflight smoke now covers bad migration evidence. Missing request consent, missing backup/export verification, non-CloudKit source system, and non-ready CloudKit state produce blockers while keeping migration apply disabled, avoiding migration-run creation, and limiting DB work to read-only identity/device/project/entitlement checks.
+
+Updated 2026-07-08, self-validated: asset preflight smoke now covers duplicate asset ids and duplicate proposed R2 keys. Both cases return `400` before DB or R2 work, preserving no-store caching and keeping the asset path no-upload/no-cursor-advance.
+
 Updated 2026-07-08, self-validated: extended the package-script local-safety guard to block HTTP escape hatches. Production validation, smoke, and parse npm scripts now fail validation if they include `curl` or `http` in addition to `wrangler` or `--remote`.
 
 Added 2026-07-08, self-validated: `POST /api/sync/production/v1/apply/preflight` added as the first production-applier boundary route. It requires `SYNC_PRODUCTION_TOKEN`, validates operation-window shape, checks existing production user/device/project/entitlement/cursor rows, and reports blockers for cursor mismatch, unavailable project writes, pending dependencies/assets, or unimplemented SwiftData apply. It performs no D1 write, does not mutate app SwiftData, always reports `readyToApply: false`, and blocks cursor advancement until a flagged SwiftData applier exists and commits successfully.

@@ -1855,7 +1855,7 @@ async function handleSyncProduction(request, env, pathname) {
         );
     }
 
-    if (!["/users/summary", "/identity/check", "/identity/enrollment/preflight", "/entitlements/preflight", "/migration/preflight", "/assets/preflight", "/apply/preflight", "/orchestrator/eligibility", "/release/readiness"].includes(suffix)) {
+    if (!["/users/summary", "/identity/check", "/identity/enrollment/preflight", "/entitlements/preflight", "/environment/preflight", "/migration/preflight", "/assets/preflight", "/apply/preflight", "/orchestrator/eligibility", "/release/readiness"].includes(suffix)) {
         return jsonResponse({ error: "Not found" }, 404);
     }
 
@@ -1889,6 +1889,9 @@ async function handleSyncProduction(request, env, pathname) {
     }
     if (suffix === "/entitlements/preflight") {
         return handleSyncProductionEntitlementsPreflight(body, env);
+    }
+    if (suffix === "/environment/preflight") {
+        return handleSyncProductionEnvironmentPreflight(env);
     }
     if (suffix === "/migration/preflight") {
         return handleSyncProductionMigrationPreflight(body, env);
@@ -2175,6 +2178,63 @@ async function handleSyncProductionEntitlementsPreflight(body, env) {
     } catch (err) {
         console.error("Production sync entitlements preflight failed:", err);
         return jsonResponse({ error: "Production entitlements preflight failed" }, 502);
+    }
+}
+
+async function handleSyncProductionEnvironmentPreflight(env) {
+    try {
+        const environmentSummary = await env.SYNC_PRODUCTION_DB
+            .prepare(`
+                SELECT
+                    COUNT(*) AS production_environment_count,
+                    COALESCE(SUM(writes_enabled), 0) AS write_enabled_count
+                FROM sync_environments
+                WHERE is_production = 1
+            `)
+            .first();
+        const rolloutSummary = await env.SYNC_PRODUCTION_DB
+            .prepare(`
+                SELECT
+                    COUNT(*) AS flag_count,
+                    COALESCE(SUM(CASE WHEN enabled = 1 THEN 1 ELSE 0 END), 0) AS enabled_flag_count,
+                    COALESCE(SUM(CASE WHEN kill_switch_active = 1 THEN 1 ELSE 0 END), 0) AS active_kill_switch_count
+                FROM sync_rollout_flags
+            `)
+            .first();
+
+        const blockers = ["production_environment_writes_not_enabled"];
+        if ((environmentSummary?.production_environment_count ?? 0) === 0) blockers.push("production_environment_missing");
+        if ((environmentSummary?.write_enabled_count ?? 0) > 0) blockers.push("production_writes_already_enabled");
+        if ((rolloutSummary?.flag_count ?? 0) === 0) blockers.push("rollout_flags_missing");
+        if ((rolloutSummary?.active_kill_switch_count ?? 0) > 0) blockers.push("rollout_kill_switch_active");
+
+        return jsonResponse(
+            {
+                ok: true,
+                readyToEnableProductionWrites: false,
+                readyToRunProductionMigration: false,
+                readyToRunProductionApply: false,
+                writesEnabled: false,
+                appMutationEnabled: false,
+                blockers,
+                environment: {
+                    productionEnvironmentCount: environmentSummary?.production_environment_count ?? 0,
+                    writeEnabledCount: environmentSummary?.write_enabled_count ?? 0,
+                },
+                rollout: {
+                    flagCount: rolloutSummary?.flag_count ?? 0,
+                    enabledFlagCount: rolloutSummary?.enabled_flag_count ?? 0,
+                    activeKillSwitchCount: rolloutSummary?.active_kill_switch_count ?? 0,
+                },
+                nextStep: "keep_production_writes_disabled_until_release_gate",
+                version: SYNC_PRODUCTION_API_VERSION,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Production sync environment preflight failed:", err);
+        return jsonResponse({ error: "Production environment preflight failed" }, 502);
     }
 }
 
