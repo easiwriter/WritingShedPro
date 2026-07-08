@@ -1691,6 +1691,32 @@ Updated 2026-07-08, self-validated: added smoke source secret-isolation guards. 
 
 Updated 2026-07-08, self-validated: added a positive synthetic-token guard for route smoke. The validator now requires `smoke-sync-production-foundation.mjs` to define `productionToken` as `production-smoke-token`, ensuring local production route smoke cannot drift into reading or embedding a real production secret.
 
+Updated 2026-07-08, self-validated: added positive manifest/local-import guards for route smoke and in-memory execution guards for schema smoke. The validator now requires route smoke to stub `system-prompt.txt`, import Worker source through the generated data URL, compare `routeSpecificSmokeCoverage` against `productionContract.routes`, and fail when manifest routes lack deliberate smoke coverage. It also requires schema smoke to invoke `sqlite3` with `:memory:` only.
+
+Updated 2026-07-08, self-validated: added positive mutation-trap guards for route smoke mocks. The validator now requires `smoke-sync-production-foundation.mjs` to retain explicit mock failure messages for D1 mutation calls and R2 write/upload calls, so local route smoke cannot silently stop trapping forbidden production writes.
+
+Updated 2026-07-08, self-validated: added a positive schema-smoke foreign-key enforcement guard. The validator now requires `smoke-sync-production-schema.mjs` to include `PRAGMA foreign_keys = ON`, ensuring FK rejection checks cannot silently run with SQLite foreign-key enforcement disabled.
+
+Updated 2026-07-08, self-validated: added a positive cache-header smoke guard. The validator now requires `smoke-sync-production-foundation.mjs` to retain `Cache-Control` header assertions and `no-store` expectations, keeping response caching covered by local route smoke.
+
+Updated 2026-07-08, self-validated: added shared route-gate smoke coverage guards. The validator now requires route smoke assertions for unknown route `404`, wrong method `405`, missing auth `401`, wrong token `401`, unconfigured token `401`, unconfigured DB `503`, and invalid JSON `400`.
+
+Updated 2026-07-08, self-validated: added route-specific fail-closed blocker guards for route smoke. The validator now requires smoke coverage strings for `production_blob_storage_not_configured`, `production_swiftdata_applier_not_implemented`, `production_orchestrator_not_wired`, and `production_release_enable_endpoint_not_implemented`.
+
+Updated 2026-07-08, self-validated: added disabled-flag smoke guards. The validator now requires route smoke to retain assertions involving `writesEnabled` and `appMutationEnabled`, keeping the core production fail-closed flags covered by local smoke.
+
+Updated 2026-07-08, self-validated: added smoke depth guards for schema defaults and route readiness fields. The validator now requires schema smoke assertions for schema version, environment/write defaults, rollout defaults, user/device/project defaults, entitlement defaults, and cursor defaults. It also requires route smoke coverage for migration, asset, apply, orchestrator, and release readiness fields so local smoke cannot degrade into shallow status-only checks.
+
+Updated 2026-07-08, self-validated: added schema invariant smoke guards. The validator now requires schema smoke coverage for nullable migration/operation/audit payload columns, project-scoped operation sequences, foreign-key rejection, and duplicate rejection for environment names, external subject hashes, rollout flags, R2 asset keys, and per-project operation sequences.
+
+Updated 2026-07-08, self-validated: added read-only query count smoke guards. The validator now requires route smoke to retain prepared-statement count assertions for identity, migration, asset, apply, orchestrator, release, and users summary paths, making unexpected extra DB work visible in local validation.
+
+Updated 2026-07-08, self-validated: added route smoke mock SQL safety guards. The validator now requires route smoke DB mocks to assert SELECT-only prepared statements, reject mutation SQL keywords, and retain the mutation keyword guard for `INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE`.
+
+Updated 2026-07-08, self-validated: added R2 write-trap method guards. The validator now requires route smoke's no-write blob mock to trap `put`, `delete`, `createMultipartUpload`, and `resumeMultipartUpload`, keeping asset preflight smoke explicitly no-upload/no-delete.
+
+Updated 2026-07-08, self-validated: added policy-limit route smoke guards. The validator now requires route smoke to exercise `productionContract.policy.maxAssetManifestItems + 1` and `productionContract.policy.maxApplyWindowOperations + 1`, including the expected oversized-manifest and oversized-apply-window error strings.
+
 Updated 2026-07-08, self-validated: extended the package-script local-safety guard to block HTTP escape hatches. Production validation, smoke, and parse npm scripts now fail validation if they include `curl` or `http` in addition to `wrangler` or `--remote`.
 
 Added 2026-07-08, self-validated: `POST /api/sync/production/v1/apply/preflight` added as the first production-applier boundary route. It requires `SYNC_PRODUCTION_TOKEN`, validates operation-window shape, checks existing production user/device/project/entitlement/cursor rows, and reports blockers for cursor mismatch, unavailable project writes, pending dependencies/assets, or unimplemented SwiftData apply. It performs no D1 write, does not mutate app SwiftData, always reports `readyToApply: false`, and blocks cursor advancement until a flagged SwiftData applier exists and commits successfully.

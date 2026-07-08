@@ -152,9 +152,31 @@ The smoke source files are also checked for Cloudflare/network escape hatches su
 
 The route smoke script must import the Worker from local source through a generated `data:` URL, use local mocked DB/R2 bindings, and dispatch requests through `worker.fetch(...)`.
 
+Route smoke must stub the local `system-prompt.txt` import and compare its explicit route coverage set against the production contract manifest.
+
+Route smoke mocks must trap attempted D1 mutations and R2 write/upload calls.
+
+Route smoke R2 mocks must trap `put`, `delete`, `createMultipartUpload`, and `resumeMultipartUpload`.
+
+Route smoke DB mocks must assert prepared SQL is SELECT-only and reject mutation SQL keywords.
+
+Route smoke must assert `Cache-Control: no-store` on production foundation responses.
+
+Route smoke must cover shared route gates: unknown route, wrong method, missing auth, wrong token, unconfigured token, unconfigured DB, and invalid JSON.
+
+Route smoke must retain route-specific fail-closed blocker coverage for missing blob storage, missing SwiftData applier, disabled orchestrator wiring, and missing release-enable endpoint.
+
+Route smoke must assert disabled production flags such as `writesEnabled` and `appMutationEnabled`.
+
+Route smoke must assert production readiness fields remain fail-closed across migration, asset, apply, orchestrator, and release routes.
+
+Route smoke must exercise manifest-owned policy limits for oversized asset manifests and oversized apply windows.
+
+Route smoke must assert expected read-only prepared-statement counts for production foundation paths, so extra queries or hidden mutation work are visible in local validation.
+
 Route smoke request URLs must use the reserved `https://wsp.example.test/api/sync/production/v1` base URL and must not reference deployed Worker or Cloudflare domains.
 
-The route smoke script must not spawn subprocesses. The schema smoke script may only spawn `sqlite3` for in-memory schema checks and must not use `execSync`.
+The route smoke script must not spawn subprocesses. The schema smoke script may only spawn `sqlite3` for in-memory schema checks, must pass `:memory:`, must enable SQLite foreign-key enforcement, must assert production-safe defaults, nullable payload fields, project-scoped operation sequences, foreign-key rejection, and duplicate constraint rejection, and must not use `execSync`.
 
 Smoke scripts must not write, delete, or create local files; they are read-only apart from in-memory Worker/SQLite execution.
 

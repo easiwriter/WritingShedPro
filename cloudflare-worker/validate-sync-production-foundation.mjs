@@ -361,9 +361,56 @@ assert(!productionFoundationSmoke.includes("child_process"), "smoke-sync-product
 assert(!productionFoundationSmoke.match(/\bspawnSync\b|\bexecSync\b|\bspawn\(|\bexec\(/), "smoke-sync-production-foundation.mjs must not spawn subprocesses");
 assert(productionFoundationSmoke.includes("data:text/javascript"), "smoke-sync-production-foundation.mjs must import the Worker from local source via data URL");
 assert(productionFoundationSmoke.includes("Buffer.from(workerSource)"), "smoke-sync-production-foundation.mjs must build its local Worker import from workerSource");
+assert(productionFoundationSmoke.includes('replace(\'import SYSTEM_PROMPT from "./system-prompt.txt";\''), "smoke-sync-production-foundation.mjs must stub system-prompt.txt for local Worker import");
 assert(productionFoundationSmoke.includes("worker.fetch("), "smoke-sync-production-foundation.mjs must dispatch requests through local worker.fetch");
+assert(productionFoundationSmoke.includes("routeSpecificSmokeCoverage"), "smoke-sync-production-foundation.mjs must declare explicit route smoke coverage");
+assert(productionFoundationSmoke.includes("productionContract.routes.map"), "smoke-sync-production-foundation.mjs must compare smoke coverage against manifest routes");
+assert(productionFoundationSmoke.includes("Every production route in the contract must have deliberate route-specific smoke coverage"), "smoke-sync-production-foundation.mjs must fail when manifest routes lack smoke coverage");
 assert(productionFoundationSmoke.includes("makeAggregateOnlyDb"), "smoke-sync-production-foundation.mjs must use local mocked DB bindings");
 assert(productionFoundationSmoke.includes("makeNoWriteBlobStorage"), "smoke-sync-production-foundation.mjs must use local mocked R2 bindings");
+assert(productionFoundationSmoke.includes("Production smoke DB mock received a mutation call"), "smoke-sync-production-foundation.mjs must trap D1 mutation calls in mocks");
+assert(productionFoundationSmoke.includes("Production asset smoke blob mock received a write/upload call"), "smoke-sync-production-foundation.mjs must trap R2 write/upload calls in mocks");
+assert(productionFoundationSmoke.includes("Production asset smoke DB mock received a mutation call"), "smoke-sync-production-foundation.mjs asset mocks must trap D1 mutation calls");
+const requiredR2WriteTrapMethods = ["put", "delete", "createMultipartUpload", "resumeMultipartUpload"];
+
+for (const r2Method of requiredR2WriteTrapMethods) {
+    assert(productionFoundationSmoke.includes(`${r2Method}: forbiddenBlobWrite`), `smoke-sync-production-foundation.mjs must trap R2 ${r2Method} calls`);
+}
+assert(productionFoundationSmoke.includes("must only prepare SELECT statements"), "smoke-sync-production-foundation.mjs must assert mocked D1 prepares are SELECT-only");
+assert(productionFoundationSmoke.includes("must not prepare mutation SQL"), "smoke-sync-production-foundation.mjs must reject mutation SQL in mocked D1 prepares");
+assert(productionFoundationSmoke.includes("INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE"), "smoke-sync-production-foundation.mjs must retain mutation SQL keyword guard");
+assert(productionFoundationSmoke.includes('headers.get("Cache-Control")'), "smoke-sync-production-foundation.mjs must assert response cache headers");
+assert(productionFoundationSmoke.includes('"no-store"'), "smoke-sync-production-foundation.mjs must assert no-store response caching");
+const requiredRouteSmokeGateAssertions = [
+    "notFoundResponse.status, 404",
+    "wrongMethodResponse.status, 405",
+    "missingAuthResponse.status, 401",
+    "wrongTokenResponse.status, 401",
+    "unconfiguredTokenResponse.status, 401",
+    "unconfiguredDbResponse.status, 503",
+    "invalidJsonResponse.status, 400",
+];
+
+for (const routeSmokeAssertion of requiredRouteSmokeGateAssertions) {
+    assert(productionFoundationSmoke.includes(routeSmokeAssertion), `smoke-sync-production-foundation.mjs is missing shared route gate assertion: ${routeSmokeAssertion}`);
+}
+
+const requiredRouteSmokeBlockers = [
+    "production_blob_storage_not_configured",
+    "production_swiftdata_applier_not_implemented",
+    "production_orchestrator_not_wired",
+    "production_release_enable_endpoint_not_implemented",
+];
+
+for (const blocker of requiredRouteSmokeBlockers) {
+    assert(productionFoundationSmoke.includes(blocker), `smoke-sync-production-foundation.mjs is missing route-specific blocker coverage: ${blocker}`);
+}
+
+const requiredRouteSmokeDisabledFlags = ["writesEnabled", "appMutationEnabled"];
+
+for (const disabledFlag of requiredRouteSmokeDisabledFlags) {
+    assert(productionFoundationSmoke.includes(disabledFlag), `smoke-sync-production-foundation.mjs must assert disabled flag: ${disabledFlag}`);
+}
 assert(
     productionFoundationSmoke.includes('const productionToken = "production-smoke-token"'),
     "smoke-sync-production-foundation.mjs must use a synthetic production smoke token"
@@ -378,7 +425,84 @@ assert(
     schemaSmokeSpawnTargets.length === 1 && schemaSmokeSpawnTargets[0] === "sqlite3",
     "smoke-sync-production-schema.mjs may only spawn sqlite3 for in-memory schema checks"
 );
+assert(productionSchemaSmoke.includes('spawnSync("sqlite3", [":memory:"]'), "smoke-sync-production-schema.mjs must run SQLite only in memory");
+assert(productionSchemaSmoke.includes("PRAGMA foreign_keys = ON"), "smoke-sync-production-schema.mjs must enable SQLite foreign-key enforcement");
 assert(!productionSchemaSmoke.includes("execSync"), "smoke-sync-production-schema.mjs must not use execSync");
+
+const requiredSchemaSmokeDefaultAssertions = [
+    "schema_version|1",
+    "environment_defaults|1|0",
+    "rollout_defaults|0|0|0",
+    "user_defaults|missing|active",
+    "device_defaults|active",
+    "project_defaults|cloudkit|not_started|0|0",
+    "entitlement_defaults|owner|1|0",
+    "cursor_defaults|0|0|0|idle",
+];
+
+for (const schemaSmokeAssertion of requiredSchemaSmokeDefaultAssertions) {
+    assert(productionSchemaSmoke.includes(schemaSmokeAssertion), `smoke-sync-production-schema.mjs is missing default assertion: ${schemaSmokeAssertion}`);
+}
+
+const requiredSchemaSmokeInvariantAssertions = [
+    "nullable_migration_payloads|1|1",
+    "nullable_operation_payloads|1|1|1",
+    "nullable_audit_details|1",
+    "project_scoped_operation_sequences|2",
+    "FOREIGN KEY constraint failed",
+    "duplicate environment names",
+    "duplicate external subject hashes",
+    "duplicate rollout flags per environment",
+    "duplicate asset storage keys",
+    "duplicate project operation sequences",
+];
+
+for (const schemaSmokeAssertion of requiredSchemaSmokeInvariantAssertions) {
+    assert(productionSchemaSmoke.includes(schemaSmokeAssertion), `smoke-sync-production-schema.mjs is missing invariant assertion: ${schemaSmokeAssertion}`);
+}
+
+const requiredRouteSmokeReadinessFields = [
+    "readyToPlanMigration",
+    "readyToApplyMigration",
+    "readyToTransferAssets",
+    "readyToAdvanceCursor",
+    "readyToApply",
+    "eligibleToRun",
+    "eligibleToApply",
+    "eligibleToAdvanceCursor",
+    "readyToRelease",
+    "readyToEnableProductionWrites",
+];
+
+for (const readinessField of requiredRouteSmokeReadinessFields) {
+    assert(productionFoundationSmoke.includes(readinessField), `smoke-sync-production-foundation.mjs must assert readiness field: ${readinessField}`);
+}
+
+const requiredRouteSmokePolicyLimitChecks = [
+    "productionContract.policy.maxAssetManifestItems + 1",
+    "assets exceeds 1000",
+    "productionContract.policy.maxApplyWindowOperations + 1",
+    "operationWindow.operationCount exceeds 500",
+];
+
+for (const policyLimitCheck of requiredRouteSmokePolicyLimitChecks) {
+    assert(productionFoundationSmoke.includes(policyLimitCheck), `smoke-sync-production-foundation.mjs is missing policy limit check: ${policyLimitCheck}`);
+}
+
+const requiredRouteSmokeReadOnlyQueryAssertions = [
+    "identityCheckDb.preparedStatements.length, 3",
+    "migrationPreflightDb.preparedStatements.length, 4",
+    "assetPreflightDb.preparedStatements.length, 4",
+    "assetReadyDb.preparedStatements.length, 4",
+    "applyPreflightDb.preparedStatements.length, 5",
+    "orchestratorEligibilityDb.preparedStatements.length, 5",
+    "releaseReadinessDb.preparedStatements.length, 2",
+    "db.preparedStatements.length, 2",
+];
+
+for (const queryAssertion of requiredRouteSmokeReadOnlyQueryAssertions) {
+    assert(productionFoundationSmoke.includes(queryAssertion), `smoke-sync-production-foundation.mjs is missing read-only query assertion: ${queryAssertion}`);
+}
 
 for (const route of productionRoutes) {
     assert(readme.includes(`/api/sync/production/v1${route}`), `README is missing ${route} documentation`);
