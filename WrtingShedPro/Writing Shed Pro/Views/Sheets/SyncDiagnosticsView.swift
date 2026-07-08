@@ -1407,6 +1407,26 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Destructive Operations") {
+                runCloudflareSyncPOCProductionApplyDestructiveOperationSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Integrity") {
+                runCloudflareSyncPOCProductionApplyIntegritySummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Recovery Drill") {
+                runCloudflareSyncPOCProductionApplyRecoveryDrillSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Visible State") {
+                runCloudflareSyncPOCProductionApplyVisibleStateSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Launch Policy") {
                 runCloudflareSyncPOCLaunchPolicySummary()
             }
@@ -2371,6 +2391,66 @@ struct SyncDiagnosticsView: View {
         Task {
             let result = await MainActor.run {
                 CloudflareSyncPOCService.shared.productionApplyCompatibilitySummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyDestructiveOperationSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply destructive operations…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyDestructiveOperationSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyIntegritySummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply integrity…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyIntegritySummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyRecoveryDrillSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply recovery drill…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyRecoveryDrillSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyVisibleStateSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply visible state…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyVisibleStateSummary()
             }
             await MainActor.run {
                 cloudflareSyncPOCStatus = "✅ \(result.message)"

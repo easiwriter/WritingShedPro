@@ -602,6 +602,34 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func productionApplyDestructiveOperationSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply destructive operations: Cloudflare production apply must not be enabled until delete, trash, restore, and permanent purge semantics are explicitly verified. A production applier must never delete local records just because relationships are missing, must distinguish tombstones from temporary sync gaps, must preserve dependency order for cascades and joins, and must leave recoverable evidence before cursor advancement. Destructive operation failures must roll back or leave production data unchanged. Until destructive safety is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyIntegritySummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply integrity: Cloudflare production apply must not be enabled until incoming operation windows prove identity, ordering, and payload integrity before mutation. A production applier must validate project id, remote record id, operation sequence bounds, dependency references, required checksums or revision tokens, and attachment/blob completeness before any SwiftData transaction starts. Integrity failures must fail closed without cursor advancement and without partial production writes. Until integrity verification is complete, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyRecoveryDrillSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply recovery drill: Cloudflare production apply must not be enabled until crash, relaunch, rollback, restore-from-audit, and support-guided recovery drills are verified. The production plan must prove recovery after failure before transaction, during transaction, after save but before cursor advancement, and after cursor advancement with a later detected inconsistency. Recovery must preserve user data, explain the last committed cursor, and provide a manual path that does not require deleting the local store. Until recovery drills pass, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyVisibleStateSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply visible state: Cloudflare production apply must not be enabled until sync mode, authoritative data path, rollout state, last committed cursor, and recovery status are visible in diagnostics and support export. Users and support must be able to distinguish scratch-only POC checks, CloudKit-backed sync, Cloudflare read-only checks, and Cloudflare production mutation without inspecting logs. Any unknown, mixed, or migrating state must fail closed before production SwiftData mutation. Until visible state is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
     func launchPolicySummary() -> CloudflareSyncPOCResult {
         CloudflareSyncPOCResult(
             message: "Launch policy: trigger launch is supported and not debounced. Production use should run once after the model container, debug token, and project selection are available. This POC does not wire automatic launch sync; the diagnostics button is manual only. Launch remains head-first with a cheap up-to-date exit, scratch-only materialization, no production SwiftData apply, and no Worker contact for this policy summary."
