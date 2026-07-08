@@ -125,10 +125,19 @@ Validate the local production foundation contract without contacting Cloudflare:
 ```bash
 npm run sync:prod:validate
 npm run sync:prod:smoke
+npm run sync:prod:schema:smoke
 npm run sync:prod:validate:all
 ```
 
-The validator reads `sync-production-foundation-contract.json` for the production route fail-closed contract. The `validate:all` command also loads `sql/sync_production_schema.sql` into an in-memory SQLite database to catch schema syntax errors before D1 migration.
+The validator reads `sync-production-foundation-contract.json` for the production route fail-closed contract. The manifest also owns the production schema safety contract: required tables, fail-closed defaults, foreign keys, forbidden cascading clauses, nullable payload/diagnostic columns, unique constraints, and lookup indexes. The `validate:all` command also loads `sql/sync_production_schema.sql` into an in-memory SQLite database to catch schema syntax errors before D1 migration.
+
+The schema smoke check loads the production schema into in-memory SQLite, verifies fail-closed defaults on a minimal user/device/project graph, confirms nullable payload/diagnostic columns accept metadata-only rows, confirms foreign keys reject orphaned devices, and checks duplicate identity/storage/sequence keys are rejected.
+
+It also verifies operation server sequences are unique per project, not globally unique across all projects. The manifest lists that required smoke assertion, and `sync:prod:validate` fails if it drifts out of the local schema smoke.
+
+The manifest lists the required duplicate-rejection smoke cases, and `sync:prod:validate` fails if the local schema smoke stops covering one of those uniqueness boundaries.
+
+The manifest also lists the required nullable-column smoke assertions, and `sync:prod:validate` fails if metadata-only migration, operation, or audit rows stop being exercised locally.
 
 The smoke check imports the Worker locally with mocked production bindings and exercises public `/health` binding-status reporting, unknown-route and wrong-method rejection, protected-route missing-auth, wrong-token, unconfigured-token, unconfigured-DB, and invalid-JSON rejection before route-specific DB work, `/identity/check` read-only write denial, `/migration/preflight` plan-only readiness, `/assets/preflight` missing-blob readiness blocking, transfer-ready preflight without R2 upload, and oversized-manifest rejection before DB/R2 work, `/apply/preflight` oversized-window rejection before DB/cursor work and SwiftData-applier-not-implemented blocking, `/orchestrator/eligibility` lifecycle-not-wired blocking, `/release/readiness` release-enable-endpoint blocking, plus `/users/summary` aggregate response shape, no-store caching, and absence of D1 mutation calls. It also fails if the production contract contains a route without deliberate route-specific smoke coverage.
 

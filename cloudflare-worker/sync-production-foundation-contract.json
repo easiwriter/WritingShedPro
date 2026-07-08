@@ -12,6 +12,105 @@
     "maxAssetManifestItems": 1000,
     "maxApplyWindowOperations": 500
   },
+  "schema": {
+    "requiredTables": [
+      "sync_schema_versions",
+      "sync_environments",
+      "sync_rollout_flags",
+      "sync_users",
+      "sync_devices",
+      "sync_projects",
+      "sync_project_entitlements",
+      "sync_migration_runs",
+      "sync_assets",
+      "sync_operations",
+      "sync_device_cursors",
+      "sync_tombstones",
+      "sync_audit_events",
+      "sync_support_actions"
+    ],
+    "safeDefaults": [
+      "writes_enabled INTEGER NOT NULL DEFAULT 0",
+      "consent_state TEXT NOT NULL DEFAULT 'missing'",
+      "lifecycle_state TEXT NOT NULL DEFAULT 'active'",
+      "migration_state TEXT NOT NULL DEFAULT 'not_started'",
+      "latest_sequence INTEGER NOT NULL DEFAULT 0",
+      "can_write INTEGER NOT NULL DEFAULT 0",
+      "state TEXT NOT NULL DEFAULT 'planned'",
+      "transfer_state TEXT NOT NULL DEFAULT 'pending'",
+      "last_pulled_sequence INTEGER NOT NULL DEFAULT 0",
+      "last_pushed_sequence INTEGER NOT NULL DEFAULT 0",
+      "last_applied_sequence INTEGER NOT NULL DEFAULT 0",
+      "apply_state TEXT NOT NULL DEFAULT 'idle'"
+    ],
+    "requiredForeignKeys": [
+      "FOREIGN KEY(user_id) REFERENCES sync_users(id)",
+      "FOREIGN KEY(project_id) REFERENCES sync_projects(id)",
+      "FOREIGN KEY(device_id) REFERENCES sync_devices(id)",
+      "FOREIGN KEY(target_environment_id) REFERENCES sync_environments(id)",
+      "FOREIGN KEY(operation_id) REFERENCES sync_operations(id)"
+    ],
+    "forbiddenClauses": [
+      "ON DELETE CASCADE",
+      "ON UPDATE CASCADE"
+    ],
+    "requiredNullableColumns": [
+      "preflight_summary_json TEXT",
+      "progress_json TEXT",
+      "payload_json TEXT",
+      "payload_r2_key TEXT",
+      "payload_hash TEXT",
+      "redacted_details_json TEXT"
+    ],
+    "smokeNullableChecks": [
+      "nullable_migration_payloads|1|1",
+      "nullable_operation_payloads|1|1|1",
+      "nullable_audit_details|1"
+    ],
+    "smokeSequenceScopeChecks": [
+      "project_scoped_operation_sequences|2"
+    ],
+    "uniqueConstraints": [
+      "name TEXT NOT NULL UNIQUE",
+      "external_subject_hash TEXT NOT NULL UNIQUE",
+      "UNIQUE(environment_id, flag_key)",
+      "r2_key TEXT NOT NULL UNIQUE",
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_sync_operations_project_sequence",
+      "ON sync_operations(project_id, server_sequence)"
+    ],
+    "smokeDuplicateRejections": [
+      "duplicate environment names",
+      "duplicate external subject hashes",
+      "duplicate rollout flags per environment",
+      "duplicate asset storage keys",
+      "duplicate project operation sequences"
+    ],
+    "requiredIndexes": [
+      "CREATE INDEX IF NOT EXISTS idx_sync_users_account",
+      "ON sync_users(account_id, lifecycle_state)",
+      "CREATE INDEX IF NOT EXISTS idx_sync_devices_user",
+      "ON sync_devices(user_id, lifecycle_state)",
+      "CREATE INDEX IF NOT EXISTS idx_sync_projects_user",
+      "ON sync_projects(user_id, migration_state, updated_at DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_sync_migration_runs_user_state",
+      "ON sync_migration_runs(user_id, state, updated_at DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_sync_assets_entity",
+      "ON sync_assets(project_id, entity_type, entity_id, transfer_state)",
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_sync_operations_project_sequence",
+      "ON sync_operations(project_id, server_sequence)",
+      "CREATE INDEX IF NOT EXISTS idx_sync_operations_entity",
+      "ON sync_operations(project_id, entity_type, entity_id)",
+      "CREATE INDEX IF NOT EXISTS idx_sync_operations_device",
+      "ON sync_operations(device_id, received_at)",
+      "CREATE INDEX IF NOT EXISTS idx_sync_audit_events_project_created",
+      "ON sync_audit_events(project_id, created_at DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_sync_audit_events_user_created",
+      "ON sync_audit_events(user_id, created_at DESC)",
+      "PRIMARY KEY(project_id, user_id)",
+      "PRIMARY KEY(project_id, device_id)",
+      "PRIMARY KEY(project_id, entity_type, entity_id)"
+    ]
+  },
   "routes": [
     {
       "route": "/health",

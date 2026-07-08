@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 
 const workerSource = readFileSync(new URL("./src/index.js", import.meta.url), "utf8");
 const productionSchema = readFileSync(new URL("./sql/sync_production_schema.sql", import.meta.url), "utf8");
+const productionSchemaSmoke = readFileSync(new URL("./smoke-sync-production-schema.mjs", import.meta.url), "utf8");
 const packageJSON = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 const productionContract = JSON.parse(readFileSync(new URL("./sync-production-foundation-contract.json", import.meta.url), "utf8"));
 const readme = readFileSync(new URL("./README.md", import.meta.url), "utf8");
@@ -19,6 +20,7 @@ assert(scratchHandlerEnd > scratchHandlerStart, "Worker scratch POC section boun
 
 const productionSection = workerSource.slice(productionHandlerStart, productionHandlerEnd);
 const scratchSection = workerSource.slice(scratchHandlerStart, scratchHandlerEnd);
+const schemaContract = productionContract.schema;
 
 assert(productionContract.namespace === "/api/sync/production/v1", "Production contract manifest must define the production namespace");
 assert(productionContract.phase === "server-foundation", "Production contract manifest must define the server-foundation phase");
@@ -31,6 +33,16 @@ assert(productionContract.policy?.rolloutEnableAllowed === false, "Production co
 assert(productionContract.policy?.cacheControl === "no-store", "Production contract manifest must require no-store cache control");
 assert(productionContract.policy?.maxAssetManifestItems === 1000, "Production contract manifest must define max asset manifest items");
 assert(productionContract.policy?.maxApplyWindowOperations === 500, "Production contract manifest must define max apply window operations");
+assert(Array.isArray(schemaContract?.requiredTables), "Production contract manifest must define schema.requiredTables");
+assert(Array.isArray(schemaContract?.safeDefaults), "Production contract manifest must define schema.safeDefaults");
+assert(Array.isArray(schemaContract?.requiredForeignKeys), "Production contract manifest must define schema.requiredForeignKeys");
+assert(Array.isArray(schemaContract?.forbiddenClauses), "Production contract manifest must define schema.forbiddenClauses");
+assert(Array.isArray(schemaContract?.requiredNullableColumns), "Production contract manifest must define schema.requiredNullableColumns");
+assert(Array.isArray(schemaContract?.smokeNullableChecks), "Production contract manifest must define schema.smokeNullableChecks");
+assert(Array.isArray(schemaContract?.smokeSequenceScopeChecks), "Production contract manifest must define schema.smokeSequenceScopeChecks");
+assert(Array.isArray(schemaContract?.uniqueConstraints), "Production contract manifest must define schema.uniqueConstraints");
+assert(Array.isArray(schemaContract?.smokeDuplicateRejections), "Production contract manifest must define schema.smokeDuplicateRejections");
+assert(Array.isArray(schemaContract?.requiredIndexes), "Production contract manifest must define schema.requiredIndexes");
 assert(readme.includes("The production foundation contract is read-only"), "README must document the read-only production foundation policy");
 assert(readme.includes("D1 writes"), "README must document that production foundation forbids D1 writes");
 assert(readme.includes("R2 writes/uploads"), "README must document that production foundation forbids R2 writes/uploads");
@@ -209,85 +221,53 @@ const schemaInsertTargets = [...productionSchema.matchAll(/\bINSERT\s+(?:OR\s+IG
 assert(schemaInsertTargets.length === 1 && schemaInsertTargets[0] === "sync_schema_versions", "Production foundation schema may only seed the schema version row");
 assert(!productionSchema.match(/\bUPDATE\b|\bDELETE\b/), "Production foundation schema must not update or delete production data");
 
-const productionTables = [
-    "sync_schema_versions",
-    "sync_environments",
-    "sync_rollout_flags",
-    "sync_users",
-    "sync_devices",
-    "sync_projects",
-    "sync_project_entitlements",
-    "sync_migration_runs",
-    "sync_assets",
-    "sync_operations",
-    "sync_device_cursors",
-    "sync_tombstones",
-    "sync_audit_events",
-    "sync_support_actions",
-];
-
-for (const table of productionTables) {
+for (const table of schemaContract.requiredTables) {
     assert(productionSchema.includes(`CREATE TABLE IF NOT EXISTS ${table}`), `Production schema is missing ${table}`);
 }
 
-const requiredSchemaDefaults = [
-    "writes_enabled INTEGER NOT NULL DEFAULT 0",
-    "consent_state TEXT NOT NULL DEFAULT 'missing'",
-    "lifecycle_state TEXT NOT NULL DEFAULT 'active'",
-    "migration_state TEXT NOT NULL DEFAULT 'not_started'",
-    "latest_sequence INTEGER NOT NULL DEFAULT 0",
-    "can_write INTEGER NOT NULL DEFAULT 0",
-    "state TEXT NOT NULL DEFAULT 'planned'",
-    "transfer_state TEXT NOT NULL DEFAULT 'pending'",
-    "last_pulled_sequence INTEGER NOT NULL DEFAULT 0",
-    "last_pushed_sequence INTEGER NOT NULL DEFAULT 0",
-    "last_applied_sequence INTEGER NOT NULL DEFAULT 0",
-    "apply_state TEXT NOT NULL DEFAULT 'idle'",
-];
-
-for (const schemaDefault of requiredSchemaDefaults) {
+for (const schemaDefault of schemaContract.safeDefaults) {
     assert(productionSchema.includes(schemaDefault), `Production schema is missing safe default: ${schemaDefault}`);
 }
 
-const requiredForeignKeys = [
-    "FOREIGN KEY(user_id) REFERENCES sync_users(id)",
-    "FOREIGN KEY(project_id) REFERENCES sync_projects(id)",
-    "FOREIGN KEY(device_id) REFERENCES sync_devices(id)",
-    "FOREIGN KEY(target_environment_id) REFERENCES sync_environments(id)",
-    "FOREIGN KEY(operation_id) REFERENCES sync_operations(id)",
-];
-
-for (const foreignKey of requiredForeignKeys) {
+for (const foreignKey of schemaContract.requiredForeignKeys) {
     assert(productionSchema.includes(foreignKey), `Production schema is missing foreign key: ${foreignKey}`);
 }
 
-const requiredIndexes = [
-    "CREATE INDEX IF NOT EXISTS idx_sync_users_account",
-    "ON sync_users(account_id, lifecycle_state)",
-    "CREATE INDEX IF NOT EXISTS idx_sync_devices_user",
-    "ON sync_devices(user_id, lifecycle_state)",
-    "CREATE INDEX IF NOT EXISTS idx_sync_projects_user",
-    "ON sync_projects(user_id, migration_state, updated_at DESC)",
-    "CREATE INDEX IF NOT EXISTS idx_sync_migration_runs_user_state",
-    "ON sync_migration_runs(user_id, state, updated_at DESC)",
-    "CREATE INDEX IF NOT EXISTS idx_sync_assets_entity",
-    "ON sync_assets(project_id, entity_type, entity_id, transfer_state)",
-    "CREATE UNIQUE INDEX IF NOT EXISTS idx_sync_operations_project_sequence",
-    "ON sync_operations(project_id, server_sequence)",
-    "CREATE INDEX IF NOT EXISTS idx_sync_operations_entity",
-    "ON sync_operations(project_id, entity_type, entity_id)",
-    "CREATE INDEX IF NOT EXISTS idx_sync_operations_device",
-    "ON sync_operations(device_id, received_at)",
-    "CREATE INDEX IF NOT EXISTS idx_sync_audit_events_project_created",
-    "ON sync_audit_events(project_id, created_at DESC)",
-    "CREATE INDEX IF NOT EXISTS idx_sync_audit_events_user_created",
-    "ON sync_audit_events(user_id, created_at DESC)",
-    "PRIMARY KEY(project_id, user_id)",
-    "PRIMARY KEY(project_id, device_id)",
-    "PRIMARY KEY(project_id, entity_type, entity_id)",
-];
+for (const forbiddenClause of schemaContract.forbiddenClauses) {
+    assert(!productionSchema.includes(forbiddenClause), `Production schema must not contain forbidden clause: ${forbiddenClause}`);
+}
 
-for (const index of requiredIndexes) {
+for (const nullableColumn of schemaContract.requiredNullableColumns) {
+    assert(productionSchema.includes(nullableColumn), `Production schema is missing nullable column contract: ${nullableColumn}`);
+    assert(!productionSchema.includes(`${nullableColumn} NOT NULL`), `Production schema must keep payload/diagnostic column nullable: ${nullableColumn}`);
+}
+
+for (const nullableCheck of schemaContract.smokeNullableChecks) {
+    assert(
+        productionSchemaSmoke.includes(`defaultsResult.stdout.includes("${nullableCheck}")`),
+        `Production schema smoke is missing nullable-column coverage: ${nullableCheck}`
+    );
+}
+
+for (const sequenceScopeCheck of schemaContract.smokeSequenceScopeChecks) {
+    assert(
+        productionSchemaSmoke.includes(`defaultsResult.stdout.includes("${sequenceScopeCheck}")`),
+        `Production schema smoke is missing sequence-scope coverage: ${sequenceScopeCheck}`
+    );
+}
+
+for (const uniqueConstraint of schemaContract.uniqueConstraints) {
+    assert(productionSchema.includes(uniqueConstraint), `Production schema is missing unique constraint: ${uniqueConstraint}`);
+}
+
+for (const duplicateRejection of schemaContract.smokeDuplicateRejections) {
+    assert(
+        productionSchemaSmoke.includes(`assertConstraintFailure("${duplicateRejection}"`),
+        `Production schema smoke is missing duplicate-rejection coverage: ${duplicateRejection}`
+    );
+}
+
+for (const index of schemaContract.requiredIndexes) {
     assert(productionSchema.includes(index), `Production schema is missing lookup index contract: ${index}`);
 }
 
@@ -299,6 +279,7 @@ const requiredScripts = [
     "sync:prod:r2:create",
     "sync:prod:validate",
     "sync:prod:smoke",
+    "sync:prod:schema:smoke",
     "sync:prod:validate:all",
 ];
 
@@ -315,8 +296,12 @@ assert(
     "package.json sync:prod:smoke must run local production foundation smoke checks"
 );
 assert(
-    packageJSON.scripts["sync:prod:validate:all"] === "npm run sync:prod:validate && npm run sync:prod:smoke && sqlite3 :memory: < sql/sync_production_schema.sql",
-    "package.json sync:prod:validate:all must include smoke and SQLite schema parse validation"
+    packageJSON.scripts["sync:prod:schema:smoke"] === "node smoke-sync-production-schema.mjs",
+    "package.json sync:prod:schema:smoke must run local production schema smoke checks"
+);
+assert(
+    packageJSON.scripts["sync:prod:validate:all"] === "npm run sync:prod:validate && npm run sync:prod:smoke && npm run sync:prod:schema:smoke && sqlite3 :memory: < sql/sync_production_schema.sql",
+    "package.json sync:prod:validate:all must include Worker smoke, schema smoke, and SQLite schema parse validation"
 );
 
 for (const route of productionRoutes) {
@@ -329,6 +314,7 @@ const requiredReadmeGuidance = [
     "npm run sync:prod:d1:migrate",
     "npm run sync:prod:validate",
     "npm run sync:prod:smoke",
+    "npm run sync:prod:schema:smoke",
     "npm run sync:prod:validate:all",
     "npx wrangler secret put SYNC_PRODUCTION_TOKEN",
     "no app-side SwiftData mutation",

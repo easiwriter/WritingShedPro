@@ -1643,6 +1643,26 @@ Updated 2026-07-08, self-validated: added protected-route production DB misconfi
 
 Updated 2026-07-08, self-validated: added protected-route wrong-token coverage. `sync:prod:smoke` now sends a mismatched Bearer token to every protected production route while `SYNC_PRODUCTION_TOKEN` is configured; each route must return `401` with `Cache-Control: no-store` before DB configuration, JSON parsing, or route-specific work.
 
+Updated 2026-07-08, self-validated: added local production schema smoke validation. `npm run sync:prod:schema:smoke` loads `sql/sync_production_schema.sql` into in-memory SQLite, inserts a minimal environment/user/device/project/entitlement/cursor graph, verifies fail-closed defaults (`writes_enabled = 0`, entitlement `can_write = 0`, user consent `missing`, project migration `not_started`, cursor `idle`), and confirms foreign keys reject an orphaned device. `sync:prod:validate:all` now runs this schema smoke before the raw SQLite parse.
+
+Updated 2026-07-08, self-validated: moved production schema safety contracts into `sync-production-foundation-contract.json`. The manifest now lists required tables, safe defaults, foreign keys, and lookup indexes; `validate-sync-production-foundation.mjs` reads those manifest entries and checks `sql/sync_production_schema.sql` against them so schema drift is caught at the contract boundary.
+
+Updated 2026-07-08, self-validated: extended production schema smoke validation to prove uniqueness boundaries fail closed. The local SQLite smoke now rejects duplicate environment names, external subject hashes, rollout flags per environment, R2 asset keys, and project operation server sequences. The manifest now lists those unique constraints and the validator checks the SQL contains them.
+
+Updated 2026-07-08, self-validated: added drift protection for schema uniqueness smoke coverage. `sync-production-foundation-contract.json` now declares the required duplicate-rejection smoke labels, and `validate-sync-production-foundation.mjs` fails if `smoke-sync-production-schema.mjs` stops exercising any of them.
+
+Updated 2026-07-08, self-validated: added manifest-owned forbidden schema clauses for production D1. The production schema contract now forbids `ON DELETE CASCADE` and `ON UPDATE CASCADE`, and the validator checks the SQL stays free of those cascading relationship actions so deletion/update behavior remains explicit rather than automatic.
+
+Updated 2026-07-08, self-validated: added manifest-owned nullable payload/diagnostic column contracts. The production schema contract now requires migration summaries/progress, operation payload references, payload hashes, and audit redacted-details columns to remain nullable; the validator fails if those columns are missing or made `NOT NULL`, keeping metadata-only foundation rows possible without forcing inline payload content into D1.
+
+Updated 2026-07-08, self-validated: extended the local production schema smoke to exercise the nullable payload/diagnostic contract. The SQLite smoke now inserts a migration run without summary/progress JSON, an operation without inline payload/R2 reference/hash, and an audit event without redacted detail JSON, then asserts those columns remain `NULL`.
+
+Updated 2026-07-08, self-validated: added drift protection for nullable-column schema smoke coverage. The manifest now declares the required nullable smoke result labels, and `validate-sync-production-foundation.mjs` fails if the schema smoke stops asserting metadata-only migration, operation, or audit rows.
+
+Updated 2026-07-08, self-validated: extended the local production schema smoke to prove operation server sequences are project-scoped. The smoke inserts two operations with `server_sequence = 1` in different projects and asserts both rows exist, while the duplicate-rejection case still proves the same sequence is rejected within one project.
+
+Updated 2026-07-08, self-validated: added drift protection for project-scoped sequence smoke coverage. The manifest now declares the required `project_scoped_operation_sequences|2` smoke result, and the validator fails if the schema smoke stops asserting it.
+
 Added 2026-07-08, self-validated: `POST /api/sync/production/v1/apply/preflight` added as the first production-applier boundary route. It requires `SYNC_PRODUCTION_TOKEN`, validates operation-window shape, checks existing production user/device/project/entitlement/cursor rows, and reports blockers for cursor mismatch, unavailable project writes, pending dependencies/assets, or unimplemented SwiftData apply. It performs no D1 write, does not mutate app SwiftData, always reports `readyToApply: false`, and blocks cursor advancement until a flagged SwiftData applier exists and commits successfully.
 
 Added 2026-07-08, self-validated: `POST /api/sync/production/v1/orchestrator/eligibility` added as the first lifecycle-orchestrator boundary route. It requires `SYNC_PRODUCTION_TOKEN`, validates launch/foreground/network-recovery/silent-push/background-refresh/manual trigger eligibility against existing production user/device/project/entitlement/cursor rows and caller-supplied app/network state. It performs no writes, schedules no lifecycle work, does not apply operations, always reports `eligibleToRun: false`, and blocks orchestration until production rollout gates and a flagged SwiftData applier exist.
