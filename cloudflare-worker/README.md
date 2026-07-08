@@ -105,6 +105,18 @@ curl http://localhost:8787/api/sync/v1/health
 
 The production sync foundation starts with D1/R2 resources that are separate from the scratch POC resources above. The schema in `sql/sync_production_schema.sql` defines users, devices, projects, entitlements, migration runs, operations, cursors, tombstones, assets, rollout flags, audit events, and support actions. It is a server foundation only: no app-side SwiftData mutation is wired to this schema yet.
 
+As of 2026-07-08, the Cloudflare sync POC is complete for scratch-only validation. The scratch POC proves change detection, dry-run apply planning, dependency ordering, scratch materialization, trigger dry-run policy, and cursor behavior without writing production SwiftData or replacing CloudKit authority.
+
+The production foundation is complete as a fail-closed contract boundary, not as a shipping sync implementation. Production routes are read-only/preflight-only and must keep D1 writes, R2 writes/uploads, SwiftData mutation, cursor advancement, lifecycle scheduling, and rollout enablement disabled until the next production implementation phase verifies each capability behind explicit flags.
+
+Production implementation entry checklist:
+
+- Keep CloudKit as the active production sync authority until migration/cutover is explicitly implemented and verified.
+- Start with disabled-by-default identity/enrollment, entitlement, migration planning, asset transfer, and applier components.
+- Add focused executable validation for each component before wiring lifecycle triggers or enabling production writes.
+- Keep production SwiftData mutation behind local feature flags, remote kill switches, compatibility checks, audit trails, and rollback drills.
+- Preserve the no-local-store-deletion rule for every failure and recovery path.
+
 Create production resources only when intentionally starting the production implementation phase:
 
 ```bash

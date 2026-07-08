@@ -1,14 +1,22 @@
 # Phase 4: Change Detection and Sync Wakeups
 
 **Date**: 2026-07-04  
-**Status**: Phase 5 scratch-only apply coverage verified for create/restore-missing, update-existing, and existing-local delete/restore guardrails  
-**Scope**: Cheap remote change detection before production notification plumbing
+**Status**: Scratch-only POC complete; production foundation is fail-closed and ready for the next disabled-by-default implementation phase
+**Scope**: Change detection, dry-run apply planning, scratch materialization, trigger policy, and production-readiness contracts
 
 ## Purpose
 
 Define how the completed Cloudflare sync path knows there is data to pull.
 
 Silent push notifications can make sync feel immediate, but Apple does not guarantee delivery. The durable mechanism must be cursor-based: every device remembers the latest applied server sequence and can ask the Worker whether the project sequence has advanced.
+
+## POC Completion Checkpoint
+
+As of 2026-07-08, the Cloudflare sync POC is complete for scratch-only validation. It proves the durable head/peek/pull shape, dry-run apply planning, dependency ordering, scratch materialization, trigger dry-run policy, and fail-closed guardrails without mutating production SwiftData or replacing CloudKit authority.
+
+The production foundation is also complete as a read-only contract boundary. Worker routes under `/api/sync/production/v1` are separate from scratch POC routes, use separate production bindings, and remain disabled by default: no D1 writes, no R2 writes/uploads, no SwiftData mutation, no cursor advancement, no lifecycle scheduling, and no rollout enablement. Local validation is manifest-driven and no-Cloudflare by default.
+
+Completion does not mean production sync is ready to ship. The next phase is production implementation behind hard flags, starting with disabled-by-default identity/enrollment and migration/asset/applier components that are verified independently before lifecycle wiring.
 
 ## Production Readiness Matrix
 
@@ -1716,6 +1724,8 @@ Updated 2026-07-08, self-validated: added route smoke mock SQL safety guards. Th
 Updated 2026-07-08, self-validated: added R2 write-trap method guards. The validator now requires route smoke's no-write blob mock to trap `put`, `delete`, `createMultipartUpload`, and `resumeMultipartUpload`, keeping asset preflight smoke explicitly no-upload/no-delete.
 
 Updated 2026-07-08, self-validated: added policy-limit route smoke guards. The validator now requires route smoke to exercise `productionContract.policy.maxAssetManifestItems + 1` and `productionContract.policy.maxApplyWindowOperations + 1`, including the expected oversized-manifest and oversized-apply-window error strings.
+
+Added 2026-07-08, self-validated: POC completion checkpoint recorded. The scratch-only Cloudflare sync POC is complete for validation of head/peek/pull shape, dry-run apply planning, dependency ordering, scratch materialization, trigger policy, cursor behavior, and production-readiness contracts. The production foundation is complete only as a fail-closed contract boundary; production sync implementation still begins next behind hard flags and focused executable validation.
 
 Updated 2026-07-08, self-validated: extended the package-script local-safety guard to block HTTP escape hatches. Production validation, smoke, and parse npm scripts now fail validation if they include `curl` or `http` in addition to `wrangler` or `--remote`.
 
