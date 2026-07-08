@@ -630,6 +630,118 @@ final class CloudflareSyncPOCService {
     }
 
     @MainActor
+    func productionApplyBackpressureSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply backpressure: Cloudflare production apply must not be enabled until large operation windows, rate limits, repeated failures, low disk space, and long-running imports can pause safely before mutation. A production applier must bound batch size, preserve the current cursor while paused, expose retry-after and blocked reason in diagnostics, and resume from the same remote window without duplicate writes or cursor drift. Backpressure must never trigger local store deletion or automatic destructive recovery. Until backpressure is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyPrivacyRedactionSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply privacy redaction: Cloudflare production apply must not be enabled until logs, audit records, diagnostics, and support exports prove they do not expose document content, private notes, manuscript text, or attachment payloads. Production diagnostics must prefer ids, counts, cursors, model-family names, error codes, and redacted summaries, with explicit review before any sample payload or merge conflict detail is surfaced. Privacy failures must fail closed before mutation and before export. Until privacy redaction is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyAuthorizationScopeSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply authorization scope: Cloudflare production apply must not be enabled until credentials, project ownership, token revocation, and least-privilege access are verified before mutation. A production applier must prove that the current user and device may read the remote window and mutate the target local project, reject cross-project or stale-token operations, handle revoked credentials without cursor advancement, and keep authorization failures visible in diagnostics without exposing secrets. Until authorization scope is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyMigrationProgressSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply migration progress: Cloudflare production apply must not be enabled until first-launch CloudKit-to-Cloudflare migration has a user-visible progress experience. The app must tell the user that existing CloudKit data is being prepared for the new sync system, show bounded progress such as scanning, uploading, verifying, and finishing stages, keep writing disabled or clearly guarded while authority is changing, and provide a safe retry or support path if migration pauses or fails. Progress must be recoverable after relaunch and must not require deleting the local store. Until migration progress is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionApplyMigrationPreflightSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production apply migration preflight: Cloudflare production apply must not be enabled until first-launch CloudKit-to-Cloudflare migration proves prerequisites before upload or local mutation. The migration path must verify CloudKit account availability, local store readability, schema compatibility, sufficient disk and network conditions, remote workspace ownership, feature-flag eligibility, and a durable rollback or resume marker before changing sync authority. Any failed preflight must leave CloudKit as the active sync path, keep the Cloudflare cursor unchanged, and show a recoverable user/support status. Until migration preflight is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionUserCountingSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production user counting: Cloudflare production sync must not be enabled until the backend records a privacy-safe stable user or account identity when a user enrolls in the sync system. The production plan must distinguish total enrolled users from active users using minimal operational metadata such as creation time, last-seen time, sync eligibility state, and optional device count, without depending on document records, manuscript text, project names, attachment payloads, or support logs. User-count reporting must be available to diagnostics or admin tooling without exposing secrets or private writing content. Until user counting is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionUserLifecycleSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production user lifecycle: Cloudflare production sync must not be enabled until user/account records have explicit lifecycle rules. The production plan must define enrollment, active and inactive status, device association and replacement, token revocation, account deletion or sync opt-out, and how merged or duplicate device identities affect user counts. Lifecycle transitions must preserve auditability, avoid exposing private writing content, and stop future sync access for revoked or deleted users without deleting local data automatically. Until user lifecycle is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionServerSchemaReadinessSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production server schema readiness: Cloudflare production sync must not begin until the Worker and D1 schema can represent the full production sync contract. The backend schema must cover users, devices, projects, operation logs, cursors, tombstones, attachments or asset references, audit records, rollout state, and migration state with stable ids, versioned payload formats, dependency ordering, and privacy-safe indexes for diagnostics. Schema migrations must be forward-compatible, reversible or safely pausable, and deployed before any app build can write production sync data. Until server schema readiness is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionTestHarnessReadinessSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production test harness readiness: Cloudflare production sync must not begin until repeatable end-to-end tests cover the migration and sync paths that can mutate real data. The production test plan must exercise first-launch CloudKit migration, single-device sync, two-device convergence, offline retry, rate limiting, conflict handling, token revocation, failed migration recovery, large project payloads, attachment or asset transfer, and cursor rollback after failures. Tests must prove that no failure path deletes the local store automatically or advances a cursor before durable commit. Until test harness readiness is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionAssetStorageReadinessSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production asset storage readiness: Cloudflare production sync must not begin until attachment and large payload storage is explicitly designed and tested. The production plan must define how cover images, formatted content blobs, undo/redo data, reference attachments, and other large assets move between SwiftData, Cloudflare storage, and local cache using stable asset ids, checksums, content length validation, resumable transfer, retry limits, deduplication, deletion semantics, and privacy-safe diagnostics. Asset failures must block cursor advancement without deleting local data or orphaning metadata. Until asset storage readiness is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionOperationsMonitoringSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production operations monitoring: Cloudflare production sync must not begin until operational metrics, alerts, and support visibility are defined. The production plan must track Worker errors, D1 and asset-store failures, rate limits, migration success and failure counts, active users, operation backlog, cursor lag, retry volume, storage growth, and cost-sensitive usage without logging private writing content. Alerts must identify stuck migrations, repeated cursor failures, elevated error rates, quota pressure, and disabled rollout states with enough redacted context for support to respond. Until operations monitoring is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionDataRetentionSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production data retention: Cloudflare production sync must not begin until retention and deletion rules are defined for user records, devices, operation logs, cursors, audit records, tombstones, migration state, diagnostics, and stored assets. The production plan must specify what is kept for sync correctness, what expires, what is removed on account deletion or sync opt-out, how tombstones age out without resurrecting deleted data, and how support exports avoid private writing content. Retention failures must fail closed before production writes and must not delete local data automatically. Until data retention is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionEnvironmentSeparationSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production environment separation: Cloudflare production sync must not begin until development, staging, and production environments are isolated and visibly identifiable. The production plan must use separate Worker routes, D1 databases, asset buckets, secrets, debug tokens, rollout flags, and diagnostics labels so test traffic, scratch POC data, and manual probes cannot write to production sync storage. App builds must fail closed when environment configuration is missing, mixed, or unsupported, and support exports must show the active environment without exposing secrets. Until environment separation is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionUserConsentSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production user consent: Cloudflare production sync must not begin until user-facing consent, disclosure, and opt-out behavior are defined for the CloudKit-to-Cloudflare transition. The production plan must explain what data will be prepared for the new sync system, what backend will store sync metadata and assets, how privacy-sensitive writing content is protected, whether migration is required or optional, how a user can pause or decline migration, and what happens to existing CloudKit sync. Consent state must be durable, support-visible, and fail closed before migration or production writes when missing or revoked. Until user consent is verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionSupportRunbookSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production support runbook: Cloudflare production sync must not begin until support and incident-response procedures are documented and tested. The production plan must define how support diagnoses stuck migrations, cursor lag, repeated Worker or D1 failures, asset transfer failures, token revocation, consent withdrawal, environment misconfiguration, and user-reported missing data using redacted diagnostics. Runbooks must include escalation steps, kill-switch use, safe retry, rollback or pause actions, and clear prohibitions against deleting local stores or private writing content as a recovery shortcut. Until support runbooks are verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
+    func productionQuotaCostControlsSummary() -> CloudflareSyncPOCResult {
+        CloudflareSyncPOCResult(
+            message: "Production quota and cost controls: Cloudflare production sync must not begin until per-user, per-device, per-project, and per-account limits are defined and enforced. The production plan must bound operation volume, asset storage, request rate, migration batch size, retry behavior, background activity, and diagnostic export size with clear user/support messaging when limits are reached. Cost guardrails must include budget monitoring, abuse prevention, rate-limit backoff, rollout throttles, and a kill switch that pauses production writes without deleting local data or advancing cursors. Until quota and cost controls are verified, this POC remains scratch-only with no production SwiftData apply. This did not contact the Worker and did not read or write scratch or production local data."
+        )
+    }
+
+    @MainActor
     func launchPolicySummary() -> CloudflareSyncPOCResult {
         CloudflareSyncPOCResult(
             message: "Launch policy: trigger launch is supported and not debounced. Production use should run once after the model container, debug token, and project selection are available. This POC does not wire automatic launch sync; the diagnostics button is manual only. Launch remains head-first with a cheap up-to-date exit, scratch-only materialization, no production SwiftData apply, and no Worker contact for this policy summary."

@@ -1427,6 +1427,86 @@ struct SyncDiagnosticsView: View {
             }
             .disabled(isCloudflareSyncPOCRunning)
 
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Backpressure") {
+                runCloudflareSyncPOCProductionApplyBackpressureSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Privacy Redaction") {
+                runCloudflareSyncPOCProductionApplyPrivacyRedactionSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Authorization Scope") {
+                runCloudflareSyncPOCProductionApplyAuthorizationScopeSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Migration Progress") {
+                runCloudflareSyncPOCProductionApplyMigrationProgressSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Apply Migration Preflight") {
+                runCloudflareSyncPOCProductionApplyMigrationPreflightSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production User Counting") {
+                runCloudflareSyncPOCProductionUserCountingSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production User Lifecycle") {
+                runCloudflareSyncPOCProductionUserLifecycleSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Server Schema Readiness") {
+                runCloudflareSyncPOCProductionServerSchemaReadinessSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Test Harness Readiness") {
+                runCloudflareSyncPOCProductionTestHarnessReadinessSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Asset Storage Readiness") {
+                runCloudflareSyncPOCProductionAssetStorageReadinessSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Operations Monitoring") {
+                runCloudflareSyncPOCProductionOperationsMonitoringSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Data Retention") {
+                runCloudflareSyncPOCProductionDataRetentionSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Environment Separation") {
+                runCloudflareSyncPOCProductionEnvironmentSeparationSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production User Consent") {
+                runCloudflareSyncPOCProductionUserConsentSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Support Runbook") {
+                runCloudflareSyncPOCProductionSupportRunbookSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
+            Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Production Quota And Cost Controls") {
+                runCloudflareSyncPOCProductionQuotaCostControlsSummary()
+            }
+            .disabled(isCloudflareSyncPOCRunning)
+
             Button(isCloudflareSyncPOCRunning ? "Running…" : "Show Launch Policy") {
                 runCloudflareSyncPOCLaunchPolicySummary()
             }
@@ -2451,6 +2531,246 @@ struct SyncDiagnosticsView: View {
         Task {
             let result = await MainActor.run {
                 CloudflareSyncPOCService.shared.productionApplyVisibleStateSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyBackpressureSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply backpressure…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyBackpressureSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyPrivacyRedactionSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply privacy redaction…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyPrivacyRedactionSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyAuthorizationScopeSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply authorization scope…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyAuthorizationScopeSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyMigrationProgressSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply migration progress…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyMigrationProgressSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionApplyMigrationPreflightSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production apply migration preflight…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionApplyMigrationPreflightSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionUserCountingSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production user counting…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionUserCountingSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionUserLifecycleSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production user lifecycle…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionUserLifecycleSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionServerSchemaReadinessSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production server schema readiness…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionServerSchemaReadinessSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionTestHarnessReadinessSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production test harness readiness…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionTestHarnessReadinessSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionAssetStorageReadinessSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production asset storage readiness…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionAssetStorageReadinessSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionOperationsMonitoringSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production operations monitoring…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionOperationsMonitoringSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionDataRetentionSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production data retention…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionDataRetentionSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionEnvironmentSeparationSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production environment separation…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionEnvironmentSeparationSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionUserConsentSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production user consent…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionUserConsentSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionSupportRunbookSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production support runbook…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionSupportRunbookSummary()
+            }
+            await MainActor.run {
+                cloudflareSyncPOCStatus = "✅ \(result.message)"
+                isCloudflareSyncPOCRunning = false
+            }
+        }
+    }
+
+    private func runCloudflareSyncPOCProductionQuotaCostControlsSummary() {
+        isCloudflareSyncPOCRunning = true
+        cloudflareSyncPOCStatus = "Loading Cloudflare sync POC production quota and cost controls…"
+
+        Task {
+            let result = await MainActor.run {
+                CloudflareSyncPOCService.shared.productionQuotaCostControlsSummary()
             }
             await MainActor.run {
                 cloudflareSyncPOCStatus = "✅ \(result.message)"
