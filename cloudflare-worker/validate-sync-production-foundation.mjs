@@ -396,6 +396,17 @@ for (const routeSmokeAssertion of requiredRouteSmokeGateAssertions) {
 }
 
 const requiredRouteSmokeBlockers = [
+    "production_identity_enrollment_not_implemented",
+    "consent_not_acknowledged",
+    "backup_export_not_verified",
+    "user_not_registered",
+    "device_not_registered",
+    "consent_not_granted",
+    "user_revoked_or_deleted",
+    "device_revoked",
+    "production_project_entitlement_writer_not_implemented",
+    "project_not_registered",
+    "project_entitlement_revoked",
     "production_blob_storage_not_configured",
     "production_swiftdata_applier_not_implemented",
     "production_orchestrator_not_wired",
@@ -462,6 +473,11 @@ for (const schemaSmokeAssertion of requiredSchemaSmokeInvariantAssertions) {
 }
 
 const requiredRouteSmokeReadinessFields = [
+    "readyToEnrollUser",
+    "readyToRegisterDevice",
+    "readyToCreateProjectEntitlements",
+    "readyToGrantProjectEntitlement",
+    "readyToUpdateProjectEntitlement",
     "readyToPlanMigration",
     "readyToApplyMigration",
     "readyToTransferAssets",
@@ -491,6 +507,15 @@ for (const policyLimitCheck of requiredRouteSmokePolicyLimitChecks) {
 
 const requiredRouteSmokeReadOnlyQueryAssertions = [
     "identityCheckDb.preparedStatements.length, 3",
+    "identityEnrollmentDb.preparedStatements.length, 2",
+    "identityEnrollmentMissingEvidenceDb.preparedStatements.length, 2",
+    "unregisteredIdentityEnrollmentDb.preparedStatements.length, 1",
+    "revokedIdentityEnrollmentDb.preparedStatements.length, 2",
+    "entitlementsPreflightDb.preparedStatements.length, 4",
+    "missingProjectEntitlementsDb.preparedStatements.length, 4",
+    "unregisteredEntitlementsDb.preparedStatements.length, 1",
+    "consentMissingEntitlementsDb.preparedStatements.length, 4",
+    "revokedEntitlementsDb.preparedStatements.length, 4",
     "migrationPreflightDb.preparedStatements.length, 4",
     "assetPreflightDb.preparedStatements.length, 4",
     "assetReadyDb.preparedStatements.length, 4",

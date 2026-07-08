@@ -155,6 +155,26 @@
       "requiredDocs": ["performs no writes"]
     },
     {
+      "route": "/identity/enrollment/preflight",
+      "method": "POST",
+      "public": false,
+      "requiresAuth": true,
+      "requiresProductionDb": true,
+      "requiresProductionBlobs": false,
+      "requiredSource": ["readyToEnrollUser: false", "readyToRegisterDevice: false", "production_identity_enrollment_not_implemented"],
+      "requiredDocs": ["performs no writes", "readyToEnrollUser: false"]
+    },
+    {
+      "route": "/entitlements/preflight",
+      "method": "POST",
+      "public": false,
+      "requiresAuth": true,
+      "requiresProductionDb": true,
+      "requiresProductionBlobs": false,
+      "requiredSource": ["readyToGrantProjectEntitlement: false", "readyToUpdateProjectEntitlement: false", "production_project_entitlement_writer_not_implemented"],
+      "requiredDocs": ["performs no writes", "readyToGrantProjectEntitlement: false"]
+    },
+    {
       "route": "/migration/preflight",
       "method": "POST",
       "public": false,

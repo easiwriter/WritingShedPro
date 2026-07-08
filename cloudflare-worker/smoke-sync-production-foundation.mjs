@@ -13,6 +13,8 @@ const routeSpecificSmokeCoverage = new Set([
     "/health",
     "/users/summary",
     "/identity/check",
+    "/identity/enrollment/preflight",
+    "/entitlements/preflight",
     "/migration/preflight",
     "/assets/preflight",
     "/apply/preflight",
@@ -149,6 +151,301 @@ function makeIdentityCheckDb() {
         batch: forbiddenMutation,
         exec: forbiddenMutation,
         dump: forbiddenMutation,
+    };
+}
+
+function makeIdentityEnrollmentPreflightDb() {
+    const preparedStatements = [];
+    const forbiddenMutation = () => {
+        throw new Error("Production identity enrollment smoke DB mock received a mutation call");
+    };
+
+    return {
+        preparedStatements,
+        prepare(sql) {
+            preparedStatements.push(sql);
+            assert.match(sql, /^\s*SELECT\b/i, "Production identity enrollment preflight must only prepare SELECT statements");
+            assert.doesNotMatch(sql, /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE)\b/i, "Production identity enrollment preflight must not prepare mutation SQL");
+
+            return {
+                bind() {
+                    return this;
+                },
+                async first() {
+                    if (sql.includes("FROM sync_users")) {
+                        return {
+                            id: "user-1",
+                            account_id: "account-1",
+                            consent_state: "granted",
+                            lifecycle_state: "active",
+                            revoked_at: null,
+                            deleted_at: null,
+                        };
+                    }
+                    if (sql.includes("FROM sync_devices")) {
+                        return {
+                            id: "device-1",
+                            lifecycle_state: "active",
+                            revoked_at: null,
+                        };
+                    }
+                    throw new Error(`Unexpected identity enrollment preflight query: ${sql}`);
+                },
+                all: forbiddenMutation,
+                run: forbiddenMutation,
+                raw: forbiddenMutation,
+            };
+        },
+        batch: forbiddenMutation,
+        exec: forbiddenMutation,
+        dump: forbiddenMutation,
+    };
+}
+
+function makeUnregisteredIdentityEnrollmentPreflightDb() {
+    const db = makeIdentityEnrollmentPreflightDb();
+    const originalPrepare = db.prepare.bind(db);
+
+    return {
+        preparedStatements: db.preparedStatements,
+        prepare(sql) {
+            const statement = originalPrepare(sql);
+
+            return {
+                ...statement,
+                async first() {
+                    if (sql.includes("FROM sync_users")) {
+                        return null;
+                    }
+                    throw new Error(`Unexpected unregistered identity enrollment preflight query: ${sql}`);
+                },
+            };
+        },
+        batch: db.batch,
+        exec: db.exec,
+        dump: db.dump,
+    };
+}
+
+function makeRevokedIdentityEnrollmentPreflightDb() {
+    const preparedStatements = [];
+    const forbiddenMutation = () => {
+        throw new Error("Production revoked identity enrollment smoke DB mock received a mutation call");
+    };
+
+    return {
+        preparedStatements,
+        prepare(sql) {
+            preparedStatements.push(sql);
+            assert.match(sql, /^\s*SELECT\b/i, "Production revoked identity enrollment preflight must only prepare SELECT statements");
+            assert.doesNotMatch(sql, /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE)\b/i, "Production revoked identity enrollment preflight must not prepare mutation SQL");
+
+            return {
+                bind() {
+                    return this;
+                },
+                async first() {
+                    if (sql.includes("FROM sync_users")) {
+                        return {
+                            id: "user-1",
+                            account_id: "account-1",
+                            consent_state: "granted",
+                            lifecycle_state: "active",
+                            revoked_at: "2026-07-08T00:00:00Z",
+                            deleted_at: null,
+                        };
+                    }
+                    if (sql.includes("FROM sync_devices")) {
+                        return {
+                            id: "device-1",
+                            lifecycle_state: "active",
+                            revoked_at: "2026-07-08T00:00:00Z",
+                        };
+                    }
+                    throw new Error(`Unexpected revoked identity enrollment preflight query: ${sql}`);
+                },
+                all: forbiddenMutation,
+                run: forbiddenMutation,
+                raw: forbiddenMutation,
+            };
+        },
+        batch: forbiddenMutation,
+        exec: forbiddenMutation,
+        dump: forbiddenMutation,
+    };
+}
+
+function makeEntitlementsPreflightDb() {
+    const preparedStatements = [];
+    const forbiddenMutation = () => {
+        throw new Error("Production entitlement smoke DB mock received a mutation call");
+    };
+
+    return {
+        preparedStatements,
+        prepare(sql) {
+            preparedStatements.push(sql);
+            assert.match(sql, /^\s*SELECT\b/i, "Production entitlements preflight must only prepare SELECT statements");
+            assert.doesNotMatch(sql, /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE)\b/i, "Production entitlements preflight must not prepare mutation SQL");
+
+            return {
+                bind() {
+                    return this;
+                },
+                async first() {
+                    if (sql.includes("FROM sync_users")) {
+                        return {
+                            id: "user-1",
+                            consent_state: "granted",
+                            lifecycle_state: "active",
+                            revoked_at: null,
+                            deleted_at: null,
+                        };
+                    }
+                    if (sql.includes("FROM sync_devices")) {
+                        return {
+                            id: "device-1",
+                            lifecycle_state: "active",
+                            revoked_at: null,
+                        };
+                    }
+                    if (sql.includes("FROM sync_projects")) {
+                        return {
+                            id: "project-1",
+                            migration_state: "ready",
+                            writes_enabled: 0,
+                            archived_at: null,
+                        };
+                    }
+                    if (sql.includes("FROM sync_project_entitlements")) {
+                        return {
+                            role: "owner",
+                            can_read: 1,
+                            can_write: 1,
+                            revoked_at: null,
+                        };
+                    }
+                    throw new Error(`Unexpected entitlements preflight query: ${sql}`);
+                },
+                all: forbiddenMutation,
+                run: forbiddenMutation,
+                raw: forbiddenMutation,
+            };
+        },
+        batch: forbiddenMutation,
+        exec: forbiddenMutation,
+        dump: forbiddenMutation,
+    };
+}
+
+function makeMissingProjectEntitlementsPreflightDb() {
+    const db = makeEntitlementsPreflightDb();
+    const originalPrepare = db.prepare.bind(db);
+
+    return {
+        preparedStatements: db.preparedStatements,
+        prepare(sql) {
+            const statement = originalPrepare(sql);
+
+            return {
+                ...statement,
+                async first() {
+                    if (sql.includes("FROM sync_projects") || sql.includes("FROM sync_project_entitlements")) {
+                        return null;
+                    }
+                    return statement.first();
+                },
+            };
+        },
+        batch: db.batch,
+        exec: db.exec,
+        dump: db.dump,
+    };
+}
+
+function makeUnregisteredEntitlementsPreflightDb() {
+    const db = makeEntitlementsPreflightDb();
+    const originalPrepare = db.prepare.bind(db);
+
+    return {
+        preparedStatements: db.preparedStatements,
+        prepare(sql) {
+            const statement = originalPrepare(sql);
+
+            return {
+                ...statement,
+                async first() {
+                    if (sql.includes("FROM sync_users")) {
+                        return null;
+                    }
+                    throw new Error(`Unexpected unregistered entitlements preflight query: ${sql}`);
+                },
+            };
+        },
+        batch: db.batch,
+        exec: db.exec,
+        dump: db.dump,
+    };
+}
+
+function makeConsentMissingEntitlementsPreflightDb() {
+    const db = makeEntitlementsPreflightDb();
+    const originalPrepare = db.prepare.bind(db);
+
+    return {
+        preparedStatements: db.preparedStatements,
+        prepare(sql) {
+            const statement = originalPrepare(sql);
+
+            return {
+                ...statement,
+                async first() {
+                    if (sql.includes("FROM sync_users")) {
+                        return {
+                            id: "user-1",
+                            consent_state: "missing",
+                            lifecycle_state: "active",
+                            revoked_at: null,
+                            deleted_at: null,
+                        };
+                    }
+                    return statement.first();
+                },
+            };
+        },
+        batch: db.batch,
+        exec: db.exec,
+        dump: db.dump,
+    };
+}
+
+function makeRevokedEntitlementsPreflightDb() {
+    const db = makeEntitlementsPreflightDb();
+    const originalPrepare = db.prepare.bind(db);
+
+    return {
+        preparedStatements: db.preparedStatements,
+        prepare(sql) {
+            const statement = originalPrepare(sql);
+
+            return {
+                ...statement,
+                async first() {
+                    if (sql.includes("FROM sync_project_entitlements")) {
+                        return {
+                            role: "owner",
+                            can_read: 1,
+                            can_write: 1,
+                            revoked_at: "2026-07-08T00:00:00Z",
+                        };
+                    }
+                    return statement.first();
+                },
+            };
+        },
+        batch: db.batch,
+        exec: db.exec,
+        dump: db.dump,
     };
 }
 
@@ -896,6 +1193,283 @@ assert.deepEqual(identityReadOnlyBody, {
     version: "2026-07-08-foundation-v1",
 });
 assert.equal(identityCheckDb.preparedStatements.length, 3, "Identity check should only query user, device, and entitlement readiness");
+
+const identityEnrollmentDb = makeIdentityEnrollmentPreflightDb();
+const identityEnrollmentResponse = await worker.fetch(
+    makeRequest("/identity/enrollment/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            consentAcknowledged: true,
+            backupExportVerified: true,
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: identityEnrollmentDb,
+    }
+);
+const identityEnrollmentBody = await readJson(identityEnrollmentResponse);
+assert.equal(identityEnrollmentResponse.status, 200, "Identity enrollment preflight must return blockers without creating identity records");
+assert.equal(identityEnrollmentResponse.headers.get("Cache-Control"), "no-store", "Identity enrollment preflight response must be no-store");
+assert.equal(identityEnrollmentBody.readyToEnrollUser, false, "Identity enrollment preflight must not enroll users in the foundation phase");
+assert.equal(identityEnrollmentBody.readyToRegisterDevice, false, "Identity enrollment preflight must not register devices in the foundation phase");
+assert.equal(identityEnrollmentBody.readyToCreateProjectEntitlements, false, "Identity enrollment preflight must not create entitlements in the foundation phase");
+assert.equal(identityEnrollmentBody.userAlreadyRegistered, true, "Identity enrollment preflight may report existing user state");
+assert.equal(identityEnrollmentBody.deviceAlreadyRegistered, true, "Identity enrollment preflight may report existing device state");
+assert.equal(identityEnrollmentBody.writesEnabled, false, "Identity enrollment preflight must keep writes disabled");
+assert.equal(identityEnrollmentBody.appMutationEnabled, false, "Identity enrollment preflight must keep app mutation disabled");
+assert.deepEqual(identityEnrollmentBody.blockers, ["production_identity_enrollment_not_implemented"]);
+assert.equal(identityEnrollmentBody.nextStep, "implement_disabled_identity_enrollment_writer", "Identity enrollment preflight must point at a disabled future writer");
+assert.equal(identityEnrollmentDb.preparedStatements.length, 2, "Identity enrollment preflight should only query user and device readiness");
+
+const identityEnrollmentMissingEvidenceDb = makeIdentityEnrollmentPreflightDb();
+const identityEnrollmentMissingEvidenceResponse = await worker.fetch(
+    makeRequest("/identity/enrollment/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            consentAcknowledged: false,
+            backupExportVerified: false,
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: identityEnrollmentMissingEvidenceDb,
+    }
+);
+const identityEnrollmentMissingEvidenceBody = await readJson(identityEnrollmentMissingEvidenceResponse);
+assert.equal(identityEnrollmentMissingEvidenceResponse.status, 200, "Identity enrollment preflight must report missing evidence as blockers without writing");
+assert.equal(identityEnrollmentMissingEvidenceResponse.headers.get("Cache-Control"), "no-store", "Identity enrollment missing-evidence response must be no-store");
+assert.equal(identityEnrollmentMissingEvidenceBody.readyToEnrollUser, false, "Identity enrollment missing-evidence path must not enroll users");
+assert.equal(identityEnrollmentMissingEvidenceBody.readyToRegisterDevice, false, "Identity enrollment missing-evidence path must not register devices");
+assert.equal(identityEnrollmentMissingEvidenceBody.writesEnabled, false, "Identity enrollment missing-evidence path must keep writes disabled");
+assert.equal(identityEnrollmentMissingEvidenceBody.appMutationEnabled, false, "Identity enrollment missing-evidence path must keep app mutation disabled");
+assert.deepEqual(identityEnrollmentMissingEvidenceBody.blockers, [
+    "production_identity_enrollment_not_implemented",
+    "consent_not_acknowledged",
+    "backup_export_not_verified",
+]);
+assert.equal(identityEnrollmentMissingEvidenceDb.preparedStatements.length, 2, "Identity enrollment missing-evidence path should only query user and device readiness");
+
+const unregisteredIdentityEnrollmentDb = makeUnregisteredIdentityEnrollmentPreflightDb();
+const unregisteredIdentityEnrollmentResponse = await worker.fetch(
+    makeRequest("/identity/enrollment/preflight", {
+        body: {
+            userSubjectHash: "new-subject-1",
+            deviceId: "new-device-1",
+            consentAcknowledged: true,
+            backupExportVerified: true,
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: unregisteredIdentityEnrollmentDb,
+    }
+);
+const unregisteredIdentityEnrollmentBody = await readJson(unregisteredIdentityEnrollmentResponse);
+assert.equal(unregisteredIdentityEnrollmentResponse.status, 200, "Identity enrollment preflight must not auto-create unregistered users");
+assert.equal(unregisteredIdentityEnrollmentResponse.headers.get("Cache-Control"), "no-store", "Identity enrollment unregistered response must be no-store");
+assert.equal(unregisteredIdentityEnrollmentBody.readyToEnrollUser, false, "Identity enrollment unregistered path must keep enrollment disabled");
+assert.equal(unregisteredIdentityEnrollmentBody.readyToRegisterDevice, false, "Identity enrollment unregistered path must keep device registration disabled");
+assert.equal(unregisteredIdentityEnrollmentBody.readyToCreateProjectEntitlements, false, "Identity enrollment unregistered path must keep entitlement creation disabled");
+assert.equal(unregisteredIdentityEnrollmentBody.userAlreadyRegistered, false, "Identity enrollment unregistered path must report missing user state");
+assert.equal(unregisteredIdentityEnrollmentBody.deviceAlreadyRegistered, false, "Identity enrollment unregistered path must report missing device state");
+assert.equal(unregisteredIdentityEnrollmentBody.writesEnabled, false, "Identity enrollment unregistered path must keep writes disabled");
+assert.equal(unregisteredIdentityEnrollmentBody.appMutationEnabled, false, "Identity enrollment unregistered path must keep app mutation disabled");
+assert.deepEqual(unregisteredIdentityEnrollmentBody.blockers, ["production_identity_enrollment_not_implemented"]);
+assert.equal(unregisteredIdentityEnrollmentDb.preparedStatements.length, 1, "Identity enrollment unregistered path should only query user readiness");
+
+const revokedIdentityEnrollmentDb = makeRevokedIdentityEnrollmentPreflightDb();
+const revokedIdentityEnrollmentResponse = await worker.fetch(
+    makeRequest("/identity/enrollment/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            consentAcknowledged: true,
+            backupExportVerified: true,
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: revokedIdentityEnrollmentDb,
+    }
+);
+const revokedIdentityEnrollmentBody = await readJson(revokedIdentityEnrollmentResponse);
+assert.equal(revokedIdentityEnrollmentResponse.status, 200, "Identity enrollment preflight must report revoked identity blockers without writing");
+assert.equal(revokedIdentityEnrollmentResponse.headers.get("Cache-Control"), "no-store", "Identity enrollment revoked response must be no-store");
+assert.equal(revokedIdentityEnrollmentBody.readyToEnrollUser, false, "Identity enrollment revoked path must keep enrollment disabled");
+assert.equal(revokedIdentityEnrollmentBody.readyToRegisterDevice, false, "Identity enrollment revoked path must keep device registration disabled");
+assert.equal(revokedIdentityEnrollmentBody.readyToCreateProjectEntitlements, false, "Identity enrollment revoked path must keep entitlement creation disabled");
+assert.equal(revokedIdentityEnrollmentBody.writesEnabled, false, "Identity enrollment revoked path must keep writes disabled");
+assert.equal(revokedIdentityEnrollmentBody.appMutationEnabled, false, "Identity enrollment revoked path must keep app mutation disabled");
+assert.deepEqual(revokedIdentityEnrollmentBody.blockers, [
+    "production_identity_enrollment_not_implemented",
+    "user_revoked_or_deleted",
+    "device_revoked",
+]);
+assert.equal(revokedIdentityEnrollmentDb.preparedStatements.length, 2, "Identity enrollment revoked path should only query user and device readiness");
+
+const entitlementsPreflightDb = makeEntitlementsPreflightDb();
+const entitlementsPreflightResponse = await worker.fetch(
+    makeRequest("/entitlements/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            requestedRole: "owner",
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: entitlementsPreflightDb,
+    }
+);
+const entitlementsPreflightBody = await readJson(entitlementsPreflightResponse);
+assert.equal(entitlementsPreflightResponse.status, 200, "Entitlements preflight must return blockers without granting access");
+assert.equal(entitlementsPreflightResponse.headers.get("Cache-Control"), "no-store", "Entitlements preflight response must be no-store");
+assert.equal(entitlementsPreflightBody.readyToGrantProjectEntitlement, false, "Entitlements preflight must not grant project access");
+assert.equal(entitlementsPreflightBody.readyToUpdateProjectEntitlement, false, "Entitlements preflight must not update project access");
+assert.equal(entitlementsPreflightBody.userRegistered, true, "Entitlements preflight must report existing user state");
+assert.equal(entitlementsPreflightBody.deviceRegistered, true, "Entitlements preflight must report existing device state");
+assert.equal(entitlementsPreflightBody.projectRegistered, true, "Entitlements preflight must report existing project state");
+assert.equal(entitlementsPreflightBody.entitlementExists, true, "Entitlements preflight must report existing entitlement state");
+assert.equal(entitlementsPreflightBody.currentRole, "owner", "Entitlements preflight may report current role without changing it");
+assert.equal(entitlementsPreflightBody.currentCanRead, true, "Entitlements preflight may report current read access");
+assert.equal(entitlementsPreflightBody.currentCanWrite, false, "Entitlements preflight must not expose write enablement in the foundation phase");
+assert.equal(entitlementsPreflightBody.writesEnabled, false, "Entitlements preflight must keep writes disabled");
+assert.equal(entitlementsPreflightBody.appMutationEnabled, false, "Entitlements preflight must keep app mutation disabled");
+assert.deepEqual(entitlementsPreflightBody.blockers, ["production_project_entitlement_writer_not_implemented"]);
+assert.equal(entitlementsPreflightBody.nextStep, "implement_disabled_project_entitlement_writer", "Entitlements preflight must point at a disabled future writer");
+assert.equal(entitlementsPreflightDb.preparedStatements.length, 4, "Entitlements preflight should only query identity, device, project, and entitlement readiness");
+
+const missingProjectEntitlementsDb = makeMissingProjectEntitlementsPreflightDb();
+const missingProjectEntitlementsResponse = await worker.fetch(
+    makeRequest("/entitlements/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "missing-project-1",
+            requestedRole: "owner",
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: missingProjectEntitlementsDb,
+    }
+);
+const missingProjectEntitlementsBody = await readJson(missingProjectEntitlementsResponse);
+assert.equal(missingProjectEntitlementsResponse.status, 200, "Entitlements preflight must report missing projects without creating them");
+assert.equal(missingProjectEntitlementsResponse.headers.get("Cache-Control"), "no-store", "Entitlements missing-project response must be no-store");
+assert.equal(missingProjectEntitlementsBody.readyToGrantProjectEntitlement, false, "Entitlements missing-project path must not grant access");
+assert.equal(missingProjectEntitlementsBody.readyToUpdateProjectEntitlement, false, "Entitlements missing-project path must not update access");
+assert.equal(missingProjectEntitlementsBody.projectRegistered, false, "Entitlements missing-project path must report missing project state");
+assert.equal(missingProjectEntitlementsBody.entitlementExists, false, "Entitlements missing-project path must report missing entitlement state");
+assert.deepEqual(missingProjectEntitlementsBody.blockers, [
+    "production_project_entitlement_writer_not_implemented",
+    "project_not_registered",
+]);
+assert.equal(missingProjectEntitlementsDb.preparedStatements.length, 4, "Entitlements missing-project path should only query identity, device, project, and entitlement readiness");
+
+const unregisteredEntitlementsDb = makeUnregisteredEntitlementsPreflightDb();
+const unregisteredEntitlementsResponse = await worker.fetch(
+    makeRequest("/entitlements/preflight", {
+        body: {
+            userSubjectHash: "missing-subject-1",
+            deviceId: "missing-device-1",
+            projectId: "project-1",
+            requestedRole: "owner",
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: unregisteredEntitlementsDb,
+    }
+);
+const unregisteredEntitlementsBody = await readJson(unregisteredEntitlementsResponse);
+assert.equal(unregisteredEntitlementsResponse.status, 200, "Entitlements preflight must not auto-create unregistered users");
+assert.equal(unregisteredEntitlementsResponse.headers.get("Cache-Control"), "no-store", "Entitlements unregistered response must be no-store");
+assert.equal(unregisteredEntitlementsBody.readyToGrantProjectEntitlement, false, "Entitlements unregistered path must not grant access");
+assert.equal(unregisteredEntitlementsBody.readyToUpdateProjectEntitlement, false, "Entitlements unregistered path must not update access");
+assert.equal(unregisteredEntitlementsBody.userRegistered, false, "Entitlements unregistered path must report missing user state");
+assert.equal(unregisteredEntitlementsBody.deviceRegistered, false, "Entitlements unregistered path must report missing device state");
+assert.equal(unregisteredEntitlementsBody.projectRegistered, false, "Entitlements unregistered path must report missing project state");
+assert.equal(unregisteredEntitlementsBody.entitlementExists, false, "Entitlements unregistered path must report missing entitlement state");
+assert.equal(unregisteredEntitlementsBody.writesEnabled, false, "Entitlements unregistered path must keep writes disabled");
+assert.equal(unregisteredEntitlementsBody.appMutationEnabled, false, "Entitlements unregistered path must keep app mutation disabled");
+assert.deepEqual(unregisteredEntitlementsBody.blockers, [
+    "production_project_entitlement_writer_not_implemented",
+    "user_not_registered",
+    "device_not_registered",
+    "project_not_registered",
+]);
+assert.equal(unregisteredEntitlementsDb.preparedStatements.length, 1, "Entitlements unregistered path should only query user readiness");
+
+const consentMissingEntitlementsDb = makeConsentMissingEntitlementsPreflightDb();
+const consentMissingEntitlementsResponse = await worker.fetch(
+    makeRequest("/entitlements/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            requestedRole: "owner",
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: consentMissingEntitlementsDb,
+    }
+);
+const consentMissingEntitlementsBody = await readJson(consentMissingEntitlementsResponse);
+assert.equal(consentMissingEntitlementsResponse.status, 200, "Entitlements preflight must report missing consent without writing");
+assert.equal(consentMissingEntitlementsResponse.headers.get("Cache-Control"), "no-store", "Entitlements missing-consent response must be no-store");
+assert.equal(consentMissingEntitlementsBody.readyToGrantProjectEntitlement, false, "Entitlements missing-consent path must not grant access");
+assert.equal(consentMissingEntitlementsBody.readyToUpdateProjectEntitlement, false, "Entitlements missing-consent path must not update access");
+assert.equal(consentMissingEntitlementsBody.userRegistered, true, "Entitlements missing-consent path must report existing user state");
+assert.equal(consentMissingEntitlementsBody.writesEnabled, false, "Entitlements missing-consent path must keep writes disabled");
+assert.equal(consentMissingEntitlementsBody.appMutationEnabled, false, "Entitlements missing-consent path must keep app mutation disabled");
+assert.deepEqual(consentMissingEntitlementsBody.blockers, [
+    "production_project_entitlement_writer_not_implemented",
+    "consent_not_granted",
+]);
+assert.equal(consentMissingEntitlementsDb.preparedStatements.length, 4, "Entitlements missing-consent path should only query identity, device, project, and entitlement readiness");
+
+const revokedEntitlementsDb = makeRevokedEntitlementsPreflightDb();
+const revokedEntitlementsResponse = await worker.fetch(
+    makeRequest("/entitlements/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            requestedRole: "owner",
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: revokedEntitlementsDb,
+    }
+);
+const revokedEntitlementsBody = await readJson(revokedEntitlementsResponse);
+assert.equal(revokedEntitlementsResponse.status, 200, "Entitlements preflight must report revoked entitlements without updating them");
+assert.equal(revokedEntitlementsResponse.headers.get("Cache-Control"), "no-store", "Entitlements revoked response must be no-store");
+assert.equal(revokedEntitlementsBody.readyToGrantProjectEntitlement, false, "Entitlements revoked path must not grant access");
+assert.equal(revokedEntitlementsBody.readyToUpdateProjectEntitlement, false, "Entitlements revoked path must not update access");
+assert.equal(revokedEntitlementsBody.entitlementExists, true, "Entitlements revoked path must report existing entitlement state");
+assert.equal(revokedEntitlementsBody.currentCanWrite, false, "Entitlements revoked path must keep write access disabled");
+assert.deepEqual(revokedEntitlementsBody.blockers, [
+    "production_project_entitlement_writer_not_implemented",
+    "project_entitlement_revoked",
+]);
+assert.equal(revokedEntitlementsDb.preparedStatements.length, 4, "Entitlements revoked path should only query identity, device, project, and entitlement readiness");
 
 const migrationPreflightDb = makeMigrationPreflightDb();
 const migrationPlanOnlyResponse = await worker.fetch(

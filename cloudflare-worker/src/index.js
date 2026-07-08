@@ -1855,7 +1855,7 @@ async function handleSyncProduction(request, env, pathname) {
         );
     }
 
-    if (!["/users/summary", "/identity/check", "/migration/preflight", "/assets/preflight", "/apply/preflight", "/orchestrator/eligibility", "/release/readiness"].includes(suffix)) {
+    if (!["/users/summary", "/identity/check", "/identity/enrollment/preflight", "/entitlements/preflight", "/migration/preflight", "/assets/preflight", "/apply/preflight", "/orchestrator/eligibility", "/release/readiness"].includes(suffix)) {
         return jsonResponse({ error: "Not found" }, 404);
     }
 
@@ -1883,6 +1883,12 @@ async function handleSyncProduction(request, env, pathname) {
     }
     if (suffix === "/identity/check") {
         return handleSyncProductionIdentityCheck(body, env);
+    }
+    if (suffix === "/identity/enrollment/preflight") {
+        return handleSyncProductionIdentityEnrollmentPreflight(body, env);
+    }
+    if (suffix === "/entitlements/preflight") {
+        return handleSyncProductionEntitlementsPreflight(body, env);
     }
     if (suffix === "/migration/preflight") {
         return handleSyncProductionMigrationPreflight(body, env);
@@ -2016,6 +2022,159 @@ async function handleSyncProductionIdentityCheck(body, env) {
     } catch (err) {
         console.error("Production sync identity check failed:", err);
         return jsonResponse({ error: "Production identity check failed" }, 502);
+    }
+}
+
+async function handleSyncProductionIdentityEnrollmentPreflight(body, env) {
+    const validation = validateSyncProductionIdentity(body);
+    if (validation.error) {
+        return jsonResponse({ error: validation.error }, 400);
+    }
+
+    const consentAcknowledged = body?.consentAcknowledged === true;
+    const backupExportVerified = body?.backupExportVerified === true;
+    const { userSubjectHash, deviceId } = validation;
+
+    try {
+        const user = await env.SYNC_PRODUCTION_DB
+            .prepare(`
+                SELECT id, account_id, consent_state, lifecycle_state, revoked_at, deleted_at
+                FROM sync_users
+                WHERE external_subject_hash = ?
+            `)
+            .bind(userSubjectHash)
+            .first();
+        const device = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT id, lifecycle_state, revoked_at
+                    FROM sync_devices
+                    WHERE id = ? AND user_id = ?
+                `)
+                .bind(deviceId, user.id)
+                .first()
+            : null;
+
+        const blockers = ["production_identity_enrollment_not_implemented"];
+        if (!consentAcknowledged) blockers.push("consent_not_acknowledged");
+        if (!backupExportVerified) blockers.push("backup_export_not_verified");
+        if (user?.revoked_at || user?.deleted_at) blockers.push("user_revoked_or_deleted");
+        if (device?.revoked_at) blockers.push("device_revoked");
+
+        return jsonResponse(
+            {
+                ok: true,
+                readyToEnrollUser: false,
+                readyToRegisterDevice: false,
+                readyToCreateProjectEntitlements: false,
+                userAlreadyRegistered: Boolean(user),
+                deviceAlreadyRegistered: Boolean(device),
+                consentAcknowledged,
+                backupExportVerified,
+                writesEnabled: false,
+                appMutationEnabled: false,
+                blockers,
+                nextStep: "implement_disabled_identity_enrollment_writer",
+                version: SYNC_PRODUCTION_API_VERSION,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Production sync identity enrollment preflight failed:", err);
+        return jsonResponse({ error: "Production identity enrollment preflight failed" }, 502);
+    }
+}
+
+async function handleSyncProductionEntitlementsPreflight(body, env) {
+    const validation = validateSyncProductionIdentity(body);
+    if (validation.error) {
+        return jsonResponse({ error: validation.error }, 400);
+    }
+    if (!validation.projectId) {
+        return jsonResponse({ error: "Missing required field: projectId" }, 400);
+    }
+
+    const requestedRole = typeof body?.requestedRole === "string" ? body.requestedRole.trim().slice(0, 80) : "owner";
+    const { userSubjectHash, deviceId, projectId } = validation;
+
+    try {
+        const user = await env.SYNC_PRODUCTION_DB
+            .prepare(`
+                SELECT id, consent_state, lifecycle_state, revoked_at, deleted_at
+                FROM sync_users
+                WHERE external_subject_hash = ?
+            `)
+            .bind(userSubjectHash)
+            .first();
+        const device = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT id, lifecycle_state, revoked_at
+                    FROM sync_devices
+                    WHERE id = ? AND user_id = ?
+                `)
+                .bind(deviceId, user.id)
+                .first()
+            : null;
+        const project = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT id, migration_state, writes_enabled, archived_at
+                    FROM sync_projects
+                    WHERE id = ? AND user_id = ?
+                `)
+                .bind(projectId, user.id)
+                .first()
+            : null;
+        const entitlement = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT role, can_read, can_write, revoked_at
+                    FROM sync_project_entitlements
+                    WHERE project_id = ? AND user_id = ?
+                `)
+                .bind(projectId, user.id)
+                .first()
+            : null;
+
+        const blockers = ["production_project_entitlement_writer_not_implemented"];
+        if (!user) blockers.push("user_not_registered");
+        if (user && user.lifecycle_state !== "active") blockers.push("user_not_active");
+        if (user?.revoked_at || user?.deleted_at) blockers.push("user_revoked_or_deleted");
+        if (user && user.consent_state !== "granted") blockers.push("consent_not_granted");
+        if (!device) blockers.push("device_not_registered");
+        if (device && device.lifecycle_state !== "active") blockers.push("device_not_active");
+        if (device?.revoked_at) blockers.push("device_revoked");
+        if (!project) blockers.push("project_not_registered");
+        if (project?.archived_at) blockers.push("project_archived");
+        if (entitlement?.revoked_at) blockers.push("project_entitlement_revoked");
+
+        return jsonResponse(
+            {
+                ok: true,
+                readyToGrantProjectEntitlement: false,
+                readyToUpdateProjectEntitlement: false,
+                userRegistered: Boolean(user),
+                deviceRegistered: Boolean(device),
+                projectRegistered: Boolean(project),
+                entitlementExists: Boolean(entitlement),
+                requestedRole,
+                currentRole: entitlement?.role ?? null,
+                currentCanRead: Boolean(entitlement?.can_read),
+                currentCanWrite: false,
+                writesEnabled: false,
+                appMutationEnabled: false,
+                blockers,
+                nextStep: "implement_disabled_project_entitlement_writer",
+                version: SYNC_PRODUCTION_API_VERSION,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Production sync entitlements preflight failed:", err);
+        return jsonResponse({ error: "Production entitlements preflight failed" }, 502);
     }
 }
 
