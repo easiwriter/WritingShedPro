@@ -739,7 +739,7 @@ function makeOrchestratorEligibilityDb() {
     };
 }
 
-function makeReleaseReadinessDb() {
+function makeReleaseReadinessDb({ environmentSummary = {}, rolloutSummary = {} } = {}) {
     const preparedStatements = [];
     const forbiddenMutation = () => {
         throw new Error("Production release smoke DB mock received a mutation call");
@@ -759,12 +759,14 @@ function makeReleaseReadinessDb() {
                         return {
                             production_environment_count: 1,
                             write_enabled_count: 0,
+                            ...environmentSummary,
                         };
                     }
                     if (sql.includes("FROM sync_rollout_flags")) {
                         return {
                             flag_count: 1,
                             active_kill_switch_count: 0,
+                            ...rolloutSummary,
                         };
                     }
                     throw new Error(`Unexpected release readiness query: ${sql}`);
@@ -1135,6 +1137,54 @@ assert.deepEqual(assetReadyBody.blockers, []);
 assert.equal(assetReadyBody.manifest.requiresTransfer, true, "Asset preflight must report transfer requirement without performing transfer");
 assert.equal(assetReadyDb.preparedStatements.length, 4, "Asset preflight ready path should only query identity, device, project, and entitlement readiness");
 
+const missingAssetFieldsResponse = await worker.fetch(
+    makeRequest("/assets/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            assets: [
+                {
+                    id: "asset-1",
+                    entityType: "TextFile",
+                    byteCount: 1234,
+                },
+            ],
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: makeNoQueryDb(),
+        SYNC_PRODUCTION_BLOBS: makeNoWriteBlobStorage(),
+    }
+);
+const missingAssetFieldsBody = await readJson(missingAssetFieldsResponse);
+assert.equal(missingAssetFieldsResponse.status, 400, "Asset preflight must reject missing asset identity fields before DB or blob work");
+assert.equal(missingAssetFieldsResponse.headers.get("Cache-Control"), "no-store", "Missing asset fields response must be no-store");
+assert.deepEqual(missingAssetFieldsBody, { error: "Each asset requires id, entityType, entityId, and contentHash" });
+
+const invalidAssetByteCountResponse = await worker.fetch(
+    makeRequest("/assets/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            assets: [makeAsset(1, { byteCount: 0 })],
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: makeNoQueryDb(),
+        SYNC_PRODUCTION_BLOBS: makeNoWriteBlobStorage(),
+    }
+);
+const invalidAssetByteCountBody = await readJson(invalidAssetByteCountResponse);
+assert.equal(invalidAssetByteCountResponse.status, 400, "Asset preflight must reject invalid asset byte counts before DB or blob work");
+assert.equal(invalidAssetByteCountResponse.headers.get("Cache-Control"), "no-store", "Invalid asset byte count response must be no-store");
+assert.deepEqual(invalidAssetByteCountBody, { error: "Each asset byteCount must be a positive integer" });
+
 const duplicateAssetIdResponse = await worker.fetch(
     makeRequest("/assets/preflight", {
         body: {
@@ -1232,6 +1282,93 @@ assert.equal(oversizedApplyWindowResponse.status, 400, "Apply preflight must rej
 assert.equal(oversizedApplyWindowResponse.headers.get("Cache-Control"), "no-store", "Oversized apply window response must be no-store");
 assert.deepEqual(oversizedApplyWindowBody, { error: "operationWindow.operationCount exceeds 500" });
 
+const mismatchedApplyWindowSequenceResponse = await worker.fetch(
+    makeRequest("/apply/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            operationWindow: {
+                baseSequence: 10,
+                startSequence: 12,
+                endSequence: 12,
+                operationCount: 1,
+                payloadHash: "sha256:operation-window-1",
+                hasUnresolvedDependencies: false,
+                hasPendingAssets: false,
+            },
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: makeNoQueryDb(),
+    }
+);
+const mismatchedApplyWindowSequenceBody = await readJson(mismatchedApplyWindowSequenceResponse);
+assert.equal(mismatchedApplyWindowSequenceResponse.status, 400, "Apply preflight must reject sequence gaps before DB or cursor work");
+assert.equal(mismatchedApplyWindowSequenceResponse.headers.get("Cache-Control"), "no-store", "Mismatched apply window sequence response must be no-store");
+assert.deepEqual(mismatchedApplyWindowSequenceBody, { error: "operationWindow.startSequence must equal baseSequence + 1" });
+
+const missingApplyWindowPayloadHashResponse = await worker.fetch(
+    makeRequest("/apply/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            operationWindow: {
+                baseSequence: 0,
+                startSequence: 1,
+                endSequence: 1,
+                operationCount: 1,
+                hasUnresolvedDependencies: false,
+                hasPendingAssets: false,
+            },
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: makeNoQueryDb(),
+    }
+);
+const missingApplyWindowPayloadHashBody = await readJson(missingApplyWindowPayloadHashResponse);
+assert.equal(missingApplyWindowPayloadHashResponse.status, 400, "Apply preflight must reject missing payload hashes before DB or cursor work");
+assert.equal(missingApplyWindowPayloadHashResponse.headers.get("Cache-Control"), "no-store", "Missing apply window payload hash response must be no-store");
+assert.deepEqual(missingApplyWindowPayloadHashBody, { error: "operationWindow.payloadHash is required" });
+
+const applyLocalBlockersDb = makeApplyPreflightDb();
+const applyLocalBlockersResponse = await worker.fetch(
+    makeRequest("/apply/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            operationWindow: {
+                baseSequence: 0,
+                startSequence: 1,
+                endSequence: 1,
+                operationCount: 1,
+                payloadHash: "sha256:operation-window-1",
+                hasUnresolvedDependencies: true,
+                hasPendingAssets: true,
+            },
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: applyLocalBlockersDb,
+    }
+);
+const applyLocalBlockersBody = await readJson(applyLocalBlockersResponse);
+assert.equal(applyLocalBlockersResponse.status, 200, "Apply preflight must surface local dependency blockers without applying operations");
+assert.equal(applyLocalBlockersResponse.headers.get("Cache-Control"), "no-store", "Apply local blockers response must be no-store");
+assert.equal(applyLocalBlockersBody.readyToApply, false, "Apply preflight must remain disabled when local blockers are present");
+assert.equal(applyLocalBlockersBody.readyToAdvanceCursor, false, "Apply preflight must not advance cursor with pending local blockers");
+assert.deepEqual(applyLocalBlockersBody.blockers, ["unresolved_dependencies", "pending_assets", "production_swiftdata_applier_not_implemented"]);
+assert.equal(applyLocalBlockersDb.preparedStatements.length, 5, "Apply local blockers path should only query identity, device, project, entitlement, and cursor readiness");
+
 const applyPreflightDb = makeApplyPreflightDb();
 const applierMissingResponse = await worker.fetch(
     makeRequest("/apply/preflight", {
@@ -1305,6 +1442,105 @@ assert.deepEqual(orchestratorDisabledBody.cursor, {
 assert.equal(orchestratorDisabledBody.latestSequence, 12, "Orchestrator eligibility must report latest sequence without mutating it");
 assert.equal(orchestratorEligibilityDb.preparedStatements.length, 5, "Orchestrator eligibility should only query identity, device, project, entitlement, and cursor readiness");
 
+const offlineOrchestratorDb = makeOrchestratorEligibilityDb();
+const offlineOrchestratorResponse = await worker.fetch(
+    makeRequest("/orchestrator/eligibility", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            trigger: "foreground",
+            hasNetwork: false,
+            appState: "foreground",
+            previousTransportFailure: false,
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: offlineOrchestratorDb,
+    }
+);
+const offlineOrchestratorBody = await readJson(offlineOrchestratorResponse);
+assert.equal(offlineOrchestratorResponse.status, 200, "Orchestrator eligibility must surface offline blockers without scheduling work");
+assert.equal(offlineOrchestratorResponse.headers.get("Cache-Control"), "no-store", "Offline orchestrator response must be no-store");
+assert.equal(offlineOrchestratorBody.eligibleToRun, false, "Orchestrator must remain disabled while offline");
+assert.deepEqual(offlineOrchestratorBody.blockers, ["network_unavailable", "production_orchestrator_not_wired", "production_swiftdata_applier_not_implemented"]);
+assert.equal(offlineOrchestratorDb.preparedStatements.length, 5, "Offline orchestrator path should only query identity, device, project, entitlement, and cursor readiness");
+
+const recoveryWithoutFailureDb = makeOrchestratorEligibilityDb();
+const recoveryWithoutFailureResponse = await worker.fetch(
+    makeRequest("/orchestrator/eligibility", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            trigger: "network-recovery",
+            hasNetwork: true,
+            appState: "foreground",
+            previousTransportFailure: false,
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: recoveryWithoutFailureDb,
+    }
+);
+const recoveryWithoutFailureBody = await readJson(recoveryWithoutFailureResponse);
+assert.equal(recoveryWithoutFailureResponse.status, 200, "Orchestrator eligibility must block recovery triggers without prior transport failure");
+assert.equal(recoveryWithoutFailureResponse.headers.get("Cache-Control"), "no-store", "Recovery-without-failure response must be no-store");
+assert.deepEqual(recoveryWithoutFailureBody.blockers, ["network_recovery_without_prior_transport_failure", "production_orchestrator_not_wired", "production_swiftdata_applier_not_implemented"]);
+assert.equal(recoveryWithoutFailureDb.preparedStatements.length, 5, "Recovery-without-failure path should only query identity, device, project, entitlement, and cursor readiness");
+
+const foregroundBackgroundRefreshDb = makeOrchestratorEligibilityDb();
+const foregroundBackgroundRefreshResponse = await worker.fetch(
+    makeRequest("/orchestrator/eligibility", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            trigger: "background-refresh",
+            hasNetwork: true,
+            appState: "foreground",
+            previousTransportFailure: false,
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: foregroundBackgroundRefreshDb,
+    }
+);
+const foregroundBackgroundRefreshBody = await readJson(foregroundBackgroundRefreshResponse);
+assert.equal(foregroundBackgroundRefreshResponse.status, 200, "Orchestrator eligibility must block background refresh outside background state");
+assert.equal(foregroundBackgroundRefreshResponse.headers.get("Cache-Control"), "no-store", "Foreground background-refresh response must be no-store");
+assert.deepEqual(foregroundBackgroundRefreshBody.blockers, ["background_refresh_requires_background_state", "production_orchestrator_not_wired", "production_swiftdata_applier_not_implemented"]);
+assert.equal(foregroundBackgroundRefreshDb.preparedStatements.length, 5, "Foreground background-refresh path should only query identity, device, project, entitlement, and cursor readiness");
+
+const unsupportedTriggerResponse = await worker.fetch(
+    makeRequest("/orchestrator/eligibility", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            projectId: "project-1",
+            trigger: "timer",
+            hasNetwork: true,
+            appState: "foreground",
+            previousTransportFailure: false,
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: makeNoQueryDb(),
+    }
+);
+const unsupportedTriggerBody = await readJson(unsupportedTriggerResponse);
+assert.equal(unsupportedTriggerResponse.status, 400, "Orchestrator eligibility must reject unsupported triggers before DB work");
+assert.equal(unsupportedTriggerResponse.headers.get("Cache-Control"), "no-store", "Unsupported trigger response must be no-store");
+assert.deepEqual(unsupportedTriggerBody, { error: "Unsupported orchestrator trigger" });
+
 const releaseReadinessDb = makeReleaseReadinessDb();
 const releaseDisabledResponse = await worker.fetch(
     makeRequest("/release/readiness", {
@@ -1334,6 +1570,175 @@ assert.deepEqual(releaseDisabledBody.rollout, {
     activeKillSwitchCount: 0,
 });
 assert.equal(releaseReadinessDb.preparedStatements.length, 2, "Release readiness should only query environment and rollout summaries");
+
+const missingEnvironmentReleaseDb = makeReleaseReadinessDb({
+    environmentSummary: { production_environment_count: 0 },
+});
+const missingEnvironmentReleaseResponse = await worker.fetch(
+    makeRequest("/release/readiness", {
+        body: { evidence: completeReleaseEvidence() },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: missingEnvironmentReleaseDb,
+    }
+);
+const missingEnvironmentReleaseBody = await readJson(missingEnvironmentReleaseResponse);
+assert.equal(missingEnvironmentReleaseResponse.status, 200, "Release readiness must surface missing production environment blockers without enabling writes");
+assert.equal(missingEnvironmentReleaseResponse.headers.get("Cache-Control"), "no-store", "Missing environment release response must be no-store");
+assert.equal(missingEnvironmentReleaseBody.readyToRelease, false, "Release readiness must remain disabled without a production environment");
+assert.deepEqual(missingEnvironmentReleaseBody.blockers, ["production_environment_missing", "production_release_enable_endpoint_not_implemented"]);
+assert.deepEqual(missingEnvironmentReleaseBody.environment, {
+    productionEnvironmentCount: 0,
+    writeEnabledCount: 0,
+});
+assert.equal(missingEnvironmentReleaseDb.preparedStatements.length, 2, "Missing environment release path should only query environment and rollout summaries");
+
+const writesEnabledReleaseDb = makeReleaseReadinessDb({
+    environmentSummary: { write_enabled_count: 1 },
+});
+const writesEnabledReleaseResponse = await worker.fetch(
+    makeRequest("/release/readiness", {
+        body: { evidence: completeReleaseEvidence() },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: writesEnabledReleaseDb,
+    }
+);
+const writesEnabledReleaseBody = await readJson(writesEnabledReleaseResponse);
+assert.equal(writesEnabledReleaseResponse.status, 200, "Release readiness must surface already-enabled writes as blockers without mutating rollout flags");
+assert.equal(writesEnabledReleaseResponse.headers.get("Cache-Control"), "no-store", "Writes-enabled release response must be no-store");
+assert.equal(writesEnabledReleaseBody.readyToEnableProductionWrites, false, "Release readiness must not re-enable writes when writes are already enabled");
+assert.deepEqual(writesEnabledReleaseBody.blockers, ["production_writes_already_enabled", "production_release_enable_endpoint_not_implemented"]);
+assert.deepEqual(writesEnabledReleaseBody.environment, {
+    productionEnvironmentCount: 1,
+    writeEnabledCount: 1,
+});
+assert.equal(writesEnabledReleaseDb.preparedStatements.length, 2, "Writes-enabled release path should only query environment and rollout summaries");
+
+const missingRolloutFlagsReleaseDb = makeReleaseReadinessDb({
+    rolloutSummary: { flag_count: 0 },
+});
+const missingRolloutFlagsReleaseResponse = await worker.fetch(
+    makeRequest("/release/readiness", {
+        body: { evidence: completeReleaseEvidence() },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: missingRolloutFlagsReleaseDb,
+    }
+);
+const missingRolloutFlagsReleaseBody = await readJson(missingRolloutFlagsReleaseResponse);
+assert.equal(missingRolloutFlagsReleaseResponse.status, 200, "Release readiness must surface missing rollout flag blockers without enabling writes");
+assert.equal(missingRolloutFlagsReleaseResponse.headers.get("Cache-Control"), "no-store", "Missing rollout flags release response must be no-store");
+assert.equal(missingRolloutFlagsReleaseBody.readyToRelease, false, "Release readiness must remain disabled without rollout flags");
+assert.deepEqual(missingRolloutFlagsReleaseBody.blockers, ["rollout_flags_missing", "production_release_enable_endpoint_not_implemented"]);
+assert.deepEqual(missingRolloutFlagsReleaseBody.rollout, {
+    flagCount: 0,
+    activeKillSwitchCount: 0,
+});
+assert.equal(missingRolloutFlagsReleaseDb.preparedStatements.length, 2, "Missing rollout flags release path should only query environment and rollout summaries");
+
+const killSwitchReleaseReadinessDb = makeReleaseReadinessDb({
+    rolloutSummary: { active_kill_switch_count: 1 },
+});
+const killSwitchReleaseResponse = await worker.fetch(
+    makeRequest("/release/readiness", {
+        body: { evidence: completeReleaseEvidence() },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: killSwitchReleaseReadinessDb,
+    }
+);
+const killSwitchReleaseBody = await readJson(killSwitchReleaseResponse);
+assert.equal(killSwitchReleaseResponse.status, 200, "Release readiness must surface active kill switch blockers without enabling writes");
+assert.equal(killSwitchReleaseResponse.headers.get("Cache-Control"), "no-store", "Kill-switch release response must be no-store");
+assert.equal(killSwitchReleaseBody.readyToRelease, false, "Release readiness must remain disabled while a kill switch is active");
+assert.equal(killSwitchReleaseBody.readyToEnableProductionWrites, false, "Release readiness must not enable writes while a kill switch is active");
+assert.deepEqual(killSwitchReleaseBody.blockers, ["rollout_kill_switch_active", "production_release_enable_endpoint_not_implemented"]);
+assert.deepEqual(killSwitchReleaseBody.rollout, {
+    flagCount: 1,
+    activeKillSwitchCount: 1,
+});
+assert.equal(killSwitchReleaseReadinessDb.preparedStatements.length, 2, "Kill-switch release path should only query environment and rollout summaries");
+
+const incompleteEvidenceReleaseDb = makeReleaseReadinessDb();
+const incompleteEvidence = completeReleaseEvidence();
+incompleteEvidence.schemaDeployed = false;
+const incompleteEvidenceReleaseResponse = await worker.fetch(
+    makeRequest("/release/readiness", {
+        body: { evidence: incompleteEvidence },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: incompleteEvidenceReleaseDb,
+    }
+);
+const incompleteEvidenceReleaseBody = await readJson(incompleteEvidenceReleaseResponse);
+assert.equal(incompleteEvidenceReleaseResponse.status, 200, "Release readiness must surface missing evidence blockers without enabling writes");
+assert.equal(incompleteEvidenceReleaseResponse.headers.get("Cache-Control"), "no-store", "Incomplete evidence release response must be no-store");
+assert.equal(incompleteEvidenceReleaseBody.evidenceComplete, false, "Release readiness must recognize incomplete release evidence");
+assert.equal(incompleteEvidenceReleaseBody.readyToRelease, false, "Release readiness must remain disabled with incomplete evidence");
+assert.deepEqual(incompleteEvidenceReleaseBody.blockers, ["schemaDeployed_missing", "production_release_enable_endpoint_not_implemented"]);
+assert.equal(incompleteEvidenceReleaseDb.preparedStatements.length, 2, "Incomplete evidence release path should only query environment and rollout summaries");
+
+const missingReleaseEvidenceResponse = await worker.fetch(
+    makeRequest("/release/readiness", {
+        body: {},
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: makeNoQueryDb(),
+    }
+);
+const missingReleaseEvidenceBody = await readJson(missingReleaseEvidenceResponse);
+assert.equal(missingReleaseEvidenceResponse.status, 400, "Release readiness must reject missing evidence before DB work");
+assert.equal(missingReleaseEvidenceResponse.headers.get("Cache-Control"), "no-store", "Missing release evidence response must be no-store");
+assert.deepEqual(missingReleaseEvidenceBody, { error: "Missing required field: evidence" });
+
+const missingUserSubjectResponse = await worker.fetch(
+    makeRequest("/identity/check", {
+        body: {
+            deviceId: "device-1",
+            projectId: "project-1",
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: makeNoQueryDb(),
+    }
+);
+const missingUserSubjectBody = await readJson(missingUserSubjectResponse);
+assert.equal(missingUserSubjectResponse.status, 400, "Identity validation must reject missing user subject before DB work");
+assert.equal(missingUserSubjectResponse.headers.get("Cache-Control"), "no-store", "Missing user subject response must be no-store");
+assert.deepEqual(missingUserSubjectBody, { error: "Missing required field: userSubjectHash" });
+
+const missingDeviceIdResponse = await worker.fetch(
+    makeRequest("/identity/check", {
+        body: {
+            userSubjectHash: "subject-1",
+            projectId: "project-1",
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: makeNoQueryDb(),
+    }
+);
+const missingDeviceIdBody = await readJson(missingDeviceIdResponse);
+assert.equal(missingDeviceIdResponse.status, 400, "Identity validation must reject missing device id before DB work");
+assert.equal(missingDeviceIdResponse.headers.get("Cache-Control"), "no-store", "Missing device id response must be no-store");
+assert.deepEqual(missingDeviceIdBody, { error: "Missing required field: deviceId" });
 
 const identityCheckDb = makeIdentityCheckDb();
 const identityReadOnlyResponse = await worker.fetch(
@@ -1745,6 +2150,29 @@ assert.deepEqual(missingEnvironmentPreflightBody.rollout, {
     activeKillSwitchCount: 0,
 });
 assert.equal(missingEnvironmentPreflightDb.preparedStatements.length, 2, "Missing environment preflight should only query environment and rollout summaries");
+
+const missingProjectIdResponse = await worker.fetch(
+    makeRequest("/migration/preflight", {
+        body: {
+            userSubjectHash: "subject-1",
+            deviceId: "device-1",
+            inventory: migrationInventory(),
+            backupExportVerified: true,
+            consentAcknowledged: true,
+            sourceSystem: "cloudkit",
+            cloudKitState: "quiescent",
+        },
+        headers: { Authorization: `Bearer ${productionToken}` },
+    }),
+    {
+        SYNC_PRODUCTION_TOKEN: productionToken,
+        SYNC_PRODUCTION_DB: makeNoQueryDb(),
+    }
+);
+const missingProjectIdBody = await readJson(missingProjectIdResponse);
+assert.equal(missingProjectIdResponse.status, 400, "Project-scoped preflight routes must reject missing project id before DB work");
+assert.equal(missingProjectIdResponse.headers.get("Cache-Control"), "no-store", "Missing project id response must be no-store");
+assert.deepEqual(missingProjectIdBody, { error: "Missing required field: projectId" });
 
 const migrationPreflightDb = makeMigrationPreflightDb();
 const migrationPlanOnlyResponse = await worker.fetch(

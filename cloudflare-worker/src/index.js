@@ -2614,7 +2614,7 @@ async function handleSyncProductionApplyPreflight(body, env) {
                 .first()
             : null;
 
-        const blockers = [];
+        const blockers = [...operationWindow.localBlockers];
         if (!user) blockers.push("user_not_registered");
         if (user && user.lifecycle_state !== "active") blockers.push("user_not_active");
         if (user?.revoked_at || user?.deleted_at) blockers.push("user_revoked_or_deleted");
@@ -2870,6 +2870,7 @@ async function handleSyncProductionReleaseReadiness(body, env) {
         if ((environmentSummary?.production_environment_count ?? 0) === 0) blockers.push("production_environment_missing");
         if ((environmentSummary?.write_enabled_count ?? 0) > 0) blockers.push("production_writes_already_enabled");
         if ((rolloutSummary?.flag_count ?? 0) === 0) blockers.push("rollout_flags_missing");
+        if ((rolloutSummary?.active_kill_switch_count ?? 0) > 0) blockers.push("rollout_kill_switch_active");
 
         for (const [key, value] of Object.entries(evidence)) {
             if (value !== true) {

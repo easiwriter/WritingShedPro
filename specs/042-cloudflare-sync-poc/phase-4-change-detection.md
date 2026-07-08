@@ -1753,6 +1753,26 @@ Updated 2026-07-08, self-validated: migration preflight smoke now covers bad mig
 
 Updated 2026-07-08, self-validated: asset preflight smoke now covers duplicate asset ids and duplicate proposed R2 keys. Both cases return `400` before DB or R2 work, preserving no-store caching and keeping the asset path no-upload/no-cursor-advance.
 
+Updated 2026-07-08, self-validated: apply preflight now surfaces local operation-window blockers for unresolved dependencies and pending assets. Smoke verifies those blockers remain read-only, keep `readyToApply: false`, and do not advance cursors.
+
+Updated 2026-07-08, self-validated: orchestrator eligibility smoke now covers offline state, network recovery without a prior transport failure, and background refresh outside background app state. Each path remains read-only, schedules no lifecycle work, and keeps run/apply/cursor eligibility disabled.
+
+Updated 2026-07-08, self-validated: release readiness now treats active rollout kill switches as blockers. Smoke verifies the route remains read-only, keeps `readyToRelease: false`, and does not enable production writes when a kill switch is active.
+
+Updated 2026-07-08, self-validated: release readiness smoke now covers incomplete release evidence. Missing evidence items appear as explicit blockers while the route remains read-only and keeps production writes disabled.
+
+Updated 2026-07-08, self-validated: release readiness smoke now covers missing production environment setup, already-enabled production writes, and missing rollout flags. Each path reports explicit blockers while staying read-only and never enabling writes or flags.
+
+Updated 2026-07-08, self-validated: pre-DB validation smoke now covers unsupported orchestrator triggers and missing release evidence payloads. Both reject with `400` before any production DB query.
+
+Updated 2026-07-08, self-validated: apply preflight pre-DB validation smoke now covers sequence gaps and missing payload hashes. Both reject with `400` before identity/cursor DB reads or any app mutation path.
+
+Updated 2026-07-08, self-validated: asset preflight pre-DB validation smoke now covers missing asset identity fields and invalid byte counts. Both reject with `400` before production DB/R2 work.
+
+Updated 2026-07-08, self-validated: shared identity validation smoke now covers missing user subject and missing device id. Both reject with `400` before production DB queries.
+
+Updated 2026-07-08, self-validated: project-scoped preflight validation smoke now covers missing project id via migration preflight. It rejects with `400` before inventory planning or production DB queries.
+
 Updated 2026-07-08, self-validated: extended the package-script local-safety guard to block HTTP escape hatches. Production validation, smoke, and parse npm scripts now fail validation if they include `curl` or `http` in addition to `wrangler` or `--remote`.
 
 Added 2026-07-08, self-validated: `POST /api/sync/production/v1/apply/preflight` added as the first production-applier boundary route. It requires `SYNC_PRODUCTION_TOKEN`, validates operation-window shape, checks existing production user/device/project/entitlement/cursor rows, and reports blockers for cursor mismatch, unavailable project writes, pending dependencies/assets, or unimplemented SwiftData apply. It performs no D1 write, does not mutate app SwiftData, always reports `readyToApply: false`, and blocks cursor advancement until a flagged SwiftData applier exists and commits successfully.

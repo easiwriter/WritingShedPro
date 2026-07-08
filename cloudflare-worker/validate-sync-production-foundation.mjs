@@ -389,6 +389,15 @@ const requiredRouteSmokeGateAssertions = [
     "unconfiguredTokenResponse.status, 401",
     "unconfiguredDbResponse.status, 503",
     "invalidJsonResponse.status, 400",
+    "unsupportedTriggerResponse.status, 400",
+    "missingReleaseEvidenceResponse.status, 400",
+    "mismatchedApplyWindowSequenceResponse.status, 400",
+    "missingApplyWindowPayloadHashResponse.status, 400",
+    "missingAssetFieldsResponse.status, 400",
+    "invalidAssetByteCountResponse.status, 400",
+    "missingUserSubjectResponse.status, 400",
+    "missingDeviceIdResponse.status, 400",
+    "missingProjectIdResponse.status, 400",
 ];
 
 for (const routeSmokeAssertion of requiredRouteSmokeGateAssertions) {
@@ -412,13 +421,22 @@ const requiredRouteSmokeBlockers = [
     "production_writes_already_enabled",
     "rollout_flags_missing",
     "rollout_kill_switch_active",
+    "schemaDeployed_missing",
     "request_consent_not_acknowledged",
     "source_system_not_cloudkit",
     "cloudkit_state_not_ready",
     "production_blob_storage_not_configured",
     "production_swiftdata_applier_not_implemented",
     "production_orchestrator_not_wired",
+    "network_unavailable",
+    "network_recovery_without_prior_transport_failure",
+    "background_refresh_requires_background_state",
+    "Unsupported orchestrator trigger",
     "production_release_enable_endpoint_not_implemented",
+    "Missing required field: evidence",
+    "Missing required field: userSubjectHash",
+    "Missing required field: deviceId",
+    "Missing required field: projectId",
 ];
 
 for (const blocker of requiredRouteSmokeBlockers) {
@@ -507,10 +525,16 @@ for (const readinessField of requiredRouteSmokeReadinessFields) {
 const requiredRouteSmokePolicyLimitChecks = [
     "productionContract.policy.maxAssetManifestItems + 1",
     "assets exceeds 1000",
+    "Each asset requires id, entityType, entityId, and contentHash",
+    "Each asset byteCount must be a positive integer",
     "Asset ids must be unique",
     "Asset proposedR2Key values must be unique",
     "productionContract.policy.maxApplyWindowOperations + 1",
     "operationWindow.operationCount exceeds 500",
+    "operationWindow.startSequence must equal baseSequence + 1",
+    "operationWindow.payloadHash is required",
+    "unresolved_dependencies",
+    "pending_assets",
 ];
 
 for (const policyLimitCheck of requiredRouteSmokePolicyLimitChecks) {
@@ -535,9 +559,18 @@ const requiredRouteSmokeReadOnlyQueryAssertions = [
     "migrationBlockedEvidenceDb.preparedStatements.length, 4",
     "assetPreflightDb.preparedStatements.length, 4",
     "assetReadyDb.preparedStatements.length, 4",
+    "applyLocalBlockersDb.preparedStatements.length, 5",
     "applyPreflightDb.preparedStatements.length, 5",
     "orchestratorEligibilityDb.preparedStatements.length, 5",
+    "offlineOrchestratorDb.preparedStatements.length, 5",
+    "recoveryWithoutFailureDb.preparedStatements.length, 5",
+    "foregroundBackgroundRefreshDb.preparedStatements.length, 5",
     "releaseReadinessDb.preparedStatements.length, 2",
+    "missingEnvironmentReleaseDb.preparedStatements.length, 2",
+    "writesEnabledReleaseDb.preparedStatements.length, 2",
+    "missingRolloutFlagsReleaseDb.preparedStatements.length, 2",
+    "killSwitchReleaseReadinessDb.preparedStatements.length, 2",
+    "incompleteEvidenceReleaseDb.preparedStatements.length, 2",
     "db.preparedStatements.length, 2",
 ];
 
