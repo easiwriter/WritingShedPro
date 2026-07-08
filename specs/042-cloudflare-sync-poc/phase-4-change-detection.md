@@ -1663,6 +1663,36 @@ Updated 2026-07-08, self-validated: extended the local production schema smoke t
 
 Updated 2026-07-08, self-validated: added drift protection for project-scoped sequence smoke coverage. The manifest now declares the required `project_scoped_operation_sequences|2` smoke result, and the validator fails if the schema smoke stops asserting it.
 
+Updated 2026-07-08, self-validated: strengthened standalone production validation. `npm run sync:prod:validate` now syntax-checks the Worker, route smoke script, schema smoke script, and validator script before running the manifest contract validator, so validation-script syntax regressions are caught even before `sync:prod:validate:all` executes the smoke tests.
+
+Updated 2026-07-08, self-validated: split production syntax checks into `npm run sync:prod:syntax`. `sync:prod:validate` now runs that reusable syntax script before the manifest contract validator, keeping syntax coverage explicit without a growing inline validation command.
+
+Updated 2026-07-08, self-validated: split raw production schema parsing into `npm run sync:prod:schema:parse`. `sync:prod:validate:all` now runs syntax/contract validation, route smoke, schema smoke, and the reusable SQLite schema parse script instead of carrying the raw `sqlite3 :memory:` command inline.
+
+Updated 2026-07-08, self-validated: grouped production smoke checks under `npm run sync:prod:smoke:all`. `sync:prod:validate:all` now runs syntax/contract validation, grouped route+schema smoke, and the reusable SQLite schema parse script.
+
+Updated 2026-07-08, self-validated: added a local-safety guard for production validation scripts. `validate-sync-production-foundation.mjs` now fails if any production syntax, validate, smoke, schema smoke, grouped smoke, schema parse, or validate-all script invokes `wrangler` or `--remote`, keeping the validation suite no-Cloudflare by default.
+
+Updated 2026-07-08, self-validated: extended the local-safety guard into smoke source files. The production foundation validator now fails if `smoke-sync-production-foundation.mjs` or `smoke-sync-production-schema.mjs` contains `wrangler`, `--remote`, or direct HTTP `fetch(...)` calls, while still allowing local `worker.fetch(...)` dispatch against mocked bindings.
+
+Updated 2026-07-08, self-validated: tightened the schema smoke subprocess contract. The validator now checks `smoke-sync-production-schema.mjs` only spawns `sqlite3` for in-memory schema checks and does not use `execSync`, keeping the schema smoke local and narrowly scoped.
+
+Updated 2026-07-08, self-validated: added a route-smoke subprocess guard. The production foundation validator now fails if `smoke-sync-production-foundation.mjs` imports `child_process` or uses `spawnSync`, `execSync`, `spawn(...)`, or `exec(...)`, keeping route smoke limited to local Worker dispatch with mocked bindings.
+
+Updated 2026-07-08, self-validated: added a positive local-dispatch guard for route smoke. The validator now fails unless `smoke-sync-production-foundation.mjs` imports the Worker from local source through a generated `data:` URL, builds that import from `workerSource`, and dispatches requests through local `worker.fetch(...)`.
+
+Updated 2026-07-08, self-validated: added a route-smoke URL safety guard. The validator now requires `smoke-sync-production-foundation.mjs` to use the reserved `https://wsp.example.test/api/sync/production/v1` base URL and rejects deployed Worker or Cloudflare domain references such as `workers.dev` or `cloudflare.com`.
+
+Updated 2026-07-08, self-validated: made local script guard checks data-driven and added a positive mocked-binding guard for route smoke. The validator now iterates forbidden local npm script terms (`wrangler`, `--remote`, `curl`, `http`) and requires `smoke-sync-production-foundation.mjs` to retain local mocked DB/R2 binding helpers before dispatching through `worker.fetch(...)`.
+
+Updated 2026-07-08, self-validated: added smoke source file-mutation guards. The production foundation validator now fails if either smoke script contains file write/delete/create calls such as `writeFile`, `appendFile`, `rmSync`, `unlinkSync`, `mkdirSync`, or `rmdirSync`, keeping smoke validation read-only apart from in-memory Worker/SQLite execution.
+
+Updated 2026-07-08, self-validated: added smoke source secret-isolation guards. The validator now fails if either production smoke script reads `process.env`, keeping smoke tests on synthetic bindings and away from real local secrets.
+
+Updated 2026-07-08, self-validated: added a positive synthetic-token guard for route smoke. The validator now requires `smoke-sync-production-foundation.mjs` to define `productionToken` as `production-smoke-token`, ensuring local production route smoke cannot drift into reading or embedding a real production secret.
+
+Updated 2026-07-08, self-validated: extended the package-script local-safety guard to block HTTP escape hatches. Production validation, smoke, and parse npm scripts now fail validation if they include `curl` or `http` in addition to `wrangler` or `--remote`.
+
 Added 2026-07-08, self-validated: `POST /api/sync/production/v1/apply/preflight` added as the first production-applier boundary route. It requires `SYNC_PRODUCTION_TOKEN`, validates operation-window shape, checks existing production user/device/project/entitlement/cursor rows, and reports blockers for cursor mismatch, unavailable project writes, pending dependencies/assets, or unimplemented SwiftData apply. It performs no D1 write, does not mutate app SwiftData, always reports `readyToApply: false`, and blocks cursor advancement until a flagged SwiftData applier exists and commits successfully.
 
 Added 2026-07-08, self-validated: `POST /api/sync/production/v1/orchestrator/eligibility` added as the first lifecycle-orchestrator boundary route. It requires `SYNC_PRODUCTION_TOKEN`, validates launch/foreground/network-recovery/silent-push/background-refresh/manual trigger eligibility against existing production user/device/project/entitlement/cursor rows and caller-supplied app/network state. It performs no writes, schedules no lifecycle work, does not apply operations, always reports `eligibleToRun: false`, and blocks orchestration until production rollout gates and a flagged SwiftData applier exist.

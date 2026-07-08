@@ -277,9 +277,12 @@ const requiredScripts = [
     "sync:prod:d1:migrate",
     "sync:prod:d1:migrate:local",
     "sync:prod:r2:create",
+    "sync:prod:syntax",
     "sync:prod:validate",
     "sync:prod:smoke",
     "sync:prod:schema:smoke",
+    "sync:prod:smoke:all",
+    "sync:prod:schema:parse",
     "sync:prod:validate:all",
 ];
 
@@ -288,8 +291,12 @@ for (const script of requiredScripts) {
 }
 
 assert(
-    packageJSON.scripts["sync:prod:validate"] === "node --check src/index.js && node validate-sync-production-foundation.mjs",
-    "package.json sync:prod:validate must check Worker syntax and foundation contract"
+    packageJSON.scripts["sync:prod:syntax"] === "node --check src/index.js && node --check smoke-sync-production-foundation.mjs && node --check smoke-sync-production-schema.mjs && node --check validate-sync-production-foundation.mjs",
+    "package.json sync:prod:syntax must check Worker/smoke/validator syntax"
+);
+assert(
+    packageJSON.scripts["sync:prod:validate"] === "npm run sync:prod:syntax && node validate-sync-production-foundation.mjs",
+    "package.json sync:prod:validate must run production syntax checks and foundation contract"
 );
 assert(
     packageJSON.scripts["sync:prod:smoke"] === "node smoke-sync-production-foundation.mjs",
@@ -300,9 +307,78 @@ assert(
     "package.json sync:prod:schema:smoke must run local production schema smoke checks"
 );
 assert(
-    packageJSON.scripts["sync:prod:validate:all"] === "npm run sync:prod:validate && npm run sync:prod:smoke && npm run sync:prod:schema:smoke && sqlite3 :memory: < sql/sync_production_schema.sql",
+    packageJSON.scripts["sync:prod:smoke:all"] === "npm run sync:prod:smoke && npm run sync:prod:schema:smoke",
+    "package.json sync:prod:smoke:all must run route and schema smoke checks"
+);
+assert(
+    packageJSON.scripts["sync:prod:schema:parse"] === "sqlite3 :memory: < sql/sync_production_schema.sql",
+    "package.json sync:prod:schema:parse must parse the production schema in SQLite"
+);
+assert(
+    packageJSON.scripts["sync:prod:validate:all"] === "npm run sync:prod:validate && npm run sync:prod:smoke:all && npm run sync:prod:schema:parse",
     "package.json sync:prod:validate:all must include Worker smoke, schema smoke, and SQLite schema parse validation"
 );
+
+const localValidationScripts = [
+    "sync:prod:syntax",
+    "sync:prod:validate",
+    "sync:prod:smoke",
+    "sync:prod:schema:smoke",
+    "sync:prod:smoke:all",
+    "sync:prod:schema:parse",
+    "sync:prod:validate:all",
+];
+
+const forbiddenLocalScriptTerms = ["wrangler", "--remote", "curl", "http"];
+
+for (const script of localValidationScripts) {
+    for (const forbiddenTerm of forbiddenLocalScriptTerms) {
+        assert(!packageJSON.scripts[script].includes(forbiddenTerm), `package.json ${script} must remain local-only and not include ${forbiddenTerm}`);
+    }
+}
+
+const localOnlySources = [
+    ["smoke-sync-production-foundation.mjs", readFileSync(new URL("./smoke-sync-production-foundation.mjs", import.meta.url), "utf8")],
+    ["smoke-sync-production-schema.mjs", productionSchemaSmoke],
+];
+const productionFoundationSmoke = localOnlySources[0][1];
+
+const forbiddenLocalSourceTerms = ["wrangler", "--remote", "fetch(\"http", "fetch('http"];
+const forbiddenFileMutationTerms = ["writeFile", "appendFile", "rmSync", "unlinkSync", "mkdirSync", "rmdirSync"];
+
+for (const [fileName, source] of localOnlySources) {
+    for (const forbiddenTerm of forbiddenLocalSourceTerms) {
+        assert(!source.includes(forbiddenTerm), `${fileName} must remain local-only and not include ${forbiddenTerm}`);
+    }
+    for (const forbiddenTerm of forbiddenFileMutationTerms) {
+        assert(!source.includes(forbiddenTerm), `${fileName} must not mutate local files with ${forbiddenTerm}`);
+    }
+    assert(!source.includes("process.env"), `${fileName} must not read real environment variables or secrets`);
+}
+
+const schemaSmokeSpawnTargets = [...productionSchemaSmoke.matchAll(/spawnSync\("([^"]+)"/g)].map((match) => match[1]);
+assert(!productionFoundationSmoke.includes("child_process"), "smoke-sync-production-foundation.mjs must not import child_process");
+assert(!productionFoundationSmoke.match(/\bspawnSync\b|\bexecSync\b|\bspawn\(|\bexec\(/), "smoke-sync-production-foundation.mjs must not spawn subprocesses");
+assert(productionFoundationSmoke.includes("data:text/javascript"), "smoke-sync-production-foundation.mjs must import the Worker from local source via data URL");
+assert(productionFoundationSmoke.includes("Buffer.from(workerSource)"), "smoke-sync-production-foundation.mjs must build its local Worker import from workerSource");
+assert(productionFoundationSmoke.includes("worker.fetch("), "smoke-sync-production-foundation.mjs must dispatch requests through local worker.fetch");
+assert(productionFoundationSmoke.includes("makeAggregateOnlyDb"), "smoke-sync-production-foundation.mjs must use local mocked DB bindings");
+assert(productionFoundationSmoke.includes("makeNoWriteBlobStorage"), "smoke-sync-production-foundation.mjs must use local mocked R2 bindings");
+assert(
+    productionFoundationSmoke.includes('const productionToken = "production-smoke-token"'),
+    "smoke-sync-production-foundation.mjs must use a synthetic production smoke token"
+);
+assert(
+    productionFoundationSmoke.includes('const productionBaseUrl = "https://wsp.example.test/api/sync/production/v1"'),
+    "smoke-sync-production-foundation.mjs must use the reserved wsp.example.test smoke URL"
+);
+assert(!productionFoundationSmoke.includes("workers.dev"), "smoke-sync-production-foundation.mjs must not reference deployed Worker domains");
+assert(!productionFoundationSmoke.includes("cloudflare.com"), "smoke-sync-production-foundation.mjs must not reference Cloudflare domains");
+assert(
+    schemaSmokeSpawnTargets.length === 1 && schemaSmokeSpawnTargets[0] === "sqlite3",
+    "smoke-sync-production-schema.mjs may only spawn sqlite3 for in-memory schema checks"
+);
+assert(!productionSchemaSmoke.includes("execSync"), "smoke-sync-production-schema.mjs must not use execSync");
 
 for (const route of productionRoutes) {
     assert(readme.includes(`/api/sync/production/v1${route}`), `README is missing ${route} documentation`);
@@ -312,9 +388,12 @@ const requiredReadmeGuidance = [
     "npm run sync:prod:d1:create",
     "npm run sync:prod:r2:create",
     "npm run sync:prod:d1:migrate",
+    "npm run sync:prod:syntax",
     "npm run sync:prod:validate",
     "npm run sync:prod:smoke",
     "npm run sync:prod:schema:smoke",
+    "npm run sync:prod:smoke:all",
+    "npm run sync:prod:schema:parse",
     "npm run sync:prod:validate:all",
     "npx wrangler secret put SYNC_PRODUCTION_TOKEN",
     "no app-side SwiftData mutation",

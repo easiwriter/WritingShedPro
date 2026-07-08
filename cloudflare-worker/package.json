@@ -22,10 +22,13 @@
     "sync:prod:d1:migrate": "wrangler d1 execute wsp_sync_production --remote --file=./sql/sync_production_schema.sql",
     "sync:prod:d1:migrate:local": "wrangler d1 execute wsp_sync_production --file=./sql/sync_production_schema.sql",
     "sync:prod:r2:create": "wrangler r2 bucket create wsp-sync-production",
-    "sync:prod:validate": "node --check src/index.js && node validate-sync-production-foundation.mjs",
+    "sync:prod:syntax": "node --check src/index.js && node --check smoke-sync-production-foundation.mjs && node --check smoke-sync-production-schema.mjs && node --check validate-sync-production-foundation.mjs",
+    "sync:prod:validate": "npm run sync:prod:syntax && node validate-sync-production-foundation.mjs",
     "sync:prod:smoke": "node smoke-sync-production-foundation.mjs",
     "sync:prod:schema:smoke": "node smoke-sync-production-schema.mjs",
-    "sync:prod:validate:all": "npm run sync:prod:validate && npm run sync:prod:smoke && npm run sync:prod:schema:smoke && sqlite3 :memory: < sql/sync_production_schema.sql"
+    "sync:prod:smoke:all": "npm run sync:prod:smoke && npm run sync:prod:schema:smoke",
+    "sync:prod:schema:parse": "sqlite3 :memory: < sql/sync_production_schema.sql",
+    "sync:prod:validate:all": "npm run sync:prod:validate && npm run sync:prod:smoke:all && npm run sync:prod:schema:parse"
   },
   "devDependencies": {
     "wrangler": "^4.93.1"

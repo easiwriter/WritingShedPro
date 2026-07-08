@@ -123,13 +123,16 @@ npm run sync:prod:d1:migrate:local
 Validate the local production foundation contract without contacting Cloudflare:
 
 ```bash
+npm run sync:prod:syntax
 npm run sync:prod:validate
 npm run sync:prod:smoke
 npm run sync:prod:schema:smoke
+npm run sync:prod:smoke:all
+npm run sync:prod:schema:parse
 npm run sync:prod:validate:all
 ```
 
-The validator reads `sync-production-foundation-contract.json` for the production route fail-closed contract. The manifest also owns the production schema safety contract: required tables, fail-closed defaults, foreign keys, forbidden cascading clauses, nullable payload/diagnostic columns, unique constraints, and lookup indexes. The `validate:all` command also loads `sql/sync_production_schema.sql` into an in-memory SQLite database to catch schema syntax errors before D1 migration.
+The validator reads `sync-production-foundation-contract.json` for the production route fail-closed contract. `sync:prod:syntax` checks the Worker, both local smoke scripts, and the validator script before `sync:prod:validate` checks the manifest. The manifest also owns the production schema safety contract: required tables, fail-closed defaults, foreign keys, forbidden cascading clauses, nullable payload/diagnostic columns, unique constraints, and lookup indexes. `sync:prod:schema:parse` loads `sql/sync_production_schema.sql` into an in-memory SQLite database to catch schema syntax errors before D1 migration.
 
 The schema smoke check loads the production schema into in-memory SQLite, verifies fail-closed defaults on a minimal user/device/project graph, confirms nullable payload/diagnostic columns accept metadata-only rows, confirms foreign keys reject orphaned devices, and checks duplicate identity/storage/sequence keys are rejected.
 
@@ -140,6 +143,24 @@ The manifest lists the required duplicate-rejection smoke cases, and `sync:prod:
 The manifest also lists the required nullable-column smoke assertions, and `sync:prod:validate` fails if metadata-only migration, operation, or audit rows stop being exercised locally.
 
 The smoke check imports the Worker locally with mocked production bindings and exercises public `/health` binding-status reporting, unknown-route and wrong-method rejection, protected-route missing-auth, wrong-token, unconfigured-token, unconfigured-DB, and invalid-JSON rejection before route-specific DB work, `/identity/check` read-only write denial, `/migration/preflight` plan-only readiness, `/assets/preflight` missing-blob readiness blocking, transfer-ready preflight without R2 upload, and oversized-manifest rejection before DB/R2 work, `/apply/preflight` oversized-window rejection before DB/cursor work and SwiftData-applier-not-implemented blocking, `/orchestrator/eligibility` lifecycle-not-wired blocking, `/release/readiness` release-enable-endpoint blocking, plus `/users/summary` aggregate response shape, no-store caching, and absence of D1 mutation calls. It also fails if the production contract contains a route without deliberate route-specific smoke coverage.
+
+`sync:prod:smoke:all` runs both the route smoke and schema smoke checks. `sync:prod:validate:all` runs syntax/manifest validation, the grouped smoke checks, and the raw SQLite schema parse.
+
+The local validation, smoke, and parse scripts must not call `wrangler`, use `--remote`, run `curl`, or contact HTTP endpoints; the manifest validator enforces this so production validation remains no-Cloudflare by default.
+
+The smoke source files are also checked for Cloudflare/network escape hatches such as `wrangler`, `--remote`, or direct HTTP `fetch(...)` calls. Local `worker.fetch(...)` dispatch is allowed.
+
+The route smoke script must import the Worker from local source through a generated `data:` URL, use local mocked DB/R2 bindings, and dispatch requests through `worker.fetch(...)`.
+
+Route smoke request URLs must use the reserved `https://wsp.example.test/api/sync/production/v1` base URL and must not reference deployed Worker or Cloudflare domains.
+
+The route smoke script must not spawn subprocesses. The schema smoke script may only spawn `sqlite3` for in-memory schema checks and must not use `execSync`.
+
+Smoke scripts must not write, delete, or create local files; they are read-only apart from in-memory Worker/SQLite execution.
+
+Smoke scripts must use synthetic bindings and must not read real environment variables or secrets through `process.env`.
+
+Route smoke must use the synthetic `production-smoke-token` token, not a real production secret.
 
 Production routes must remain disabled by default until environment separation, auth, migration planning, asset transfer, applier rollback, monitoring, support runbooks, and release drills are implemented and verified.
 
