@@ -124,10 +124,13 @@ Validate the local production foundation contract without contacting Cloudflare:
 
 ```bash
 npm run sync:prod:validate
+npm run sync:prod:smoke
 npm run sync:prod:validate:all
 ```
 
 The validator reads `sync-production-foundation-contract.json` for the production route fail-closed contract. The `validate:all` command also loads `sql/sync_production_schema.sql` into an in-memory SQLite database to catch schema syntax errors before D1 migration.
+
+The smoke check imports the Worker locally with mocked production bindings and exercises public `/health` binding-status reporting, unknown-route and wrong-method rejection, protected-route missing-auth, wrong-token, unconfigured-token, unconfigured-DB, and invalid-JSON rejection before route-specific DB work, `/identity/check` read-only write denial, `/migration/preflight` plan-only readiness, `/assets/preflight` missing-blob readiness blocking, transfer-ready preflight without R2 upload, and oversized-manifest rejection before DB/R2 work, `/apply/preflight` oversized-window rejection before DB/cursor work and SwiftData-applier-not-implemented blocking, `/orchestrator/eligibility` lifecycle-not-wired blocking, `/release/readiness` release-enable-endpoint blocking, plus `/users/summary` aggregate response shape, no-store caching, and absence of D1 mutation calls. It also fails if the production contract contains a route without deliberate route-specific smoke coverage.
 
 Production routes must remain disabled by default until environment separation, auth, migration planning, asset transfer, applier rollback, monitoring, support runbooks, and release drills are implemented and verified.
 
@@ -144,6 +147,7 @@ Production foundation routes:
 Only production health is public. All production foundation POST routes require `Authorization: Bearer <SYNC_PRODUCTION_TOKEN>` and require `SYNC_PRODUCTION_DB` to be configured. Asset preflight also requires `SYNC_PRODUCTION_BLOBS` to be configured before asset transfer can be considered. The health route only reports whether those bindings exist and performs no writes.
 
 - `GET /api/sync/production/v1/health` -> reports production sync foundation version and whether production D1/R2/token bindings are configured. This route performs no writes.
+- `POST /api/sync/production/v1/users/summary` -> reports privacy-safe aggregate user and device counts for enrolled production sync identities. This route requires `Authorization: Bearer <SYNC_PRODUCTION_TOKEN>`, exposes no document content, project names, attachment payloads, or secrets, and performs no writes.
 - `POST /api/sync/production/v1/identity/check` -> checks an already-registered user/device/project entitlement against the production schema. This route requires `Authorization: Bearer <SYNC_PRODUCTION_TOKEN>`, performs no writes, and always reports `writesEnabled: false` in the current foundation phase.
 - `POST /api/sync/production/v1/migration/preflight` -> evaluates supplied CloudKit project inventory, consent, backup/export, user/device/project entitlement, and source-state signals before a migration run can be planned. This route performs no writes, does not apply operations, and always reports `readyToApplyMigration: false` in the current foundation phase.
 - `POST /api/sync/production/v1/assets/preflight` -> validates a supplied asset manifest, production blob binding, and user/device/project entitlement before asset transfer can be attempted. This route performs no R2 upload, no D1 write, no operation apply, and always reports `readyToAdvanceCursor: false` until a later verified upload/checksum path exists.

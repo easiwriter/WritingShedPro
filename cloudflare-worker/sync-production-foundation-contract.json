@@ -24,6 +24,28 @@
       "requiredDocs": ["This route performs no writes"]
     },
     {
+      "route": "/users/summary",
+      "method": "POST",
+      "public": false,
+      "requiresAuth": true,
+      "requiresProductionDb": true,
+      "requiresProductionBlobs": false,
+      "aggregateOnly": true,
+      "handler": "handleSyncProductionUsersSummary",
+      "allowedReadTables": ["sync_users", "sync_devices"],
+      "forbiddenDetailFields": [
+        "external_subject_hash",
+        "account_id",
+        "project_id",
+        "canonical_name",
+        "r2_key",
+        "payload_json",
+        "payload_r2_key"
+      ],
+      "requiredSource": ["totalUsers", "activeUsers", "writesEnabled: false", "appMutationEnabled: false"],
+      "requiredDocs": ["privacy-safe aggregate user and device counts", "performs no writes"]
+    },
+    {
       "route": "/identity/check",
       "method": "POST",
       "public": false,

@@ -1855,7 +1855,7 @@ async function handleSyncProduction(request, env, pathname) {
         );
     }
 
-    if (!["/identity/check", "/migration/preflight", "/assets/preflight", "/apply/preflight", "/orchestrator/eligibility", "/release/readiness"].includes(suffix)) {
+    if (!["/users/summary", "/identity/check", "/migration/preflight", "/assets/preflight", "/apply/preflight", "/orchestrator/eligibility", "/release/readiness"].includes(suffix)) {
         return jsonResponse({ error: "Not found" }, 404);
     }
 
@@ -1878,6 +1878,9 @@ async function handleSyncProduction(request, env, pathname) {
         return jsonResponse({ error: "Invalid JSON" }, 400);
     }
 
+    if (suffix === "/users/summary") {
+        return handleSyncProductionUsersSummary(env);
+    }
     if (suffix === "/identity/check") {
         return handleSyncProductionIdentityCheck(body, env);
     }
@@ -1898,6 +1901,51 @@ async function handleSyncProduction(request, env, pathname) {
     }
 
     return jsonResponse({ error: "Not found" }, 404);
+}
+
+async function handleSyncProductionUsersSummary(env) {
+    try {
+        const userSummary = await env.SYNC_PRODUCTION_DB
+            .prepare(`
+                SELECT
+                    COUNT(*) AS total_user_count,
+                    COALESCE(SUM(CASE WHEN lifecycle_state = 'active' THEN 1 ELSE 0 END), 0) AS active_user_count,
+                    COALESCE(SUM(CASE WHEN consent_state = 'granted' THEN 1 ELSE 0 END), 0) AS consent_granted_user_count,
+                    COALESCE(SUM(CASE WHEN revoked_at IS NOT NULL OR deleted_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS revoked_or_deleted_user_count
+                FROM sync_users
+            `)
+            .first();
+        const deviceSummary = await env.SYNC_PRODUCTION_DB
+            .prepare(`
+                SELECT
+                    COUNT(*) AS total_device_count,
+                    COALESCE(SUM(CASE WHEN lifecycle_state = 'active' THEN 1 ELSE 0 END), 0) AS active_device_count,
+                    COALESCE(SUM(CASE WHEN revoked_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS revoked_device_count
+                FROM sync_devices
+            `)
+            .first();
+
+        return jsonResponse(
+            {
+                ok: true,
+                totalUsers: userSummary?.total_user_count ?? 0,
+                activeUsers: userSummary?.active_user_count ?? 0,
+                consentGrantedUsers: userSummary?.consent_granted_user_count ?? 0,
+                revokedOrDeletedUsers: userSummary?.revoked_or_deleted_user_count ?? 0,
+                totalDevices: deviceSummary?.total_device_count ?? 0,
+                activeDevices: deviceSummary?.active_device_count ?? 0,
+                revokedDevices: deviceSummary?.revoked_device_count ?? 0,
+                writesEnabled: false,
+                appMutationEnabled: false,
+                version: SYNC_PRODUCTION_API_VERSION,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Production sync users summary failed:", err);
+        return jsonResponse({ error: "Production users summary failed" }, 502);
+    }
 }
 
 async function handleSyncProductionIdentityCheck(body, env) {

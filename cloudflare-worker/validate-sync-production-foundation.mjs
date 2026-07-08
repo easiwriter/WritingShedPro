@@ -66,6 +66,12 @@ for (const contract of routeContracts) {
     assert(typeof contract.requiresAuth === "boolean", `Production route ${contract.route} must define requiresAuth`);
     assert(typeof contract.requiresProductionDb === "boolean", `Production route ${contract.route} must define requiresProductionDb`);
     assert(typeof contract.requiresProductionBlobs === "boolean", `Production route ${contract.route} must define requiresProductionBlobs`);
+    assert(contract.aggregateOnly === undefined || typeof contract.aggregateOnly === "boolean", `Production route ${contract.route} aggregateOnly must be boolean when present`);
+    if (contract.aggregateOnly) {
+        assert(typeof contract.handler === "string" && contract.handler.length > 0, `Aggregate route ${contract.route} must define handler`);
+        assert(Array.isArray(contract.allowedReadTables) && contract.allowedReadTables.length > 0, `Aggregate route ${contract.route} must define allowedReadTables`);
+        assert(Array.isArray(contract.forbiddenDetailFields), `Aggregate route ${contract.route} must define forbiddenDetailFields`);
+    }
     assert(Array.isArray(contract.requiredSource) && contract.requiredSource.length > 0, `Production route ${contract.route} must define requiredSource checks`);
     assert(Array.isArray(contract.requiredDocs) && contract.requiredDocs.length > 0, `Production route ${contract.route} must define requiredDocs checks`);
     assert(contract.requiredSource.every((text) => typeof text === "string" && text.length > 0), `Production route ${contract.route} has an empty requiredSource check`);
@@ -114,6 +120,24 @@ for (const contract of routeContracts) {
     if (contract.requiresProductionBlobs) {
         assert(productionSection.includes("!env.SYNC_PRODUCTION_BLOBS"), `Production route ${contract.route} must require production blob storage configuration`);
         assert(readme.includes("`SYNC_PRODUCTION_BLOBS` to be configured"), `Production route ${contract.route} is missing README production blob contract`);
+    }
+    if (contract.aggregateOnly) {
+        const handlerStart = productionSection.indexOf(`async function ${contract.handler}(`);
+        const nextHandlerStart = productionSection.indexOf("\nasync function ", handlerStart + 1);
+        assert(handlerStart >= 0 && nextHandlerStart > handlerStart, `Aggregate route ${contract.route} handler boundary was not found`);
+        const handlerSection = productionSection.slice(handlerStart, nextHandlerStart);
+        assert(handlerSection.includes("COUNT(*)"), `Aggregate route ${contract.route} must use aggregate counts`);
+
+        const readTables = [...handlerSection.matchAll(/FROM\s+(sync_[a-z_]+)/g)].map((match) => match[1]);
+        for (const table of contract.allowedReadTables) {
+            assert(readTables.includes(table), `Aggregate route ${contract.route} must read allowed table ${table}`);
+        }
+        for (const table of readTables) {
+            assert(contract.allowedReadTables.includes(table), `Aggregate route ${contract.route} must not read ${table}`);
+        }
+        for (const forbiddenField of contract.forbiddenDetailFields) {
+            assert(!handlerSection.includes(forbiddenField), `Aggregate route ${contract.route} must not read detail field ${forbiddenField}`);
+        }
     }
     assert(
         readme.includes(`${contract.method} ${productionNamespace}${contract.route}`),
@@ -274,6 +298,7 @@ const requiredScripts = [
     "sync:prod:d1:migrate:local",
     "sync:prod:r2:create",
     "sync:prod:validate",
+    "sync:prod:smoke",
     "sync:prod:validate:all",
 ];
 
@@ -286,8 +311,12 @@ assert(
     "package.json sync:prod:validate must check Worker syntax and foundation contract"
 );
 assert(
-    packageJSON.scripts["sync:prod:validate:all"] === "npm run sync:prod:validate && sqlite3 :memory: < sql/sync_production_schema.sql",
-    "package.json sync:prod:validate:all must include SQLite schema parse validation"
+    packageJSON.scripts["sync:prod:smoke"] === "node smoke-sync-production-foundation.mjs",
+    "package.json sync:prod:smoke must run local production foundation smoke checks"
+);
+assert(
+    packageJSON.scripts["sync:prod:validate:all"] === "npm run sync:prod:validate && npm run sync:prod:smoke && sqlite3 :memory: < sql/sync_production_schema.sql",
+    "package.json sync:prod:validate:all must include smoke and SQLite schema parse validation"
 );
 
 for (const route of productionRoutes) {
@@ -299,6 +328,7 @@ const requiredReadmeGuidance = [
     "npm run sync:prod:r2:create",
     "npm run sync:prod:d1:migrate",
     "npm run sync:prod:validate",
+    "npm run sync:prod:smoke",
     "npm run sync:prod:validate:all",
     "npx wrangler secret put SYNC_PRODUCTION_TOKEN",
     "no app-side SwiftData mutation",
