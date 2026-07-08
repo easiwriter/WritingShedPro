@@ -1,0 +1,87 @@
+{
+  "namespace": "/api/sync/production/v1",
+  "phase": "server-foundation",
+  "policy": {
+    "readOnly": true,
+    "d1WritesAllowed": false,
+    "r2WritesAllowed": false,
+    "swiftDataMutationAllowed": false,
+    "cursorAdvanceAllowed": false,
+    "rolloutEnableAllowed": false,
+    "cacheControl": "no-store",
+    "maxAssetManifestItems": 1000,
+    "maxApplyWindowOperations": 500
+  },
+  "routes": [
+    {
+      "route": "/health",
+      "method": "GET",
+      "public": true,
+      "requiresAuth": false,
+      "requiresProductionDb": false,
+      "requiresProductionBlobs": false,
+      "requiredSource": ["writesEnabled: false", "appMutationEnabled: false"],
+      "requiredDocs": ["This route performs no writes"]
+    },
+    {
+      "route": "/identity/check",
+      "method": "POST",
+      "public": false,
+      "requiresAuth": true,
+      "requiresProductionDb": true,
+      "requiresProductionBlobs": false,
+      "requiredSource": ["canWrite: false", "writesEnabled: false"],
+      "requiredDocs": ["performs no writes"]
+    },
+    {
+      "route": "/migration/preflight",
+      "method": "POST",
+      "public": false,
+      "requiresAuth": true,
+      "requiresProductionDb": true,
+      "requiresProductionBlobs": false,
+      "requiredSource": ["readyToApplyMigration: false", "writesEnabled: false"],
+      "requiredDocs": ["performs no writes", "readyToApplyMigration: false"]
+    },
+    {
+      "route": "/assets/preflight",
+      "method": "POST",
+      "public": false,
+      "requiresAuth": true,
+      "requiresProductionDb": true,
+      "requiresProductionBlobs": true,
+      "requiredSource": ["readyToAdvanceCursor: false", "cursorAdvanceBlockedUntil: \"all_assets_uploaded_and_verified\""],
+      "requiredDocs": ["performs no R2 upload", "readyToAdvanceCursor: false"]
+    },
+    {
+      "route": "/apply/preflight",
+      "method": "POST",
+      "public": false,
+      "requiresAuth": true,
+      "requiresProductionDb": true,
+      "requiresProductionBlobs": false,
+      "requiredSource": ["readyToApply: false", "cursorAdvanceBlockedUntil: \"swiftdata_apply_committed_under_feature_flag\""],
+      "requiredDocs": ["performs no D1 write", "readyToApply: false"]
+    },
+    {
+      "route": "/orchestrator/eligibility",
+      "method": "POST",
+      "public": false,
+      "requiresAuth": true,
+      "requiresProductionDb": true,
+      "requiresProductionBlobs": false,
+      "requiredSource": ["eligibleToRun: false", "eligibleToApply: false", "eligibleToAdvanceCursor: false"],
+      "requiredDocs": ["performs no writes", "eligibleToRun: false"]
+    },
+    {
+      "route": "/release/readiness",
+      "method": "POST",
+      "public": false,
+      "requiresAuth": true,
+      "requiresProductionDb": true,
+      "requiresProductionBlobs": false,
+      "requiredSource": ["readyToRelease: false", "readyToEnableProductionWrites: false"],
+      "requiredDocs": ["performs no writes", "readyToRelease: false"]
+    }
+  ]
+}

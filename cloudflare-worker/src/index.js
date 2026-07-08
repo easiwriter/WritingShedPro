@@ -22,9 +22,12 @@ const TUTORIAL_VIDEO_ORDER_KEY = "tutorials/_order.json";
 const MAX_SINGLE_UPLOAD_BYTES = 95 * 1024 * 1024;
 const DEFAULT_MULTIPART_PART_SIZE_BYTES = 20 * 1024 * 1024;
 const SYNC_POC_API_VERSION = "2026-07-04-phase-4b";
+const SYNC_PRODUCTION_API_VERSION = "2026-07-08-foundation-v1";
 const MAX_SYNC_PUSH_OPERATIONS = 2000;
 const MAX_SYNC_PULL_OPERATIONS = 500;
 const MAX_SYNC_INLINE_PAYLOAD_CHARS = 100000;
+const MAX_SYNC_PRODUCTION_ASSET_MANIFEST_ITEMS = 1000;
+const MAX_SYNC_PRODUCTION_APPLY_WINDOW_OPERATIONS = 500;
 const SYNC_DELETE_OPERATION_TYPES = new Set(["delete", "trash", "tombstone"]);
 const SYNC_RESTORE_OPERATION_TYPES = new Set(["restore", "untrash"]);
 
@@ -169,6 +172,10 @@ export default {
 
         if (pathname.startsWith("/api/sync/v1")) {
             return handleSyncPOC(request, env, pathname);
+        }
+
+        if (pathname.startsWith("/api/sync/production/v1")) {
+            return handleSyncProduction(request, env, pathname);
         }
 
         // Default: support handler
@@ -1822,6 +1829,881 @@ function isAuthorizedSyncPOCRequest(request, env) {
     return token.length > 0 && token === configuredToken;
 }
 
+async function handleSyncProduction(request, env, pathname) {
+    const basePath = "/api/sync/production/v1";
+    const suffix = pathname.slice(basePath.length) || "/";
+
+    if (suffix === "/health") {
+        if (request.method !== "GET") {
+            return jsonResponse({ error: "Method not allowed" }, 405);
+        }
+
+        return jsonResponse(
+            {
+                ok: true,
+                service: "wsp-sync-production",
+                version: SYNC_PRODUCTION_API_VERSION,
+                phase: "server-foundation",
+                productionDbConfigured: Boolean(env.SYNC_PRODUCTION_DB),
+                productionBlobsConfigured: Boolean(env.SYNC_PRODUCTION_BLOBS),
+                authConfigured: Boolean(env.SYNC_PRODUCTION_TOKEN),
+                writesEnabled: false,
+                appMutationEnabled: false,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    }
+
+    if (!["/identity/check", "/migration/preflight", "/assets/preflight", "/apply/preflight", "/orchestrator/eligibility", "/release/readiness"].includes(suffix)) {
+        return jsonResponse({ error: "Not found" }, 404);
+    }
+
+    if (request.method !== "POST") {
+        return jsonResponse({ error: "Method not allowed" }, 405);
+    }
+
+    if (!isAuthorizedSyncProductionRequest(request, env)) {
+        return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
+    if (!env.SYNC_PRODUCTION_DB) {
+        return jsonResponse({ error: "Production sync database is not configured" }, 503);
+    }
+
+    let body;
+    try {
+        body = await request.json();
+    } catch {
+        return jsonResponse({ error: "Invalid JSON" }, 400);
+    }
+
+    if (suffix === "/identity/check") {
+        return handleSyncProductionIdentityCheck(body, env);
+    }
+    if (suffix === "/migration/preflight") {
+        return handleSyncProductionMigrationPreflight(body, env);
+    }
+    if (suffix === "/assets/preflight") {
+        return handleSyncProductionAssetPreflight(body, env);
+    }
+    if (suffix === "/apply/preflight") {
+        return handleSyncProductionApplyPreflight(body, env);
+    }
+    if (suffix === "/orchestrator/eligibility") {
+        return handleSyncProductionOrchestratorEligibility(body, env);
+    }
+    if (suffix === "/release/readiness") {
+        return handleSyncProductionReleaseReadiness(body, env);
+    }
+
+    return jsonResponse({ error: "Not found" }, 404);
+}
+
+async function handleSyncProductionIdentityCheck(body, env) {
+    const validation = validateSyncProductionIdentity(body);
+    if (validation.error) {
+        return jsonResponse({ error: validation.error }, 400);
+    }
+
+    const { userSubjectHash, deviceId, projectId } = validation;
+
+    try {
+        const user = await env.SYNC_PRODUCTION_DB
+            .prepare(`
+                SELECT id, account_id, consent_state, lifecycle_state, revoked_at, deleted_at
+                FROM sync_users
+                WHERE external_subject_hash = ?
+            `)
+            .bind(userSubjectHash)
+            .first();
+        const device = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT id, lifecycle_state, revoked_at
+                    FROM sync_devices
+                    WHERE id = ? AND user_id = ?
+                `)
+                .bind(deviceId, user.id)
+                .first()
+            : null;
+        const entitlement = user && projectId
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT role, can_read, can_write, revoked_at
+                    FROM sync_project_entitlements
+                    WHERE project_id = ? AND user_id = ?
+                `)
+                .bind(projectId, user.id)
+                .first()
+            : null;
+
+        const reasons = [];
+        if (!user) reasons.push("user_not_registered");
+        if (user && user.lifecycle_state !== "active") reasons.push("user_not_active");
+        if (user?.revoked_at || user?.deleted_at) reasons.push("user_revoked_or_deleted");
+        if (user && user.consent_state !== "granted") reasons.push("consent_not_granted");
+        if (!device) reasons.push("device_not_registered");
+        if (device && device.lifecycle_state !== "active") reasons.push("device_not_active");
+        if (device?.revoked_at) reasons.push("device_revoked");
+        if (projectId && !entitlement) reasons.push("project_entitlement_missing");
+        if (entitlement?.revoked_at) reasons.push("project_entitlement_revoked");
+
+        return jsonResponse(
+            {
+                ok: true,
+                authorized: reasons.length === 0,
+                userRegistered: Boolean(user),
+                deviceRegistered: Boolean(device),
+                projectEntitled: projectId ? Boolean(entitlement && !entitlement.revoked_at) : null,
+                canRead: Boolean(entitlement?.can_read),
+                canWrite: false,
+                writesEnabled: false,
+                reasons,
+                version: SYNC_PRODUCTION_API_VERSION,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Production sync identity check failed:", err);
+        return jsonResponse({ error: "Production identity check failed" }, 502);
+    }
+}
+
+async function handleSyncProductionMigrationPreflight(body, env) {
+    const validation = validateSyncProductionIdentity(body);
+    if (validation.error) {
+        return jsonResponse({ error: validation.error }, 400);
+    }
+    if (!validation.projectId) {
+        return jsonResponse({ error: "Missing required field: projectId" }, 400);
+    }
+
+    const inventory = normalizeSyncProductionMigrationInventory(body?.inventory);
+    if (inventory.error) {
+        return jsonResponse({ error: inventory.error }, 400);
+    }
+
+    const backupExportVerified = body?.backupExportVerified === true;
+    const consentAcknowledged = body?.consentAcknowledged === true;
+    const sourceSystem = typeof body?.sourceSystem === "string" ? body.sourceSystem.trim().slice(0, 80) : "cloudkit";
+    const cloudKitState = typeof body?.cloudKitState === "string" ? body.cloudKitState.trim().slice(0, 80) : "unknown";
+    const { userSubjectHash, deviceId, projectId } = validation;
+
+    try {
+        const user = await env.SYNC_PRODUCTION_DB
+            .prepare(`
+                SELECT id, consent_state, lifecycle_state, revoked_at, deleted_at
+                FROM sync_users
+                WHERE external_subject_hash = ?
+            `)
+            .bind(userSubjectHash)
+            .first();
+        const device = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT id, lifecycle_state, revoked_at
+                    FROM sync_devices
+                    WHERE id = ? AND user_id = ?
+                `)
+                .bind(deviceId, user.id)
+                .first()
+            : null;
+        const project = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT id, migration_state, writes_enabled, archived_at
+                    FROM sync_projects
+                    WHERE id = ? AND user_id = ?
+                `)
+                .bind(projectId, user.id)
+                .first()
+            : null;
+        const entitlement = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT can_read, can_write, revoked_at
+                    FROM sync_project_entitlements
+                    WHERE project_id = ? AND user_id = ?
+                `)
+                .bind(projectId, user.id)
+                .first()
+            : null;
+
+        const blockers = [];
+        if (!user) blockers.push("user_not_registered");
+        if (user && user.lifecycle_state !== "active") blockers.push("user_not_active");
+        if (user?.revoked_at || user?.deleted_at) blockers.push("user_revoked_or_deleted");
+        if (user && user.consent_state !== "granted") blockers.push("stored_consent_not_granted");
+        if (!consentAcknowledged) blockers.push("request_consent_not_acknowledged");
+        if (!device) blockers.push("device_not_registered");
+        if (device && device.lifecycle_state !== "active") blockers.push("device_not_active");
+        if (device?.revoked_at) blockers.push("device_revoked");
+        if (!project) blockers.push("project_not_registered");
+        if (project?.archived_at) blockers.push("project_archived");
+        if (project?.writes_enabled === 1) blockers.push("project_already_write_enabled");
+        if (!entitlement) blockers.push("project_entitlement_missing");
+        if (entitlement?.revoked_at) blockers.push("project_entitlement_revoked");
+        if (entitlement && entitlement.can_read !== 1) blockers.push("project_read_not_allowed");
+        if (entitlement && entitlement.can_write !== 1) blockers.push("project_write_not_allowed");
+        if (!backupExportVerified) blockers.push("backup_export_not_verified");
+        if (sourceSystem !== "cloudkit") blockers.push("source_system_not_cloudkit");
+        if (!validCloudKitMigrationStates().has(cloudKitState)) blockers.push("cloudkit_state_not_ready");
+        if (inventory.totalRecords === 0) blockers.push("inventory_empty");
+
+        const estimatedOperationBatches = Math.max(1, Math.ceil(inventory.totalRecords / 500));
+        const estimatedAssetBatches = inventory.assetCount > 0 ? Math.ceil(inventory.assetCount / 100) : 0;
+
+        return jsonResponse(
+            {
+                ok: true,
+                readyToPlanMigration: blockers.length === 0,
+                readyToApplyMigration: false,
+                writesEnabled: false,
+                appMutationEnabled: false,
+                blockers,
+                sourceSystem,
+                cloudKitState,
+                inventory,
+                estimatedOperationBatches,
+                estimatedAssetBatches,
+                nextStep: blockers.length === 0
+                    ? "create_disabled_migration_run"
+                    : "resolve_preflight_blockers",
+                version: SYNC_PRODUCTION_API_VERSION,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Production sync migration preflight failed:", err);
+        return jsonResponse({ error: "Production migration preflight failed" }, 502);
+    }
+}
+
+function normalizeSyncProductionMigrationInventory(rawInventory) {
+    if (!rawInventory || typeof rawInventory !== "object") {
+        return { error: "Missing required field: inventory" };
+    }
+
+    const recordCountKeys = [
+        "projectCount",
+        "folderCount",
+        "textFileCount",
+        "versionCount",
+        "publicationCount",
+        "relationshipLinkCount",
+        "styleCount",
+        "referenceCount",
+        "commentCount",
+        "footnoteCount",
+    ];
+    const normalized = {};
+    let totalRecords = 0;
+
+    for (const key of recordCountKeys) {
+        const value = rawInventory[key] ?? 0;
+        if (!Number.isInteger(value) || value < 0) {
+            return { error: `inventory.${key} must be a non-negative integer` };
+        }
+        normalized[key] = value;
+        totalRecords += value;
+    }
+
+    const assetCount = rawInventory.assetCount ?? 0;
+    const estimatedAssetBytes = rawInventory.estimatedAssetBytes ?? 0;
+    if (!Number.isInteger(assetCount) || assetCount < 0) {
+        return { error: "inventory.assetCount must be a non-negative integer" };
+    }
+    if (!Number.isInteger(estimatedAssetBytes) || estimatedAssetBytes < 0) {
+        return { error: "inventory.estimatedAssetBytes must be a non-negative integer" };
+    }
+
+    return {
+        ...normalized,
+        assetCount,
+        estimatedAssetBytes,
+        totalRecords,
+    };
+}
+
+function validCloudKitMigrationStates() {
+    return new Set(["ready", "synced", "quiescent", "not_required"]);
+}
+
+async function handleSyncProductionAssetPreflight(body, env) {
+    const validation = validateSyncProductionIdentity(body);
+    if (validation.error) {
+        return jsonResponse({ error: validation.error }, 400);
+    }
+    if (!validation.projectId) {
+        return jsonResponse({ error: "Missing required field: projectId" }, 400);
+    }
+
+    const manifest = normalizeSyncProductionAssetManifest(body?.assets);
+    if (manifest.error) {
+        return jsonResponse({ error: manifest.error }, 400);
+    }
+
+    const { userSubjectHash, deviceId, projectId } = validation;
+
+    try {
+        const user = await env.SYNC_PRODUCTION_DB
+            .prepare(`
+                SELECT id, consent_state, lifecycle_state, revoked_at, deleted_at
+                FROM sync_users
+                WHERE external_subject_hash = ?
+            `)
+            .bind(userSubjectHash)
+            .first();
+        const device = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT id, lifecycle_state, revoked_at
+                    FROM sync_devices
+                    WHERE id = ? AND user_id = ?
+                `)
+                .bind(deviceId, user.id)
+                .first()
+            : null;
+        const project = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT id, migration_state, writes_enabled, archived_at
+                    FROM sync_projects
+                    WHERE id = ? AND user_id = ?
+                `)
+                .bind(projectId, user.id)
+                .first()
+            : null;
+        const entitlement = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT can_read, can_write, revoked_at
+                    FROM sync_project_entitlements
+                    WHERE project_id = ? AND user_id = ?
+                `)
+                .bind(projectId, user.id)
+                .first()
+            : null;
+
+        const blockers = [];
+        if (!env.SYNC_PRODUCTION_BLOBS) blockers.push("production_blob_storage_not_configured");
+        if (!user) blockers.push("user_not_registered");
+        if (user && user.lifecycle_state !== "active") blockers.push("user_not_active");
+        if (user?.revoked_at || user?.deleted_at) blockers.push("user_revoked_or_deleted");
+        if (user && user.consent_state !== "granted") blockers.push("consent_not_granted");
+        if (!device) blockers.push("device_not_registered");
+        if (device && device.lifecycle_state !== "active") blockers.push("device_not_active");
+        if (device?.revoked_at) blockers.push("device_revoked");
+        if (!project) blockers.push("project_not_registered");
+        if (project?.archived_at) blockers.push("project_archived");
+        if (!entitlement) blockers.push("project_entitlement_missing");
+        if (entitlement?.revoked_at) blockers.push("project_entitlement_revoked");
+        if (entitlement && entitlement.can_read !== 1) blockers.push("project_read_not_allowed");
+        if (entitlement && entitlement.can_write !== 1) blockers.push("project_write_not_allowed");
+
+        return jsonResponse(
+            {
+                ok: true,
+                readyToTransferAssets: blockers.length === 0,
+                readyToAdvanceCursor: false,
+                cursorAdvanceBlockedUntil: "all_assets_uploaded_and_verified",
+                writesEnabled: false,
+                appMutationEnabled: false,
+                blockers,
+                manifest,
+                version: SYNC_PRODUCTION_API_VERSION,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Production sync asset preflight failed:", err);
+        return jsonResponse({ error: "Production asset preflight failed" }, 502);
+    }
+}
+
+function normalizeSyncProductionAssetManifest(rawAssets) {
+    if (!Array.isArray(rawAssets)) {
+        return { error: "Missing required field: assets" };
+    }
+    if (rawAssets.length > MAX_SYNC_PRODUCTION_ASSET_MANIFEST_ITEMS) {
+        return { error: `assets exceeds ${MAX_SYNC_PRODUCTION_ASSET_MANIFEST_ITEMS}` };
+    }
+
+    const seenIds = new Set();
+    const seenKeys = new Set();
+    let totalBytes = 0;
+    const assets = [];
+
+    for (const rawAsset of rawAssets) {
+        const id = typeof rawAsset?.id === "string" ? rawAsset.id.trim().slice(0, 120) : "";
+        const entityType = typeof rawAsset?.entityType === "string" ? rawAsset.entityType.trim().slice(0, 80) : "";
+        const entityId = typeof rawAsset?.entityId === "string" ? rawAsset.entityId.trim().slice(0, 120) : "";
+        const contentHash = typeof rawAsset?.contentHash === "string" ? rawAsset.contentHash.trim().slice(0, 160) : "";
+        const byteCount = rawAsset?.byteCount;
+        const proposedR2Key = typeof rawAsset?.proposedR2Key === "string" ? rawAsset.proposedR2Key.trim().slice(0, 500) : "";
+
+        if (!id || !entityType || !entityId || !contentHash) {
+            return { error: "Each asset requires id, entityType, entityId, and contentHash" };
+        }
+        if (!Number.isInteger(byteCount) || byteCount <= 0) {
+            return { error: "Each asset byteCount must be a positive integer" };
+        }
+        if (seenIds.has(id)) {
+            return { error: "Asset ids must be unique" };
+        }
+        if (proposedR2Key && seenKeys.has(proposedR2Key)) {
+            return { error: "Asset proposedR2Key values must be unique" };
+        }
+
+        seenIds.add(id);
+        if (proposedR2Key) seenKeys.add(proposedR2Key);
+        totalBytes += byteCount;
+        assets.push({
+            id,
+            entityType,
+            entityId,
+            contentHash,
+            byteCount,
+            proposedR2Key: proposedR2Key || null,
+            contentType: typeof rawAsset?.contentType === "string" ? rawAsset.contentType.trim().slice(0, 120) : null,
+        });
+    }
+
+    return {
+        assetCount: assets.length,
+        totalBytes,
+        requiresTransfer: assets.length > 0,
+        assets,
+    };
+}
+
+async function handleSyncProductionApplyPreflight(body, env) {
+    const validation = validateSyncProductionIdentity(body);
+    if (validation.error) {
+        return jsonResponse({ error: validation.error }, 400);
+    }
+    if (!validation.projectId) {
+        return jsonResponse({ error: "Missing required field: projectId" }, 400);
+    }
+
+    const operationWindow = normalizeSyncProductionApplyWindow(body?.operationWindow);
+    if (operationWindow.error) {
+        return jsonResponse({ error: operationWindow.error }, 400);
+    }
+
+    const { userSubjectHash, deviceId, projectId } = validation;
+
+    try {
+        const user = await env.SYNC_PRODUCTION_DB
+            .prepare(`
+                SELECT id, consent_state, lifecycle_state, revoked_at, deleted_at
+                FROM sync_users
+                WHERE external_subject_hash = ?
+            `)
+            .bind(userSubjectHash)
+            .first();
+        const device = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT id, lifecycle_state, revoked_at
+                    FROM sync_devices
+                    WHERE id = ? AND user_id = ?
+                `)
+                .bind(deviceId, user.id)
+                .first()
+            : null;
+        const project = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT id, migration_state, writes_enabled, latest_sequence, archived_at
+                    FROM sync_projects
+                    WHERE id = ? AND user_id = ?
+                `)
+                .bind(projectId, user.id)
+                .first()
+            : null;
+        const entitlement = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT can_read, can_write, revoked_at
+                    FROM sync_project_entitlements
+                    WHERE project_id = ? AND user_id = ?
+                `)
+                .bind(projectId, user.id)
+                .first()
+            : null;
+        const cursor = project
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT last_applied_sequence, apply_state
+                    FROM sync_device_cursors
+                    WHERE project_id = ? AND device_id = ?
+                `)
+                .bind(projectId, deviceId)
+                .first()
+            : null;
+
+        const blockers = [];
+        if (!user) blockers.push("user_not_registered");
+        if (user && user.lifecycle_state !== "active") blockers.push("user_not_active");
+        if (user?.revoked_at || user?.deleted_at) blockers.push("user_revoked_or_deleted");
+        if (user && user.consent_state !== "granted") blockers.push("consent_not_granted");
+        if (!device) blockers.push("device_not_registered");
+        if (device && device.lifecycle_state !== "active") blockers.push("device_not_active");
+        if (device?.revoked_at) blockers.push("device_revoked");
+        if (!project) blockers.push("project_not_registered");
+        if (project?.archived_at) blockers.push("project_archived");
+        if (project && project.writes_enabled !== 1) blockers.push("project_writes_disabled");
+        if (!entitlement) blockers.push("project_entitlement_missing");
+        if (entitlement?.revoked_at) blockers.push("project_entitlement_revoked");
+        if (entitlement && entitlement.can_read !== 1) blockers.push("project_read_not_allowed");
+        if (entitlement && entitlement.can_write !== 1) blockers.push("project_write_not_allowed");
+        if (!cursor) blockers.push("device_cursor_missing");
+        if (cursor?.apply_state && !["idle", "paused"].includes(cursor.apply_state)) blockers.push("device_apply_state_not_ready");
+        if (cursor && operationWindow.baseSequence !== cursor.last_applied_sequence) blockers.push("base_sequence_mismatch");
+        if (project && operationWindow.endSequence > project.latest_sequence) blockers.push("window_exceeds_project_latest_sequence");
+        blockers.push("production_swiftdata_applier_not_implemented");
+
+        return jsonResponse(
+            {
+                ok: true,
+                readyToApply: false,
+                readyToAdvanceCursor: false,
+                cursorAdvanceBlockedUntil: "swiftdata_apply_committed_under_feature_flag",
+                writesEnabled: false,
+                appMutationEnabled: false,
+                blockers,
+                operationWindow,
+                currentCursorSequence: cursor?.last_applied_sequence ?? null,
+                projectLatestSequence: project?.latest_sequence ?? null,
+                version: SYNC_PRODUCTION_API_VERSION,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Production sync apply preflight failed:", err);
+        return jsonResponse({ error: "Production apply preflight failed" }, 502);
+    }
+}
+
+function normalizeSyncProductionApplyWindow(rawWindow) {
+    if (!rawWindow || typeof rawWindow !== "object") {
+        return { error: "Missing required field: operationWindow" };
+    }
+
+    const baseSequence = rawWindow.baseSequence;
+    const startSequence = rawWindow.startSequence;
+    const endSequence = rawWindow.endSequence;
+    const operationCount = rawWindow.operationCount;
+    const payloadHash = typeof rawWindow?.payloadHash === "string" ? rawWindow.payloadHash.trim().slice(0, 160) : "";
+    const hasUnresolvedDependencies = rawWindow?.hasUnresolvedDependencies === true;
+    const hasPendingAssets = rawWindow?.hasPendingAssets === true;
+
+    if (!Number.isInteger(baseSequence) || baseSequence < 0) {
+        return { error: "operationWindow.baseSequence must be a non-negative integer" };
+    }
+    if (!Number.isInteger(startSequence) || startSequence < 1) {
+        return { error: "operationWindow.startSequence must be a positive integer" };
+    }
+    if (!Number.isInteger(endSequence) || endSequence < startSequence) {
+        return { error: "operationWindow.endSequence must be greater than or equal to startSequence" };
+    }
+    if (!Number.isInteger(operationCount) || operationCount < 1) {
+        return { error: "operationWindow.operationCount must be a positive integer" };
+    }
+    if (operationCount > MAX_SYNC_PRODUCTION_APPLY_WINDOW_OPERATIONS) {
+        return { error: `operationWindow.operationCount exceeds ${MAX_SYNC_PRODUCTION_APPLY_WINDOW_OPERATIONS}` };
+    }
+    if (startSequence !== baseSequence + 1) {
+        return { error: "operationWindow.startSequence must equal baseSequence + 1" };
+    }
+    if (operationCount !== endSequence - startSequence + 1) {
+        return { error: "operationWindow.operationCount must match startSequence/endSequence range" };
+    }
+    if (!payloadHash) {
+        return { error: "operationWindow.payloadHash is required" };
+    }
+
+    const blockers = [];
+    if (hasUnresolvedDependencies) blockers.push("unresolved_dependencies");
+    if (hasPendingAssets) blockers.push("pending_assets");
+
+    return {
+        baseSequence,
+        startSequence,
+        endSequence,
+        operationCount,
+        payloadHash,
+        hasUnresolvedDependencies,
+        hasPendingAssets,
+        localBlockers: blockers,
+    };
+}
+
+async function handleSyncProductionOrchestratorEligibility(body, env) {
+    const validation = validateSyncProductionIdentity(body);
+    if (validation.error) {
+        return jsonResponse({ error: validation.error }, 400);
+    }
+    if (!validation.projectId) {
+        return jsonResponse({ error: "Missing required field: projectId" }, 400);
+    }
+
+    const trigger = typeof body?.trigger === "string" ? body.trigger.trim().slice(0, 80) : "";
+    if (!validSyncProductionOrchestratorTriggers().has(trigger)) {
+        return jsonResponse({ error: "Unsupported orchestrator trigger" }, 400);
+    }
+
+    const hasNetwork = body?.hasNetwork === true;
+    const appState = typeof body?.appState === "string" ? body.appState.trim().slice(0, 80) : "unknown";
+    const previousTransportFailure = body?.previousTransportFailure === true;
+    const { userSubjectHash, deviceId, projectId } = validation;
+
+    try {
+        const user = await env.SYNC_PRODUCTION_DB
+            .prepare(`
+                SELECT id, consent_state, lifecycle_state, revoked_at, deleted_at
+                FROM sync_users
+                WHERE external_subject_hash = ?
+            `)
+            .bind(userSubjectHash)
+            .first();
+        const device = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT id, lifecycle_state, revoked_at
+                    FROM sync_devices
+                    WHERE id = ? AND user_id = ?
+                `)
+                .bind(deviceId, user.id)
+                .first()
+            : null;
+        const project = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT id, writes_enabled, latest_sequence, archived_at
+                    FROM sync_projects
+                    WHERE id = ? AND user_id = ?
+                `)
+                .bind(projectId, user.id)
+                .first()
+            : null;
+        const entitlement = user
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT can_read, can_write, revoked_at
+                    FROM sync_project_entitlements
+                    WHERE project_id = ? AND user_id = ?
+                `)
+                .bind(projectId, user.id)
+                .first()
+            : null;
+        const cursor = project
+            ? await env.SYNC_PRODUCTION_DB
+                .prepare(`
+                    SELECT last_pulled_sequence, last_pushed_sequence, last_applied_sequence, apply_state
+                    FROM sync_device_cursors
+                    WHERE project_id = ? AND device_id = ?
+                `)
+                .bind(projectId, deviceId)
+                .first()
+            : null;
+
+        const blockers = [];
+        if (!hasNetwork) blockers.push("network_unavailable");
+        if (!user) blockers.push("user_not_registered");
+        if (user && user.lifecycle_state !== "active") blockers.push("user_not_active");
+        if (user?.revoked_at || user?.deleted_at) blockers.push("user_revoked_or_deleted");
+        if (user && user.consent_state !== "granted") blockers.push("consent_not_granted");
+        if (!device) blockers.push("device_not_registered");
+        if (device && device.lifecycle_state !== "active") blockers.push("device_not_active");
+        if (device?.revoked_at) blockers.push("device_revoked");
+        if (!project) blockers.push("project_not_registered");
+        if (project?.archived_at) blockers.push("project_archived");
+        if (project && project.writes_enabled !== 1) blockers.push("project_writes_disabled");
+        if (!entitlement) blockers.push("project_entitlement_missing");
+        if (entitlement?.revoked_at) blockers.push("project_entitlement_revoked");
+        if (entitlement && entitlement.can_read !== 1) blockers.push("project_read_not_allowed");
+        if (entitlement && entitlement.can_write !== 1) blockers.push("project_write_not_allowed");
+        if (!cursor) blockers.push("device_cursor_missing");
+        if (cursor?.apply_state && !["idle", "paused"].includes(cursor.apply_state)) blockers.push("device_apply_state_not_ready");
+        if (trigger === "network-recovery" && !previousTransportFailure) blockers.push("network_recovery_without_prior_transport_failure");
+        if (trigger === "background-refresh" && appState !== "background") blockers.push("background_refresh_requires_background_state");
+        blockers.push("production_orchestrator_not_wired");
+        blockers.push("production_swiftdata_applier_not_implemented");
+
+        return jsonResponse(
+            {
+                ok: true,
+                eligibleToRun: false,
+                eligibleToApply: false,
+                eligibleToAdvanceCursor: false,
+                trigger,
+                appState,
+                hasNetwork,
+                previousTransportFailure,
+                blockers,
+                cursor: cursor
+                    ? {
+                        lastPulledSequence: cursor.last_pulled_sequence,
+                        lastPushedSequence: cursor.last_pushed_sequence,
+                        lastAppliedSequence: cursor.last_applied_sequence,
+                        applyState: cursor.apply_state,
+                    }
+                    : null,
+                latestSequence: project?.latest_sequence ?? null,
+                writesEnabled: false,
+                appMutationEnabled: false,
+                version: SYNC_PRODUCTION_API_VERSION,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Production sync orchestrator eligibility failed:", err);
+        return jsonResponse({ error: "Production orchestrator eligibility failed" }, 502);
+    }
+}
+
+function validSyncProductionOrchestratorTriggers() {
+    return new Set(["launch", "foreground", "network-recovery", "silent-push", "background-refresh", "manual"]);
+}
+
+async function handleSyncProductionReleaseReadiness(body, env) {
+    const evidence = normalizeSyncProductionReleaseEvidence(body?.evidence);
+    if (evidence.error) {
+        return jsonResponse({ error: evidence.error }, 400);
+    }
+
+    try {
+        const environmentSummary = await env.SYNC_PRODUCTION_DB
+            .prepare(`
+                SELECT
+                    COUNT(*) AS production_environment_count,
+                    COALESCE(SUM(writes_enabled), 0) AS write_enabled_count
+                FROM sync_environments
+                WHERE is_production = 1
+            `)
+            .first();
+        const rolloutSummary = await env.SYNC_PRODUCTION_DB
+            .prepare(`
+                SELECT
+                    COUNT(*) AS flag_count,
+                    COALESCE(SUM(CASE WHEN kill_switch_active = 1 THEN 1 ELSE 0 END), 0) AS active_kill_switch_count
+                FROM sync_rollout_flags
+            `)
+            .first();
+
+        const blockers = [];
+        if ((environmentSummary?.production_environment_count ?? 0) === 0) blockers.push("production_environment_missing");
+        if ((environmentSummary?.write_enabled_count ?? 0) > 0) blockers.push("production_writes_already_enabled");
+        if ((rolloutSummary?.flag_count ?? 0) === 0) blockers.push("rollout_flags_missing");
+
+        for (const [key, value] of Object.entries(evidence)) {
+            if (value !== true) {
+                blockers.push(`${key}_missing`);
+            }
+        }
+        blockers.push("production_release_enable_endpoint_not_implemented");
+
+        return jsonResponse(
+            {
+                ok: true,
+                evidenceComplete: Object.values(evidence).every((value) => value === true),
+                readyToRelease: false,
+                readyToEnableProductionWrites: false,
+                releaseBlockedUntil: "all_release_evidence_verified_and_enable_endpoint_implemented",
+                writesEnabled: false,
+                appMutationEnabled: false,
+                blockers,
+                evidence,
+                environment: {
+                    productionEnvironmentCount: environmentSummary?.production_environment_count ?? 0,
+                    writeEnabledCount: environmentSummary?.write_enabled_count ?? 0,
+                },
+                rollout: {
+                    flagCount: rolloutSummary?.flag_count ?? 0,
+                    activeKillSwitchCount: rolloutSummary?.active_kill_switch_count ?? 0,
+                },
+                version: SYNC_PRODUCTION_API_VERSION,
+            },
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    } catch (err) {
+        console.error("Production sync release readiness failed:", err);
+        return jsonResponse({ error: "Production release readiness failed" }, 502);
+    }
+}
+
+function normalizeSyncProductionReleaseEvidence(rawEvidence) {
+    if (!rawEvidence || typeof rawEvidence !== "object") {
+        return { error: "Missing required field: evidence" };
+    }
+
+    const requiredKeys = [
+        "schemaDeployed",
+        "authVerified",
+        "migrationDrillPassed",
+        "assetDrillPassed",
+        "applierRollbackPassed",
+        "orchestratorDrillPassed",
+        "monitoringAlertsVerified",
+        "supportRunbookVerified",
+        "backupExportVerified",
+        "quotaControlsVerified",
+        "environmentSeparationVerified",
+        "multiDeviceConvergencePassed",
+        "killSwitchTested",
+    ];
+    const evidence = {};
+
+    for (const key of requiredKeys) {
+        evidence[key] = rawEvidence[key] === true;
+    }
+
+    return evidence;
+}
+
+function validateSyncProductionIdentity(body) {
+    const userSubjectHash = typeof body?.userSubjectHash === "string" ? body.userSubjectHash.trim() : "";
+    const deviceId = typeof body?.deviceId === "string" ? body.deviceId.trim() : "";
+    const projectId = typeof body?.projectId === "string" ? body.projectId.trim() : "";
+
+    if (!userSubjectHash) {
+        return { error: "Missing required field: userSubjectHash" };
+    }
+    if (!deviceId) {
+        return { error: "Missing required field: deviceId" };
+    }
+
+    return {
+        userSubjectHash: userSubjectHash.slice(0, 160),
+        deviceId: deviceId.slice(0, 120),
+        projectId: projectId ? projectId.slice(0, 120) : null,
+    };
+}
+
+function isAuthorizedSyncProductionRequest(request, env) {
+    const configuredToken = env.SYNC_PRODUCTION_TOKEN;
+    if (!configuredToken || typeof configuredToken !== "string") {
+        return false;
+    }
+
+    const authHeader = request.headers.get("Authorization") || "";
+    if (!authHeader.startsWith("Bearer ")) {
+        return false;
+    }
+
+    const token = authHeader.slice(7).trim();
+    return token.length > 0 && token === configuredToken;
+}
+
 async function handleAdminMessages(request, env, pathname) {
     if (!isAuthorizedAdminRequest(request, env)) {
         return jsonResponse({ error: "Unauthorized" }, 401);
@@ -2147,6 +3029,7 @@ function jsonResponse(body, status, extraHeaders = {}) {
         headers: {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no-store",
             ...extraHeaders,
         },
     });

@@ -16,7 +16,14 @@
     "sync:d1:list": "wrangler d1 list",
     "sync:d1:migrate": "wrangler d1 execute wsp_sync_poc --remote --file=./sql/sync_poc_schema.sql",
     "sync:d1:migrate:local": "wrangler d1 execute wsp_sync_poc --file=./sql/sync_poc_schema.sql",
-    "sync:r2:create": "wrangler r2 bucket create wsp-sync-poc"
+    "sync:r2:create": "wrangler r2 bucket create wsp-sync-poc",
+    "sync:prod:d1:create": "wrangler d1 create wsp_sync_production",
+    "sync:prod:d1:list": "wrangler d1 list",
+    "sync:prod:d1:migrate": "wrangler d1 execute wsp_sync_production --remote --file=./sql/sync_production_schema.sql",
+    "sync:prod:d1:migrate:local": "wrangler d1 execute wsp_sync_production --file=./sql/sync_production_schema.sql",
+    "sync:prod:r2:create": "wrangler r2 bucket create wsp-sync-production",
+    "sync:prod:validate": "node --check src/index.js && node validate-sync-production-foundation.mjs",
+    "sync:prod:validate:all": "npm run sync:prod:validate && sqlite3 :memory: < sql/sync_production_schema.sql"
   },
   "devDependencies": {
     "wrangler": "^4.93.1"

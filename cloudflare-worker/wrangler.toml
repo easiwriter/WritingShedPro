@@ -23,6 +23,18 @@ database_id = "0e59e874-c89d-4175-ab77-5bcabf430c54"
 binding = "SYNC_BLOBS"
 bucket_name = "wsp-sync-poc"
 
+# Cloudflare sync production bindings are intentionally separate from scratch POC
+# resources. Uncomment and fill database_id only when starting the production
+# implementation phase. Production routes fail closed when these are absent.
+# [[d1_databases]]
+# binding = "SYNC_PRODUCTION_DB"
+# database_name = "wsp_sync_production"
+# database_id = "TODO"
+#
+# [[r2_buckets]]
+# binding = "SYNC_PRODUCTION_BLOBS"
+# bucket_name = "wsp-sync-production"
+
 [[rules]]
 type = "Text"
 globs = ["**/*.txt"]
@@ -34,6 +46,10 @@ fallthrough = true
 #
 # The sync POC token is stored as a secret when the POC endpoints are enabled:
 #   npx wrangler secret put SYNC_POC_TOKEN
+#
+# The production sync token is separate and should be set only when production
+# routes are intentionally enabled:
+#   npx wrangler secret put SYNC_PRODUCTION_TOKEN
 #
 # Or SYSTEM_PROMPT can be set as a plain-text variable here if preferred:
 # [vars]

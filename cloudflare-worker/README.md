@@ -101,6 +101,62 @@ npx wrangler dev
 curl http://localhost:8787/api/sync/v1/health
 ```
 
+## Cloudflare Sync Production Foundation
+
+The production sync foundation starts with D1/R2 resources that are separate from the scratch POC resources above. The schema in `sql/sync_production_schema.sql` defines users, devices, projects, entitlements, migration runs, operations, cursors, tombstones, assets, rollout flags, audit events, and support actions. It is a server foundation only: no app-side SwiftData mutation is wired to this schema yet.
+
+Create production resources only when intentionally starting the production implementation phase:
+
+```bash
+npm run sync:prod:d1:create
+npm run sync:prod:d1:list
+npm run sync:prod:r2:create
+```
+
+Apply the production foundation schema:
+
+```bash
+npm run sync:prod:d1:migrate
+npm run sync:prod:d1:migrate:local
+```
+
+Validate the local production foundation contract without contacting Cloudflare:
+
+```bash
+npm run sync:prod:validate
+npm run sync:prod:validate:all
+```
+
+The validator reads `sync-production-foundation-contract.json` for the production route fail-closed contract. The `validate:all` command also loads `sql/sync_production_schema.sql` into an in-memory SQLite database to catch schema syntax errors before D1 migration.
+
+Production routes must remain disabled by default until environment separation, auth, migration planning, asset transfer, applier rollback, monitoring, support runbooks, and release drills are implemented and verified.
+
+The production foundation contract is read-only: D1 writes, R2 writes/uploads, SwiftData mutation, cursor advancement, and rollout enablement are not allowed in this phase.
+
+JSON responses default to `Cache-Control: no-store`; callers may only override caching intentionally with explicit response headers.
+
+Asset preflight accepts at most 1000 manifest items per request.
+
+Apply preflight accepts at most 500 operations per window.
+
+Production foundation routes:
+
+Only production health is public. All production foundation POST routes require `Authorization: Bearer <SYNC_PRODUCTION_TOKEN>` and require `SYNC_PRODUCTION_DB` to be configured. Asset preflight also requires `SYNC_PRODUCTION_BLOBS` to be configured before asset transfer can be considered. The health route only reports whether those bindings exist and performs no writes.
+
+- `GET /api/sync/production/v1/health` -> reports production sync foundation version and whether production D1/R2/token bindings are configured. This route performs no writes.
+- `POST /api/sync/production/v1/identity/check` -> checks an already-registered user/device/project entitlement against the production schema. This route requires `Authorization: Bearer <SYNC_PRODUCTION_TOKEN>`, performs no writes, and always reports `writesEnabled: false` in the current foundation phase.
+- `POST /api/sync/production/v1/migration/preflight` -> evaluates supplied CloudKit project inventory, consent, backup/export, user/device/project entitlement, and source-state signals before a migration run can be planned. This route performs no writes, does not apply operations, and always reports `readyToApplyMigration: false` in the current foundation phase.
+- `POST /api/sync/production/v1/assets/preflight` -> validates a supplied asset manifest, production blob binding, and user/device/project entitlement before asset transfer can be attempted. This route performs no R2 upload, no D1 write, no operation apply, and always reports `readyToAdvanceCursor: false` until a later verified upload/checksum path exists.
+- `POST /api/sync/production/v1/apply/preflight` -> validates an operation-window shape against existing identity, entitlement, project, and device cursor rows before production apply can be attempted. This route performs no D1 write, does not mutate app SwiftData, and always reports `readyToApply: false` until a flagged SwiftData applier exists and commits before cursor advancement.
+- `POST /api/sync/production/v1/orchestrator/eligibility` -> evaluates whether a launch, foreground, network-recovery, silent-push, background-refresh, or manual trigger is allowed for an existing user/device/project/cursor state. This route performs no writes, schedules no lifecycle work, does not apply operations, and always reports `eligibleToRun: false` until the production applier and rollout gates exist.
+- `POST /api/sync/production/v1/release/readiness` -> evaluates supplied release evidence plus production environment and rollout flag rows before production writes can be considered. This route performs no writes, enables no flags, and always reports `readyToRelease: false` until a separate audited enable path exists.
+
+Set the production token only when intentionally exercising production foundation routes:
+
+```bash
+npx wrangler secret put SYNC_PRODUCTION_TOKEN
+```
+
 ## Messages API
 
 Public:
