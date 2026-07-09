@@ -175,6 +175,36 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
         ])
     }
 
+    func testRecordNamespacePolicyAllowsReviewedShadowPrefix() {
+        let report = ShadowSyncRecordNamespacePolicyChecker().evaluate(ShadowSyncRecordNamespacePolicy(
+            operationPlan: operationPlan(recordCount: 3)
+        ))
+
+        XCTAssertTrue(report.policy.canUseRecordNamespace)
+        XCTAssertTrue(report.blockers.isEmpty)
+        XCTAssertEqual(report.outOfNamespaceRecordCount, 0)
+        XCTAssertTrue(report.redactedText().contains("Can use record namespace: true"))
+        XCTAssertFalse(report.redactedText().contains("wsp-shadow:Project:0"))
+    }
+
+    func testRecordNamespacePolicyBlocksProductionStyleNamesAndMissingPrefix() {
+        let plan = ShadowSyncOperationPlan(operations: [
+            ShadowSyncPlannedOperation(kind: .saveRecord, recordType: "Project", recordName: "Project:0")
+        ], blockedIssues: [])
+
+        let report = ShadowSyncRecordNamespacePolicyChecker().evaluate(ShadowSyncRecordNamespacePolicy(
+            operationPlan: plan,
+            approvedRecordNamePrefix: ""
+        ))
+
+        XCTAssertFalse(report.policy.canUseRecordNamespace)
+        XCTAssertEqual(report.outOfNamespaceRecordCount, 1)
+        XCTAssertEqual(report.blockers, [
+            "record-name-outside-shadow-namespace",
+            "record-namespace-prefix-missing"
+        ])
+    }
+
     func testDiagnosticsReportSummarizesStateWithoutErrorDetailsOrContent() {
         let readiness = readyReadinessReport()
         let exportReport = ExportDryRunReport(operations: [
@@ -558,6 +588,35 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
         XCTAssertTrue(report.blockers.contains("automatic-trigger-blocked"))
     }
 
+    func testFirstAttemptScopePolicyAllowsSingleInternalDeviceAndAccount() {
+        let report = allowedFirstAttemptScopeReport()
+
+        XCTAssertTrue(report.policy.canUseFirstAttemptScope)
+        XCTAssertTrue(report.blockers.isEmpty)
+        XCTAssertTrue(report.redactedText().contains("Internal device recorded: present"))
+        XCTAssertTrue(report.redactedText().contains("iCloud account recorded: present"))
+        XCTAssertFalse(report.redactedText().contains("Keith's iPhone"))
+    }
+
+    func testFirstAttemptScopePolicyBlocksMissingOrExpandedScope() {
+        let report = ShadowSyncFirstAttemptScopePolicyChecker().evaluate(ShadowSyncFirstAttemptScopePolicy(
+            allowsMultipleDevices: true,
+            allowsMultipleAccounts: true,
+            allowsNonInternalDevice: true,
+            allowsUserFacingRollout: true
+        ))
+
+        XCTAssertFalse(report.policy.canUseFirstAttemptScope)
+        XCTAssertEqual(report.blockers, [
+            "icloud-account-missing",
+            "internal-device-missing",
+            "multi-account-scope-blocked",
+            "multi-device-scope-blocked",
+            "non-internal-device-blocked",
+            "user-facing-rollout-blocked"
+        ])
+    }
+
     func testWriteAttemptReviewAllowsOnlyWhenAllPureGatesPass() {
         let report = passingWriteAttemptReviewReport()
 
@@ -588,6 +647,11 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
             operationPlan: operationPlan(recordCount: 11),
             maximumFirstAttemptOperationCount: 10
         ))
+        let namespace = ShadowSyncRecordNamespacePolicyChecker().evaluate(ShadowSyncRecordNamespacePolicy(
+            operationPlan: ShadowSyncOperationPlan(operations: [
+                ShadowSyncPlannedOperation(kind: .saveRecord, recordType: "Project", recordName: "Project:0")
+            ], blockedIssues: [])
+        ))
         let sideEffects = ShadowSyncSideEffectPolicyChecker().evaluate(ShadowSyncSideEffectPolicy(
             willMutateSwiftData: true
         ))
@@ -599,7 +663,12 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
             accountReport: allowedAccountReport(),
             triggerReport: trigger,
             retryReport: retry,
+            scopeReport: ShadowSyncFirstAttemptScopePolicyChecker().evaluate(ShadowSyncFirstAttemptScopePolicy(
+                allowsMultipleDevices: true,
+                allowsMultipleAccounts: true
+            )),
             batchReport: batch,
+            namespaceReport: namespace,
             sideEffectReport: sideEffects
         )
 
@@ -608,7 +677,10 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
         XCTAssertTrue(report.blockers.contains("trigger:automatic-trigger-blocked"))
         XCTAssertTrue(report.blockers.contains("retry:retry-count-too-high"))
         XCTAssertTrue(report.blockers.contains("retry:retry-delay-too-short"))
+        XCTAssertTrue(report.blockers.contains("scope:multi-device-scope-blocked"))
+        XCTAssertTrue(report.blockers.contains("scope:multi-account-scope-blocked"))
         XCTAssertTrue(report.blockers.contains("batch:first-attempt-batch-too-large"))
+        XCTAssertTrue(report.blockers.contains("namespace:record-name-outside-shadow-namespace"))
         XCTAssertTrue(report.blockers.contains("side-effect:swiftdata-mutation-blocked"))
     }
 
@@ -632,7 +704,9 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
             accountReport: allowedAccountReport(),
             triggerReport: trigger,
             retryReport: retry,
+            scopeReport: allowedFirstAttemptScopeReport(),
             batchReport: batch,
+            namespaceReport: ShadowSyncRecordNamespacePolicyChecker().evaluate(ShadowSyncRecordNamespacePolicy(operationPlan: batch.policy.operationPlan)),
             sideEffectReport: ShadowSyncSideEffectPolicyChecker().evaluate(ShadowSyncSideEffectPolicy())
         )
 
@@ -661,7 +735,9 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
             accountReport: account,
             triggerReport: trigger,
             retryReport: retry,
+            scopeReport: allowedFirstAttemptScopeReport(),
             batchReport: batch,
+            namespaceReport: ShadowSyncRecordNamespacePolicyChecker().evaluate(ShadowSyncRecordNamespacePolicy(operationPlan: batch.policy.operationPlan)),
             sideEffectReport: ShadowSyncSideEffectPolicyChecker().evaluate(ShadowSyncSideEffectPolicy())
         )
 
@@ -690,7 +766,9 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
             accountReport: allowedAccountReport(),
             triggerReport: trigger,
             retryReport: retry,
+            scopeReport: allowedFirstAttemptScopeReport(),
             batchReport: batch,
+            namespaceReport: ShadowSyncRecordNamespacePolicyChecker().evaluate(ShadowSyncRecordNamespacePolicy(operationPlan: batch.policy.operationPlan)),
             sideEffectReport: sideEffects
         )
 
@@ -707,8 +785,12 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
         XCTAssertTrue(text.contains("Can review first write attempt: true"))
         XCTAssertTrue(text.contains("Shadow zone: WritingShedProSyncZone"))
         XCTAssertTrue(text.contains("Trigger: manualDiagnostics"))
+        XCTAssertTrue(text.contains("First attempt scope allowed: true"))
         XCTAssertTrue(text.contains("Project: 3"))
-        XCTAssertFalse(text.contains("Project:0"))
+        XCTAssertTrue(preview.previewIdentifier.contains("zone=WritingShedProSyncZone"))
+        XCTAssertTrue(preview.previewIdentifier.contains("scopeSingleDevice=true"))
+        XCTAssertTrue(preview.previewIdentifier.contains("recordType.Project=3"))
+        XCTAssertFalse(text.contains("wsp-shadow:Project:0"))
         XCTAssertFalse(text.contains("formatted manuscript body"))
     }
 
@@ -738,7 +820,9 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
             accountReport: allowedAccountReport(),
             triggerReport: trigger,
             retryReport: retry,
+            scopeReport: allowedFirstAttemptScopeReport(),
             batchReport: batch,
+            namespaceReport: ShadowSyncRecordNamespacePolicyChecker().evaluate(ShadowSyncRecordNamespacePolicy(operationPlan: batch.policy.operationPlan)),
             sideEffectReport: sideEffects
         )
 
@@ -802,7 +886,9 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
             accountReport: allowedAccountReport(),
             triggerReport: trigger,
             retryReport: retry,
+            scopeReport: allowedFirstAttemptScopeReport(),
             batchReport: batch,
+            namespaceReport: ShadowSyncRecordNamespacePolicyChecker().evaluate(ShadowSyncRecordNamespacePolicy(operationPlan: batch.policy.operationPlan)),
             sideEffectReport: ShadowSyncSideEffectPolicyChecker().evaluate(ShadowSyncSideEffectPolicy())
         )
         let preview = ShadowSyncWriteAttemptPreviewBuilder().build(reviewReport: review)
@@ -822,7 +908,7 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
     func testFirstWritePreflightPassesWhenReviewAndEvidencePass() {
         let review = passingWriteAttemptReviewReport()
         let evidence = passingPreflightEvidenceReport(review: review)
-        let approval = passingManualApprovalReport()
+        let approval = passingManualApprovalReport(review: review)
 
         let report = ShadowSyncFirstWritePreflightChecker().evaluate(
             writeAttemptReviewReport: review,
@@ -831,8 +917,32 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
         )
 
         XCTAssertTrue(report.isReadyForManualFirstWriteReview)
+        XCTAssertTrue(report.manualApprovalMatchesPreview)
         XCTAssertTrue(report.blockers.isEmpty)
         XCTAssertTrue(report.redactedText().contains("Ready for manual first write review: true"))
+    }
+
+    func testFirstWritePreflightBlocksApprovalForDifferentPreview() {
+        let review = passingWriteAttemptReviewReport()
+        let evidence = passingPreflightEvidenceReport(review: review)
+        let approval = ShadowSyncManualApprovalPolicyChecker().evaluate(ShadowSyncManualApprovalPolicy(
+            checklistAccepted: true,
+            reviewerIdentifier: "Keith",
+            checklistVersion: "phase-4-shadow-write-review-checklist.md@2026-07-09",
+            approvalRecordedAt: "2026-07-09T11:45:00Z",
+            approvedPreviewIdentifier: "different-preview"
+        ))
+
+        let report = ShadowSyncFirstWritePreflightChecker().evaluate(
+            writeAttemptReviewReport: review,
+            preflightEvidenceReport: evidence,
+            manualApprovalReport: approval
+        )
+
+        XCTAssertFalse(report.isReadyForManualFirstWriteReview)
+        XCTAssertFalse(report.manualApprovalMatchesPreview)
+        XCTAssertTrue(report.blockers.contains("approval:approved-preview-mismatch"))
+        XCTAssertTrue(report.redactedText().contains("Manual approval matches preview: false"))
     }
 
     func testFirstWritePreflightAggregatesReviewAndEvidenceBlockers() {
@@ -860,7 +970,9 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
             accountReport: allowedAccountReport(),
             triggerReport: trigger,
             retryReport: retry,
+            scopeReport: allowedFirstAttemptScopeReport(),
             batchReport: batch,
+            namespaceReport: ShadowSyncRecordNamespacePolicyChecker().evaluate(ShadowSyncRecordNamespacePolicy(operationPlan: batch.policy.operationPlan)),
             sideEffectReport: ShadowSyncSideEffectPolicyChecker().evaluate(ShadowSyncSideEffectPolicy())
         )
         let evidence = ShadowSyncPreflightEvidencePolicyChecker().evaluate(ShadowSyncPreflightEvidencePolicy())
@@ -879,12 +991,233 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
         XCTAssertTrue(report.blockers.contains("approval:checklist-not-accepted"))
     }
 
+    func testWriterContractAllowsOnlyReviewedManualBoundary() {
+        let preflight = passingFirstWritePreflightReport()
+        let operationPlan = preflight.writeAttemptReviewReport.batchReport.policy.operationPlan
+
+        let report = ShadowSyncWriterContractChecker().evaluate(ShadowSyncWriterContractPolicy(
+            firstWritePreflightReport: preflight,
+            operationPlan: operationPlan
+        ))
+
+        XCTAssertTrue(report.policy.canAcceptWriterBoundary)
+        XCTAssertTrue(report.policy.matchesReviewedOperationPlan)
+        XCTAssertTrue(report.blockers.isEmpty)
+        XCTAssertTrue(report.redactedText().contains("Can accept writer boundary: true"))
+        XCTAssertFalse(report.redactedText().contains("wsp-shadow:Project:0"))
+    }
+
+    func testWriterContractBlocksUnreadyPreflightAndPlanMismatch() {
+        let readyPreflight = passingFirstWritePreflightReport()
+        let mismatchedPlan = operationPlan(recordCount: 1)
+        let blockedPreflight = ShadowSyncFirstWritePreflightChecker().evaluate(
+            writeAttemptReviewReport: readyPreflight.writeAttemptReviewReport,
+            preflightEvidenceReport: ShadowSyncPreflightEvidencePolicyChecker().evaluate(ShadowSyncPreflightEvidencePolicy()),
+            manualApprovalReport: ShadowSyncManualApprovalPolicyChecker().evaluate(ShadowSyncManualApprovalPolicy())
+        )
+
+        let report = ShadowSyncWriterContractChecker().evaluate(ShadowSyncWriterContractPolicy(
+            firstWritePreflightReport: blockedPreflight,
+            operationPlan: mismatchedPlan
+        ))
+
+        XCTAssertFalse(report.policy.canAcceptWriterBoundary)
+        XCTAssertTrue(report.blockers.contains("first-write-preflight-blocked"))
+        XCTAssertTrue(report.blockers.contains("operation-plan-mismatch"))
+    }
+
+    func testWriterContractBlocksRuntimeSideEffectsAndAutomation() {
+        let preflight = passingFirstWritePreflightReport()
+        let report = ShadowSyncWriterContractChecker().evaluate(ShadowSyncWriterContractPolicy(
+            firstWritePreflightReport: preflight,
+            operationPlan: preflight.writeAttemptReviewReport.batchReport.policy.operationPlan,
+            willStartAutomatically: true,
+            willUseScheduler: true,
+            willRetryWithoutManualReview: true,
+            willMutateSwiftData: true,
+            willImportShadowRecordsIntoSwiftData: true,
+            willCreateCloudKitZone: true,
+            willTouchExistingCoreDataZone: true
+        ))
+
+        XCTAssertFalse(report.policy.canAcceptWriterBoundary)
+        XCTAssertEqual(report.blockers, [
+            "automatic-start-blocked",
+            "core-data-zone-touch-blocked",
+            "scheduler-blocked",
+            "shadow-import-into-swiftdata-blocked",
+            "swiftdata-mutation-blocked",
+            "unreviewed-retry-blocked",
+            "zone-creation-blocked"
+        ])
+    }
+
+    func testWriterAttemptResultReportsSuccessWithCountsOnly() {
+        let contract = passingWriterContractReport()
+        let result = ShadowSyncWriterAttemptResult(
+            contractReport: contract,
+            status: .succeeded,
+            attemptedOperationCount: 3,
+            succeededOperationCount: 3,
+            failedOperationCount: 0
+        )
+
+        XCTAssertTrue(result.isTerminalSuccess)
+        XCTAssertTrue(result.blockers.isEmpty)
+        XCTAssertEqual(result.plannedRecordCounts, ["Project": 3])
+        XCTAssertTrue(result.redactedText().contains("Status: succeeded"))
+        XCTAssertTrue(result.redactedText().contains("Project: 3"))
+        XCTAssertFalse(result.redactedText().contains("wsp-shadow:Project:0"))
+    }
+
+    func testWriterAttemptResultBlocksStartWhenContractIsBlocked() {
+        let preflight = passingFirstWritePreflightReport()
+        let blockedContract = ShadowSyncWriterContractChecker().evaluate(ShadowSyncWriterContractPolicy(
+            firstWritePreflightReport: preflight,
+            operationPlan: preflight.writeAttemptReviewReport.batchReport.policy.operationPlan,
+            willUseScheduler: true
+        ))
+
+        let result = ShadowSyncWriterAttemptResult(
+            contractReport: blockedContract,
+            status: .wouldStart,
+            attemptedOperationCount: 0
+        )
+
+        XCTAssertFalse(result.isTerminalSuccess)
+        XCTAssertTrue(result.blockers.contains("contract:scheduler-blocked"))
+        XCTAssertTrue(result.blockers.contains("writer-contract-blocked"))
+        XCTAssertTrue(result.blockers.contains("attempt-started-with-blocked-contract"))
+    }
+
+    func testWriterAttemptResultBlocksInvalidCountsAndUnredactedFailureShape() {
+        let result = ShadowSyncWriterAttemptResult(
+            contractReport: passingWriterContractReport(),
+            status: .failed,
+            attemptedOperationCount: 4,
+            succeededOperationCount: 3,
+            failedOperationCount: 2,
+            redactedErrorCode: ""
+        )
+
+        XCTAssertFalse(result.isTerminalSuccess)
+        XCTAssertEqual(result.blockers, [
+            "attempt-count-exceeds-plan",
+            "failure-error-code-missing",
+            "result-count-exceeds-attempt-count"
+        ])
+    }
+
+    func testReadBackValidationAllowsSuccessfulMismatchFreeComparisonOnly() {
+        let result = passingWriterAttemptResult()
+        let report = ShadowSyncReadBackValidationPolicy(
+            writerAttemptResult: result,
+            comparisonReport: ShadowSyncComparisonReport(
+                localRecordCounts: result.plannedRecordCounts,
+                shadowRecordCounts: result.plannedRecordCounts,
+                excludedAssetCounts: [:]
+            )
+        )
+
+        XCTAssertTrue(report.canAcceptReadBackValidation)
+        XCTAssertTrue(report.comparisonMatchesExpectedPlan)
+        XCTAssertTrue(report.blockers.isEmpty)
+        XCTAssertTrue(report.redactedText().contains("Can accept read-back validation: true"))
+        XCTAssertTrue(report.redactedText().contains("Project: 3"))
+        XCTAssertFalse(report.redactedText().contains("wsp-shadow:Project:0"))
+    }
+
+    func testReadBackValidationBlocksMissingOrMismatchedComparison() {
+        let result = passingWriterAttemptResult()
+        let missing = ShadowSyncReadBackValidationPolicy(writerAttemptResult: result)
+        let mismatched = ShadowSyncReadBackValidationPolicy(
+            writerAttemptResult: result,
+            comparisonReport: ShadowSyncComparisonReport(
+                localRecordCounts: result.plannedRecordCounts,
+                shadowRecordCounts: ["Project": 2],
+                excludedAssetCounts: [:]
+            )
+        )
+
+        XCTAssertFalse(missing.canAcceptReadBackValidation)
+        XCTAssertEqual(missing.blockers, ["read-back-comparison-missing"])
+        XCTAssertFalse(mismatched.canAcceptReadBackValidation)
+        XCTAssertTrue(mismatched.blockers.contains("read-back-mismatch"))
+        XCTAssertTrue(mismatched.blockers.contains("read-back-plan-mismatch"))
+    }
+
+    func testReadBackValidationBlocksLocalMutationAndUserFacingUse() {
+        let result = ShadowSyncWriterAttemptResult(
+            contractReport: passingWriterContractReport(),
+            status: .failed,
+            attemptedOperationCount: 3,
+            succeededOperationCount: 2,
+            failedOperationCount: 1,
+            redactedErrorCode: "CKError.networkUnavailable"
+        )
+        let report = ShadowSyncReadBackValidationPolicy(
+            writerAttemptResult: result,
+            comparisonReport: ShadowSyncComparisonReport(
+                localRecordCounts: result.plannedRecordCounts,
+                shadowRecordCounts: result.plannedRecordCounts,
+                excludedAssetCounts: [:]
+            ),
+            willImportShadowRecordsIntoSwiftData: true,
+            willMutateSwiftDataFromReadBack: true,
+            willUseShadowDataInUserFacingWorkflows: true
+        )
+
+        XCTAssertFalse(report.canAcceptReadBackValidation)
+        XCTAssertTrue(report.blockers.contains("writer-attempt-not-successful"))
+        XCTAssertTrue(report.blockers.contains("shadow-import-into-swiftdata-blocked"))
+        XCTAssertTrue(report.blockers.contains("swiftdata-mutation-blocked"))
+        XCTAssertTrue(report.blockers.contains("user-facing-shadow-data-blocked"))
+    }
+
+    func testEngineImplementationReadinessAllowsImplementationOnlyWhenAllShapesAreReviewed() {
+        let report = passingEngineImplementationReadinessPolicy()
+
+        XCTAssertTrue(report.canBeginFirstWriterImplementation)
+        XCTAssertTrue(report.blockers.isEmpty)
+        XCTAssertTrue(report.redactedText().contains("Can begin first writer implementation: true"))
+        XCTAssertFalse(report.redactedText().contains("Keith"))
+    }
+
+    func testEngineImplementationReadinessBlocksMissingReviewsAndRuntimePermissions() {
+        let preflight = passingFirstWritePreflightReport()
+        let contract = ShadowSyncWriterContractChecker().evaluate(ShadowSyncWriterContractPolicy(
+            firstWritePreflightReport: preflight,
+            operationPlan: preflight.writeAttemptReviewReport.batchReport.policy.operationPlan,
+            willUseScheduler: true
+        ))
+        let report = ShadowSyncEngineImplementationReadinessPolicy(
+            firstWritePreflightReport: preflight,
+            writerContractReport: contract,
+            allowsCloudKitWritesBeforeImplementationReview: true,
+            allowsRuntimeScheduler: true,
+            allowsSwiftDataMutation: true,
+            allowsProductionEnvironment: true
+        )
+
+        XCTAssertFalse(report.canBeginFirstWriterImplementation)
+        XCTAssertTrue(report.blockers.contains("writer-contract-blocked"))
+        XCTAssertTrue(report.blockers.contains("writer-contract:scheduler-blocked"))
+        XCTAssertTrue(report.blockers.contains("writer-result-shape-not-reviewed"))
+        XCTAssertTrue(report.blockers.contains("read-back-validation-shape-not-reviewed"))
+        XCTAssertTrue(report.blockers.contains("implementation-only-review-missing"))
+        XCTAssertTrue(report.blockers.contains("cloudkit-write-before-review-blocked"))
+        XCTAssertTrue(report.blockers.contains("runtime-scheduler-blocked"))
+        XCTAssertTrue(report.blockers.contains("swiftdata-mutation-blocked"))
+        XCTAssertTrue(report.blockers.contains("production-environment-blocked"))
+    }
+
     func testManualApprovalPolicyRequiresAcceptedChecklistAndReceiptFields() {
         let report = ShadowSyncManualApprovalPolicyChecker().evaluate(ShadowSyncManualApprovalPolicy())
 
         XCTAssertFalse(report.policy.hasManualApproval)
         XCTAssertEqual(report.blockers, [
             "approval-timestamp-missing",
+            "approved-preview-missing",
             "checklist-not-accepted",
             "checklist-version-missing",
             "reviewer-missing"
@@ -892,10 +1225,11 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
     }
 
     func testManualApprovalPolicyPassesWithRecordedReceipt() {
-        let report = passingManualApprovalReport()
+        let report = passingManualApprovalReport(review: passingWriteAttemptReviewReport())
 
         XCTAssertTrue(report.policy.hasManualApproval)
         XCTAssertTrue(report.blockers.isEmpty)
+        XCTAssertTrue(report.redactedText().contains("Approved preview identifier recorded: present"))
         XCTAssertTrue(report.redactedText().contains("Reviewer recorded: present"))
         XCTAssertFalse(report.redactedText().contains("Keith"))
     }
@@ -951,7 +1285,9 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
             accountReport: allowedAccountReport(),
             triggerReport: trigger,
             retryReport: retry,
+            scopeReport: allowedFirstAttemptScopeReport(),
             batchReport: batch,
+            namespaceReport: ShadowSyncRecordNamespacePolicyChecker().evaluate(ShadowSyncRecordNamespacePolicy(operationPlan: batch.policy.operationPlan)),
             sideEffectReport: sideEffects
         )
 
@@ -1074,6 +1410,13 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
         ))
     }
 
+    private func allowedFirstAttemptScopeReport() -> ShadowSyncFirstAttemptScopeReport {
+        ShadowSyncFirstAttemptScopePolicyChecker().evaluate(ShadowSyncFirstAttemptScopePolicy(
+            reviewedInternalDeviceIdentifier: "Keith's iPhone",
+            reviewedICloudAccountIdentifier: "internal-test-account"
+        ))
+    }
+
     private func passingWriteAttemptReviewReport() -> ShadowSyncWriteAttemptReviewReport {
         let gateReview = ShadowSyncGateReviewReport(diagnosticsReport: passingDiagnosticsReport())
         let exposure = allowedInternalExposureReport()
@@ -1093,8 +1436,51 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
             accountReport: allowedAccountReport(),
             triggerReport: trigger,
             retryReport: retry,
+            scopeReport: allowedFirstAttemptScopeReport(),
             batchReport: batch,
+            namespaceReport: ShadowSyncRecordNamespacePolicyChecker().evaluate(ShadowSyncRecordNamespacePolicy(operationPlan: batch.policy.operationPlan)),
             sideEffectReport: ShadowSyncSideEffectPolicyChecker().evaluate(ShadowSyncSideEffectPolicy())
+        )
+    }
+
+    private func passingFirstWritePreflightReport() -> ShadowSyncFirstWritePreflightReport {
+        let review = passingWriteAttemptReviewReport()
+        return ShadowSyncFirstWritePreflightChecker().evaluate(
+            writeAttemptReviewReport: review,
+            preflightEvidenceReport: passingPreflightEvidenceReport(review: review),
+            manualApprovalReport: passingManualApprovalReport(review: review)
+        )
+    }
+
+    private func passingWriterContractReport() -> ShadowSyncWriterContractReport {
+        let preflight = passingFirstWritePreflightReport()
+        return ShadowSyncWriterContractChecker().evaluate(ShadowSyncWriterContractPolicy(
+            firstWritePreflightReport: preflight,
+            operationPlan: preflight.writeAttemptReviewReport.batchReport.policy.operationPlan
+        ))
+    }
+
+    private func passingWriterAttemptResult() -> ShadowSyncWriterAttemptResult {
+        ShadowSyncWriterAttemptResult(
+            contractReport: passingWriterContractReport(),
+            status: .succeeded,
+            attemptedOperationCount: 3,
+            succeededOperationCount: 3,
+            failedOperationCount: 0
+        )
+    }
+
+    private func passingEngineImplementationReadinessPolicy() -> ShadowSyncEngineImplementationReadinessPolicy {
+        let preflight = passingFirstWritePreflightReport()
+        return ShadowSyncEngineImplementationReadinessPolicy(
+            firstWritePreflightReport: preflight,
+            writerContractReport: ShadowSyncWriterContractChecker().evaluate(ShadowSyncWriterContractPolicy(
+                firstWritePreflightReport: preflight,
+                operationPlan: preflight.writeAttemptReviewReport.batchReport.policy.operationPlan
+            )),
+            writerAttemptResultShapeReviewed: true,
+            readBackValidationShapeReviewed: true,
+            reviewerAcceptedImplementationOnly: true
         )
     }
 
@@ -1109,18 +1495,20 @@ final class CKSyncEngineShadowSyncReadinessTests: XCTestCase {
         ))
     }
 
-    private func passingManualApprovalReport() -> ShadowSyncManualApprovalReport {
-        ShadowSyncManualApprovalPolicyChecker().evaluate(ShadowSyncManualApprovalPolicy(
+    private func passingManualApprovalReport(review: ShadowSyncWriteAttemptReviewReport) -> ShadowSyncManualApprovalReport {
+        let previewIdentifier = ShadowSyncWriteAttemptPreviewBuilder().build(reviewReport: review).previewIdentifier
+        return ShadowSyncManualApprovalPolicyChecker().evaluate(ShadowSyncManualApprovalPolicy(
             checklistAccepted: true,
             reviewerIdentifier: "Keith",
             checklistVersion: "phase-4-shadow-write-review-checklist.md@2026-07-09",
-            approvalRecordedAt: "2026-07-09T11:45:00Z"
+            approvalRecordedAt: "2026-07-09T11:45:00Z",
+            approvedPreviewIdentifier: previewIdentifier
         ))
     }
 
     private func operationPlan(recordCount: Int) -> ShadowSyncOperationPlan {
         let operations = (0..<recordCount).map { index in
-            ShadowSyncPlannedOperation(kind: .saveRecord, recordType: "Project", recordName: "Project:\(index)")
+            ShadowSyncPlannedOperation(kind: .saveRecord, recordType: "Project", recordName: "wsp-shadow:Project:\(index)")
         }
         return ShadowSyncOperationPlan(operations: operations, blockedIssues: [])
     }

@@ -113,12 +113,18 @@ Proceed only when:
 - [ ] CloudKit account status is confirmed as available; non-available account states remain blocked.
 - [ ] The first write trigger is manual diagnostics-only; automatic launch, foreground, editor-save, and background-task triggers remain blocked.
 - [ ] Retry behavior defaults to none; any reviewed retry is capped at one attempt with a minimum 300 second delay.
+- [ ] First write scope is limited to one recorded internal device and one recorded internal iCloud account.
 - [ ] The first manual write attempt has an executable plan and contains no more than 10 planned operations.
-- [ ] The aggregate first write attempt review combines all pure-value gates, including side-effect policy, and has no blockers.
+- [ ] Planned record names use the reviewed `wsp-shadow:` namespace and do not reuse production-style names.
+- [ ] The aggregate first write attempt review combines all pure-value gates, including namespace and side-effect policy, and has no blockers.
 - [ ] The preflight preview report is captured and redacted before any future write attempt.
 - [ ] Preflight evidence confirms read-only inspector, export dry-run, Gate 5 review, and blocker-free preview are all captured.
-- [ ] Manual approval receipt records checklist acceptance, reviewer identifier, checklist version, and approval timestamp.
-- [ ] Final first-write preflight combines aggregate review, required evidence, and manual approval with no blockers.
+- [ ] Manual approval receipt records checklist acceptance, reviewer identifier, checklist version, approval timestamp, and the exact approved preview identifier.
+- [ ] Final first-write preflight combines aggregate review, required evidence, manual approval, and exact preview binding with no blockers.
+- [ ] Future writer boundary accepts only a ready final preflight and matching executable operation plan, with automation, scheduler/retry behavior, SwiftData side effects, zone creation, and Core Data zone touch blocked.
+- [ ] Future writer attempt result is redacted to status, counts, redacted error-code presence, and blockers only.
+- [ ] Future read-back validation uses a successful writer attempt and mismatch-free read-only comparison, with SwiftData import/mutation and user-facing shadow data blocked.
+- [ ] Implementation readiness explicitly permits coding the first writer only, while runtime writes, production use, schedulers, and SwiftData mutation remain blocked until a separate implementation review.
 - [ ] Side-effect policy confirms no SwiftData mutation, shadow import, zone creation, zone deletion, Core Data zone touch, asset creation, or user-facing shadow data usage.
 - [ ] App Store and TestFlight exposure remain blocked unless a later release gate explicitly changes that policy.
 - [ ] [phase-4-shadow-write-review-checklist.md](phase-4-shadow-write-review-checklist.md) is accepted or updated before any write code is added.
@@ -129,14 +135,21 @@ Stop if:
 - Shadow sync shares a zone with existing Core Data records.
 - Shadow sync targets production or an unknown CloudKit environment.
 - Shadow sync does not have an available CloudKit account.
+- Shadow sync first write scope is not limited to one internal device and one internal iCloud account.
 - Shadow sync cannot be disabled remotely or by build flag.
 - Shadow sync retries in a tight or unbounded loop.
 - Shadow sync starts with an empty, non-executable, or oversized first batch.
+- Shadow sync plans record names outside the reviewed shadow namespace.
 - Shadow sync has any aggregate first write attempt review blocker.
 - Shadow sync cannot show a redacted preflight preview before the first write attempt.
 - Shadow sync cannot prove required preflight evidence has been captured.
 - Shadow sync cannot prove manual checklist approval has been recorded.
+- Shadow sync cannot prove manual approval matches the exact captured write attempt preview.
 - Shadow sync has any final first-write preflight blocker.
+- Shadow sync has any writer boundary blocker.
+- Shadow sync cannot produce a redacted and count-consistent writer attempt result.
+- Shadow sync cannot produce a mismatch-free read-only validation without local mutation or user-facing shadow data use.
+- Shadow sync treats implementation readiness as runtime write approval.
 - Shadow sync has any side-effect blocker.
 
 ## Gate 6: Migration Planning

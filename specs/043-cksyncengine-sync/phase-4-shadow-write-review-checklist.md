@@ -23,9 +23,11 @@ Before any future code creates `CKRecord`, creates `CKAsset`, creates a CloudKit
 - exact feature flag location and default value
 - exact local kill-switch location and default value
 - exact remote kill-switch source and failure behavior
+- approved internal device and internal iCloud account for the first manual attempt
 - whether the first write trigger is manual diagnostics-only or runtime-triggered
 - whether writes may run on app launch, foreground resume, background task, or editor save
 - maximum records allowed per first shadow write attempt
+- approved shadow record name prefix: `wsp-shadow:`
 - maximum retry count and minimum retry delay if any retry mechanism exists
 - diagnostic text shown before and after the write attempt
 
@@ -64,12 +66,18 @@ Before a write path is implemented or enabled, capture a redacted diagnostic rep
 - `ShadowSyncAccountPolicy.canReviewShadowWriteAccount == true`, with any non-available CloudKit account status blocked by default
 - `ShadowSyncTriggerPolicy.canStartShadowWriteAttempt == true` only for manual diagnostics
 - `ShadowSyncRetryPolicy.allowsRetry == false` for the first attempt, or at most one retry with a minimum 300 second delay if retry is explicitly reviewed
+- `ShadowSyncFirstAttemptScopeReport.canUseFirstAttemptScope == true`, proving the first attempt is limited to one recorded internal device and one recorded internal iCloud account
 - `ShadowSyncBatchPolicy.canAttemptFirstBatch == true` with no more than 10 planned operations for the first attempt
-- `ShadowSyncWriteAttemptReviewReport.canReviewFirstWriteAttempt == true` after combining gate, exposure, environment, account, trigger, retry, batch, and side-effect reports
+- `ShadowSyncRecordNamespaceReport.canUseRecordNamespace == true`, proving planned record names use the reviewed `wsp-shadow:` namespace and do not reuse production-style names
+- `ShadowSyncWriteAttemptReviewReport.canReviewFirstWriteAttempt == true` after combining gate, exposure, environment, account, trigger, retry, batch, namespace, and side-effect reports
 - `ShadowSyncWriteAttemptPreviewReport.redactedText()` is captured before the attempt and contains only zone name, trigger, retry limits, operation counts, record counts by type, and blockers
 - `ShadowSyncPreflightEvidenceReport.hasRequiredEvidence == true`, proving read-only inspector, export dry-run, Gate 5 review, and blocker-free redacted preview evidence are captured
-- `ShadowSyncManualApprovalReport.hasManualApproval == true`, proving checklist acceptance, reviewer identifier, checklist version, and approval timestamp are recorded
-- `ShadowSyncFirstWritePreflightReport.isReadyForManualFirstWriteReview == true`, proving the aggregate review, required evidence, and manual approval all pass
+- `ShadowSyncManualApprovalReport.hasManualApproval == true`, proving checklist acceptance, reviewer identifier, checklist version, approval timestamp, and approved preview identifier are recorded
+- `ShadowSyncFirstWritePreflightReport.isReadyForManualFirstWriteReview == true`, proving the aggregate review, required evidence, manual approval, and exact preview binding all pass
+- `ShadowSyncWriterContractReport.canAcceptWriterBoundary == true`, proving the future writer boundary has ready final preflight, a matching executable operation plan, and no automation, scheduler, unreviewed retry, SwiftData side effect, zone creation, or Core Data zone touch
+- `ShadowSyncWriterAttemptResult.redactedText()` exposes only attempt status, operation counts, record counts by type, redacted error-code presence, and blockers
+- `ShadowSyncReadBackValidationPolicy.canAcceptReadBackValidation == true`, proving the future read-back path has a successful attempt result, mismatch-free read-only comparison, no SwiftData import/mutation, and no user-facing shadow data use
+- `ShadowSyncEngineImplementationReadinessPolicy.canBeginFirstWriterImplementation == true`, proving implementation work may begin only after final preflight, writer contract, result shape, read-back shape, and implementation-only acknowledgement all pass
 - `ShadowSyncSideEffectReport.allowsSideEffects == true`, meaning the reviewed path declares no SwiftData mutation, no shadow import into SwiftData, no zone creation, no zone deletion, no Core Data zone touch, no asset creation, and no user-facing shadow data usage
 - existing SwiftData/Core Data CloudKit sync is still active
 - App Store and TestFlight exposure remains blocked
@@ -88,14 +96,23 @@ Do not add or enable a write path if any of these are true:
 - the write path can mutate SwiftData based on shadow import/read results
 - the write path can run automatically on launch, foreground resume, editor save, or background task before that trigger is reviewed
 - the first write attempt is not manually triggered from reviewed internal diagnostics
+- the first write attempt is not limited to one recorded internal device and one recorded internal iCloud account
+- the first write attempt allows multi-device, multi-account, non-internal-device, or user-facing rollout
 - the write path has an unbounded retry loop
 - the write path retries more than once or retries sooner than 300 seconds without a new review
 - the first write attempt contains more than 10 planned operations or has no executable operation plan
-- the aggregate first write attempt review has any blocker, including a side-effect blocker
+- planned record names do not use the reviewed `wsp-shadow:` namespace
+- the aggregate first write attempt review has any blocker, including a namespace or side-effect blocker
 - the preflight preview exposes record names, content, asset bytes, CloudKit payload details, or private error details
 - required preflight evidence is missing or the captured preview is blocked
-- manual approval receipt is missing checklist acceptance, reviewer, checklist version, or approval timestamp
+- manual approval receipt is missing checklist acceptance, reviewer, checklist version, approval timestamp, or approved preview identifier
+- manual approval does not match the exact captured write attempt preview
 - the final first-write preflight report has any review or evidence blocker
+- the future writer boundary has a mismatched or non-executable operation plan
+- the future writer boundary can start automatically, schedule work, retry without manual review, mutate SwiftData, import shadow records, create a zone, or touch the existing Core Data zone
+- the future writer result exposes record names, content, CloudKit payload details, private error details, or invalid operation counts
+- the future read-back validation lacks comparison evidence, finds mismatched counts, imports shadow records, mutates SwiftData, or exposes shadow data to users
+- implementation readiness is used as permission to run CloudKit writes, use production, schedule work, mutate SwiftData, or bypass a separate implementation review
 - the reviewed path would mutate SwiftData, import shadow records locally, create zones, delete zones, touch the existing Core Data zone, create assets, or use shadow data in user-facing workflows
 - the write path can block current app usage or existing sync
 

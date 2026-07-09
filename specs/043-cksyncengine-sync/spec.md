@@ -239,11 +239,17 @@ Phase 4 readiness scaffold started:
 - `ShadowSyncAccountPolicy` requires an available CloudKit account for review by default and blocks missing, restricted, unavailable, undetermined, or unknown account states.
 - `ShadowSyncTriggerPolicy` only allows a manual diagnostics trigger when exposure is already allowed; launch, foreground, editor-save, and background-task triggers remain blocked.
 - `ShadowSyncRetryPolicy` defaults to no retry and blocks tight or repeated retry loops; at most one delayed retry can be represented after trigger/exposure gates pass.
-- `ShadowSyncWriteAttemptReviewReport` aggregates Gate 5 readiness, exposure, environment, account, trigger, retry, batch, and side-effect reports into one final pure-value pre-write review summary.
+- `ShadowSyncFirstAttemptScopePolicy` limits the first shadow write review to one recorded internal device and one recorded internal iCloud account, blocking broader rollout before the aggregate review can pass.
+- `ShadowSyncRecordNamespacePolicy` requires planned record names to use the reviewed `wsp-shadow:` prefix and blocks production-style names before the aggregate review can pass.
+- `ShadowSyncWriteAttemptReviewReport` aggregates Gate 5 readiness, exposure, environment, account, trigger, retry, batch, namespace, and side-effect reports into one final pure-value pre-write review summary.
 - `ShadowSyncWriteAttemptPreviewReport` provides redacted preflight evidence for a future first write attempt without record names, content, asset bytes, CloudKit payloads, or private error details.
 - `ShadowSyncPreflightEvidencePolicy` requires captured read-only inspector evidence, export dry-run evidence, Gate 5 review evidence, and a blocker-free redacted preview.
-- `ShadowSyncManualApprovalPolicy` requires a recorded approval receipt with checklist acceptance, reviewer identifier, checklist version, and approval timestamp.
-- `ShadowSyncFirstWritePreflightReport` combines aggregate write review, required evidence, and manual approval into a final manual-review readiness summary without authorizing or starting a write.
+- `ShadowSyncManualApprovalPolicy` requires a recorded approval receipt with checklist acceptance, reviewer identifier, checklist version, approval timestamp, and the exact approved preview identifier.
+- `ShadowSyncFirstWritePreflightReport` combines aggregate write review, required evidence, manual approval, and exact preview binding into a final manual-review readiness summary without authorizing or starting a write.
+- `ShadowSyncWriterContractPolicy` defines the pure-value input boundary for a future writer and blocks mismatched operation plans, automatic start, schedulers, unreviewed retry, SwiftData side effects, zone creation, and Core Data zone interaction.
+- `ShadowSyncWriterAttemptResult` defines the redacted future writer output shape with status, operation counts, record counts by type, redacted error-code presence, and blockers only.
+- `ShadowSyncReadBackValidationPolicy` defines the read-only post-write validation contract and blocks missing/mismatched comparison evidence, SwiftData import/mutation, and user-facing shadow data use.
+- `ShadowSyncEngineImplementationReadinessPolicy` aggregates the pre-engine gates into an implementation-only readiness value; it does not authorize runtime CloudKit writes.
 - `ShadowSyncSideEffectPolicy` blocks local SwiftData mutation, shadow imports into SwiftData, CloudKit zone creation/deletion, existing Core Data zone touches, asset creation, and user-facing shadow data usage.
 - `ShadowSyncComparisonReport` provides redacted count comparison between local dry-run data and future shadow-zone inventory.
 - No Phase 4 CloudKit write client, `CKSyncEngine` runtime, zone creation, asset creation, or SwiftData mutation exists yet.

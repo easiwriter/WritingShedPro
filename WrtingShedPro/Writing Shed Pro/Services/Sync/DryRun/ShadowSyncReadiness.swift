@@ -315,6 +315,74 @@ struct ShadowSyncBatchPolicyChecker {
     }
 }
 
+struct ShadowSyncRecordNamespacePolicy: Equatable {
+    var operationPlan: ShadowSyncOperationPlan
+    var approvedRecordNamePrefix: String = "wsp-shadow:"
+
+    var canUseRecordNamespace: Bool {
+        blockers.isEmpty
+    }
+
+    var blockers: [String] {
+        var values: [String] = []
+        let trimmedPrefix = approvedRecordNamePrefix.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedPrefix.isEmpty {
+            values.append("record-namespace-prefix-missing")
+            if !operationPlan.operations.isEmpty {
+                values.append("record-name-outside-shadow-namespace")
+            }
+        }
+        if !trimmedPrefix.isEmpty {
+            for operation in operationPlan.operations where !operation.recordName.hasPrefix(trimmedPrefix) {
+                values.append("record-name-outside-shadow-namespace")
+            }
+        }
+        return Array(Set(values)).sorted()
+    }
+}
+
+struct ShadowSyncRecordNamespaceReport: Equatable {
+    var policy: ShadowSyncRecordNamespacePolicy
+
+    var blockers: [String] {
+        policy.blockers
+    }
+
+    var outOfNamespaceRecordCount: Int {
+        let trimmedPrefix = policy.approvedRecordNamePrefix.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPrefix.isEmpty else { return policy.operationPlan.operations.count }
+        return policy.operationPlan.operations.filter { !$0.recordName.hasPrefix(trimmedPrefix) }.count
+    }
+
+    func redactedText() -> String {
+        var lines = [
+            "CKSyncEngine shadow record namespace policy",
+            "Approved record name prefix: \(policy.approvedRecordNamePrefix)",
+            "Planned operation count: \(policy.operationPlan.operations.count)",
+            "Out-of-namespace record count: \(outOfNamespaceRecordCount)",
+            "Can use record namespace: \(policy.canUseRecordNamespace)",
+            "",
+            "Blockers:"
+        ]
+
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncRecordNamespacePolicyChecker {
+    func evaluate(_ policy: ShadowSyncRecordNamespacePolicy) -> ShadowSyncRecordNamespaceReport {
+        ShadowSyncRecordNamespaceReport(policy: policy)
+    }
+}
+
 struct ShadowSyncDiagnosticsReport: Equatable {
     var readinessReport: ShadowSyncReadinessReport
     var zonePreflightReport: ShadowSyncZonePreflightReport?
@@ -777,6 +845,83 @@ struct ShadowSyncRetryPolicyChecker {
     }
 }
 
+struct ShadowSyncFirstAttemptScopePolicy: Equatable {
+    var reviewedInternalDeviceIdentifier: String = ""
+    var reviewedICloudAccountIdentifier: String = ""
+    var allowsMultipleDevices: Bool = false
+    var allowsMultipleAccounts: Bool = false
+    var allowsNonInternalDevice: Bool = false
+    var allowsUserFacingRollout: Bool = false
+
+    var canUseFirstAttemptScope: Bool {
+        blockers.isEmpty
+    }
+
+    var blockers: [String] {
+        var values: [String] = []
+        if reviewedInternalDeviceIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            values.append("internal-device-missing")
+        }
+        if reviewedICloudAccountIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            values.append("icloud-account-missing")
+        }
+        if allowsMultipleDevices {
+            values.append("multi-device-scope-blocked")
+        }
+        if allowsMultipleAccounts {
+            values.append("multi-account-scope-blocked")
+        }
+        if allowsNonInternalDevice {
+            values.append("non-internal-device-blocked")
+        }
+        if allowsUserFacingRollout {
+            values.append("user-facing-rollout-blocked")
+        }
+        return values.sorted()
+    }
+}
+
+struct ShadowSyncFirstAttemptScopeReport: Equatable {
+    var policy: ShadowSyncFirstAttemptScopePolicy
+
+    var blockers: [String] {
+        policy.blockers
+    }
+
+    func redactedText() -> String {
+        let deviceRecordedText = policy.reviewedInternalDeviceIdentifier.isEmpty ? "none" : "present"
+        let accountRecordedText = policy.reviewedICloudAccountIdentifier.isEmpty ? "none" : "present"
+        var lines = [
+            "CKSyncEngine first shadow write scope policy",
+            "Can use first attempt scope: \(policy.canUseFirstAttemptScope)",
+            "Internal device recorded: \(deviceRecordedText)",
+            "iCloud account recorded: \(accountRecordedText)",
+            "Allows multiple devices: \(policy.allowsMultipleDevices)",
+            "Allows multiple accounts: \(policy.allowsMultipleAccounts)",
+            "Allows non-internal device: \(policy.allowsNonInternalDevice)",
+            "Allows user-facing rollout: \(policy.allowsUserFacingRollout)",
+            "",
+            "Blockers:"
+        ]
+
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncFirstAttemptScopePolicyChecker {
+    func evaluate(_ policy: ShadowSyncFirstAttemptScopePolicy) -> ShadowSyncFirstAttemptScopeReport {
+        ShadowSyncFirstAttemptScopeReport(policy: policy)
+    }
+}
+
 struct ShadowSyncWriteAttemptReviewReport: Equatable {
     var gateReviewReport: ShadowSyncGateReviewReport
     var exposureReport: ShadowSyncExposureReport
@@ -784,7 +929,9 @@ struct ShadowSyncWriteAttemptReviewReport: Equatable {
     var accountReport: ShadowSyncAccountReport
     var triggerReport: ShadowSyncTriggerReport
     var retryReport: ShadowSyncRetryReport
+    var scopeReport: ShadowSyncFirstAttemptScopeReport
     var batchReport: ShadowSyncBatchReport
+    var namespaceReport: ShadowSyncRecordNamespaceReport
     var sideEffectReport: ShadowSyncSideEffectReport
 
     var canReviewFirstWriteAttempt: Bool {
@@ -794,7 +941,9 @@ struct ShadowSyncWriteAttemptReviewReport: Equatable {
             && accountReport.policy.canReviewShadowWriteAccount
             && triggerReport.policy.canStartShadowWriteAttempt
             && retryReport.blockers.isEmpty
+            && scopeReport.policy.canUseFirstAttemptScope
             && batchReport.policy.canAttemptFirstBatch
+            && namespaceReport.policy.canUseRecordNamespace
             && sideEffectReport.allowsSideEffects
     }
 
@@ -806,7 +955,9 @@ struct ShadowSyncWriteAttemptReviewReport: Equatable {
         values.append(contentsOf: accountReport.blockers.map { "account:\($0)" })
         values.append(contentsOf: triggerReport.blockers.map { "trigger:\($0)" })
         values.append(contentsOf: retryReport.blockers.map { "retry:\($0)" })
+        values.append(contentsOf: scopeReport.blockers.map { "scope:\($0)" })
         values.append(contentsOf: batchReport.blockers.map { "batch:\($0)" })
+        values.append(contentsOf: namespaceReport.blockers.map { "namespace:\($0)" })
         values.append(contentsOf: sideEffectReport.blockers.map { "side-effect:\($0)" })
         return Array(Set(values)).sorted()
     }
@@ -821,7 +972,9 @@ struct ShadowSyncWriteAttemptReviewReport: Equatable {
             "Account allowed: \(accountReport.policy.canReviewShadowWriteAccount)",
             "Trigger allowed: \(triggerReport.policy.canStartShadowWriteAttempt)",
             "Retry blockers clear: \(retryReport.blockers.isEmpty)",
+            "First attempt scope allowed: \(scopeReport.policy.canUseFirstAttemptScope)",
             "Batch allowed: \(batchReport.policy.canAttemptFirstBatch)",
+            "Record namespace allowed: \(namespaceReport.policy.canUseRecordNamespace)",
             "Side effects allowed: \(sideEffectReport.allowsSideEffects)",
             "",
             "Blockers:"
@@ -847,7 +1000,9 @@ struct ShadowSyncWriteAttemptReviewChecker {
         accountReport: ShadowSyncAccountReport,
         triggerReport: ShadowSyncTriggerReport,
         retryReport: ShadowSyncRetryReport,
+        scopeReport: ShadowSyncFirstAttemptScopeReport,
         batchReport: ShadowSyncBatchReport,
+        namespaceReport: ShadowSyncRecordNamespaceReport,
         sideEffectReport: ShadowSyncSideEffectReport
     ) -> ShadowSyncWriteAttemptReviewReport {
         ShadowSyncWriteAttemptReviewReport(
@@ -857,7 +1012,9 @@ struct ShadowSyncWriteAttemptReviewChecker {
             accountReport: accountReport,
             triggerReport: triggerReport,
             retryReport: retryReport,
+            scopeReport: scopeReport,
             batchReport: batchReport,
+            namespaceReport: namespaceReport,
             sideEffectReport: sideEffectReport
         )
     }
@@ -872,6 +1029,28 @@ struct ShadowSyncWriteAttemptPreviewReport: Equatable {
         }
     }
 
+    var previewIdentifier: String {
+        var parts = [
+            "zone=\(reviewReport.gateReviewReport.diagnosticsReport.readinessReport.configuration.zoneName)",
+            "trigger=\(reviewReport.triggerReport.policy.trigger.rawValue)",
+            "retry=\(reviewReport.retryReport.policy.maximumRetryCount)",
+            "retryDelay=\(reviewReport.retryReport.policy.minimumRetryDelaySeconds)",
+            "scopeSingleDevice=\(!reviewReport.scopeReport.policy.allowsMultipleDevices)",
+            "scopeSingleAccount=\(!reviewReport.scopeReport.policy.allowsMultipleAccounts)",
+            "scopeInternalOnly=\(!reviewReport.scopeReport.policy.allowsNonInternalDevice)",
+            "scopeUserFacing=\(reviewReport.scopeReport.policy.allowsUserFacingRollout)",
+            "operationCount=\(reviewReport.batchReport.policy.operationPlan.operations.count)",
+            "maximumOperationCount=\(reviewReport.batchReport.policy.maximumFirstAttemptOperationCount)",
+            "recordNamePrefix=\(reviewReport.namespaceReport.policy.approvedRecordNamePrefix)",
+            "outOfNamespaceCount=\(reviewReport.namespaceReport.outOfNamespaceRecordCount)"
+        ]
+        for recordType in plannedRecordCounts.keys.sorted() {
+            parts.append("recordType.\(recordType)=\(plannedRecordCounts[recordType] ?? 0)")
+        }
+        parts.append("blockerCount=\(reviewReport.blockers.count)")
+        return parts.joined(separator: "|")
+    }
+
     func redactedText() -> String {
         var lines = [
             "CKSyncEngine first shadow write attempt preview",
@@ -880,8 +1059,11 @@ struct ShadowSyncWriteAttemptPreviewReport: Equatable {
             "Trigger: \(reviewReport.triggerReport.policy.trigger.rawValue)",
             "Maximum retry count: \(reviewReport.retryReport.policy.maximumRetryCount)",
             "Minimum retry delay seconds: \(reviewReport.retryReport.policy.minimumRetryDelaySeconds)",
+            "First attempt scope allowed: \(reviewReport.scopeReport.policy.canUseFirstAttemptScope)",
             "Planned operation count: \(reviewReport.batchReport.policy.operationPlan.operations.count)",
             "Maximum first attempt operation count: \(reviewReport.batchReport.policy.maximumFirstAttemptOperationCount)",
+            "Approved record name prefix: \(reviewReport.namespaceReport.policy.approvedRecordNamePrefix)",
+            "Out-of-namespace record count: \(reviewReport.namespaceReport.outOfNamespaceRecordCount)",
             "",
             "Planned record counts:"
         ]
@@ -984,12 +1166,14 @@ struct ShadowSyncManualApprovalPolicy: Equatable {
     var reviewerIdentifier: String = ""
     var checklistVersion: String = ""
     var approvalRecordedAt: String = ""
+    var approvedPreviewIdentifier: String = ""
 
     var hasManualApproval: Bool {
         checklistAccepted
             && !reviewerIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !checklistVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !approvalRecordedAt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !approvedPreviewIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
 
@@ -1010,6 +1194,9 @@ struct ShadowSyncManualApprovalReport: Equatable {
         if policy.approvalRecordedAt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             values.append("approval-timestamp-missing")
         }
+        if policy.approvedPreviewIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            values.append("approved-preview-missing")
+        }
         return values.sorted()
     }
 
@@ -1017,12 +1204,14 @@ struct ShadowSyncManualApprovalReport: Equatable {
         let checklistVersionText = policy.checklistVersion.isEmpty ? "none" : policy.checklistVersion
         let approvalRecordedText = policy.approvalRecordedAt.isEmpty ? "none" : "present"
         let reviewerRecordedText = policy.reviewerIdentifier.isEmpty ? "none" : "present"
+        let approvedPreviewText = policy.approvedPreviewIdentifier.isEmpty ? "none" : "present"
         var lines = [
             "CKSyncEngine shadow manual approval",
             "Has manual approval: \(policy.hasManualApproval)",
             "Checklist version: \(checklistVersionText)",
             "Approval recorded: \(approvalRecordedText)",
             "Reviewer recorded: \(reviewerRecordedText)",
+            "Approved preview identifier recorded: \(approvedPreviewText)",
             "",
             "Blockers:"
         ]
@@ -1054,6 +1243,14 @@ struct ShadowSyncFirstWritePreflightReport: Equatable {
         writeAttemptReviewReport.canReviewFirstWriteAttempt
             && preflightEvidenceReport.hasRequiredEvidence
             && manualApprovalReport.policy.hasManualApproval
+            && manualApprovalMatchesPreview
+    }
+
+    var manualApprovalMatchesPreview: Bool {
+        guard let previewIdentifier = preflightEvidenceReport.policy.writeAttemptPreviewReport?.previewIdentifier else {
+            return false
+        }
+        return manualApprovalReport.policy.approvedPreviewIdentifier == previewIdentifier
     }
 
     var blockers: [String] {
@@ -1061,6 +1258,9 @@ struct ShadowSyncFirstWritePreflightReport: Equatable {
         values.append(contentsOf: writeAttemptReviewReport.blockers.map { "review:\($0)" })
         values.append(contentsOf: preflightEvidenceReport.blockers.map { "evidence:\($0)" })
         values.append(contentsOf: manualApprovalReport.blockers.map { "approval:\($0)" })
+        if manualApprovalReport.policy.hasManualApproval && !manualApprovalMatchesPreview {
+            values.append("approval:approved-preview-mismatch")
+        }
         return Array(Set(values)).sorted()
     }
 
@@ -1071,6 +1271,7 @@ struct ShadowSyncFirstWritePreflightReport: Equatable {
             "Write attempt review passed: \(writeAttemptReviewReport.canReviewFirstWriteAttempt)",
             "Preflight evidence captured: \(preflightEvidenceReport.hasRequiredEvidence)",
             "Manual approval recorded: \(manualApprovalReport.policy.hasManualApproval)",
+            "Manual approval matches preview: \(manualApprovalMatchesPreview)",
             "",
             "Blockers:"
         ]
@@ -1098,6 +1299,360 @@ struct ShadowSyncFirstWritePreflightChecker {
             preflightEvidenceReport: preflightEvidenceReport,
             manualApprovalReport: manualApprovalReport
         )
+    }
+}
+
+struct ShadowSyncWriterContractPolicy: Equatable {
+    var firstWritePreflightReport: ShadowSyncFirstWritePreflightReport
+    var operationPlan: ShadowSyncOperationPlan
+    var willStartAutomatically: Bool = false
+    var willUseScheduler: Bool = false
+    var willRetryWithoutManualReview: Bool = false
+    var willMutateSwiftData: Bool = false
+    var willImportShadowRecordsIntoSwiftData: Bool = false
+    var willCreateCloudKitZone: Bool = false
+    var willTouchExistingCoreDataZone: Bool = false
+
+    var canAcceptWriterBoundary: Bool {
+        blockers.isEmpty
+    }
+
+    var matchesReviewedOperationPlan: Bool {
+        operationPlan == firstWritePreflightReport.writeAttemptReviewReport.batchReport.policy.operationPlan
+    }
+
+    var blockers: [String] {
+        var values: [String] = []
+        if !firstWritePreflightReport.isReadyForManualFirstWriteReview {
+            values.append("first-write-preflight-blocked")
+        }
+        if !operationPlan.canExecute {
+            values.append("operation-plan-not-executable")
+        }
+        if !matchesReviewedOperationPlan {
+            values.append("operation-plan-mismatch")
+        }
+        if willStartAutomatically {
+            values.append("automatic-start-blocked")
+        }
+        if willUseScheduler {
+            values.append("scheduler-blocked")
+        }
+        if willRetryWithoutManualReview {
+            values.append("unreviewed-retry-blocked")
+        }
+        if willMutateSwiftData {
+            values.append("swiftdata-mutation-blocked")
+        }
+        if willImportShadowRecordsIntoSwiftData {
+            values.append("shadow-import-into-swiftdata-blocked")
+        }
+        if willCreateCloudKitZone {
+            values.append("zone-creation-blocked")
+        }
+        if willTouchExistingCoreDataZone {
+            values.append("core-data-zone-touch-blocked")
+        }
+        return Array(Set(values)).sorted()
+    }
+}
+
+struct ShadowSyncWriterContractReport: Equatable {
+    var policy: ShadowSyncWriterContractPolicy
+
+    var blockers: [String] {
+        policy.blockers
+    }
+
+    func redactedText() -> String {
+        var lines = [
+            "CKSyncEngine shadow writer contract",
+            "Can accept writer boundary: \(policy.canAcceptWriterBoundary)",
+            "First write preflight ready: \(policy.firstWritePreflightReport.isReadyForManualFirstWriteReview)",
+            "Operation plan executable: \(policy.operationPlan.canExecute)",
+            "Operation plan matches review: \(policy.matchesReviewedOperationPlan)",
+            "Planned operation count: \(policy.operationPlan.operations.count)",
+            "Automatic start: \(policy.willStartAutomatically)",
+            "Scheduler: \(policy.willUseScheduler)",
+            "Unreviewed retry: \(policy.willRetryWithoutManualReview)",
+            "SwiftData mutation: \(policy.willMutateSwiftData)",
+            "Shadow import into SwiftData: \(policy.willImportShadowRecordsIntoSwiftData)",
+            "Zone creation: \(policy.willCreateCloudKitZone)",
+            "Core Data zone touch: \(policy.willTouchExistingCoreDataZone)",
+            "",
+            "Blockers:"
+        ]
+
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncWriterContractChecker {
+    func evaluate(_ policy: ShadowSyncWriterContractPolicy) -> ShadowSyncWriterContractReport {
+        ShadowSyncWriterContractReport(policy: policy)
+    }
+}
+
+enum ShadowSyncWriterAttemptStatus: String, Equatable {
+    case blockedBeforeStart
+    case wouldStart
+    case succeeded
+    case failed
+}
+
+struct ShadowSyncWriterAttemptResult: Equatable {
+    var contractReport: ShadowSyncWriterContractReport
+    var status: ShadowSyncWriterAttemptStatus
+    var attemptedOperationCount: Int = 0
+    var succeededOperationCount: Int = 0
+    var failedOperationCount: Int = 0
+    var redactedErrorCode: String?
+
+    var plannedRecordCounts: [String: Int] {
+        contractReport.policy.operationPlan.operations.reduce(into: [:]) { counts, operation in
+            counts[operation.recordType, default: 0] += 1
+        }
+    }
+
+    var isTerminalSuccess: Bool {
+        status == .succeeded && blockers.isEmpty
+    }
+
+    var blockers: [String] {
+        var values = contractReport.blockers.map { "contract:\($0)" }
+        if !contractReport.policy.canAcceptWriterBoundary {
+            values.append("writer-contract-blocked")
+        }
+        if status != .blockedBeforeStart && !contractReport.policy.canAcceptWriterBoundary {
+            values.append("attempt-started-with-blocked-contract")
+        }
+        if attemptedOperationCount < 0 || succeededOperationCount < 0 || failedOperationCount < 0 {
+            values.append("negative-operation-count")
+        }
+        if attemptedOperationCount > contractReport.policy.operationPlan.operations.count {
+            values.append("attempt-count-exceeds-plan")
+        }
+        if succeededOperationCount + failedOperationCount > attemptedOperationCount {
+            values.append("result-count-exceeds-attempt-count")
+        }
+        if status == .succeeded && failedOperationCount > 0 {
+            values.append("success-with-failed-operations")
+        }
+        if status == .failed && redactedErrorCode?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+            values.append("failure-error-code-missing")
+        }
+        return Array(Set(values)).sorted()
+    }
+
+    func redactedText() -> String {
+        let errorCodeText = redactedErrorCode?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? "present" : "none"
+        var lines = [
+            "CKSyncEngine shadow writer attempt result",
+            "Status: \(status.rawValue)",
+            "Terminal success: \(isTerminalSuccess)",
+            "Contract accepted: \(contractReport.policy.canAcceptWriterBoundary)",
+            "Planned operation count: \(contractReport.policy.operationPlan.operations.count)",
+            "Attempted operation count: \(attemptedOperationCount)",
+            "Succeeded operation count: \(succeededOperationCount)",
+            "Failed operation count: \(failedOperationCount)",
+            "Redacted error code: \(errorCodeText)",
+            "",
+            "Planned record counts:"
+        ]
+
+        if plannedRecordCounts.isEmpty {
+            lines.append("- none")
+        } else {
+            for recordType in plannedRecordCounts.keys.sorted() {
+                lines.append("- \(recordType): \(plannedRecordCounts[recordType] ?? 0)")
+            }
+        }
+
+        lines.append("")
+        lines.append("Blockers:")
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncReadBackValidationPolicy: Equatable {
+    var writerAttemptResult: ShadowSyncWriterAttemptResult
+    var comparisonReport: ShadowSyncComparisonReport?
+    var willImportShadowRecordsIntoSwiftData: Bool = false
+    var willMutateSwiftDataFromReadBack: Bool = false
+    var willUseShadowDataInUserFacingWorkflows: Bool = false
+
+    var canAcceptReadBackValidation: Bool {
+        blockers.isEmpty
+    }
+
+    var expectedRecordCounts: [String: Int] {
+        writerAttemptResult.plannedRecordCounts
+    }
+
+    var comparisonMatchesExpectedPlan: Bool {
+        guard let comparisonReport else { return false }
+        return comparisonReport.localRecordCounts == expectedRecordCounts
+            && comparisonReport.shadowRecordCounts == expectedRecordCounts
+    }
+
+    var blockers: [String] {
+        var values: [String] = []
+        if !writerAttemptResult.isTerminalSuccess {
+            values.append("writer-attempt-not-successful")
+        }
+        if !writerAttemptResult.blockers.isEmpty {
+            values.append(contentsOf: writerAttemptResult.blockers.map { "attempt:\($0)" })
+        }
+        guard let comparisonReport else {
+            values.append("read-back-comparison-missing")
+            return Array(Set(values)).sorted()
+        }
+        if !comparisonReport.mismatchedRecordTypes.isEmpty {
+            values.append("read-back-mismatch")
+        }
+        if !comparisonMatchesExpectedPlan {
+            values.append("read-back-plan-mismatch")
+        }
+        if willImportShadowRecordsIntoSwiftData {
+            values.append("shadow-import-into-swiftdata-blocked")
+        }
+        if willMutateSwiftDataFromReadBack {
+            values.append("swiftdata-mutation-blocked")
+        }
+        if willUseShadowDataInUserFacingWorkflows {
+            values.append("user-facing-shadow-data-blocked")
+        }
+        return Array(Set(values)).sorted()
+    }
+
+    func redactedText() -> String {
+        var lines = [
+            "CKSyncEngine shadow read-back validation",
+            "Can accept read-back validation: \(canAcceptReadBackValidation)",
+            "Writer attempt succeeded: \(writerAttemptResult.isTerminalSuccess)",
+            "Comparison captured: \(comparisonReport != nil)",
+            "Comparison matches expected plan: \(comparisonMatchesExpectedPlan)",
+            "Shadow import into SwiftData: \(willImportShadowRecordsIntoSwiftData)",
+            "SwiftData mutation from read-back: \(willMutateSwiftDataFromReadBack)",
+            "User-facing shadow data: \(willUseShadowDataInUserFacingWorkflows)",
+            "",
+            "Expected record counts:"
+        ]
+
+        if expectedRecordCounts.isEmpty {
+            lines.append("- none")
+        } else {
+            for recordType in expectedRecordCounts.keys.sorted() {
+                lines.append("- \(recordType): \(expectedRecordCounts[recordType] ?? 0)")
+            }
+        }
+
+        lines.append("")
+        lines.append("Blockers:")
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncEngineImplementationReadinessPolicy: Equatable {
+    var firstWritePreflightReport: ShadowSyncFirstWritePreflightReport
+    var writerContractReport: ShadowSyncWriterContractReport
+    var writerAttemptResultShapeReviewed: Bool = false
+    var readBackValidationShapeReviewed: Bool = false
+    var reviewerAcceptedImplementationOnly: Bool = false
+    var allowsCloudKitWritesBeforeImplementationReview: Bool = false
+    var allowsRuntimeScheduler: Bool = false
+    var allowsSwiftDataMutation: Bool = false
+    var allowsProductionEnvironment: Bool = false
+
+    var canBeginFirstWriterImplementation: Bool {
+        blockers.isEmpty
+    }
+
+    var blockers: [String] {
+        var values: [String] = []
+        if !firstWritePreflightReport.isReadyForManualFirstWriteReview {
+            values.append("first-write-preflight-blocked")
+        }
+        if !writerContractReport.policy.canAcceptWriterBoundary {
+            values.append("writer-contract-blocked")
+        }
+        if !writerContractReport.blockers.isEmpty {
+            values.append(contentsOf: writerContractReport.blockers.map { "writer-contract:\($0)" })
+        }
+        if !writerAttemptResultShapeReviewed {
+            values.append("writer-result-shape-not-reviewed")
+        }
+        if !readBackValidationShapeReviewed {
+            values.append("read-back-validation-shape-not-reviewed")
+        }
+        if !reviewerAcceptedImplementationOnly {
+            values.append("implementation-only-review-missing")
+        }
+        if allowsCloudKitWritesBeforeImplementationReview {
+            values.append("cloudkit-write-before-review-blocked")
+        }
+        if allowsRuntimeScheduler {
+            values.append("runtime-scheduler-blocked")
+        }
+        if allowsSwiftDataMutation {
+            values.append("swiftdata-mutation-blocked")
+        }
+        if allowsProductionEnvironment {
+            values.append("production-environment-blocked")
+        }
+        return Array(Set(values)).sorted()
+    }
+
+    func redactedText() -> String {
+        var lines = [
+            "CKSyncEngine first writer implementation readiness",
+            "Can begin first writer implementation: \(canBeginFirstWriterImplementation)",
+            "First write preflight ready: \(firstWritePreflightReport.isReadyForManualFirstWriteReview)",
+            "Writer contract accepted: \(writerContractReport.policy.canAcceptWriterBoundary)",
+            "Writer result shape reviewed: \(writerAttemptResultShapeReviewed)",
+            "Read-back validation shape reviewed: \(readBackValidationShapeReviewed)",
+            "Reviewer accepted implementation-only scope: \(reviewerAcceptedImplementationOnly)",
+            "Allows CloudKit writes before implementation review: \(allowsCloudKitWritesBeforeImplementationReview)",
+            "Allows runtime scheduler: \(allowsRuntimeScheduler)",
+            "Allows SwiftData mutation: \(allowsSwiftDataMutation)",
+            "Allows production environment: \(allowsProductionEnvironment)",
+            "",
+            "Blockers:"
+        ]
+
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
     }
 }
 
