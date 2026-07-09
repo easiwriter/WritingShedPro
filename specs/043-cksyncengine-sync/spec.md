@@ -1,8 +1,8 @@
 # Feature Specification: CKSyncEngine Sync Replacement
 
-**Feature Branch**: `043-cksyncengine-sync`  
-**Created**: 2026-07-09  
-**Status**: Draft  
+**Feature Branch**: `043-cksyncengine-sync`
+**Created**: 2026-07-09
+**Status**: Draft
 **Input**: Replace `NSPersistentCloudKitContainer` sync with an explicit `CKSyncEngine` implementation after Cloudflare sync was judged too risky.
 
 ## 1. Decision Summary
@@ -202,3 +202,46 @@ Exit criteria:
 ## 11. Immediate Next Step
 
 Start Phase 0 with a model inventory and mapping table. No CKSyncEngine runtime code should be added until the mapping is reviewed.
+
+Phase 0 drafts started:
+
+- [phase-0-model-inventory.md](phase-0-model-inventory.md)
+- [phase-0-core-record-mapping.md](phase-0-core-record-mapping.md)
+- [phase-0-extended-record-mapping.md](phase-0-extended-record-mapping.md)
+- [phase-0-delete-and-relationship-policy.md](phase-0-delete-and-relationship-policy.md)
+- [phase-0-dry-run-mapper-plan.md](phase-0-dry-run-mapper-plan.md)
+- [phase-0-review-checklist.md](phase-0-review-checklist.md)
+- [phase-0-implementation-slice.md](phase-0-implementation-slice.md)
+- [phase-1-read-only-inspector-plan.md](phase-1-read-only-inspector-plan.md)
+- [phase-1-token-policy.md](phase-1-token-policy.md)
+- [phase-1-existing-coredata-zone-boundary.md](phase-1-existing-coredata-zone-boundary.md)
+- [phase-2-import-dry-run-plan.md](phase-2-import-dry-run-plan.md)
+- [phase-3-export-dry-run-plan.md](phase-3-export-dry-run-plan.md)
+- [phase-3-change-tracker-policy.md](phase-3-change-tracker-policy.md)
+- [phase-3-asset-size-policy.md](phase-3-asset-size-policy.md)
+- [phase-4-limited-shadow-sync-plan.md](phase-4-limited-shadow-sync-plan.md)
+- [phase-5-migration-planning.md](phase-5-migration-planning.md)
+- [rollout-gates.md](rollout-gates.md)
+
+Phase 4 readiness scaffold started:
+
+- `ShadowSyncReadinessChecker` enforces the reviewed shadow zone, default-off feature flag, local and remote kill switches, first-scope record types, asset exclusion, and tombstone exclusion as pure values.
+- `ShadowSyncZonePreflightChecker` combines readiness with the Phase 1 read-only inspector report to identify whether the reviewed shadow zone is available, missing, Core Data-targeted, or unexpectedly classified.
+- `ShadowSyncOperationPlanner` converts Phase 3 export dry-run output into a pure-value shadow operation plan only when readiness passes, and blocks assets, tombstones, unsupported record types, and readiness failures.
+- `ShadowSyncStopConditionChecker` converts Core Data zone targeting, local SwiftData delete attempts, unreviewed CloudKit delete attempts, repeated error loops, and latency-impact signals into a required-disable decision.
+- `ShadowSyncAttemptSnapshot` carries last export attempt state, last import/read attempt state, and pending operation count as pure diagnostics.
+- `ShadowSyncDiagnosticsReport` summarizes readiness, zone preflight status/issues, kill switches, existing sync status, attempt state, planned operation counts, blockers, stop conditions, comparison mismatches, and a redacted last-error code.
+- `ShadowSyncGateReviewReport` summarizes whether the current value-level diagnostics are ready for human review of a future write path; it does not authorize runtime writes or complete Gate 5 by itself.
+- `ShadowSyncExposurePolicy` blocks App Store and TestFlight exposure by default, so existing users remain on the current sync path unless a later reviewed release gate changes that policy.
+- `ShadowSyncComparisonReport` provides redacted count comparison between local dry-run data and future shadow-zone inventory.
+- No Phase 4 CloudKit write client, `CKSyncEngine` runtime, zone creation, asset creation, or SwiftData mutation exists yet.
+
+## 12. Test Plan Maintenance
+
+The active shared scheme uses `WrtingShedPro/TestPlan.xctestplan`. That test plan includes the full `Writing Shed ProTests` target, so new CKSyncEngine XCTest classes under `WrtingShedPro/WritingShedProTests/` are picked up automatically and do not need to be listed individually.
+
+Rules:
+
+- Do not add CKSyncEngine tests to an individual allow-list unless the test plan is deliberately changed to selected-test mode.
+- Keep `WSP_RUN_REAL_CLOUDKIT_INSPECTOR` out of the checked-in test plan. It is an opt-in manual verification variable only.
+- If a future test target is added, update `WrtingShedPro/TestPlan.xctestplan` and this section together.
