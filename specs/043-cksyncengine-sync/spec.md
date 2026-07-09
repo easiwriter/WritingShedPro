@@ -220,6 +220,7 @@ Phase 0 drafts started:
 - [phase-3-change-tracker-policy.md](phase-3-change-tracker-policy.md)
 - [phase-3-asset-size-policy.md](phase-3-asset-size-policy.md)
 - [phase-4-limited-shadow-sync-plan.md](phase-4-limited-shadow-sync-plan.md)
+- [phase-4-shadow-write-review-checklist.md](phase-4-shadow-write-review-checklist.md)
 - [phase-5-migration-planning.md](phase-5-migration-planning.md)
 - [rollout-gates.md](rollout-gates.md)
 
@@ -228,11 +229,22 @@ Phase 4 readiness scaffold started:
 - `ShadowSyncReadinessChecker` enforces the reviewed shadow zone, default-off feature flag, local and remote kill switches, first-scope record types, asset exclusion, and tombstone exclusion as pure values.
 - `ShadowSyncZonePreflightChecker` combines readiness with the Phase 1 read-only inspector report to identify whether the reviewed shadow zone is available, missing, Core Data-targeted, or unexpectedly classified.
 - `ShadowSyncOperationPlanner` converts Phase 3 export dry-run output into a pure-value shadow operation plan only when readiness passes, and blocks assets, tombstones, unsupported record types, and readiness failures.
+- `ShadowSyncBatchPolicy` caps the first reviewed shadow write attempt at 10 planned operations and blocks empty or non-executable operation plans.
 - `ShadowSyncStopConditionChecker` converts Core Data zone targeting, local SwiftData delete attempts, unreviewed CloudKit delete attempts, repeated error loops, and latency-impact signals into a required-disable decision.
 - `ShadowSyncAttemptSnapshot` carries last export attempt state, last import/read attempt state, and pending operation count as pure diagnostics.
 - `ShadowSyncDiagnosticsReport` summarizes readiness, zone preflight status/issues, kill switches, existing sync status, attempt state, planned operation counts, blockers, stop conditions, comparison mismatches, and a redacted last-error code.
 - `ShadowSyncGateReviewReport` summarizes whether the current value-level diagnostics are ready for human review of a future write path; it does not authorize runtime writes or complete Gate 5 by itself.
 - `ShadowSyncExposurePolicy` blocks App Store and TestFlight exposure by default, so existing users remain on the current sync path unless a later reviewed release gate changes that policy.
+- `ShadowSyncEnvironmentPolicy` requires the development CloudKit environment for review by default and blocks production or unknown environments.
+- `ShadowSyncAccountPolicy` requires an available CloudKit account for review by default and blocks missing, restricted, unavailable, undetermined, or unknown account states.
+- `ShadowSyncTriggerPolicy` only allows a manual diagnostics trigger when exposure is already allowed; launch, foreground, editor-save, and background-task triggers remain blocked.
+- `ShadowSyncRetryPolicy` defaults to no retry and blocks tight or repeated retry loops; at most one delayed retry can be represented after trigger/exposure gates pass.
+- `ShadowSyncWriteAttemptReviewReport` aggregates Gate 5 readiness, exposure, environment, account, trigger, retry, batch, and side-effect reports into one final pure-value pre-write review summary.
+- `ShadowSyncWriteAttemptPreviewReport` provides redacted preflight evidence for a future first write attempt without record names, content, asset bytes, CloudKit payloads, or private error details.
+- `ShadowSyncPreflightEvidencePolicy` requires captured read-only inspector evidence, export dry-run evidence, Gate 5 review evidence, and a blocker-free redacted preview.
+- `ShadowSyncManualApprovalPolicy` requires a recorded approval receipt with checklist acceptance, reviewer identifier, checklist version, and approval timestamp.
+- `ShadowSyncFirstWritePreflightReport` combines aggregate write review, required evidence, and manual approval into a final manual-review readiness summary without authorizing or starting a write.
+- `ShadowSyncSideEffectPolicy` blocks local SwiftData mutation, shadow imports into SwiftData, CloudKit zone creation/deletion, existing Core Data zone touches, asset creation, and user-facing shadow data usage.
 - `ShadowSyncComparisonReport` provides redacted count comparison between local dry-run data and future shadow-zone inventory.
 - No Phase 4 CloudKit write client, `CKSyncEngine` runtime, zone creation, asset creation, or SwiftData mutation exists yet.
 

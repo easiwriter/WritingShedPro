@@ -6,6 +6,7 @@
 
 - [phase-2-import-dry-run-plan.md](phase-2-import-dry-run-plan.md)
 - [phase-3-export-dry-run-plan.md](phase-3-export-dry-run-plan.md)
+- [phase-4-shadow-write-review-checklist.md](phase-4-shadow-write-review-checklist.md)
 - [rollout-gates.md](rollout-gates.md)
 
 ## Purpose
@@ -71,6 +72,17 @@ Initial pure-value scaffold:
 - `ShadowSyncDiagnosticsReport` summarizes enabled state, shadow zone, zone preflight status/issues, kill-switch state, existing sync status, readiness, attempt state, operation counts, blockers, stop conditions, comparison mismatches, and a redacted last-error code.
 - `ShadowSyncGateReviewReport` summarizes whether the current diagnostics are ready for human review of a future write path, and lists blockers if they are not.
 - `ShadowSyncExposurePolicy` blocks App Store and TestFlight exposure by default, even when Gate 5 review diagnostics are clean.
+- `ShadowSyncEnvironmentPolicy` requires a development CloudKit environment for review by default, and blocks production or unknown environments.
+- `ShadowSyncAccountPolicy` requires an available CloudKit account for review by default, and blocks missing, restricted, unavailable, undetermined, or unknown account states.
+- `ShadowSyncTriggerPolicy` allows only a reviewed manual diagnostics trigger; app launch, foreground resume, editor save, and background task triggers remain blocked before any future writer can start.
+- `ShadowSyncRetryPolicy` defaults to no retry and permits at most one reviewed delayed retry, with a minimum 300 second delay, only after the manual trigger policy already allows the attempt.
+- `ShadowSyncBatchPolicy` requires an executable operation plan and caps the first shadow write attempt at 10 planned operations.
+- `ShadowSyncWriteAttemptReviewReport` aggregates Gate 5 readiness, exposure, environment, account, trigger, retry, batch, and side-effect reports into a single final pure-value review summary for a future first write attempt.
+- `ShadowSyncWriteAttemptPreviewReport` produces redacted preflight evidence for a future first write attempt, including zone name, trigger, retry settings, operation counts, record counts by type, and blockers, without record names or content.
+- `ShadowSyncPreflightEvidencePolicy` requires captured read-only inspector evidence, export dry-run evidence, Gate 5 review evidence, and a blocker-free redacted write attempt preview.
+- `ShadowSyncManualApprovalPolicy` requires a recorded approval receipt with checklist acceptance, reviewer identifier, checklist version, and approval timestamp.
+- `ShadowSyncFirstWritePreflightReport` combines the aggregate write attempt review, required evidence, and manual approval into a final manual-review readiness summary; it still does not authorize or start a write.
+- `ShadowSyncSideEffectPolicy` blocks any path that would mutate SwiftData, import shadow records into SwiftData, create CloudKit zones, delete CloudKit zones, touch the existing Core Data zone, create assets, or use shadow data in user-facing workflows.
 - `ShadowSyncZonePreflightChecker` combines the readiness report with the Phase 1 read-only inspector report to classify the proposed shadow zone as available, missing, Core Data-targeted, or unexpectedly classified.
 - A missing proposed zone is informational only at this stage; any future zone creation still requires a separate reviewed write path.
 - `ShadowSyncStopConditionChecker` evaluates production-data risk, unreviewed delete risk, repeated error loops, and latency-impact signals as pure values that require shadow sync to be disabled.
@@ -108,6 +120,8 @@ Attempt-state diagnostics are value snapshots only. They do not imply a schedule
 
 This report does not authorize runtime writes, create a CloudKit zone, bypass kill switches, or mark Gate 5 complete by itself.
 
+Before adding any future CloudKit write code, use [phase-4-shadow-write-review-checklist.md](phase-4-shadow-write-review-checklist.md).
+
 ## Existing User Exposure Boundary
 
 Existing users must remain on the current SwiftData/Core Data CloudKit sync path until a separate migration phase is reviewed.
@@ -117,6 +131,17 @@ Initial pure-value scaffold:
 - `ShadowSyncExposurePolicy` always blocks shadow write controls in App Store and TestFlight channels.
 - Debug/internal diagnostics exposure requires internal reviewer approval, remote kill switch off, local kill switch off, and a blocker-free Gate 5 review summary.
 - This policy only controls whether future shadow write controls may be exposed; it does not create runtime UI, start sync, create zones, or upload records.
+- Environment policy additionally blocks production or unknown CloudKit environments before the aggregate first-write review can pass.
+- Account policy additionally blocks any non-available CloudKit account status before the aggregate first-write review can pass.
+- Trigger policy additionally requires the future first attempt to be manually started from reviewed internal diagnostics; automatic runtime triggers remain blocked even when exposure is otherwise allowed.
+- Retry policy additionally defaults to zero retries and blocks immediate or repeated retry loops; a retry can only be represented after the same manual trigger and exposure gates pass.
+- Batch policy additionally blocks empty, non-executable, or oversized first attempts before a future writer can see operations.
+- The aggregate write attempt review must be blocker-free, including side-effect blockers, before any future CloudKit writer is implemented or invoked.
+- The preflight preview must be captured before any future write attempt and must remain redacted.
+- Preflight evidence policy must confirm the read-only inspector, export dry-run, Gate 5 review, and blocker-free preview have all been captured.
+- Manual approval policy must record checklist acceptance, reviewer identifier, checklist version, and approval timestamp.
+- Final first-write preflight must be blocker-free, including approval blockers, but remains manual-review evidence only and does not start sync or create CloudKit records.
+- Side-effect policy must remain blocker-free; shadow write review does not authorize local mutation, zone creation/deletion, production-zone interaction, assets, or user-facing shadow data.
 
 ## Comparison Report
 

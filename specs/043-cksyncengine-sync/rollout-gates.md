@@ -98,7 +98,7 @@ Stop if:
 
 ## Gate 5: Limited Shadow Sync
 
-Readiness scaffolding exists in `ShadowSyncReadinessChecker`, `ShadowSyncZonePreflightChecker`, `ShadowSyncOperationPlanner`, `ShadowSyncStopConditionChecker`, `ShadowSyncAttemptSnapshot`, `ShadowSyncDiagnosticsReport`, `ShadowSyncGateReviewReport`, `ShadowSyncExposurePolicy`, and `ShadowSyncComparisonReport`. This is necessary evidence for Gate 5, but it does not complete the gate because no CloudKit write path has been reviewed or enabled.
+Readiness scaffolding exists in `ShadowSyncReadinessChecker`, `ShadowSyncZonePreflightChecker`, `ShadowSyncOperationPlanner`, `ShadowSyncBatchPolicy`, `ShadowSyncStopConditionChecker`, `ShadowSyncAttemptSnapshot`, `ShadowSyncDiagnosticsReport`, `ShadowSyncGateReviewReport`, `ShadowSyncExposurePolicy`, `ShadowSyncEnvironmentPolicy`, `ShadowSyncAccountPolicy`, `ShadowSyncTriggerPolicy`, `ShadowSyncRetryPolicy`, `ShadowSyncWriteAttemptReviewReport`, `ShadowSyncWriteAttemptPreviewReport`, `ShadowSyncPreflightEvidencePolicy`, `ShadowSyncManualApprovalPolicy`, `ShadowSyncFirstWritePreflightReport`, `ShadowSyncSideEffectPolicy`, and `ShadowSyncComparisonReport`. This is necessary evidence for Gate 5, but it does not complete the gate because no CloudKit write path has been reviewed or enabled.
 
 Proceed only when:
 
@@ -109,13 +109,35 @@ Proceed only when:
 - [ ] Stop conditions force shadow sync disabled before runtime writes can continue.
 - [ ] Diagnostics can compare local data, existing sync state, and shadow zone state.
 - [ ] Gate 5 review summary has no blockers and is explicitly reviewed.
+- [ ] CloudKit environment is confirmed as development; production and unknown environments remain blocked.
+- [ ] CloudKit account status is confirmed as available; non-available account states remain blocked.
+- [ ] The first write trigger is manual diagnostics-only; automatic launch, foreground, editor-save, and background-task triggers remain blocked.
+- [ ] Retry behavior defaults to none; any reviewed retry is capped at one attempt with a minimum 300 second delay.
+- [ ] The first manual write attempt has an executable plan and contains no more than 10 planned operations.
+- [ ] The aggregate first write attempt review combines all pure-value gates, including side-effect policy, and has no blockers.
+- [ ] The preflight preview report is captured and redacted before any future write attempt.
+- [ ] Preflight evidence confirms read-only inspector, export dry-run, Gate 5 review, and blocker-free preview are all captured.
+- [ ] Manual approval receipt records checklist acceptance, reviewer identifier, checklist version, and approval timestamp.
+- [ ] Final first-write preflight combines aggregate review, required evidence, and manual approval with no blockers.
+- [ ] Side-effect policy confirms no SwiftData mutation, shadow import, zone creation, zone deletion, Core Data zone touch, asset creation, or user-facing shadow data usage.
 - [ ] App Store and TestFlight exposure remain blocked unless a later release gate explicitly changes that policy.
+- [ ] [phase-4-shadow-write-review-checklist.md](phase-4-shadow-write-review-checklist.md) is accepted or updated before any write code is added.
 
 Stop if:
 
 - Shadow writes can mutate or delete production user data.
 - Shadow sync shares a zone with existing Core Data records.
+- Shadow sync targets production or an unknown CloudKit environment.
+- Shadow sync does not have an available CloudKit account.
 - Shadow sync cannot be disabled remotely or by build flag.
+- Shadow sync retries in a tight or unbounded loop.
+- Shadow sync starts with an empty, non-executable, or oversized first batch.
+- Shadow sync has any aggregate first write attempt review blocker.
+- Shadow sync cannot show a redacted preflight preview before the first write attempt.
+- Shadow sync cannot prove required preflight evidence has been captured.
+- Shadow sync cannot prove manual checklist approval has been recorded.
+- Shadow sync has any final first-write preflight blocker.
+- Shadow sync has any side-effect blocker.
 
 ## Gate 6: Migration Planning
 

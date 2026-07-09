@@ -255,6 +255,66 @@ struct ShadowSyncOperationPlanner {
     }
 }
 
+struct ShadowSyncBatchPolicy: Equatable {
+    var operationPlan: ShadowSyncOperationPlan
+    var maximumFirstAttemptOperationCount: Int = 10
+
+    var canAttemptFirstBatch: Bool {
+        operationPlan.canExecute
+            && !operationPlan.operations.isEmpty
+            && maximumFirstAttemptOperationCount > 0
+            && operationPlan.operations.count <= maximumFirstAttemptOperationCount
+    }
+}
+
+struct ShadowSyncBatchReport: Equatable {
+    var policy: ShadowSyncBatchPolicy
+
+    var blockers: [String] {
+        var values: [String] = []
+        if !policy.operationPlan.canExecute {
+            values.append("operation-plan-not-executable")
+        }
+        if policy.operationPlan.operations.isEmpty {
+            values.append("no-operations-planned")
+        }
+        if policy.maximumFirstAttemptOperationCount <= 0 {
+            values.append("invalid-batch-limit")
+        }
+        if policy.operationPlan.operations.count > policy.maximumFirstAttemptOperationCount {
+            values.append("first-attempt-batch-too-large")
+        }
+        return values.sorted()
+    }
+
+    func redactedText() -> String {
+        var lines = [
+            "CKSyncEngine shadow batch policy",
+            "Planned operation count: \(policy.operationPlan.operations.count)",
+            "Maximum first attempt operation count: \(policy.maximumFirstAttemptOperationCount)",
+            "Can attempt first batch: \(policy.canAttemptFirstBatch)",
+            "",
+            "Blockers:"
+        ]
+
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncBatchPolicyChecker {
+    func evaluate(_ policy: ShadowSyncBatchPolicy) -> ShadowSyncBatchReport {
+        ShadowSyncBatchReport(policy: policy)
+    }
+}
+
 struct ShadowSyncDiagnosticsReport: Equatable {
     var readinessReport: ShadowSyncReadinessReport
     var zonePreflightReport: ShadowSyncZonePreflightReport?
@@ -479,6 +539,634 @@ struct ShadowSyncExposureReport: Equatable {
 struct ShadowSyncExposureChecker {
     func evaluate(_ policy: ShadowSyncExposurePolicy) -> ShadowSyncExposureReport {
         ShadowSyncExposureReport(policy: policy)
+    }
+}
+
+enum ShadowSyncCloudKitEnvironment: String, Equatable {
+    case development
+    case production
+    case unknown
+}
+
+struct ShadowSyncEnvironmentPolicy: Equatable {
+    var cloudKitEnvironment: ShadowSyncCloudKitEnvironment = .unknown
+    var requiresDevelopmentEnvironment: Bool = true
+
+    var canReviewShadowWriteEnvironment: Bool {
+        !requiresDevelopmentEnvironment || cloudKitEnvironment == .development
+    }
+}
+
+struct ShadowSyncEnvironmentReport: Equatable {
+    var policy: ShadowSyncEnvironmentPolicy
+
+    var blockers: [String] {
+        guard policy.requiresDevelopmentEnvironment else { return [] }
+
+        switch policy.cloudKitEnvironment {
+        case .development:
+            return []
+        case .production:
+            return ["production-cloudkit-environment-blocked"]
+        case .unknown:
+            return ["unknown-cloudkit-environment-blocked"]
+        }
+    }
+
+    func redactedText() -> String {
+        var lines = [
+            "CKSyncEngine shadow environment policy",
+            "CloudKit environment: \(policy.cloudKitEnvironment.rawValue)",
+            "Can review shadow write environment: \(policy.canReviewShadowWriteEnvironment)",
+            "",
+            "Blockers:"
+        ]
+
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncEnvironmentPolicyChecker {
+    func evaluate(_ policy: ShadowSyncEnvironmentPolicy) -> ShadowSyncEnvironmentReport {
+        ShadowSyncEnvironmentReport(policy: policy)
+    }
+}
+
+struct ShadowSyncAccountPolicy: Equatable {
+    var accountStatus: CloudKitInspectorAccountStatus = .unknown
+    var requiresAvailableAccount: Bool = true
+
+    var canReviewShadowWriteAccount: Bool {
+        !requiresAvailableAccount || accountStatus == .available
+    }
+}
+
+struct ShadowSyncAccountReport: Equatable {
+    var policy: ShadowSyncAccountPolicy
+
+    var blockers: [String] {
+        guard policy.requiresAvailableAccount, policy.accountStatus != .available else { return [] }
+
+        switch policy.accountStatus {
+        case .available:
+            return []
+        case .noAccount:
+            return ["cloudkit-account-missing"]
+        case .restricted:
+            return ["cloudkit-account-restricted"]
+        case .couldNotDetermine:
+            return ["cloudkit-account-undetermined"]
+        case .temporarilyUnavailable:
+            return ["cloudkit-account-temporarily-unavailable"]
+        case .unknown:
+            return ["cloudkit-account-unknown"]
+        }
+    }
+
+    func redactedText() -> String {
+        var lines = [
+            "CKSyncEngine shadow account policy",
+            "CloudKit account status: \(policy.accountStatus.rawValue)",
+            "Can review shadow write account: \(policy.canReviewShadowWriteAccount)",
+            "",
+            "Blockers:"
+        ]
+
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncAccountPolicyChecker {
+    func evaluate(_ policy: ShadowSyncAccountPolicy) -> ShadowSyncAccountReport {
+        ShadowSyncAccountReport(policy: policy)
+    }
+}
+
+enum ShadowSyncTrigger: String, Equatable {
+    case manualDiagnostics
+    case appLaunch
+    case foregroundResume
+    case editorSave
+    case backgroundTask
+}
+
+struct ShadowSyncTriggerPolicy: Equatable {
+    var trigger: ShadowSyncTrigger = .manualDiagnostics
+    var exposureReport: ShadowSyncExposureReport
+
+    var canStartShadowWriteAttempt: Bool {
+        trigger == .manualDiagnostics && exposureReport.policy.canExposeShadowWriteControls
+    }
+}
+
+struct ShadowSyncTriggerReport: Equatable {
+    var policy: ShadowSyncTriggerPolicy
+
+    var blockers: [String] {
+        var values = policy.exposureReport.blockers
+        if policy.trigger != .manualDiagnostics {
+            values.append("automatic-trigger-blocked")
+        }
+        if !policy.exposureReport.policy.canExposeShadowWriteControls {
+            values.append("exposure-blocked")
+        }
+        return Array(Set(values)).sorted()
+    }
+
+    func redactedText() -> String {
+        var lines = [
+            "CKSyncEngine shadow trigger policy",
+            "Trigger: \(policy.trigger.rawValue)",
+            "Can start shadow write attempt: \(policy.canStartShadowWriteAttempt)",
+            "",
+            "Blockers:"
+        ]
+
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncTriggerPolicyChecker {
+    func evaluate(_ policy: ShadowSyncTriggerPolicy) -> ShadowSyncTriggerReport {
+        ShadowSyncTriggerReport(policy: policy)
+    }
+}
+
+struct ShadowSyncRetryPolicy: Equatable {
+    var maximumRetryCount: Int = 0
+    var minimumRetryDelaySeconds: Int = 300
+    var triggerReport: ShadowSyncTriggerReport
+
+    var allowsRetry: Bool {
+        triggerReport.policy.canStartShadowWriteAttempt
+            && maximumRetryCount > 0
+            && maximumRetryCount <= 1
+            && minimumRetryDelaySeconds >= 300
+    }
+}
+
+struct ShadowSyncRetryReport: Equatable {
+    var policy: ShadowSyncRetryPolicy
+
+    var blockers: [String] {
+        var values = policy.triggerReport.blockers
+        if !policy.triggerReport.policy.canStartShadowWriteAttempt {
+            values.append("trigger-blocked")
+        }
+        if policy.maximumRetryCount < 0 {
+            values.append("negative-retry-count")
+        }
+        if policy.maximumRetryCount > 1 {
+            values.append("retry-count-too-high")
+        }
+        if policy.minimumRetryDelaySeconds < 300 {
+            values.append("retry-delay-too-short")
+        }
+        return Array(Set(values)).sorted()
+    }
+
+    func redactedText() -> String {
+        var lines = [
+            "CKSyncEngine shadow retry policy",
+            "Maximum retry count: \(policy.maximumRetryCount)",
+            "Minimum retry delay seconds: \(policy.minimumRetryDelaySeconds)",
+            "Allows retry: \(policy.allowsRetry)",
+            "",
+            "Blockers:"
+        ]
+
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncRetryPolicyChecker {
+    func evaluate(_ policy: ShadowSyncRetryPolicy) -> ShadowSyncRetryReport {
+        ShadowSyncRetryReport(policy: policy)
+    }
+}
+
+struct ShadowSyncWriteAttemptReviewReport: Equatable {
+    var gateReviewReport: ShadowSyncGateReviewReport
+    var exposureReport: ShadowSyncExposureReport
+    var environmentReport: ShadowSyncEnvironmentReport
+    var accountReport: ShadowSyncAccountReport
+    var triggerReport: ShadowSyncTriggerReport
+    var retryReport: ShadowSyncRetryReport
+    var batchReport: ShadowSyncBatchReport
+    var sideEffectReport: ShadowSyncSideEffectReport
+
+    var canReviewFirstWriteAttempt: Bool {
+        gateReviewReport.isReadyForHumanWriteReview
+            && exposureReport.policy.canExposeShadowWriteControls
+            && environmentReport.policy.canReviewShadowWriteEnvironment
+            && accountReport.policy.canReviewShadowWriteAccount
+            && triggerReport.policy.canStartShadowWriteAttempt
+            && retryReport.blockers.isEmpty
+            && batchReport.policy.canAttemptFirstBatch
+            && sideEffectReport.allowsSideEffects
+    }
+
+    var blockers: [String] {
+        var values: [String] = []
+        values.append(contentsOf: gateReviewReport.blockers.map { "gate:\($0)" })
+        values.append(contentsOf: exposureReport.blockers.map { "exposure:\($0)" })
+        values.append(contentsOf: environmentReport.blockers.map { "environment:\($0)" })
+        values.append(contentsOf: accountReport.blockers.map { "account:\($0)" })
+        values.append(contentsOf: triggerReport.blockers.map { "trigger:\($0)" })
+        values.append(contentsOf: retryReport.blockers.map { "retry:\($0)" })
+        values.append(contentsOf: batchReport.blockers.map { "batch:\($0)" })
+        values.append(contentsOf: sideEffectReport.blockers.map { "side-effect:\($0)" })
+        return Array(Set(values)).sorted()
+    }
+
+    func redactedText() -> String {
+        var lines = [
+            "CKSyncEngine first shadow write attempt review",
+            "Can review first write attempt: \(canReviewFirstWriteAttempt)",
+            "Gate ready: \(gateReviewReport.isReadyForHumanWriteReview)",
+            "Exposure allowed: \(exposureReport.policy.canExposeShadowWriteControls)",
+            "Environment allowed: \(environmentReport.policy.canReviewShadowWriteEnvironment)",
+            "Account allowed: \(accountReport.policy.canReviewShadowWriteAccount)",
+            "Trigger allowed: \(triggerReport.policy.canStartShadowWriteAttempt)",
+            "Retry blockers clear: \(retryReport.blockers.isEmpty)",
+            "Batch allowed: \(batchReport.policy.canAttemptFirstBatch)",
+            "Side effects allowed: \(sideEffectReport.allowsSideEffects)",
+            "",
+            "Blockers:"
+        ]
+
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncWriteAttemptReviewChecker {
+    func evaluate(
+        gateReviewReport: ShadowSyncGateReviewReport,
+        exposureReport: ShadowSyncExposureReport,
+        environmentReport: ShadowSyncEnvironmentReport,
+        accountReport: ShadowSyncAccountReport,
+        triggerReport: ShadowSyncTriggerReport,
+        retryReport: ShadowSyncRetryReport,
+        batchReport: ShadowSyncBatchReport,
+        sideEffectReport: ShadowSyncSideEffectReport
+    ) -> ShadowSyncWriteAttemptReviewReport {
+        ShadowSyncWriteAttemptReviewReport(
+            gateReviewReport: gateReviewReport,
+            exposureReport: exposureReport,
+            environmentReport: environmentReport,
+            accountReport: accountReport,
+            triggerReport: triggerReport,
+            retryReport: retryReport,
+            batchReport: batchReport,
+            sideEffectReport: sideEffectReport
+        )
+    }
+}
+
+struct ShadowSyncWriteAttemptPreviewReport: Equatable {
+    var reviewReport: ShadowSyncWriteAttemptReviewReport
+
+    var plannedRecordCounts: [String: Int] {
+        reviewReport.batchReport.policy.operationPlan.operations.reduce(into: [:]) { counts, operation in
+            counts[operation.recordType, default: 0] += 1
+        }
+    }
+
+    func redactedText() -> String {
+        var lines = [
+            "CKSyncEngine first shadow write attempt preview",
+            "Can review first write attempt: \(reviewReport.canReviewFirstWriteAttempt)",
+            "Shadow zone: \(reviewReport.gateReviewReport.diagnosticsReport.readinessReport.configuration.zoneName)",
+            "Trigger: \(reviewReport.triggerReport.policy.trigger.rawValue)",
+            "Maximum retry count: \(reviewReport.retryReport.policy.maximumRetryCount)",
+            "Minimum retry delay seconds: \(reviewReport.retryReport.policy.minimumRetryDelaySeconds)",
+            "Planned operation count: \(reviewReport.batchReport.policy.operationPlan.operations.count)",
+            "Maximum first attempt operation count: \(reviewReport.batchReport.policy.maximumFirstAttemptOperationCount)",
+            "",
+            "Planned record counts:"
+        ]
+
+        if plannedRecordCounts.isEmpty {
+            lines.append("- none")
+        } else {
+            for recordType in plannedRecordCounts.keys.sorted() {
+                lines.append("- \(recordType): \(plannedRecordCounts[recordType] ?? 0)")
+            }
+        }
+
+        lines.append("")
+        lines.append("Blockers:")
+        if reviewReport.blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in reviewReport.blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncWriteAttemptPreviewBuilder {
+    func build(reviewReport: ShadowSyncWriteAttemptReviewReport) -> ShadowSyncWriteAttemptPreviewReport {
+        ShadowSyncWriteAttemptPreviewReport(reviewReport: reviewReport)
+    }
+}
+
+struct ShadowSyncPreflightEvidencePolicy: Equatable {
+    var readOnlyInspectorCaptured: Bool = false
+    var exportDryRunCaptured: Bool = false
+    var gateReviewCaptured: Bool = false
+    var writeAttemptPreviewCaptured: Bool = false
+    var writeAttemptPreviewReport: ShadowSyncWriteAttemptPreviewReport?
+}
+
+struct ShadowSyncPreflightEvidenceReport: Equatable {
+    var policy: ShadowSyncPreflightEvidencePolicy
+
+    var hasRequiredEvidence: Bool {
+        blockers.isEmpty
+    }
+
+    var blockers: [String] {
+        var values: [String] = []
+        if !policy.readOnlyInspectorCaptured {
+            values.append("read-only-inspector-missing")
+        }
+        if !policy.exportDryRunCaptured {
+            values.append("export-dry-run-missing")
+        }
+        if !policy.gateReviewCaptured {
+            values.append("gate-review-missing")
+        }
+        if !policy.writeAttemptPreviewCaptured || policy.writeAttemptPreviewReport == nil {
+            values.append("write-attempt-preview-missing")
+        }
+        if policy.writeAttemptPreviewReport?.reviewReport.canReviewFirstWriteAttempt != true {
+            values.append("write-attempt-preview-blocked")
+        }
+        return Array(Set(values)).sorted()
+    }
+
+    func redactedText() -> String {
+        var lines = [
+            "CKSyncEngine shadow preflight evidence",
+            "Has required evidence: \(hasRequiredEvidence)",
+            "Read-only inspector captured: \(policy.readOnlyInspectorCaptured)",
+            "Export dry-run captured: \(policy.exportDryRunCaptured)",
+            "Gate review captured: \(policy.gateReviewCaptured)",
+            "Write attempt preview captured: \(policy.writeAttemptPreviewCaptured && policy.writeAttemptPreviewReport != nil)",
+            "",
+            "Blockers:"
+        ]
+
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncPreflightEvidencePolicyChecker {
+    func evaluate(_ policy: ShadowSyncPreflightEvidencePolicy) -> ShadowSyncPreflightEvidenceReport {
+        ShadowSyncPreflightEvidenceReport(policy: policy)
+    }
+}
+
+struct ShadowSyncManualApprovalPolicy: Equatable {
+    var checklistAccepted: Bool = false
+    var reviewerIdentifier: String = ""
+    var checklistVersion: String = ""
+    var approvalRecordedAt: String = ""
+
+    var hasManualApproval: Bool {
+        checklistAccepted
+            && !reviewerIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !checklistVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !approvalRecordedAt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+struct ShadowSyncManualApprovalReport: Equatable {
+    var policy: ShadowSyncManualApprovalPolicy
+
+    var blockers: [String] {
+        var values: [String] = []
+        if !policy.checklistAccepted {
+            values.append("checklist-not-accepted")
+        }
+        if policy.reviewerIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            values.append("reviewer-missing")
+        }
+        if policy.checklistVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            values.append("checklist-version-missing")
+        }
+        if policy.approvalRecordedAt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            values.append("approval-timestamp-missing")
+        }
+        return values.sorted()
+    }
+
+    func redactedText() -> String {
+        let checklistVersionText = policy.checklistVersion.isEmpty ? "none" : policy.checklistVersion
+        let approvalRecordedText = policy.approvalRecordedAt.isEmpty ? "none" : "present"
+        let reviewerRecordedText = policy.reviewerIdentifier.isEmpty ? "none" : "present"
+        var lines = [
+            "CKSyncEngine shadow manual approval",
+            "Has manual approval: \(policy.hasManualApproval)",
+            "Checklist version: \(checklistVersionText)",
+            "Approval recorded: \(approvalRecordedText)",
+            "Reviewer recorded: \(reviewerRecordedText)",
+            "",
+            "Blockers:"
+        ]
+
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncManualApprovalPolicyChecker {
+    func evaluate(_ policy: ShadowSyncManualApprovalPolicy) -> ShadowSyncManualApprovalReport {
+        ShadowSyncManualApprovalReport(policy: policy)
+    }
+}
+
+struct ShadowSyncFirstWritePreflightReport: Equatable {
+    var writeAttemptReviewReport: ShadowSyncWriteAttemptReviewReport
+    var preflightEvidenceReport: ShadowSyncPreflightEvidenceReport
+    var manualApprovalReport: ShadowSyncManualApprovalReport
+
+    var isReadyForManualFirstWriteReview: Bool {
+        writeAttemptReviewReport.canReviewFirstWriteAttempt
+            && preflightEvidenceReport.hasRequiredEvidence
+            && manualApprovalReport.policy.hasManualApproval
+    }
+
+    var blockers: [String] {
+        var values: [String] = []
+        values.append(contentsOf: writeAttemptReviewReport.blockers.map { "review:\($0)" })
+        values.append(contentsOf: preflightEvidenceReport.blockers.map { "evidence:\($0)" })
+        values.append(contentsOf: manualApprovalReport.blockers.map { "approval:\($0)" })
+        return Array(Set(values)).sorted()
+    }
+
+    func redactedText() -> String {
+        var lines = [
+            "CKSyncEngine first shadow write preflight",
+            "Ready for manual first write review: \(isReadyForManualFirstWriteReview)",
+            "Write attempt review passed: \(writeAttemptReviewReport.canReviewFirstWriteAttempt)",
+            "Preflight evidence captured: \(preflightEvidenceReport.hasRequiredEvidence)",
+            "Manual approval recorded: \(manualApprovalReport.policy.hasManualApproval)",
+            "",
+            "Blockers:"
+        ]
+
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncFirstWritePreflightChecker {
+    func evaluate(
+        writeAttemptReviewReport: ShadowSyncWriteAttemptReviewReport,
+        preflightEvidenceReport: ShadowSyncPreflightEvidenceReport,
+        manualApprovalReport: ShadowSyncManualApprovalReport
+    ) -> ShadowSyncFirstWritePreflightReport {
+        ShadowSyncFirstWritePreflightReport(
+            writeAttemptReviewReport: writeAttemptReviewReport,
+            preflightEvidenceReport: preflightEvidenceReport,
+            manualApprovalReport: manualApprovalReport
+        )
+    }
+}
+
+struct ShadowSyncSideEffectPolicy: Equatable {
+    var willMutateSwiftData: Bool = false
+    var willImportShadowRecordsIntoSwiftData: Bool = false
+    var willCreateCloudKitZone: Bool = false
+    var willDeleteCloudKitZone: Bool = false
+    var willTouchExistingCoreDataZone: Bool = false
+    var willCreateAssets: Bool = false
+    var willUseShadowDataInUserFacingWorkflows: Bool = false
+}
+
+struct ShadowSyncSideEffectReport: Equatable {
+    var policy: ShadowSyncSideEffectPolicy
+
+    var allowsSideEffects: Bool {
+        blockers.isEmpty
+    }
+
+    var blockers: [String] {
+        var values: [String] = []
+        if policy.willMutateSwiftData {
+            values.append("swiftdata-mutation-blocked")
+        }
+        if policy.willImportShadowRecordsIntoSwiftData {
+            values.append("shadow-import-into-swiftdata-blocked")
+        }
+        if policy.willCreateCloudKitZone {
+            values.append("zone-creation-blocked")
+        }
+        if policy.willDeleteCloudKitZone {
+            values.append("zone-delete-blocked")
+        }
+        if policy.willTouchExistingCoreDataZone {
+            values.append("core-data-zone-touch-blocked")
+        }
+        if policy.willCreateAssets {
+            values.append("asset-creation-blocked")
+        }
+        if policy.willUseShadowDataInUserFacingWorkflows {
+            values.append("user-facing-shadow-data-blocked")
+        }
+        return values.sorted()
+    }
+
+    func redactedText() -> String {
+        var lines = [
+            "CKSyncEngine shadow side-effect policy",
+            "Allows side effects: \(allowsSideEffects)",
+            "",
+            "Blockers:"
+        ]
+
+        if blockers.isEmpty {
+            lines.append("- none")
+        } else {
+            for blocker in blockers {
+                lines.append("- \(blocker)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+}
+
+struct ShadowSyncSideEffectPolicyChecker {
+    func evaluate(_ policy: ShadowSyncSideEffectPolicy) -> ShadowSyncSideEffectReport {
+        ShadowSyncSideEffectReport(policy: policy)
     }
 }
 
