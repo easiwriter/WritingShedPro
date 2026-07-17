@@ -54,13 +54,6 @@ struct StyleSheetDetailView: View {
         .navigationTitle(styleSheet.name)
         .navigationBarTitleDisplayMode(.inline)
         .id(refreshTrigger)
-        .onReceive(
-            NotificationCenter.default
-                .publisher(for: NSNotification.Name("NSPersistentStoreRemoteChangeNotification"))
-                .receive(on: RunLoop.main)
-        ) { _ in
-            refreshTrigger.toggle()
-        }
         .onChange(of: styleSheet.footnoteMarkerStyleRaw) { _, _ in
             styleSheet.modifiedDate = Date()
             WriteCoalescer.shared?.requestSave()

@@ -1,7 +1,6 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
-import CloudKit
 import Combine
 
 struct ContentView: View {
@@ -18,16 +17,12 @@ struct ContentView: View {
     /// Task handle for the periodic sync timer (cancelled when app goes to background)
     @State private var periodicSyncTask: Task<Void, Never>?
 
-    /// Last time we ran a lightweight CloudKit probe to wake stalled sync state.
-    @State private var lastCloudKitProbeDate: Date = .distantPast
-
     /// Startup migrations must run at most once per app launch.
-    /// ContentView can be rebuilt during sync reconciliation, and rerunning migrations
-    /// during CloudKit activity can cause unnecessary write churn.
+    /// ContentView can be rebuilt during sync reconciliation.
     @State private var hasRunStartupMigrations = false
 
     /// Stylesheet initialization must run at most once per app launch.
-    /// Running this while CloudKit import is inflight can create duplicate system defaults.
+    /// Running this too early can create duplicate system defaults.
     @State private var hasInitializedStyleSheets = false
     @State private var styleSheetInitTask: Task<Void, Never>?
     @State private var onboardingCoordinator = OnboardingCoordinator()
@@ -35,7 +30,7 @@ struct ContentView: View {
     @State private var onboardingEligibilityTask: Task<Void, Never>?
 
     /// Last time we auto-normalized project userOrder values.
-    /// Used to avoid repeated writes during prolonged CloudKit churn.
+    /// Used to avoid repeated writes during sync churn.
     @State private var lastAutoOrderNormalizationDate: Date = .distantPast
 
     /// Last time we attempted automatic duplicate cleanup.
@@ -58,7 +53,7 @@ struct ContentView: View {
     @State private var offlinePurchaseBannerDismissed = false
 
     /// SAFETY SWITCH: hard-disable app-driven sync mutations during reconcile/watchdog.
-    /// This keeps CloudKit flow observation-only and avoids local write storms.
+    /// This avoids local write storms.
     private let disableRiskySyncMutationPaths = true
     
     var body: some View {
@@ -123,17 +118,6 @@ struct ContentView: View {
         }
         .id(refreshTrigger)
         .task {
-            // DISABLED: All proactive sync interventions removed.
-            // SwiftData + CloudKit handles sync automatically via
-            // NSPersistentCloudKitContainer's mirroring delegate.
-            // The watchdog, forced imports, and polling were causing
-            // export retry storms that triggered sustained rate-limiting.
-            //
-            // Keeping: passive CloudKitSyncThrottler observation,
-            // UI reconciliation on remote-change notifications.
-
-            // Keep the passive watchdog running while foregrounded so UI reconciliation
-            // and stale-sync diagnostics continue without opening Sync Diagnostics.
             if scenePhase == .active {
                 startPeriodicSyncTimer()
             }
@@ -142,8 +126,6 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             if newPhase == .active && oldPhase != .active {
-                // Just reconcile the UI on foreground resume — don't
-                // force any CloudKit operations.
                 syncOnForegroundResume()
                 startPeriodicSyncTimer()
                 scheduleRemoteReconcile(reason: "foreground-resume")
@@ -155,63 +137,6 @@ struct ContentView: View {
                 stopPeriodicSyncTimer()
                 writeCoalescer.flush()
             }
-        }
-        .onReceive(
-            NotificationCenter.default
-                .publisher(for: NSNotification.Name("NSPersistentStoreRemoteChangeNotification"))
-                .receive(on: RunLoop.main)
-        ) { _ in
-            dismissSyncRecoveryBanner()
-            scheduleRemoteReconcile(reason: "remote-change")
-        }
-        .onReceive(
-            NotificationCenter.default
-                .publisher(for: NSNotification.Name("NSPersistentStoreCoordinatorStoresDidChangeNotification"))
-                .receive(on: RunLoop.main)
-        ) { _ in
-            dismissSyncRecoveryBanner()
-            scheduleRemoteReconcile(reason: "stores-did-change")
-        }
-        .onReceive(
-            NotificationCenter.default
-                .publisher(for: .writingShedProCloudKitImportFailed)
-                .receive(on: RunLoop.main)
-        ) { notification in
-            dismissSyncRecoveryBanner()
-            showSyncRecoveryBannerTemporarily()
-            scheduleRemoteReconcile(reason: "cloudkit-import-failed")
-            maybeRunCloudKitLivenessProbe(reason: "import-failed")
-
-            #if DEBUG
-            if let userInfo = notification.userInfo,
-               let domain = userInfo["errorDomain"] as? String,
-               let code = userInfo["errorCode"] as? Int {
-                print("⚠️ [ContentView] Observed CloudKit import failure: \(domain):\(code)")
-            } else {
-                print("⚠️ [ContentView] Observed CloudKit import failure")
-            }
-            #endif
-        }
-        .onReceive(
-            NotificationCenter.default
-                .publisher(for: .writingShedProCloudKitExportFailed)
-                .receive(on: RunLoop.main)
-        ) { notification in
-            let isBlocking = notification.userInfo?["isBlockingExportFailure"] as? Bool ?? false
-            showSyncRecoveryBannerTemporarily(
-                messageKey: isBlocking ? "sync.recovery.blocked.banner" : "sync.recovery.banner",
-                isBlocking: isBlocking
-            )
-
-            #if DEBUG
-            if let userInfo = notification.userInfo,
-               let domain = userInfo["errorDomain"] as? String,
-               let code = userInfo["errorCode"] as? Int {
-                print("⚠️ [ContentView] Observed CloudKit export failure: \(domain):\(code)")
-            } else {
-                print("⚠️ [ContentView] Observed CloudKit export failure")
-            }
-            #endif
         }
         // When EntitlementManager clears the offline warning (connectivity restored +
         // purchases verified), re-show the banner next time if it happens again.
@@ -280,11 +205,6 @@ struct ContentView: View {
                     return
                 }
 
-                let throttler = CloudKitSyncThrottler.shared
-                if throttler.importCompleted && !throttler.importInProgress {
-                    break
-                }
-
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
 
@@ -313,8 +233,7 @@ struct ContentView: View {
     
     // MARK: - Foreground Resume Sync
     
-    /// When the app returns to the foreground, just resume passive observation.
-    /// CloudKit recovery is left to NSPersistentCloudKitContainer.
+    /// When the app returns to the foreground, reconcile the visible project list.
     private func syncOnForegroundResume() {
         let now = Date()
         guard now.timeIntervalSince(lastForegroundSyncDate) > 60 else {
@@ -326,7 +245,7 @@ struct ContentView: View {
         lastForegroundSyncDate = now
 
         #if DEBUG
-        print("🔄 [ContentView] App became active — resuming passive CloudKit observation")
+        print("🔄 [ContentView] App became active — reconciling local store")
         #endif
     }
 
@@ -358,92 +277,15 @@ struct ContentView: View {
         periodicSyncTask = nil
     }
 
-    /// Passive periodic CloudKit maintenance.
-    /// This performs only local reconciliation and diagnostics-safe self-healing.
+    /// Passive periodic local maintenance.
     private func performPeriodicSyncWatchdogTick() {
         reconcileProjectListIfNeeded()
-        maybeRunCloudKitLivenessProbe(reason: "periodic")
-
-        let throttler = CloudKitSyncThrottler.shared
-        let now = Date()
-        guard let lastEvent = throttler.mostRecentActivityTime else {
-            #if DEBUG
-            print("⏳ [ContentView] Sync watchdog: no CloudKit activity recorded yet")
-            #endif
-            return
-        }
-        let secondsSinceEvent = now.timeIntervalSince(lastEvent)
-
-        if throttler.hasActiveCloudKitEvent {
-            if secondsSinceEvent >= 180 {
-                showSyncRecoveryBannerTemporarily()
-                #if DEBUG
-                print("⚠️ [ContentView] Sync watchdog: CloudKit event appears idle for \(Int(secondsSinceEvent))s — observing only, no manual kick")
-                #endif
-            }
-            #if DEBUG
-            print("⏳ [ContentView] Sync watchdog: CloudKit event in progress")
-            #endif
-            return
-        }
-
-        guard secondsSinceEvent >= 180 else {
-            #if DEBUG
-            print("✅ [ContentView] Sync watchdog: recent CloudKit activity (\(Int(secondsSinceEvent))s ago), no action")
-            #endif
-            if !throttler.hasActiveCloudKitEvent && !throttler.isSyncing {
-                autoNormalizeProjectOrderIfNeeded()
-            }
-            return
-        }
-
         autoNormalizeProjectOrderIfNeeded()
-
-        #if DEBUG
-        print("🔄 [ContentView] Sync watchdog: idle \(Int(secondsSinceEvent))s — passive observation only")
-        #endif
-    }
-
-    /// Lightweight CloudKit liveness probe while app is active.
-    /// This is read-only and avoids manual imports/exports, but helps wake the
-    /// CloudKit stack when silent pushes are delayed or dropped.
-    private func maybeRunCloudKitLivenessProbe(reason: String) {
-        let now = Date()
-        guard now.timeIntervalSince(lastCloudKitProbeDate) >= 60 else { return }
-        lastCloudKitProbeDate = now
-
-        let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
-        ckContainer.privateCloudDatabase.fetchAllSubscriptions { subscriptions, error in
-            #if DEBUG
-            if let error {
-                print("⚠️ [ContentView] CloudKit probe (\(reason)) failed: \(error.localizedDescription)")
-            } else {
-                let count = subscriptions?.count ?? 0
-                print("✅ [ContentView] CloudKit probe (\(reason)) completed: subscriptions=\(count)")
-            }
-            #endif
-
-            // Follow with a cheap zone list fetch. In practice this helps kick
-            // CloudKit activity on devices that missed silent pushes.
-            ckContainer.privateCloudDatabase.fetchAllRecordZones { zones, zoneError in
-                #if DEBUG
-                if let zoneError {
-                    print("⚠️ [ContentView] CloudKit zone probe (\(reason)) failed: \(zoneError.localizedDescription)")
-                } else {
-                    print("✅ [ContentView] CloudKit zone probe (\(reason)) completed: zones=\(zones?.count ?? 0)")
-                }
-                #endif
-
-                DispatchQueue.main.async {
-                    scheduleRemoteReconcile(reason: "cloudkit-liveness-probe")
-                }
-            }
-        }
     }
 
     /// Assign userOrder to projects that don't have one yet.
     /// CRITICAL: Never overwrite existing userOrder values — they may have been
-    /// set by the user on another device and synced via CloudKit. Overwriting
+    /// set by the user on another device and synced. Overwriting
     /// causes a ping-pong effect where each device renumbers independently.
     private func autoNormalizeProjectOrderIfNeeded() {
         guard !disableRiskySyncMutationPaths else {
@@ -452,11 +294,6 @@ struct ContentView: View {
             #endif
             return
         }
-
-        let throttler = CloudKitSyncThrottler.shared
-        guard !throttler.hasActiveCloudKitEvent && !throttler.isSyncing else { return }
-        guard throttler.importCompleted else { return }
-        guard !throttler.isRateLimited else { return }
 
         let now = Date()
         guard now.timeIntervalSince(lastAutoOrderNormalizationDate) > 600 else { return }
@@ -497,9 +334,7 @@ struct ContentView: View {
         }
     }
 
-    /// Debounced reconciliation triggered by CoreData/CloudKit notifications.
-    /// This makes newly imported projects appear quickly during long import storms,
-    /// instead of waiting for the periodic watchdog cadence.
+    /// Debounced reconciliation triggered by foreground/manual refresh.
     private func scheduleRemoteReconcile(reason: String) {
         guard scenePhase == .active else { return }
 
@@ -519,20 +354,15 @@ struct ContentView: View {
         }
     }
 
-    /// Manual sync trigger exposed from Settings.
-    /// Only reconciles the UI — does not force CloudKit operations.
-    /// SwiftData's mirroring delegate handles actual sync.
+    /// Manual refresh trigger exposed from Settings.
     private func syncNowFromSettings() {
         #if DEBUG
-        print("🔄 [ContentView] Sync Now requested from Settings")
+        print("🔄 [ContentView] Refresh requested from Settings")
         #endif
-        // Reset any accumulated backoff so the mirroring delegate can
-        // retry naturally without the throttler blocking UI updates.
-        CloudKitSyncThrottler.shared.resetBackoffState()
         scheduleRemoteReconcile(reason: "sync-now")
     }
 
-    /// `@Query` can occasionally miss newly imported CloudKit rows, or return
+    /// `@Query` can occasionally miss newly synced rows, or return
     /// in-memory Project objects whose properties (e.g. name) are stale relative
     /// to the underlying SQLite store after a CloudKit field update.
     ///
@@ -544,9 +374,7 @@ struct ContentView: View {
     ///   a) the active project count differs, OR
     ///   b) any project's name in @Query doesn't match what's in the store.
     private func reconcileProjectListIfNeeded() {
-        // Only run zombie cleanup when exports can actually propagate — otherwise
-        // we generate local deletes that queue exports and deepen rate-limiting.
-        if !disableRiskySyncMutationPaths && !CloudKitSyncThrottler.shared.isRateLimited {
+        if !disableRiskySyncMutationPaths {
             let zombies = DeduplicationService.deleteZombieProjects(context: modelContext)
             if zombies > 0 {
                 #if DEBUG
@@ -557,7 +385,7 @@ struct ContentView: View {
             }
         }
 
-        // Automatically clean up CloudKit clone rows once sync is settled.
+        // Automatically clean up strict clone rows once sync is settled.
         performAutomaticDedupIfSafe(reason: "reconcile")
         performPostImportRepairIfSafe(reason: "reconcile")
 
@@ -594,7 +422,7 @@ struct ContentView: View {
         }
     }
     
-    /// On fresh install, @Query may not update after CloudKit bulk import.
+    /// On fresh install, @Query may not update after a bulk sync.
     /// Poll periodically and force a view refresh if data exists but @Query is empty.
     private func monitorSyncAndRefreshIfNeeded() async {
         // Only needed on fresh install (no projects yet)
@@ -604,10 +432,7 @@ struct ContentView: View {
         // The ONLY exit conditions are:
         //   a) Projects appear in the database → success, refresh view.
         //   b) 5 minutes elapse with no projects → show recovery alert.
-        // We intentionally avoid app-driven CloudKit nudges here.
-        
         let totalChecks = 30               // 30 × 10s = 5 minutes
-        let reKickInterval = 6             // legacy debug cadence for status logging
         
         for check in 1...totalChecks {
             try? await Task.sleep(nanoseconds: 10_000_000_000) // 10s
@@ -627,17 +452,9 @@ struct ContentView: View {
             
             #if DEBUG
             if check % 3 == 0 {
-                let events = CloudKitSyncThrottler.shared.totalSyncEventCount
-                print("⏳ [ContentView] Waiting for sync check \(check)/\(totalChecks): events=\(events)")
+                print("⏳ [ContentView] Waiting for sync check \(check)/\(totalChecks)")
             }
             #endif
-            
-            // --- Re-kick CloudKit periodically to keep daemon active ---
-            if check % reKickInterval == 0 && check == reKickInterval {
-                #if DEBUG
-                print("⏸️ [ContentView] Aggressive auto re-kicks disabled — relying on natural container retries")
-                #endif
-            }
         }
         
         #if DEBUG
@@ -691,10 +508,7 @@ struct ContentView: View {
         }
     }
 
-    /// Run data migrations for new features, delayed to avoid CloudKit sync race conditions.
-    /// When the app launches with a fresh database, CloudKit imports records immediately.
-    /// Running migrations during that import can cause duplicate records because the
-    /// migration modifies imported records, causing CloudKit to treat them as new local records.
+    /// Run data migrations for new features.
     private func runMigrations() {
         guard !hasRunStartupMigrations else {
             #if DEBUG
@@ -703,60 +517,21 @@ struct ContentView: View {
             return
         }
         hasRunStartupMigrations = true
-
-        let throttler = CloudKitSyncThrottler.shared
-        
         Task { @MainActor in
-            // Wait for any initial CloudKit import burst to settle.
-            // On first launch / fresh database, CloudKit fires rapid notifications
-            // as it imports records. We must not mutate those records during import.
-            var waitCycles = 0
-            // On a relaunch with existing data, the import end-event often arrives
-            // very late (or never) because there is nothing to import.  Use a short
-            // timeout so we don't block migrations for 30s on every relaunch.
-            let isFreshDatabase = projects.isEmpty
-            let maxWait = isFreshDatabase ? 30 : 5  // fresh install: 30s, relaunch: 5s
-            
-            // Give CloudKit a moment to START syncing before we check
             try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
-            
-            // Wait for sync burst to settle AND for import to complete.
-            // isSyncing alone clears after 1.5s of quiet, but import may still
-            // be in progress between notification batches.
-            while (throttler.isSyncing || throttler.hasActiveCloudKitEvent) && waitCycles < maxWait {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)  // 1 second
-                waitCycles += 1
-                #if DEBUG
-                if waitCycles % 5 == 0 {
-                    print("⏳ [ContentView] Waiting for CloudKit sync to settle before migration... (\(waitCycles)s, isSyncing=\(throttler.isSyncing), activeEvent=\(throttler.hasActiveCloudKitEvent), fresh=\(isFreshDatabase))")
-                }
-                #endif
-            }
-            
-            let importConfirmed = throttler.importCompleted && throttler.importSucceeded
-            
+
             #if DEBUG
-            if waitCycles > 0 {
-                print("✅ [ContentView] CloudKit sync settled after \(waitCycles)s, importConfirmed=\(importConfirmed), running migrations")
-            } else {
-                print("✅ [ContentView] No active sync detected, importConfirmed=\(importConfirmed), running migrations immediately")
-            }
+            print("✅ [ContentView] Running startup migrations")
             #endif
             
-            // Pass importConfirmed so migrations can skip destructive operations
-            // when CloudKit relationships may still be arriving.
-            MigrationService.runMigrations(context: modelContext, importConfirmed: importConfirmed)
+            MigrationService.runMigrations(context: modelContext, importConfirmed: true)
 
-            // Auto-cleanup synced clone rows after migration when sync is settled.
+            // Auto-cleanup strict clone rows after migration.
             // This uses DeduplicationService's strict clone checks (same name/type/creation date)
-            // and runs only when CloudKit is idle.
             performAutomaticDedupIfSafe(reason: "startup-migration")
             performPostImportRepairIfSafe(reason: "startup-migration")
 
-            // After import, delete any zombie projects that match tombstones
-            // (projects the user permanently deleted but CloudKit re-imported).
-            // Skip while rate-limited — deletes queue exports that deepen the backoff.
-            if importConfirmed && !throttler.isRateLimited {
+            if !disableRiskySyncMutationPaths {
                 let zombies = DeduplicationService.deleteZombieProjects(context: modelContext)
                 #if DEBUG
                 if zombies > 0 {
@@ -771,11 +546,7 @@ struct ContentView: View {
         guard !disableRiskySyncMutationPaths else {
             return
         }
-
-        let throttler = CloudKitSyncThrottler.shared
         guard scenePhase == .active else { return }
-        guard !throttler.isRateLimited else { return }
-        guard !throttler.hasActiveCloudKitEvent else { return }
 
         // Debounce automatic dedup scans/writes.
         let now = Date()
@@ -798,12 +569,7 @@ struct ContentView: View {
         guard !disableRiskySyncMutationPaths else {
             return
         }
-
-        let throttler = CloudKitSyncThrottler.shared
         guard scenePhase == .active else { return }
-        guard throttler.importCompleted && throttler.importSucceeded else { return }
-        guard !throttler.hasActiveCloudKitEvent else { return }
-        guard !throttler.isSyncing else { return }
 
         let now = Date()
         guard now.timeIntervalSince(lastPostImportRepairDate) >= 30 else { return }
@@ -888,54 +654,29 @@ struct ContentView: View {
         styleSheetInitTask = Task { @MainActor in
             defer { styleSheetInitTask = nil }
 
-            let throttler = CloudKitSyncThrottler.shared
-
-            // Give CloudKit a brief chance to start initial import before we initialize defaults.
+            // Give sync a brief chance to deliver existing stylesheets before we initialize defaults.
             try? await Task.sleep(nanoseconds: 2_000_000_000)
 
             var waitCycles = 0
             let isFreshDatabase = projects.isEmpty
-            let maxWait = isFreshDatabase ? 60 : 5  // fresh install: 60s, relaunch: 5s
+            let maxWait = isFreshDatabase ? 10 : 0
             
             if isFreshDatabase {
-                // On a fresh install, wait for CloudKit import to deliver stylesheets
-                // rather than creating them locally. Creating local records before import
-                // completes causes export failures (code=2) that block all sync.
                 while waitCycles < maxWait {
-                    // Check if CloudKit has already imported stylesheets
                     let freshCtx = ModelContext(modelContext.container)
                     let sheetDescriptor = FetchDescriptor<StyleSheet>()
                     if let count = try? freshCtx.fetchCount(sheetDescriptor), count > 0 {
                         #if DEBUG
-                        print("✅ [ContentView] CloudKit imported \(count) stylesheet(s) — skipping local creation")
+                        print("✅ [ContentView] Found \(count) synced stylesheet(s) — skipping local creation")
                         #endif
                         break
                     }
-                    
-                    // Also break if import completed successfully (zone might have no stylesheets)
-                    if throttler.importCompleted && throttler.importSucceeded {
-                        #if DEBUG
-                        print("✅ [ContentView] Import completed successfully — proceeding with stylesheet init")
-                        #endif
-                        break
-                    }
-                    
+
                     try? await Task.sleep(nanoseconds: 1_000_000_000)
                     waitCycles += 1
                     #if DEBUG
                     if waitCycles % 5 == 0 {
-                        print("⏳ [ContentView] Waiting for CloudKit import before stylesheet init... (\(waitCycles)s)")
-                    }
-                    #endif
-                }
-            } else {
-                // Existing database: just wait for active events to settle
-                while (throttler.hasActiveCloudKitEvent || throttler.isSyncing) && waitCycles < maxWait {
-                    try? await Task.sleep(nanoseconds: 1_000_000_000)
-                    waitCycles += 1
-                    #if DEBUG
-                    if waitCycles % 5 == 0 {
-                        print("⏳ [ContentView] Waiting for CloudKit to settle before stylesheet init... (\(waitCycles)s)")
+                        print("⏳ [ContentView] Waiting before stylesheet init... (\(waitCycles)s)")
                     }
                     #endif
                 }
@@ -1171,14 +912,6 @@ struct ContentView: View {
 
         let projectsNeedingOrder = allProjects.filter { $0.userOrder == nil }
         guard !projectsNeedingOrder.isEmpty else {
-            return
-        }
-
-        let throttler = CloudKitSyncThrottler.shared
-        guard !throttler.hasActiveCloudKitEvent && !throttler.isSyncing else {
-            #if DEBUG
-            print("⏳ [ContentView] Skipping userOrder initialization while CloudKit sync is active")
-            #endif
             return
         }
 

@@ -1917,16 +1917,6 @@ struct FileEditView: View {
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UndoRedoContentRestored"))) { notification in
                 handleUndoRedoContentRestored(notification)
             }
-            // Reload editor content when CloudKit imports a remote change.
-            // Without this, the Mac shows stale content indefinitely because the
-            // @State var attributedContent is only populated on onAppear.
-            .onReceive(
-                NotificationCenter.default.publisher(
-                    for: NSNotification.Name("NSPersistentStoreRemoteChangeNotification")
-                ).debounce(for: .seconds(1.5), scheduler: RunLoop.main)
-            ) { _ in
-                reloadFromRemoteChangeIfSafe()
-            }
             .alert("Print Error", isPresented: $showPrintError) {
                 Button("OK", role: .cancel) { }
             } message: {
@@ -2284,8 +2274,8 @@ struct FileEditView: View {
                         #if DEBUG
                         print("📑 Index onSave callback: entry='\(entry.keyword)', isPrimary=\(isPrimary)")
                         #endif
-                        insertIndexMarker(for: entry, isPrimary: isPrimary)
                         newIndexEntryData = nil
+                        insertIndexMarker(for: entry, isPrimary: isPrimary)
                     },
                     onCancel: {
                         newIndexEntryData = nil
@@ -2298,6 +2288,7 @@ struct FileEditView: View {
                         project: project,
                         existingEntry: entry,
                         onSave: { _, _ in
+                            selectedIndexEntry = nil
                             forceRefresh.toggle()
                         },
                         onCancel: {
@@ -2715,6 +2706,7 @@ struct FileEditView: View {
                let metadata = ReferenceMetadata.decode(metadataData) {
                 attributedContent = restoreReferenceAttachments(in: attributedContent, from: metadata)
             }
+            attributedContent = normalizeReferenceAttachmentsToText(in: attributedContent)
             
             // Position cursor at beginning of text (unless opening from search, which will position at first match)
             if searchContext == nil || searchContext?.shouldActivate == false {
@@ -3718,6 +3710,100 @@ struct FileEditView: View {
     }
     
     // MARK: - Notes & Endnotes (Feature 029)
+
+    private func referenceAttachmentString(_ attachment: ReferenceAttachment, in textView: UITextView, at location: Int) -> NSAttributedString {
+        var attributes = textView.typingAttributes
+
+        func nearbyAttribute(_ key: NSAttributedString.Key) -> Any? {
+            let textStorage = textView.textStorage
+            let candidateLocations = [location - 1, location, location + 1]
+            for candidate in candidateLocations where candidate >= 0 && candidate < textStorage.length {
+                if textStorage.attribute(.attachment, at: candidate, effectiveRange: nil) != nil {
+                    continue
+                }
+                if let value = textStorage.attribute(key, at: candidate, effectiveRange: nil) {
+                    return value
+                }
+            }
+            return nil
+        }
+
+        func nearbyTextStyleName() -> String? {
+            nearbyAttribute(.textStyle) as? String
+        }
+
+        func fontForTextStyle(_ styleName: String?) -> UIFont? {
+            guard let styleName,
+                  let style = file.project?.styleSheet?.style(named: styleName) else { return nil }
+            return style.generateFont(applyPlatformScaling: true)
+        }
+
+        func character(at index: Int) -> String? {
+            let nsString = textView.textStorage.string as NSString
+            guard index >= 0 && index < nsString.length else { return nil }
+            return nsString.substring(with: NSRange(location: index, length: 1))
+        }
+
+        func isWhitespace(_ character: String?) -> Bool {
+            guard let character, let scalar = character.unicodeScalars.first else { return true }
+            return CharacterSet.whitespacesAndNewlines.contains(scalar)
+        }
+
+        func shouldAddLeadingSpace() -> Bool {
+            guard attachment.referenceType != .index,
+                  let previous = character(at: location - 1),
+                  !isWhitespace(previous) else { return false }
+            return true
+        }
+
+        func shouldAddTrailingSpace() -> Bool {
+            guard attachment.referenceType != .index,
+                  let next = character(at: location),
+                  !isWhitespace(next) else { return false }
+            let noSpaceBefore = CharacterSet(charactersIn: ".,;:!?)]}")
+            if let scalar = next.unicodeScalars.first, noSpaceBefore.contains(scalar) {
+                return false
+            }
+            return true
+        }
+
+        let nearbyStyleName = nearbyTextStyleName()
+        attributes[.textStyle] = nearbyStyleName ?? attributes[.textStyle]
+        attributes[.font] = fontForTextStyle(nearbyStyleName) ?? nearbyAttribute(.font) ?? attributes[.font] ?? textView.font ?? UIFont.preferredFont(forTextStyle: .body)
+        attributes[.foregroundColor] = nearbyAttribute(.foregroundColor) ?? attributes[.foregroundColor] ?? textView.textColor ?? UIColor.label
+
+        attributes.removeValue(forKey: .attachment)
+        attributes.removeValue(forKey: .referenceType)
+        attributes.removeValue(forKey: .referenceID)
+        attributes.removeValue(forKey: .referencePrimary)
+
+        let result = NSMutableAttributedString()
+        if shouldAddLeadingSpace() {
+            result.append(NSAttributedString(string: " ", attributes: attributes))
+        }
+
+        let markerString: NSMutableAttributedString
+        if attachment.referenceType == .index {
+            markerString = NSMutableAttributedString(attachment: attachment)
+        } else {
+            markerString = NSMutableAttributedString(string: attachment.displayText)
+        }
+        let markerRange = NSRange(location: 0, length: markerString.length)
+        markerString.addAttributes(attributes, range: markerRange)
+        let referenceAttributes: [NSAttributedString.Key: Any] = [
+            .referenceType: attachment.referenceType.rawValue,
+            .referenceID: attachment.entryID.uuidString,
+            .referencePrimary: attachment.isPrimaryReference
+        ]
+        markerString.addAttributes(referenceAttributes, range: markerRange)
+        result.append(markerString)
+
+        if shouldAddTrailingSpace() {
+            result.append(NSAttributedString(string: " ", attributes: attributes))
+        }
+
+        return result
+    }
     
     /// Insert a note marker at the current cursor position
     private func insertNoteMarker(for note: NoteEntry) {
@@ -3760,7 +3846,7 @@ struct FileEditView: View {
         }
         
         // Create attributed string with the attachment
-        let attachmentString = NSAttributedString(attachment: attachment)
+        let attachmentString = referenceAttachmentString(attachment, in: textView, at: currentRange.location)
         
         // Insert at cursor
         isPerformingUndoRedo = true
@@ -3816,6 +3902,28 @@ struct FileEditView: View {
             rangesToRemove.append(range)
         }
 
+        mutableContent.enumerateAttributes(in: NSRange(location: 0, length: mutableContent.length)) { attributes, range, _ in
+            guard let idString = attributes[.referenceID] as? String,
+                  let attributedEntryID = UUID(uuidString: idString),
+                  attributedEntryID == entryID else {
+                return
+            }
+
+            if let referenceType,
+               let typeString = attributes[.referenceType] as? String,
+               ReferenceType(rawValue: typeString) != referenceType {
+                return
+            }
+
+            rangesToRemove.append(range)
+        }
+
+        rangesToRemove = Array(Set(rangesToRemove.map { "\($0.location):\($0.length)" })).compactMap { key in
+            let parts = key.split(separator: ":").compactMap { Int($0) }
+            guard parts.count == 2 else { return nil }
+            return NSRange(location: parts[0], length: parts[1])
+        }.sorted { $0.location < $1.location }
+
         for range in rangesToRemove.reversed() {
             mutableContent.deleteCharacters(in: range)
         }
@@ -3829,6 +3937,8 @@ struct FileEditView: View {
         }
 
         file.currentVersion?.attributedContent = content
+        let referenceMetadata = extractReferenceMetadata(from: content)
+        file.currentVersion?.referenceMetadataData = referenceMetadata.encode()
         previousContent = content.string
         previousAttributedContent = content
         file.modifiedDate = Date()
@@ -5123,7 +5233,7 @@ struct FileEditView: View {
         )
         
         // Create attributed string with the attachment
-        let attachmentString = NSAttributedString(attachment: attachment)
+        let attachmentString = referenceAttachmentString(attachment, in: textView, at: currentRange.location)
         
         // Insert at cursor
         isPerformingUndoRedo = true
@@ -5248,7 +5358,7 @@ struct FileEditView: View {
         )
         
         // Create attributed string with the attachment
-        let attachmentString = NSAttributedString(attachment: attachment)
+        let attachmentString = referenceAttachmentString(attachment, in: textView, at: currentRange.location)
         
         // Insert at cursor
         isPerformingUndoRedo = true
@@ -5484,7 +5594,7 @@ struct FileEditView: View {
         )
         
         // Create attributed string with the attachment
-        let attachmentString = NSAttributedString(attachment: attachment)
+        let attachmentString = referenceAttachmentString(attachment, in: textView, at: currentRange.location)
         
         // Suppress autocomplete/OTP suggestions during insertion
         // This prevents the "Refusing to display OTP completion list relative to null rect" flash
@@ -5619,7 +5729,7 @@ struct FileEditView: View {
         )
         
         // Create attributed string with the attachment
-        let attachmentString = NSAttributedString(attachment: attachment)
+        let attachmentString = referenceAttachmentString(attachment, in: textView, at: currentRange.location)
         
         // Insert at cursor
         isPerformingUndoRedo = true
@@ -8491,7 +8601,11 @@ struct FileEditView: View {
         // Save the current attributed content to the model
         // IMPORTANT: Get the current content from the textView to include all attachments (comments, images)
         if let textView = textViewCoordinator.textView {
-            let currentContent = textView.attributedText ?? NSAttributedString()
+            let rawContent = textView.attributedText ?? NSAttributedString()
+            let currentContent = normalizeReferenceAttachmentsToText(in: rawContent)
+            if rawContent !== currentContent {
+                textView.textStorage.setAttributedString(currentContent)
+            }
             #if DEBUG
             print("🧪 [FootnoteDiag] saveChanges FROM textView current=\(footnoteDebugSummary(currentContent)) binding=\(footnoteDebugSummary(attributedContent))")
             #endif
@@ -8639,18 +8753,61 @@ struct FileEditView: View {
     private func extractReferenceMetadata(from attributedString: NSAttributedString) -> ReferenceMetadata {
         var metadata = ReferenceMetadata()
         
-        attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length)) { value, range, _ in
-            if let referenceAttachment = value as? ReferenceAttachment {
+        attributedString.enumerateAttributes(in: NSRange(location: 0, length: attributedString.length)) { attributes, range, _ in
+            if let referenceAttachment = attributes[.attachment] as? ReferenceAttachment {
                 metadata.add(
                     type: referenceAttachment.referenceType,
                     entryID: referenceAttachment.entryID,
                     displayText: referenceAttachment.displayText,
                     displayNumber: referenceAttachment.displayNumber
                 )
+            } else if let typeString = attributes[.referenceType] as? String,
+                      let type = ReferenceType(rawValue: typeString),
+                      let idString = attributes[.referenceID] as? String,
+                      let entryID = UUID(uuidString: idString) {
+                let displayText = (attributedString.string as NSString).substring(with: range)
+                metadata.add(
+                    type: type,
+                    entryID: entryID,
+                    displayText: displayText,
+                    displayNumber: 0
+                )
             }
         }
         
         return metadata
+    }
+
+    private func normalizeReferenceAttachmentsToText(in attributedString: NSAttributedString) -> NSAttributedString {
+        let mutableString = NSMutableAttributedString(attributedString: attributedString)
+        var replacements: [(range: NSRange, attachment: ReferenceAttachment)] = []
+
+        mutableString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableString.length)) { value, range, _ in
+            if let referenceAttachment = value as? ReferenceAttachment,
+               referenceAttachment.referenceType != .index {
+                replacements.append((range, referenceAttachment))
+            }
+        }
+
+        guard !replacements.isEmpty else { return attributedString }
+
+        for replacement in replacements.reversed() {
+            var inheritedAttributes = mutableString.attributes(at: replacement.range.location, effectiveRange: nil)
+            if replacement.range.location > 0 {
+                inheritedAttributes.merge(mutableString.attributes(at: replacement.range.location - 1, effectiveRange: nil)) { current, _ in current }
+            } else if replacement.range.location + replacement.range.length < mutableString.length {
+                inheritedAttributes.merge(mutableString.attributes(at: replacement.range.location + replacement.range.length, effectiveRange: nil)) { current, _ in current }
+            }
+            inheritedAttributes.removeValue(forKey: .attachment)
+            inheritedAttributes[.referenceType] = replacement.attachment.referenceType.rawValue
+            inheritedAttributes[.referenceID] = replacement.attachment.entryID.uuidString
+            inheritedAttributes[.referencePrimary] = replacement.attachment.isPrimaryReference
+
+            let markerString = NSAttributedString(string: replacement.attachment.displayText, attributes: inheritedAttributes)
+            mutableString.replaceCharacters(in: replacement.range, with: markerString)
+        }
+
+        return mutableString
     }
     
     /// FEATURE 029: Restore ReferenceAttachment instances from metadata
@@ -8662,6 +8819,20 @@ struct FileEditView: View {
         var attachmentsToReplace: [(range: NSRange, entry: ReferenceMetadataEntry)] = []
         var orphanedAttachments: [NSRange] = []
         
+        func attributedReferenceString(for entry: ReferenceMetadataEntry, inheritedAttributes: [NSAttributedString.Key: Any]) -> NSAttributedString {
+            let result = NSMutableAttributedString(string: entry.displayText)
+            let range = NSRange(location: 0, length: result.length)
+            result.addAttributes(inheritedAttributes.filter { key, _ in
+                key != .attachment && key != .referenceType && key != .referenceID && key != .referencePrimary
+            }, range: range)
+            result.addAttributes([
+                .referenceType: entry.type.rawValue,
+                .referenceID: entry.entryID.uuidString,
+                .referencePrimary: false
+            ], range: range)
+            return result
+        }
+
         // Find all generic attachments and match them with metadata entries
         mutableString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableString.length)) { value, range, _ in
             if value != nil {
@@ -8669,11 +8840,11 @@ struct FileEditView: View {
                 if let refAttachment = value as? ReferenceAttachment {
                     // Check if there's a metadata entry for this
                     if let index = mutableMetadata.references.firstIndex(where: { $0.entryID == refAttachment.entryID }) {
-                        // Keep it - has metadata
-                        mutableMetadata.references.remove(at: index)
+                        let entry = mutableMetadata.references.remove(at: index)
+                        attachmentsToReplace.append((range: range, entry: entry))
                     } else {
-                        // Orphaned - no metadata for it (was deleted)
-                        orphanedAttachments.append(range)
+                        let entry = ReferenceMetadataEntry(type: refAttachment.referenceType, entryID: refAttachment.entryID, displayText: refAttachment.displayText, displayNumber: refAttachment.displayNumber)
+                        attachmentsToReplace.append((range: range, entry: entry))
                     }
                 } else if !(value is CommentAttachment) && !(value is ImageAttachment) && !(value is FootnoteAttachment) {
                     // Generic attachment (should not happen, but handle it)
@@ -8694,14 +8865,15 @@ struct FileEditView: View {
         
         // Replace generic attachments with proper ReferenceAttachment instances
         for (range, entry) in attachmentsToReplace.reversed() {
-            let referenceAttachment = ReferenceAttachment(
-                referenceType: entry.type,
-                entryID: entry.entryID,
-                displayText: entry.displayText
-            )
-            referenceAttachment.displayNumber = entry.displayNumber
-            
-            let attachmentString = NSMutableAttributedString(attachment: referenceAttachment)
+            let inheritedAttributes: [NSAttributedString.Key: Any]
+            if range.location > 0 {
+                inheritedAttributes = mutableString.attributes(at: range.location - 1, effectiveRange: nil)
+            } else if range.location + range.length < mutableString.length {
+                inheritedAttributes = mutableString.attributes(at: range.location + range.length, effectiveRange: nil)
+            } else {
+                inheritedAttributes = [:]
+            }
+            let attachmentString = attributedReferenceString(for: entry, inheritedAttributes: inheritedAttributes)
             mutableString.replaceCharacters(in: range, with: attachmentString)
         }
         

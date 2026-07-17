@@ -91,14 +91,6 @@ struct PoetryCollectionsView: View {
             refreshToken += 1
             refreshLiveFileCounts()
         }
-        .onReceive(
-            NotificationCenter.default
-                .publisher(for: NSNotification.Name("NSPersistentStoreRemoteChangeNotification"))
-                .receive(on: RunLoop.main)
-        ) { _ in
-            refreshToken += 1
-            refreshLiveFileCounts()
-        }
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Button {

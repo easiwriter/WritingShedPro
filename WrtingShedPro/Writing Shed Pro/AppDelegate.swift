@@ -41,11 +41,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-        // CRITICAL for Mac Catalyst: register for remote (silent push) notifications.
-        // NSPersistentCloudKitContainer relies on CKDatabaseSubscription pushes to
-        // trigger imports. Without this call the container starts an import event
-        // at launch but never receives the push that tells it to actually pull records,
-        // causing sync to stall indefinitely on Catalyst.
+        // Register for remote notifications so the CloudKit-backed sync layer can receive pushes.
         application.registerForRemoteNotifications()
         #if DEBUG
         print("📱 [AppDelegate] Registered for remote notifications")

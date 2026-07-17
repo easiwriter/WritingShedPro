@@ -418,15 +418,12 @@ struct ProjectEditableList: View {
             return
         }
 
-        let throttler = CloudKitSyncThrottler.shared
-
         for project in sortedProjects {
             let id = project.id
             let newName = project.name ?? ""
 
             if let oldName = lastSeenNameByProjectID[id], oldName != newName {
-                let lastSync = throttler.lastSyncTime?.description ?? "nil"
-                print("[ProjectNameTransition] at=\(now) reason=\(reason) id=\(id.uuidString) old='\(oldName)' new='\(newName)' isSyncing=\(throttler.isSyncing) importInProgress=\(throttler.importInProgress) exportInProgress=\(throttler.exportInProgress) lastSync=\(lastSync)")
+                print("[ProjectNameTransition] at=\(now) reason=\(reason) id=\(id.uuidString) old='\(oldName)' new='\(newName)'")
             } else if lastSeenNameByProjectID[id] == nil {
                 print("[ProjectNameTransition] at=\(now) reason=\(reason) id=\(id.uuidString) added name='\(newName)'")
             }

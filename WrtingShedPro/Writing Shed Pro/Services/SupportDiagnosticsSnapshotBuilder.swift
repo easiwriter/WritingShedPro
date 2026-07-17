@@ -6,53 +6,13 @@ import CryptoKit
 enum SupportDiagnosticsSnapshotBuilder {
     @MainActor
     static func buildSnapshot(modelContext: ModelContext) -> String {
-        let throttler = CloudKitSyncThrottler.shared
-        _ = throttler.hasActiveCloudKitEvent
-
         var lines: [String] = []
         let now = Date()
-        lines.append("CloudKit Diagnostics Snapshot")
+        lines.append("Sync & Data Health Snapshot")
         lines.append("Generated: \(now.formatted(date: .complete, time: .standard))")
-        lines.append("isSyncing: \(throttler.isSyncing)")
-        lines.append("remoteEventsTotal: \(throttler.totalSyncEventCount)")
-        lines.append("currentBurstCount: \(throttler.syncEventCount)")
-        lines.append("importInProgress: \(throttler.importInProgress)")
-        lines.append("exportInProgress: \(throttler.exportInProgress)")
-        lines.append("importCompleted: \(throttler.importCompleted)")
-        lines.append("importSucceeded: \(throttler.importSucceeded)")
-        lines.append("exportCompleted: \(throttler.exportCompleted)")
-        lines.append("exportSucceeded: \(throttler.exportSucceeded)")
-        lines.append("isRateLimited: \(throttler.isRateLimited)")
-        lines.append("consecutiveExportRateLimits: \(throttler.consecutiveExportRateLimits)")
-        lines.append("isManualKickPaused: \(throttler.isManualKickPaused)")
-        lines.append("consecutiveImportNetworkFailures: \(throttler.consecutiveImportNetworkFailures)")
-        lines.append("consecutiveImportFailures: \(throttler.consecutiveImportFailures)")
-        lines.append("autoResetScheduled: \(throttler.autoResetScheduled)")
-        lines.append("isPostReset: \(throttler.isPostReset)")
-        lines.append("lastRemoteEvent: \(throttler.lastSyncTime?.formatted(date: .omitted, time: .standard) ?? "nil")")
-        lines.append("lastMirroringEvent: \(throttler.lastMirroringEventTime?.formatted(date: .omitted, time: .standard) ?? "nil")")
-        if let importStart = throttler.importStartTime {
-            lines.append("importAgeSeconds: \(Int(Date().timeIntervalSince(importStart)))")
-        } else {
-            lines.append("importAgeSeconds: nil")
-        }
-        if let exportStart = throttler.exportStartTime {
-            lines.append("exportAgeSeconds: \(Int(Date().timeIntervalSince(exportStart)))")
-        } else {
-            lines.append("exportAgeSeconds: nil")
-        }
-
-        lines.append("rateLimitedUntil: \(throttler.rateLimitedUntil?.formatted(date: .omitted, time: .standard) ?? "nil")")
-        lines.append("manualKickPausedUntil: \(throttler.manualKickPausedUntil?.formatted(date: .omitted, time: .standard) ?? "nil")")
-        lines.append("recentCloudKitEvents:")
-        if throttler.recentCloudKitEvents.isEmpty {
-            lines.append("- none")
-        } else {
-            for event in throttler.recentCloudKitEvents.prefix(20) {
-                let message = event.message.isEmpty ? "" : " — \(event.message)"
-                lines.append("- \(event.timestamp.formatted(date: .omitted, time: .standard)) | \(event.type) | \(event.phase) | \(event.status)\(message)")
-            }
-        }
+        lines.append("syncBackend: Ensembles")
+        lines.append("cloudContainer: iCloud.com.appworks.writingshedpro")
+        lines.append("activeEnsemblesContainer: \(Write_App.activeEnsemblesContainer != nil)")
 
         let freshContext = ModelContext(modelContext.container)
         let formatter = ISO8601DateFormatter()

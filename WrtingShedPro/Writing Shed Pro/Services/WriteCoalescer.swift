@@ -11,8 +11,7 @@ import UIKit
 /// waits for an idle window before performing a single save. The delay adapts
 /// to editing activity: during rapid bursts the delay is extended to coalesce
 /// more aggressively; once the user goes idle all pending changes flush
-/// immediately. This dramatically reduces CloudKit export operations during
-/// intensive editing sessions.
+/// immediately. This reduces sync/export churn during intensive editing sessions.
 @Observable
 @MainActor
 final class WriteCoalescer {
@@ -42,10 +41,6 @@ final class WriteCoalescer {
     /// Idle threshold before flushing (seconds).
     let flushDelay: TimeInterval
 
-    /// Multiplier applied to `flushDelay` when CloudKit is rate-limited.
-    /// Reduces save frequency to avoid deepening the rate-limit storm.
-    let rateLimitDelayMultiplier: TimeInterval = 3.0
-
     /// Multiplier applied during burst editing (many requests in a short window).
     let burstDelayMultiplier: TimeInterval = 1.75
 
@@ -58,14 +53,11 @@ final class WriteCoalescer {
     /// Seconds of inactivity after the last request before an idle flush fires.
     let idleFlushThreshold: TimeInterval = 5.0
 
-    /// The effective delay, accounting for editing activity and rate-limit state.
+    /// The effective delay, accounting for editing activity.
     private var effectiveDelay: TimeInterval {
         var delay = flushDelay
         if editingActivity == .burst {
             delay *= burstDelayMultiplier
-        }
-        if CloudKitSyncThrottler.shared.isRateLimited {
-            delay *= rateLimitDelayMultiplier
         }
         return delay
     }
@@ -254,7 +246,7 @@ final class WriteCoalescer {
             lastFlushTime = Date()
             syncHealthMonitor?.recordLocalChange()
             #if DEBUG
-            print("🔵 [SYNC TRACE 5/5] ✅ modelContext.save() SUCCEEDED — save #\(saveCount) CloudKit export should now be queued")
+            print("🔵 [SYNC TRACE 5/5] ✅ modelContext.save() SUCCEEDED — save #\(saveCount)")
             #endif
         } catch {
             #if DEBUG
@@ -264,7 +256,7 @@ final class WriteCoalescer {
     }
 
     /// Catch writes that mutated models but forgot to request a save.
-    /// This keeps local DB and CloudKit export queue from silently stalling.
+    /// This keeps the local DB from silently stalling.
     private func checkForUnsignaledChanges() {
         guard !pendingSave else { return }
         guard modelContext.hasChanges else { return }
@@ -280,8 +272,7 @@ final class WriteCoalescer {
     private func logDiagnostics() {
         guard saveCount > lastDiagnosticSaveCount else { return } // skip if idle
         let ratio = saveCount > 0 ? Double(requestCount) / Double(saveCount) : 0
-        let rateLimited = CloudKitSyncThrottler.shared.isRateLimited
-        print("📊 [WriteCoalescer] requests=\(requestCount) saves=\(saveCount) ratio=\(String(format: "%.1f", ratio)):1 pending=\(pendingSave) activity=\(editingActivity.rawValue) rateLimited=\(rateLimited)")
+        print("📊 [WriteCoalescer] requests=\(requestCount) saves=\(saveCount) ratio=\(String(format: "%.1f", ratio)):1 pending=\(pendingSave) activity=\(editingActivity.rawValue)")
         lastDiagnosticSaveCount = saveCount
     }
     #endif
