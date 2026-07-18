@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import StoreKit
 import StoreKitManager
 
 /// A reusable view for showing upgrade prompts when users hit free tier limits.
@@ -19,6 +20,7 @@ struct UpgradePromptView: View {
     /// State for showing the store
     @State private var showStore = false
     @State private var highlightedStoreProduct: WSPProduct?
+    @State private var bundleSavingsPercentage: Int?
     
     var body: some View {
         VStack(spacing: 20) {
@@ -78,7 +80,7 @@ struct UpgradePromptView: View {
                             Text("Or get the")
                             Text("All-In Bundle")
                                 .fontWeight(.semibold)
-                            Text("- Save 27%")
+                            Text(bundleSavingsText)
                                 .foregroundColor(.green)
                         }
                         .font(.subheadline)
@@ -95,6 +97,9 @@ struct UpgradePromptView: View {
         .padding()
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
+        .task {
+            await loadBundleSavingsPercentage()
+        }
         .fullScreenCover(isPresented: $showStore) {
             StoreView(
                 highlightedProduct: highlightedStoreProduct,
@@ -163,6 +168,31 @@ struct UpgradePromptView: View {
             return .orange
         case .drama:
             return .red
+        }
+    }
+
+    private var bundleSavingsText: String {
+        if let bundleSavingsPercentage {
+            return "- Save \(bundleSavingsPercentage)%"
+        }
+        return "- Best value"
+    }
+
+    private func loadBundleSavingsPercentage() async {
+        guard bundleSavingsPercentage == nil else { return }
+
+        do {
+            let productIDs = WSPProduct.individualModules.map(\.rawValue) + [WSPProduct.allInBundle.rawValue]
+            let products = try await Product.products(for: productIDs)
+            let percentage = WSPBundleSavings.percentage(products: products)
+
+            await MainActor.run {
+                bundleSavingsPercentage = percentage
+            }
+        } catch {
+            #if DEBUG
+            print("Failed to load bundle savings percentage: \(error)")
+            #endif
         }
     }
 }

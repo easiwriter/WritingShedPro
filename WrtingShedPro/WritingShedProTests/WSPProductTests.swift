@@ -116,4 +116,24 @@ final class WSPProductTests: XCTestCase {
     func testAllCasesCount() {
         XCTAssertEqual(WSPProduct.allCases.count, 6)
     }
+
+    // MARK: - Bundle Savings Tests
+
+    func testBundleSavingsPercentageIsComputedFromPrices() {
+        let percentage = WSPBundleSavings.percentage(
+            individualPrices: [19.99, 19.99, 19.99, 19.99],
+            bundlePrice: 29.99
+        )
+
+        XCTAssertEqual(percentage, 62)
+    }
+
+    func testBundleSavingsPercentageReturnsNilWhenBundleDoesNotSaveMoney() {
+        let percentage = WSPBundleSavings.percentage(
+            individualPrices: [9.99, 9.99],
+            bundlePrice: 29.99
+        )
+
+        XCTAssertNil(percentage)
+    }
 }

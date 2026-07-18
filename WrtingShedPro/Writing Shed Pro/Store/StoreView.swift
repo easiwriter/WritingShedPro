@@ -168,6 +168,7 @@ struct StoreView: View {
                     product: bundleProduct,
                     isPurchased: EntitlementManager.shared.hasBundle,
                     isLoading: purchaseInProgress == bundleProduct.id,
+                    savingsPercentage: bundleSavingsPercentage,
                     onPurchase: { await purchase(bundleProduct) },
                     onRedeemCode: { presentOfferCodeRedemption() }
                 )
@@ -205,7 +206,7 @@ struct StoreView: View {
                     HStack {
                         Image(systemName: "gift.fill")
                             .foregroundColor(.purple)
-                        Text("Save 27% with the All-In Bundle")
+                        Text(bundleSavingsCalloutText)
                             .font(.subheadline)
                             .fontWeight(.medium)
                         Image(systemName: "arrow.right.circle")
@@ -362,6 +363,17 @@ struct StoreView: View {
     
     private func product(for wspProduct: WSPProduct) -> Product? {
         loadedProducts.first { $0.id == wspProduct.rawValue }
+    }
+
+    private var bundleSavingsPercentage: Int? {
+        WSPBundleSavings.percentage(products: loadedProducts)
+    }
+
+    private var bundleSavingsCalloutText: String {
+        if let bundleSavingsPercentage {
+            return "Save \(bundleSavingsPercentage)% with the All-In Bundle"
+        }
+        return "Save with the All-In Bundle"
     }
     
     private func loadProducts() async {
@@ -538,6 +550,7 @@ struct BundleCardView: View {
     let product: Product
     let isPurchased: Bool
     let isLoading: Bool
+    let savingsPercentage: Int?
     let onPurchase: () async -> Void
     let onRedeemCode: () -> Void
     
@@ -545,7 +558,7 @@ struct BundleCardView: View {
         VStack(spacing: 16) {
             // Best Value badge
             if !isPurchased {
-                Text("BEST VALUE – SAVE 27%")
+                Text(savingsPercentage.map { "BEST VALUE - SAVE \($0)%" } ?? "BEST VALUE")
                     .font(.caption)
                     .fontWeight(.bold)
                     .foregroundColor(.white)

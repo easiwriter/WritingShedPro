@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import StoreKit
 import StoreKitManager
 
 // MARK: - Product Identifiers
@@ -111,5 +112,50 @@ enum WSPProduct: String, CaseIterable, Identifiable {
     /// Individual modules (excludes bundle)
     static var individualModules: [WSPProduct] {
         allCases.filter { $0.projectType != nil }
+    }
+}
+
+enum WSPBundleSavings {
+    static func percentage(individualPrices: [Decimal], bundlePrice: Decimal) -> Int? {
+        let totalIndividualPrice = individualPrices.reduce(Decimal(0), +)
+        let totalPriceNumber = NSDecimalNumber(decimal: totalIndividualPrice)
+        let bundlePriceNumber = NSDecimalNumber(decimal: bundlePrice)
+
+                guard totalPriceNumber.compare(NSDecimalNumber(value: 0)) == .orderedDescending,
+              bundlePriceNumber.compare(totalPriceNumber) == .orderedAscending else {
+            return nil
+        }
+
+        let percentage = totalPriceNumber
+            .subtracting(bundlePriceNumber)
+            .dividing(by: totalPriceNumber)
+            .multiplying(by: 100)
+            .rounding(accordingToBehavior: NSDecimalNumberHandler(
+                roundingMode: .plain,
+                scale: 0,
+                raiseOnExactness: false,
+                raiseOnOverflow: false,
+                raiseOnUnderflow: false,
+                raiseOnDivideByZero: false
+            ))
+            .intValue
+
+        return percentage > 0 ? percentage : nil
+    }
+
+    static func percentage(products: [Product]) -> Int? {
+        guard let bundleProduct = products.first(where: { $0.id == WSPProduct.allInBundle.rawValue }) else {
+            return nil
+        }
+
+        let individualPrices = WSPProduct.individualModules.compactMap { wspProduct in
+            products.first(where: { $0.id == wspProduct.rawValue })?.price
+        }
+
+        guard individualPrices.count == WSPProduct.individualModules.count else {
+            return nil
+        }
+
+        return percentage(individualPrices: individualPrices, bundlePrice: bundleProduct.price)
     }
 }
