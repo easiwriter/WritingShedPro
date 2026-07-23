@@ -422,7 +422,7 @@ struct PaginatedDocumentView: View {
 
         let footnoteContext = version.modelContext ?? modelContext
         let activeFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: footnoteContext)
-        let activeByAttachmentID = Dictionary(uniqueKeysWithValues: activeFootnotes.map { ($0.attachmentID, $0) })
+        let activeByAttachmentID = Dictionary(activeFootnotes.map { ($0.attachmentID, $0) }, uniquingKeysWith: { first, _ in first })
 
         var seenAttachmentIDs = Set<UUID>()
         let orderedUniqueMarkers = markerPositions.filter { marker in

@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import CloudKit
+import CoreData
 import Ensembles
 import EnsemblesCloudKit
 import EnsemblesSwiftData
@@ -20,6 +21,7 @@ struct Write_App: App {
     @State private var syncHealthMonitor: SyncHealthMonitor
     static private(set) var activeEnsemblesContainer: SwiftDataEnsembleContainer?
     private static let ensemblesAutoSyncUserDefaultsKey = "ensemblesAutoSyncEnabled"
+    static let resetLocalEnsemblesStoreOnNextLaunchKey = "resetLocalEnsemblesStoreOnNextLaunch"
 
     private static var shouldAutoSyncEnsembles: Bool {
         let environment = ProcessInfo.processInfo.environment
@@ -118,6 +120,12 @@ struct Write_App: App {
         #endif
         
         let storeURL = URL.documentsDirectory.appending(path: "writingshed.sqlite")
+        let eventDataDirectory = URL.documentsDirectory.appending(path: "EnsemblesEventData", directoryHint: .isDirectory)
+
+        if UserDefaults.standard.bool(forKey: Write_App.resetLocalEnsemblesStoreOnNextLaunchKey) {
+            UserDefaults.standard.removeObject(forKey: Write_App.resetLocalEnsemblesStoreOnNextLaunchKey)
+            Write_App.backupAndResetLocalEnsemblesStore(storeURL: storeURL, eventDataDirectory: eventDataDirectory)
+        }
 
         #if DEBUG
         print("☁️ [Write_App] Initializing SwiftDataEnsembleContainer with CloudKit backend")
@@ -128,7 +136,6 @@ struct Write_App: App {
             privateDatabaseForUbiquityContainerIdentifier: "iCloud.com.appworks.writingshedpro",
             schemaVersion: .v2
         )
-        let eventDataDirectory = URL.documentsDirectory.appending(path: "EnsemblesEventData", directoryHint: .isDirectory)
         let configuration = EnsembleContainerConfiguration(
             autoSyncPolicy: Write_App.shouldAutoSyncEnsembles ? .all : .manual,
             timerInterval: 120,
@@ -144,6 +151,44 @@ struct Write_App: App {
             cloudFileSystem: cloudFileSystem,
             configuration: configuration
         ) {
+            let stableGlobalIdentifiers: @Sendable ([NSManagedObject]) -> [String] = { objects in
+                objects.map { object in
+                    if let id = object.value(forKey: "id") as? NSUUID {
+                        return id.uuidString
+                    }
+                    if let id = object.value(forKey: "id") as? UUID {
+                        return id.uuidString
+                    }
+                    if let id = object.value(forKey: "id") as? String, !id.isEmpty {
+                        return id
+                    }
+                    let entityName = object.entity.name ?? "UnknownEntity"
+                    let fallbackIdentifier = object.objectID.uriRepresentation().absoluteString
+                    Task { @MainActor in
+                        Write_App.logErrorToFile("❌ [Ensembles] Missing stable id for global identifier: \(entityName); using objectID fallback")
+                    }
+                    return fallbackIdentifier
+                }
+            }
+            ensemblesContainer.globalIdentifiers = stableGlobalIdentifiers
+            ensemblesContainer.ensemble.globalIdentifiers = stableGlobalIdentifiers
+            ensemblesContainer.didEncounterError = { error in
+                Task { @MainActor in
+                    let nsError = error as NSError
+                    let ensembleCase = (error as? EnsembleError).map { " raw=\($0.rawValue) case=\($0)" } ?? ""
+                    Write_App.logErrorToFile("❌ [Ensembles] Encountered error: \(error.localizedDescription) domain=\(nsError.domain) code=\(nsError.code)\(ensembleCase)")
+                }
+            }
+            ensemblesContainer.didForceDetach = { error in
+                Task { @MainActor in
+                    Write_App.logErrorToFile("⚠️ [Ensembles] Forced detach: \(error.localizedDescription)")
+                }
+            }
+            ensemblesContainer.didSaveMergeChanges = { _ in
+                Task { @MainActor in
+                    Write_App.logToFile("✅ [Ensembles] Merge changes saved")
+                }
+            }
             Write_App.activeEnsemblesContainer = ensemblesContainer
             let container = ensemblesContainer.modelContainer
             container.mainContext.autosaveEnabled = true
@@ -307,6 +352,68 @@ struct Write_App: App {
         return container
     }
 
+    private static func backupAndResetLocalEnsemblesStore(storeURL: URL, eventDataDirectory: URL) {
+        let fileManager = FileManager.default
+        let documentsDirectory = storeURL.deletingLastPathComponent()
+        let timestamp = Int(Date().timeIntervalSince1970)
+        let backupDirectory = documentsDirectory.appending(path: "LocalSyncResetBackup_\(timestamp)", directoryHint: .isDirectory)
+
+        do {
+            try fileManager.createDirectory(at: backupDirectory, withIntermediateDirectories: true)
+        } catch {
+            Write_App.logErrorToFile("❌ [Ensembles] Local reset backup directory failed: \(error.localizedDescription)")
+            return
+        }
+
+        let storeFiles = [
+            storeURL,
+            storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"),
+            storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm")
+        ]
+
+        for sourceURL in storeFiles where fileManager.fileExists(atPath: sourceURL.path) {
+            let destinationURL = backupDirectory.appending(path: sourceURL.lastPathComponent)
+            do {
+                try fileManager.copyItem(at: sourceURL, to: destinationURL)
+                Write_App.logToFile("💾 [Ensembles] Backed up \(sourceURL.lastPathComponent) for local reset")
+            } catch {
+                Write_App.logErrorToFile("❌ [Ensembles] Failed to back up \(sourceURL.lastPathComponent): \(error.localizedDescription)")
+                return
+            }
+        }
+
+        if fileManager.fileExists(atPath: eventDataDirectory.path) {
+            let eventBackupURL = backupDirectory.appending(path: eventDataDirectory.lastPathComponent, directoryHint: .isDirectory)
+            do {
+                try fileManager.copyItem(at: eventDataDirectory, to: eventBackupURL)
+                Write_App.logToFile("💾 [Ensembles] Backed up EnsemblesEventData for local reset")
+            } catch {
+                Write_App.logErrorToFile("❌ [Ensembles] Failed to back up EnsemblesEventData: \(error.localizedDescription)")
+                return
+            }
+        }
+
+        for sourceURL in storeFiles where fileManager.fileExists(atPath: sourceURL.path) {
+            do {
+                try fileManager.removeItem(at: sourceURL)
+                Write_App.logToFile("🗑️ [Ensembles] Removed local \(sourceURL.lastPathComponent) for sync reset")
+            } catch {
+                Write_App.logErrorToFile("❌ [Ensembles] Failed to remove \(sourceURL.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+
+        if fileManager.fileExists(atPath: eventDataDirectory.path) {
+            do {
+                try fileManager.removeItem(at: eventDataDirectory)
+                Write_App.logToFile("🗑️ [Ensembles] Removed local EnsemblesEventData for sync reset")
+            } catch {
+                Write_App.logErrorToFile("❌ [Ensembles] Failed to remove EnsemblesEventData: \(error.localizedDescription)")
+            }
+        }
+
+        Write_App.logToFile("✅ [Ensembles] Local sync reset completed; backup=\(backupDirectory.lastPathComponent)")
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -361,8 +468,8 @@ struct Write_App: App {
     private func runManualEnsemblesSync(reason: String) async {
         guard let container = Write_App.activeEnsemblesContainer else { return }
         Write_App.logToFile("🔄 [Ensembles] Manual sync started (reason=\(reason))")
-        await container.sync()
-        Write_App.logToFile("✅ [Ensembles] Manual sync completed (reason=\(reason))")
+        let didSync = await container.sync()
+        Write_App.logToFile("✅ [Ensembles] Manual sync completed (reason=\(reason), didSync=\(didSync), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
     }
     
     private func checkCloudKitStatus() {

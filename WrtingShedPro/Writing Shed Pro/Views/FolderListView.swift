@@ -1052,6 +1052,23 @@ struct FolderListView: View {
             return nil
         }
     }
+
+    private static func coverImageData(
+        in sections: [ManuscriptSection],
+        sectionType: ManuscriptSection.SectionType,
+        expectedFileName: String
+    ) -> Data? {
+        for section in sections where section.sectionType == sectionType {
+            for file in section.files {
+                guard file.includedInManuscript,
+                      file.isCoverFile || file.name == expectedFileName,
+                      let imageData = file.coverImageData,
+                      UIImage(data: imageData) != nil else { continue }
+                return imageData
+            }
+        }
+        return nil
+    }
     
     /// Insert front/back cover images into manuscript content
     static func insertCoverImages(into content: ManuscriptContent, project: Project) -> ManuscriptContent {
@@ -1061,25 +1078,16 @@ struct FolderListView: View {
         var frontCoverData: Data?
         var backCoverData: Data?
 
-        let frontCoverFromSections = content.sections
-            .filter { $0.sectionType == .frontMatter }
-            .flatMap { $0.files }
-            .filter { file in
-                file.includedInManuscript
-                    && (file.isCoverFile || file.name == FrontMatterItem.frontCover.fileName)
-            }
-            .compactMap { $0.coverImageData }
-            .first(where: { UIImage(data: $0) != nil })
-
-        let backCoverFromSections = content.sections
-            .filter { $0.sectionType == .backMatter }
-            .flatMap { $0.files }
-            .filter { file in
-                file.includedInManuscript
-                    && (file.isCoverFile || file.name == BackMatterItem.backCover.fileName)
-            }
-            .compactMap { $0.coverImageData }
-            .first(where: { UIImage(data: $0) != nil })
+        let frontCoverFromSections = coverImageData(
+            in: content.sections,
+            sectionType: .frontMatter,
+            expectedFileName: FrontMatterItem.frontCover.fileName
+        )
+        let backCoverFromSections = coverImageData(
+            in: content.sections,
+            sectionType: .backMatter,
+            expectedFileName: BackMatterItem.backCover.fileName
+        )
         
         // Front cover: find front cover image and prepend a cover placeholder page.
         if let imageData = frontCoverFromSections {
@@ -1356,7 +1364,11 @@ struct FolderRowView: View {
     // Get scene count for Scenes folder
     private var sceneCount: Int {
         guard isScenesFolder, let project = folder.project else { return 0 }
-        return project.scenes?.count ?? 0
+        return (project.scenes ?? []).filter(isLiveScene).count
+    }
+
+    private func isLiveScene(_ scene: StoryScene) -> Bool {
+        !scene.isTrashed && scene.textFile?.parentFolder != nil
     }
     
     // Get act count for Acts folder
@@ -1442,9 +1454,9 @@ struct FolderRowView: View {
         
         let projectID = project.id
         let queryCount = allPublications.filter {
-            ($0.projectId == projectID || $0.project?.id == projectID) && $0.type == publicationType
+            ($0.projectId == projectID || $0.project?.id == projectID) && $0.publicationType == publicationType
         }.count
-        let relationshipCount = (project.publications ?? []).filter { $0.type == publicationType }.count
+        let relationshipCount = (project.publications ?? []).filter { $0.publicationType == publicationType }.count
         return max(queryCount, relationshipCount)
     }
     
@@ -1686,15 +1698,17 @@ struct FolderRowView: View {
                 files = (project.chapters ?? [])
                     .filter { $0.isInBodyMatter }
                     .flatMap { $0.scenes ?? [] }
+                    .filter(isLiveScene)
                     .compactMap { $0.textFile }
             case .shortFiction:
                 files = (project.scenes ?? [])
-                    .filter { $0.isInBodyMatter }
+                    .filter { $0.isInBodyMatter && isLiveScene($0) }
                     .compactMap { $0.textFile }
             case .verseNovel:
                 files = (project.books ?? [])
                     .filter { $0.isInBodyMatter }
                     .flatMap { $0.scenes ?? [] }
+                    .filter(isLiveScene)
                     .compactMap { $0.textFile }
             case .none:
                 files = []
@@ -1703,6 +1717,7 @@ struct FolderRowView: View {
             files = (project.acts ?? [])
                 .filter { $0.isInBodyMatter }
                 .flatMap { $0.scenes ?? [] }
+                .filter(isLiveScene)
                 .compactMap { $0.textFile }
         }
 

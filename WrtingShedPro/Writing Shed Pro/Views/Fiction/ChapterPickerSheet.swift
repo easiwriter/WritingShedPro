@@ -177,7 +177,7 @@ struct ChapterPickerSheet: View {
                                         Spacer()
                                         
                                         // Show scene count in this chapter/story/book
-                                        let sceneCount = chapter.scenes?.count ?? 0
+                                        let sceneCount = (chapter.scenes ?? []).filter(isLiveScene).count
                                         Text("\(sceneCount)")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
@@ -212,5 +212,9 @@ struct ChapterPickerSheet: View {
             }
         }
         .navigationViewStyle(.stack)
+    }
+
+    private func isLiveScene(_ scene: StoryScene) -> Bool {
+        !scene.isTrashed && scene.textFile?.parentFolder != nil
     }
 }

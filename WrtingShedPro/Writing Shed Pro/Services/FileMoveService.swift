@@ -146,6 +146,10 @@ class FileMoveService {
         modelContext.insert(trashItem)
         
         // Remove from original folder
+        if let scene = file.scene {
+            scene.moveToTrash()
+            scene.modifiedDate = Date()
+        }
         file.parentFolder = nil
         file.modifiedDate = Date()
         
@@ -177,6 +181,10 @@ class FileMoveService {
             )
             modelContext.insert(trashItem)
             
+            if let scene = file.scene {
+                scene.moveToTrash()
+                scene.modifiedDate = Date()
+            }
             file.parentFolder = nil
             file.modifiedDate = Date()
         }
@@ -190,6 +198,9 @@ class FileMoveService {
     /// - Throws: FileMoveError if any file is invalid
     func deleteFilesPermanently(_ files: [TextFile]) throws {
         for file in files {
+            if let scene = file.scene {
+                modelContext.delete(scene)
+            }
             if let parentFolder = file.parentFolder,
                let index = parentFolder.textFiles?.firstIndex(where: { $0.id == file.id }) {
                 parentFolder.textFiles?.remove(at: index)

@@ -406,10 +406,17 @@ struct ContentView: View {
 
         // Build a quick id→name lookup from the store and compare against @Query objects.
         // If any name is stale in the UI layer, refresh the whole view.
-        let dbNameByID = Dictionary(uniqueKeysWithValues: allProjects.compactMap { p -> (UUID, String)? in
-            guard let name = p.name else { return nil }
-            return (p.id, name)
-        })
+        var dbNameByID: [UUID: String] = [:]
+        for project in allProjects {
+            guard let name = project.name else { continue }
+            if dbNameByID[project.id] == nil {
+                dbNameByID[project.id] = name
+            } else {
+                #if DEBUG
+                print("⚠️ [ContentView] Reconcile: duplicate project id=\(project.id.uuidString) name='\(name)' detected; keeping first name for stale-name check.")
+                #endif
+            }
+        }
         let hasStaleName = projects.contains { p in
             guard let dbName = dbNameByID[p.id] else { return false }
             return p.name != dbName

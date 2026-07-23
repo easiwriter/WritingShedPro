@@ -23,6 +23,9 @@ struct SyncStatusView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(monitor.healthState.displayText)
+        .task {
+            monitor.checkHealth()
+        }
     }
 
     @ViewBuilder

@@ -248,7 +248,7 @@ struct BodyMatterView: View {
             case .shortFiction:
                 // Short Fiction: stories are top-level StoryScenes
                 return (project.scenes ?? [])
-                    .filter { $0.isInBodyMatter }
+                    .filter { $0.isInBodyMatter && isLiveScene($0) }
                     .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
             case .verseNovel:
                 return (project.books ?? [])
@@ -276,7 +276,7 @@ struct BodyMatterView: View {
             case .novel:
                 return project.chapters ?? []
             case .shortFiction:
-                return project.scenes ?? []
+                return (project.scenes ?? []).filter(isLiveScene)
             case .verseNovel:
                 return project.books ?? []
             case .none:
@@ -306,7 +306,7 @@ struct BodyMatterView: View {
                     .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
             case .shortFiction:
                 return (project.scenes ?? [])
-                    .filter { !$0.isInBodyMatter }
+                    .filter { !$0.isInBodyMatter && isLiveScene($0) }
                     .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
             case .verseNovel:
                 return (project.books ?? [])
@@ -460,7 +460,7 @@ struct BodyMatterView: View {
                 }
             case .shortFiction:
                 var items = (project.scenes ?? [])
-                    .filter { $0.isInBodyMatter }
+                    .filter { $0.isInBodyMatter && isLiveScene($0) }
                     .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
                 items.move(fromOffsets: source, toOffset: destination)
                 for (index, item) in items.enumerated() {
@@ -518,7 +518,7 @@ struct BodyMatterView: View {
                 }
             case .shortFiction:
                 let items = (project.scenes ?? [])
-                    .filter { $0.isInBodyMatter }
+                    .filter { $0.isInBodyMatter && isLiveScene($0) }
                     .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
                 for (index, item) in items.enumerated() {
                     item.bodyMatterOrder = index
@@ -606,13 +606,13 @@ struct BodyMatterView: View {
             switch project.fictionClass {
             case .novel:
                 if let chapter = item as? Chapter {
-                    let count = chapter.scenes?.count ?? 0
+                    let count = (chapter.scenes ?? []).filter(isLiveScene).count
                     let structure = String(format: NSLocalizedString("bodyMatter.subtitle.scenes", comment: "%d scenes"), count)
                     return "\(wordsLabel) • \(structure)"
                 }
             case .shortFiction:
                 if let scene = item as? StoryScene {
-                    let hasContent = scene.textFile != nil
+                    let hasContent = isLiveScene(scene)
                     let structure = hasContent
                         ? NSLocalizedString("bodyMatter.subtitle.hasContent", comment: "Has content")
                         : NSLocalizedString("bodyMatter.subtitle.empty", comment: "Empty")
@@ -620,7 +620,7 @@ struct BodyMatterView: View {
                 }
             case .verseNovel:
                 if let book = item as? Book {
-                    let count = book.scenes?.count ?? 0
+                    let count = (book.scenes ?? []).filter(isLiveScene).count
                     let structure = String(format: NSLocalizedString("bodyMatter.subtitle.episodes", comment: "%d episodes"), count)
                     return "\(wordsLabel) • \(structure)"
                 }
@@ -629,7 +629,7 @@ struct BodyMatterView: View {
             }
         case .drama:
             if let act = item as? Act {
-                let count = act.scenes?.count ?? 0
+                let count = (act.scenes ?? []).filter(isLiveScene).count
                 let structure = String(format: NSLocalizedString("bodyMatter.subtitle.scenes", comment: "%d scenes"), count)
                 return "\(wordsLabel) • \(structure)"
             }
@@ -657,16 +657,18 @@ struct BodyMatterView: View {
             case .novel:
                 if let chapter = item as? Chapter {
                     return (chapter.scenes ?? [])
+                        .filter(isLiveScene)
                         .compactMap { $0.textFile }
                         .reduce(0) { $0 + wordCount(for: $1) }
                 }
             case .shortFiction:
                 if let scene = item as? StoryScene {
-                    return scene.textFile.map(wordCount(for:)) ?? 0
+                    return isLiveScene(scene) ? scene.textFile.map(wordCount(for:)) ?? 0 : 0
                 }
             case .verseNovel:
                 if let book = item as? Book {
                     return (book.scenes ?? [])
+                        .filter(isLiveScene)
                         .compactMap { $0.textFile }
                         .reduce(0) { $0 + wordCount(for: $1) }
                 }
@@ -676,11 +678,16 @@ struct BodyMatterView: View {
         case .drama:
             if let act = item as? Act {
                 return (act.scenes ?? [])
+                    .filter(isLiveScene)
                     .compactMap { $0.textFile }
                     .reduce(0) { $0 + wordCount(for: $1) }
             }
         }
         return 0
+    }
+
+    private func isLiveScene(_ scene: StoryScene) -> Bool {
+        !scene.isTrashed && scene.textFile?.parentFolder != nil
     }
 
     private func liveCollectionFiles(for collection: PoetryCollection) -> [TextFile] {

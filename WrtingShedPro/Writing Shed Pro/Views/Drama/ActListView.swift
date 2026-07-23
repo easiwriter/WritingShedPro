@@ -383,7 +383,7 @@ struct ActRowView: View {
             }
             
             // Scene count
-            let sceneCount = act.scenes?.count ?? 0
+            let sceneCount = (act.scenes ?? []).filter(isLiveScene).count
             HStack(spacing: 4) {
                 Image(systemName: "film")
                     .font(.footnote)
@@ -393,5 +393,9 @@ struct ActRowView: View {
             .foregroundColor(.secondary)
         }
         .padding(.vertical, 2)
+    }
+
+    private func isLiveScene(_ scene: StoryScene) -> Bool {
+        !scene.isTrashed && scene.textFile?.parentFolder != nil
     }
 }

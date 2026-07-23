@@ -117,6 +117,25 @@ final class SyncHealthMonitor {
 
     /// Evaluate current sync health.
     func checkHealth() {
+        if let currentActivity = Write_App.activeEnsemblesContainer?.currentActivity,
+           String(describing: currentActivity) != "none" {
+            transition(to: .syncing)
+            return
+        }
+
+        if let modelContainer {
+            let context = ModelContext(modelContainer)
+            let projectCount = (try? context.fetchCount(FetchDescriptor<Project>())) ?? 0
+            let folderCount = (try? context.fetchCount(FetchDescriptor<Folder>())) ?? 0
+            let fileCount = (try? context.fetchCount(FetchDescriptor<TextFile>())) ?? 0
+            let publicationCount = (try? context.fetchCount(FetchDescriptor<Publication>())) ?? 0
+
+            if projectCount == 0 && (folderCount > 0 || fileCount > 0 || publicationCount > 0) {
+                transition(to: .degraded)
+                return
+            }
+        }
+
         transition(to: .healthy)
     }
 

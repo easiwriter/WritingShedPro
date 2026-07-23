@@ -690,7 +690,7 @@ struct ChapterRowView: View {
             }
             
             // Scene/Episode count
-            let sceneCount = chapter.scenes?.count ?? 0
+            let sceneCount = (chapter.scenes ?? []).filter(isLiveScene).count
             HStack(spacing: 4) {
                 Image(systemName: fictionClass == .verseNovel ? "music.note.list" : "film")
                     .font(.footnote)
@@ -700,6 +700,10 @@ struct ChapterRowView: View {
             .foregroundColor(.secondary)
         }
         .padding(.vertical, 2)
+    }
+
+    private func isLiveScene(_ scene: StoryScene) -> Bool {
+        !scene.isTrashed && scene.textFile?.parentFolder != nil
     }
 }
 
@@ -738,7 +742,7 @@ struct BookRowView: View {
                     .lineLimit(2)
             }
 
-            let sceneCount = book.scenes?.count ?? 0
+            let sceneCount = (book.scenes ?? []).filter(isLiveScene).count
             HStack(spacing: 4) {
                 Image(systemName: fictionClass == .verseNovel ? "music.note.list" : "film")
                     .font(.footnote)
@@ -748,5 +752,9 @@ struct BookRowView: View {
             .foregroundColor(.secondary)
         }
         .padding(.vertical, 2)
+    }
+
+    private func isLiveScene(_ scene: StoryScene) -> Bool {
+        !scene.isTrashed && scene.textFile?.parentFolder != nil
     }
 }

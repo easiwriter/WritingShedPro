@@ -169,8 +169,8 @@ struct SceneListView: View {
             scenes = project.scenes ?? []
         }
         
-        // Filter out trashed scenes
-        var result = scenes.filter { !$0.isTrashed }
+        // Filter out trashed scenes and scenes whose backing file is no longer live
+        var result = scenes.filter(isLiveScene)
         
         // Sort by userOrder for drag-to-reorder, with name as secondary sort
         result = result.sorted {
@@ -204,7 +204,11 @@ struct SceneListView: View {
             scenes = project.scenes ?? []
         }
         
-        return scenes.filter { !$0.isTrashed }
+        return scenes.filter(isLiveScene)
+    }
+
+    private func isLiveScene(_ scene: StoryScene) -> Bool {
+        !scene.isTrashed && scene.textFile?.parentFolder != nil
     }
     
     /// Count scenes by workflow status

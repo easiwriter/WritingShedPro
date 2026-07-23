@@ -410,7 +410,14 @@ struct ProjectEditableList: View {
     private func trackProjectNameTransitions(reason: String) {
         #if DEBUG
         let now = ISO8601DateFormatter().string(from: Date())
-        let currentNamesByID = Dictionary(uniqueKeysWithValues: sortedProjects.map { ($0.id, $0.name ?? "") })
+        var currentNamesByID: [UUID: String] = [:]
+        for project in sortedProjects {
+            if currentNamesByID[project.id] == nil {
+                currentNamesByID[project.id] = project.name ?? ""
+            } else {
+                print("[ProjectNameTransition] duplicateID id=\(project.id.uuidString) name=\(project.name ?? "") reason=\(reason)")
+            }
+        }
 
         if lastSeenNameByProjectID.isEmpty {
             lastSeenNameByProjectID = currentNamesByID

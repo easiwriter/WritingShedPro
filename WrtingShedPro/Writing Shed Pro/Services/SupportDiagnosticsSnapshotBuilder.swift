@@ -13,6 +13,11 @@ enum SupportDiagnosticsSnapshotBuilder {
         lines.append("syncBackend: Ensembles")
         lines.append("cloudContainer: iCloud.com.appworks.writingshedpro")
         lines.append("activeEnsemblesContainer: \(Write_App.activeEnsemblesContainer != nil)")
+        if let ensemblesContainer = Write_App.activeEnsemblesContainer {
+            lines.append("ensemblesIsAttached: \(ensemblesContainer.isAttached)")
+            lines.append("ensemblesSyncSuspended: \(ensemblesContainer.isSyncSuspended)")
+            lines.append("ensemblesCurrentActivity: \(String(describing: ensemblesContainer.currentActivity))")
+        }
 
         let freshContext = ModelContext(modelContext.container)
         let formatter = ISO8601DateFormatter()
@@ -40,17 +45,47 @@ enum SupportDiagnosticsSnapshotBuilder {
 
         lines.append("")
         lines.append("Project Deep Counts (store)")
-        lines.append("- format: id | name | folders | textFiles | versions | submittedFiles | submissions | publications | poetryCollections")
+        lines.append("- format: id | name | folders | textFiles | scenes | activeScenes | scenesWithText | sceneFilesInFolders | sceneFilesInTrash | versions | submittedFiles | submissions | publications | poetryCollections")
         for project in storeProjects {
             let folderCount = countFolders(in: project)
             let textFileCount = countTextFiles(in: project)
+            let sceneCount = project.scenes?.count ?? 0
+            let activeScenes = (project.scenes ?? []).filter { !$0.isTrashed }
+            let activeSceneCount = activeScenes.count
+            let scenesWithTextCount = activeScenes.filter { $0.textFile != nil }.count
+            let sceneFilesInFoldersCount = activeScenes.filter { $0.textFile?.parentFolder != nil }.count
+            let sceneFilesInTrashCount = activeScenes.filter { $0.textFile?.trashItem != nil }.count
             let versionCount = countVersions(in: project)
             let submittedFileCount = countSubmittedFiles(in: project)
             let submissionCount = countSubmissions(in: project)
             let publicationCount = project.publications?.count ?? 0
             let poetryCollectionCount = project.poetryCollections?.count ?? 0
 
-            lines.append("- \(project.id.uuidString) | \(project.name ?? "Untitled") | \(folderCount) | \(textFileCount) | \(versionCount) | \(submittedFileCount) | \(submissionCount) | \(publicationCount) | \(poetryCollectionCount)")
+            lines.append("- \(project.id.uuidString) | \(project.name ?? "Untitled") | \(folderCount) | \(textFileCount) | \(sceneCount) | \(activeSceneCount) | \(scenesWithTextCount) | \(sceneFilesInFoldersCount) | \(sceneFilesInTrashCount) | \(versionCount) | \(submittedFileCount) | \(submissionCount) | \(publicationCount) | \(poetryCollectionCount)")
+        }
+
+        lines.append("")
+        lines.append("Scene/TextFile Mismatches (store)")
+        lines.append("- format: project | sceneName | sceneId | sceneTrashed | textFile | filePlacement")
+        var mismatchCount = 0
+        for project in storeProjects {
+            let activeScenes = (project.scenes ?? []).filter { !$0.isTrashed }
+            for scene in activeScenes.sorted(by: sortScenesByOrderThenName) {
+                let placement = sceneTextFilePlacement(scene.textFile)
+                guard !placement.hasPrefix("in-folder(") else { continue }
+
+                mismatchCount += 1
+                let textFileDescription: String
+                if let textFile = scene.textFile {
+                    textFileDescription = "\(textFile.name) (\(textFile.id.uuidString))"
+                } else {
+                    textFileDescription = "nil"
+                }
+                lines.append("- \(project.name ?? "Untitled") | \(scene.name ?? "Untitled") | \(scene.id.uuidString) | \(scene.isTrashed) | \(textFileDescription) | \(placement)")
+            }
+        }
+        if mismatchCount == 0 {
+            lines.append("- none")
         }
 
         lines.append("")
@@ -74,6 +109,8 @@ enum SupportDiagnosticsSnapshotBuilder {
         lines.append("- Publication: \((try? freshContext.fetchCount(FetchDescriptor<Publication>())) ?? -1)")
         lines.append("- Folder: \((try? freshContext.fetchCount(FetchDescriptor<Folder>())) ?? -1)")
         lines.append("- TextFile: \((try? freshContext.fetchCount(FetchDescriptor<TextFile>())) ?? -1)")
+        lines.append("- StoryScene: \((try? freshContext.fetchCount(FetchDescriptor<StoryScene>())) ?? -1)")
+        lines.append("- TrashItem: \((try? freshContext.fetchCount(FetchDescriptor<TrashItem>())) ?? -1)")
         lines.append("- Version: \((try? freshContext.fetchCount(FetchDescriptor<Version>())) ?? -1)")
         lines.append("- PoetryCollection: \((try? freshContext.fetchCount(FetchDescriptor<PoetryCollection>())) ?? -1)")
 
@@ -84,7 +121,40 @@ enum SupportDiagnosticsSnapshotBuilder {
             lines.append("- \(tombstone.name) | type=\(tombstone.type) | deleted=\(tombstone.deletedAt.formatted(date: .abbreviated, time: .shortened))")
         }
 
+        lines.append("")
+        lines.append("Recent Sync Log")
+        for logLine in recentDiagnosticsLogLines(limit: 40) {
+            lines.append(logLine)
+        }
+
         return lines.joined(separator: "\n")
+    }
+
+    private static func recentDiagnosticsLogLines(limit: Int) -> [String] {
+        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return ["- unavailable: documents directory not found"]
+        }
+
+        let logURL = documentsDirectory.appendingPathComponent("CloudKitDiagnostics.log")
+        guard let data = try? Data(contentsOf: logURL),
+              let content = String(data: data, encoding: .utf8) else {
+            return ["- unavailable: CloudKitDiagnostics.log not found"]
+        }
+
+        let relevantLines = content
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map(String.init)
+            .filter { line in
+                line.contains("[Ensembles]") ||
+                line.contains("iCloud account") ||
+                line.contains("CloudKit container") ||
+                line.contains("Private database") ||
+                line.contains("didSync=") ||
+                line.contains("Error") ||
+                line.contains("error")
+            }
+
+        return Array(relevantLines.suffix(limit))
     }
 
     private static func countFolders(in project: Project) -> Int {
@@ -148,6 +218,27 @@ enum SupportDiagnosticsSnapshotBuilder {
             count += countTextFilesInFolderTree(folder)
         }
         return count
+    }
+
+    private static func sortScenesByOrderThenName(_ lhs: StoryScene, _ rhs: StoryScene) -> Bool {
+        let lhsOrder = lhs.userOrder ?? Int.max
+        let rhsOrder = rhs.userOrder ?? Int.max
+        if lhsOrder != rhsOrder {
+            return lhsOrder < rhsOrder
+        }
+        return (lhs.name ?? "") < (rhs.name ?? "")
+    }
+
+    private static func sceneTextFilePlacement(_ textFile: TextFile?) -> String {
+        guard let textFile else { return "missing-text-file" }
+        if let trashItem = textFile.trashItem {
+            let originalFolder = trashItem.originalFolder?.name ?? "unknown"
+            return "in-trash(originalFolder=\(originalFolder))"
+        }
+        if let parentFolder = textFile.parentFolder {
+            return "in-folder(\(parentFolder.name ?? "Untitled"))"
+        }
+        return "detached-no-folder"
     }
 
     private static func countVersions(in project: Project) -> Int {

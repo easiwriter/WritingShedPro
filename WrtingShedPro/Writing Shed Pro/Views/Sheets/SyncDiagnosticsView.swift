@@ -21,9 +21,12 @@ struct SyncDiagnosticsView: View {
     @State private var poetryFormCount = 0
     @State private var poetryCollectionCount = 0
     @State private var duplicateProjectCount = 0
+    @State private var detachedSceneCount = 0
     @State private var tombstoneCount = 0
     @State private var snapshotCopied = false
     @State private var syncStatusMessage = ""
+    @State private var showLocalResetConfirmation = false
+    @State private var localResetQueued = false
     @State private var lastRefreshed: Date?
 
     var body: some View {
@@ -40,6 +43,18 @@ struct SyncDiagnosticsView: View {
                         Label("Sync Now", systemImage: "arrow.triangle.2.circlepath")
                     }
                     .disabled(Write_App.activeEnsemblesContainer == nil)
+
+                    Button(role: .destructive) {
+                        showLocalResetConfirmation = true
+                    } label: {
+                        Label("Reset This Device on Next Launch", systemImage: "arrow.clockwise.icloud")
+                    }
+
+                    if localResetQueued {
+                        Text("Local reset queued. Quit and relaunch this Mac app to back up the local store and re-import from sync.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
 
                     if !syncStatusMessage.isEmpty {
                         Text(syncStatusMessage)
@@ -68,6 +83,7 @@ struct SyncDiagnosticsView: View {
 
                 Section("Data Health") {
                     LabeledContent("Duplicate Projects", value: "\(duplicateProjectCount)")
+                    LabeledContent("Detached Scene Rows", value: "\(detachedSceneCount)")
                     LabeledContent("Zombie Tombstones", value: "\(tombstoneCount)")
 
                     Button {
@@ -82,6 +98,14 @@ struct SyncDiagnosticsView: View {
                             refreshCounts()
                         } label: {
                             Label("Clear Tombstones", systemImage: "trash")
+                        }
+                    }
+
+                    if detachedSceneCount > 0 {
+                        Button(role: .destructive) {
+                            trashDetachedScenes()
+                        } label: {
+                            Label("Trash Detached Scene Rows", systemImage: "rectangle.stack.badge.minus")
                         }
                     }
 
@@ -109,6 +133,19 @@ struct SyncDiagnosticsView: View {
             .task {
                 refreshCounts()
             }
+            .confirmationDialog(
+                "Reset this device's local sync data?",
+                isPresented: $showLocalResetConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Back Up and Reset on Next Launch", role: .destructive) {
+                    UserDefaults.standard.set(true, forKey: Write_App.resetLocalEnsemblesStoreOnNextLaunchKey)
+                    localResetQueued = true
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("This only affects this Mac. On next launch the app will back up its local SQLite store and Ensembles event cache, remove the local copies, then re-import from the sync cloud. Do not use this if this Mac has unsynced work that is not on your iOS devices.")
+            }
         }
     }
 
@@ -116,8 +153,8 @@ struct SyncDiagnosticsView: View {
     private func runManualSync() async {
         guard let container = Write_App.activeEnsemblesContainer else { return }
         syncStatusMessage = "Syncing..."
-        await container.sync()
-        syncStatusMessage = "Sync completed at \(Date().formatted(date: .omitted, time: .standard))"
+        let didSync = await container.sync()
+        syncStatusMessage = "Sync completed at \(Date().formatted(date: .omitted, time: .standard)) (didSync=\(didSync))"
         refreshCounts()
     }
 
@@ -140,8 +177,43 @@ struct SyncDiagnosticsView: View {
         poetryFormCount = fetchCount(PoetryFormModel.self, in: freshContext)
         poetryCollectionCount = fetchCount(PoetryCollection.self, in: freshContext)
         duplicateProjectCount = DeduplicationService.countDuplicateProjects(context: freshContext)
+        detachedSceneCount = countDetachedScenes(in: freshContext)
         tombstoneCount = DeduplicationService.tombstoneCount
         lastRefreshed = Date()
+    }
+
+    @MainActor
+    private func trashDetachedScenes() {
+        let freshContext = ModelContext(modelContext.container)
+        let scenes = detachedScenes(in: freshContext)
+        let now = Date()
+
+        for scene in scenes {
+            scene.moveToTrash()
+            scene.modifiedDate = now
+            scene.project?.modifiedDate = now
+            scene.textFile?.modifiedDate = now
+        }
+
+        do {
+            try freshContext.save()
+            syncStatusMessage = "Trashed \(scenes.count) detached scene row\(scenes.count == 1 ? "" : "s")."
+        } catch {
+            syncStatusMessage = "Failed to trash detached scene rows: \(error.localizedDescription)"
+        }
+
+        refreshCounts()
+    }
+
+    private func countDetachedScenes(in context: ModelContext) -> Int {
+        detachedScenes(in: context).count
+    }
+
+    private func detachedScenes(in context: ModelContext) -> [StoryScene] {
+        let scenes = (try? context.fetch(FetchDescriptor<StoryScene>())) ?? []
+        return scenes.filter { scene in
+            !scene.isTrashed && scene.textFile != nil && scene.textFile?.parentFolder == nil
+        }
     }
 
     private func fetchCount<T: PersistentModel>(_ type: T.Type, in context: ModelContext) -> Int {
