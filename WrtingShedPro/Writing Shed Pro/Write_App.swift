@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import CloudKit
+import CoreData
 import Ensembles
 import EnsemblesCloudKit
 import EnsemblesSwiftData
@@ -150,6 +151,24 @@ struct Write_App: App {
             cloudFileSystem: cloudFileSystem,
             configuration: configuration
         ) {
+            let stableGlobalIdentifiers: @Sendable ([NSManagedObject]) -> [String] = { objects in
+                objects.map { object in
+                    if let id = object.value(forKey: "id") as? NSUUID {
+                        return id.uuidString
+                    }
+                    if let id = object.value(forKey: "id") as? UUID {
+                        return id.uuidString
+                    }
+
+                    let entityName = object.entity.name ?? "UnknownEntity"
+                    Task { @MainActor in
+                        Write_App.logErrorToFile("❌ [Ensembles] Missing stable UUID for global identifier: \(entityName)")
+                    }
+                    return "missing-global-id-\(entityName)"
+                }
+            }
+            ensemblesContainer.globalIdentifiers = stableGlobalIdentifiers
+            ensemblesContainer.ensemble.globalIdentifiers = stableGlobalIdentifiers
             ensemblesContainer.didEncounterError = { error in
                 Task { @MainActor in
                     let nsError = error as NSError
