@@ -2,8 +2,142 @@ import SwiftUI
 import UIKit
 import SwiftData
 
+struct TextEditorChange {
+    let attributedText: NSAttributedString
+    let range: NSRange?
+    let replacementText: String?
+}
+
+struct FormattedTextEditor: View {
+    @Binding var attributedText: NSAttributedString
+    @Binding var selectedRange: NSRange
+    var onTextChange: ((TextEditorChange) -> Void)?
+    var onSelectionChange: ((NSRange) -> Void)?
+    var onImageTapped: ((ImageAttachment, CGRect, Int) -> Void)?
+    var onClearImageSelection: (() -> Void)?
+    var onCommentTapped: ((CommentAttachment, Int) -> Void)?
+    var onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)?
+    var onReferenceTapped: ((ReferenceAttachment, Int) -> Void)?
+    var onReferenceDeleted: (([ReferenceAttachment], NSRange) -> Void)?
+    var onCommentDeleted: (([CommentAttachment], NSRange) -> Void)?
+    var onFootnoteDeleted: (([FootnoteAttachment], NSRange) -> Void)?
+    var onMixedAttachmentsDeleted: (([ReferenceAttachment], [CommentAttachment], [FootnoteAttachment], NSRange) -> Void)?
+    var onGlossaryAddRequested: ((String) -> Void)?
+    var onIndexAddRequested: ((String) -> Void)?
+    var onTabPressed: (() -> Void)?
+    var onShiftTabPressed: (() -> Void)?
+    var onZoomScaleChange: ((CGFloat) -> Void)?
+    var textViewCoordinator: TextViewCoordinator?
+    var project: Project?
+    var showInvisibles: Bool = false
+    var showLineNumbers: Bool = false
+    var font: UIFont
+    var textColor: UIColor
+    var backgroundColor: UIColor
+    var textContainerInset: UIEdgeInsets
+    var isEditable: Bool
+    var inputAccessoryView: UIView?
+
+    init(
+        attributedText: Binding<NSAttributedString>,
+        selectedRange: Binding<NSRange> = .constant(NSRange(location: 0, length: 0)),
+        textViewCoordinator: TextViewCoordinator? = nil,
+        project: Project? = nil,
+        showInvisibles: Bool = false,
+        showLineNumbers: Bool = false,
+        font: UIFont = .preferredFont(forTextStyle: .body),
+        textColor: UIColor = .label,
+        backgroundColor: UIColor = .systemBackground,
+        textContainerInset: UIEdgeInsets = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
+        isEditable: Bool = true,
+        inputAccessoryView: UIView? = nil,
+        onTextChange: ((TextEditorChange) -> Void)? = nil,
+        onSelectionChange: ((NSRange) -> Void)? = nil,
+        onImageTapped: ((ImageAttachment, CGRect, Int) -> Void)? = nil,
+        onClearImageSelection: (() -> Void)? = nil,
+        onCommentTapped: ((CommentAttachment, Int) -> Void)? = nil,
+        onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)? = nil,
+        onReferenceTapped: ((ReferenceAttachment, Int) -> Void)? = nil,
+        onReferenceDeleted: (([ReferenceAttachment], NSRange) -> Void)? = nil,
+        onCommentDeleted: (([CommentAttachment], NSRange) -> Void)? = nil,
+        onFootnoteDeleted: (([FootnoteAttachment], NSRange) -> Void)? = nil,
+        onMixedAttachmentsDeleted: (([ReferenceAttachment], [CommentAttachment], [FootnoteAttachment], NSRange) -> Void)? = nil,
+        onGlossaryAddRequested: ((String) -> Void)? = nil,
+        onIndexAddRequested: ((String) -> Void)? = nil,
+        onTabPressed: (() -> Void)? = nil,
+        onShiftTabPressed: (() -> Void)? = nil,
+        onZoomScaleChange: ((CGFloat) -> Void)? = nil
+    ) {
+        self._attributedText = attributedText
+        self._selectedRange = selectedRange
+        self.textViewCoordinator = textViewCoordinator
+        self.project = project
+        self.showInvisibles = showInvisibles
+        self.showLineNumbers = showLineNumbers
+        self.font = font
+        self.textColor = textColor
+        self.backgroundColor = backgroundColor
+        self.textContainerInset = textContainerInset
+        self.isEditable = isEditable
+        self.inputAccessoryView = inputAccessoryView
+        self.onTextChange = onTextChange
+        self.onSelectionChange = onSelectionChange
+        self.onImageTapped = onImageTapped
+        self.onClearImageSelection = onClearImageSelection
+        self.onCommentTapped = onCommentTapped
+        self.onFootnoteTapped = onFootnoteTapped
+        self.onReferenceTapped = onReferenceTapped
+        self.onReferenceDeleted = onReferenceDeleted
+        self.onCommentDeleted = onCommentDeleted
+        self.onFootnoteDeleted = onFootnoteDeleted
+        self.onMixedAttachmentsDeleted = onMixedAttachmentsDeleted
+        self.onGlossaryAddRequested = onGlossaryAddRequested
+        self.onIndexAddRequested = onIndexAddRequested
+        self.onTabPressed = onTabPressed
+        self.onShiftTabPressed = onShiftTabPressed
+        self.onZoomScaleChange = onZoomScaleChange
+    }
+
+    var body: some View {
+        legacyEditor
+    }
+
+    private var legacyEditor: some View {
+        LegacyFormattedTextEditor(
+            attributedText: $attributedText,
+            selectedRange: $selectedRange,
+            textViewCoordinator: textViewCoordinator,
+            project: project,
+            showInvisibles: showInvisibles,
+            showLineNumbers: showLineNumbers,
+            font: font,
+            textColor: textColor,
+            backgroundColor: backgroundColor,
+            textContainerInset: textContainerInset,
+            isEditable: isEditable,
+            inputAccessoryView: inputAccessoryView,
+            onTextChange: onTextChange,
+            onSelectionChange: onSelectionChange,
+            onImageTapped: onImageTapped,
+            onClearImageSelection: onClearImageSelection,
+            onCommentTapped: onCommentTapped,
+            onFootnoteTapped: onFootnoteTapped,
+            onReferenceTapped: onReferenceTapped,
+            onReferenceDeleted: onReferenceDeleted,
+            onCommentDeleted: onCommentDeleted,
+            onFootnoteDeleted: onFootnoteDeleted,
+            onMixedAttachmentsDeleted: onMixedAttachmentsDeleted,
+            onGlossaryAddRequested: onGlossaryAddRequested,
+            onIndexAddRequested: onIndexAddRequested,
+            onTabPressed: onTabPressed,
+            onShiftTabPressed: onShiftTabPressed,
+            onZoomScaleChange: onZoomScaleChange
+        )
+    }
+}
+
 /// A SwiftUI wrapper around UITextView that supports rich text formatting with NSAttributedString
-struct FormattedTextEditor: UIViewRepresentable {
+struct LegacyFormattedTextEditor: UIViewRepresentable {
     
     // MARK: - Bindings
     
@@ -14,7 +148,7 @@ struct FormattedTextEditor: UIViewRepresentable {
     @Binding var selectedRange: NSRange
     
     /// Optional callback when text changes
-    var onTextChange: ((NSAttributedString) -> Void)?
+    var onTextChange: ((TextEditorChange) -> Void)?
     
     /// Optional callback when selection changes
     var onSelectionChange: ((NSRange) -> Void)?
@@ -112,7 +246,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         textContainerInset: UIEdgeInsets = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
         isEditable: Bool = true,
         inputAccessoryView: UIView? = nil,
-        onTextChange: ((NSAttributedString) -> Void)? = nil,
+        onTextChange: ((TextEditorChange) -> Void)? = nil,
         onSelectionChange: ((NSRange) -> Void)? = nil,
         onImageTapped: ((ImageAttachment, CGRect, Int) -> Void)? = nil,
         onClearImageSelection: (() -> Void)? = nil,
@@ -251,12 +385,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         textView.isSelectable = true
         textView.isScrollEnabled = true
         
-        // Disable autocorrect and text suggestions to prevent unwanted text insertion
-        // This prevents iOS from inserting spaces when dismissing autocomplete
-        textView.autocorrectionType = .no
-        // Disable auto-capitalization for poetry projects (poets often use lowercase intentionally)
-        textView.autocapitalizationType = (project?.type == .poetry) ? .none : .sentences
-        textView.spellCheckingType = .yes  // Keep spell checking, just disable autocorrect
+        configureEditorInputTraits(textView)
         
         // Configure text container for proper layout
         textView.textContainer.lineFragmentPadding = 0
@@ -308,8 +437,11 @@ struct FormattedTextEditor: UIViewRepresentable {
         textView.addGestureRecognizer(panGesture)
         
         // Configure for rich text
-        // On iPad with hardware keyboard, disable system editing attributes to prevent the formatting menu
-        #if os(iOS)
+        // On iPad/Catalyst, disable system editing attributes to prevent the formatting menu
+        // and extra text-services work. WSP applies rich text through its own toolbar.
+        #if targetEnvironment(macCatalyst)
+        textView.allowsEditingTextAttributes = false
+        #elseif os(iOS)
         if UIDevice.current.userInterfaceIdiom == .pad {
             textView.allowsEditingTextAttributes = false
         } else {
@@ -422,8 +554,6 @@ struct FormattedTextEditor: UIViewRepresentable {
     }
     
     func updateUIView(_ textView: UITextView, context: Context) {
-        let updateStart = CFAbsoluteTimeGetCurrent()
-        
         // CRITICAL: Update the coordinator's parent reference to ensure callbacks work
         // The FormattedTextEditor struct is recreated on each SwiftUI update with new callbacks
         context.coordinator.parent = self
@@ -483,9 +613,20 @@ struct FormattedTextEditor: UIViewRepresentable {
         let textViewString = textViewAttrs.string
         let newString = attributedText.string
         let stringsMatch = textViewString == newString
-        let attachmentsMatch = attachmentSignature(in: textViewAttrs) == attachmentSignature(in: attributedText)
+        if !stringsMatch, textView.isFirstResponder {
+            return
+        }
+
+        if !stringsMatch,
+           let lastUserTextChangeTime = context.coordinator.lastUserTextChangeTime,
+           Date().timeIntervalSince(lastUserTextChangeTime) < 0.75 {
+            return
+        }
+
+        let shouldCheckAttachments = !stringsMatch || !context.coordinator.isProcessingUserTextChange
+        let attachmentsMatch = shouldCheckAttachments ? attachmentSignature(in: textViewAttrs) == attachmentSignature(in: attributedText) : true
         #if DEBUG
-        if !attachmentsMatch || textViewAttrs.footnoteAttachments().count != attributedText.footnoteAttachments().count {
+        if shouldCheckAttachments && (!attachmentsMatch || textViewAttrs.footnoteAttachments().count != attributedText.footnoteAttachments().count) {
             print("🧪 [FootnoteDiag] updateUIView compare stringsMatch=\(stringsMatch) attachmentsMatch=\(attachmentsMatch) textView=\(footnoteDebugSummary(textViewAttrs)) binding=\(footnoteDebugSummary(attributedText))")
         }
         #endif
@@ -499,10 +640,6 @@ struct FormattedTextEditor: UIViewRepresentable {
         // the same U+FFFC character in the string, but the marker/image/comment disappears visually.
         if !stringsMatch || !attachmentsMatch {
             // Text content changed - need to update
-            #if DEBUG
-            print("🧪 [FootnoteDiag] updateUIView APPLY textViewBefore=\(footnoteDebugSummary(textViewAttrs)) binding=\(footnoteDebugSummary(attributedText))")
-            #endif
-            
             // Set flag to prevent feedback from delegate
             context.coordinator.isUpdatingFromSwiftUI = true
             
@@ -590,9 +727,6 @@ struct FormattedTextEditor: UIViewRepresentable {
             textView.setNeedsDisplay()
             textView.setNeedsLayout()
             textView.layoutIfNeeded()
-            #if DEBUG
-            print("🧪 [FootnoteDiag] updateUIView AFTER APPLY textView=\(footnoteDebugSummary(textView.attributedText))")
-            #endif
             
             // Restore selection if it's still valid
             if oldSelectedRange.location <= attributedText.length {
@@ -661,8 +795,11 @@ struct FormattedTextEditor: UIViewRepresentable {
                 context.coordinator.isUpdatingFromSwiftUI = false
             }
             
-            // Also update selection when content changed (e.g., after undo/redo)
-            if textView.selectedRange != selectedRange && selectedRange.location != NSNotFound {
+            // Also update selection when content changed (e.g., after undo/redo).
+            // During live typing, UIKit owns the caret; applying the SwiftUI binding can
+            // briefly restore an older range and make the caret appear to lag behind text.
+            if !context.coordinator.isLiveTypingSimpleInsertion,
+               textView.selectedRange != selectedRange && selectedRange.location != NSNotFound {
                 if selectedRange.location <= textView.attributedText.length {
                     textView.selectedRange = selectedRange
                 }
@@ -686,16 +823,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         
         textView.isEditable = isEditable
         
-        // Ensure autocorrect stays disabled
-        textView.autocorrectionType = .no
-        textView.spellCheckingType = .yes
-        
-        let updateTime = CFAbsoluteTimeGetCurrent() - updateStart
-        #if DEBUG
-        if updateTime > 0.01 { // Only print if > 10ms
-            print("📝 updateUIView took: \(String(format: "%.3f", updateTime))s")
-        }
-        #endif
+        configureEditorInputTraits(textView)
     }
     
     func makeCoordinator() -> Coordinator {
@@ -703,6 +831,29 @@ struct FormattedTextEditor: UIViewRepresentable {
     }
     
     // MARK: - Private Methods
+
+    private func configureEditorInputTraits(_ textView: UITextView) {
+        textView.autocorrectionType = .no
+        textView.spellCheckingType = .no
+        textView.textContentType = nil
+        #if targetEnvironment(macCatalyst)
+        textView.textContentType = UITextContentType(rawValue: "")
+        if #available(iOS 18.0, *) {
+            textView.writingToolsBehavior = .none
+        }
+        #endif
+        textView.dataDetectorTypes = []
+        textView.smartDashesType = .no
+        textView.smartQuotesType = .no
+        textView.smartInsertDeleteType = .no
+        textView.autocapitalizationType = (project?.type == .poetry) ? .none : .sentences
+        textView.inputAssistantItem.leadingBarButtonGroups = []
+        textView.inputAssistantItem.trailingBarButtonGroups = []
+
+        if #available(iOS 17.0, *) {
+            textView.inlinePredictionType = .no
+        }
+    }
 
     private func attachmentSignature(in attributedString: NSAttributedString) -> [String] {
         var signature: [String] = []
@@ -761,17 +912,33 @@ struct FormattedTextEditor: UIViewRepresentable {
             name: UIResponder.keyboardWillHideNotification,
             object: nil
         )
+
+        NotificationCenter.default.addObserver(
+            coordinator,
+            selector: #selector(Coordinator.flushPendingTypingNotification(_:)),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
     }
     
     // MARK: - Coordinator
     
     class Coordinator: NSObject, UITextViewDelegate, UIGestureRecognizerDelegate {
-        var parent: FormattedTextEditor
+        var parent: LegacyFormattedTextEditor
         var isUpdatingFromSwiftUI = false
         weak var textView: UITextView?
         var previousSelection: NSRange = NSRange(location: 0, length: 0)
         var previousTextLength: Int = 0  // Track text length to detect paste operations
         var currentZoomScale: CGFloat = 1.0
+        var isProcessingUserTextChange = false
+        var pendingChangeRange: NSRange?
+        var pendingReplacementText: String?
+        var lastUserTextChangeTime: Date?
+        var pendingTypingStartLocation: Int?
+        var pendingTypingText = ""
+        var pendingTypingWorkItem: DispatchWorkItem?
+        var isLiveTypingSimpleInsertion = false
+        private let liveTypingEmissionDelay: TimeInterval = 3.0
 
         private func bodyStyleAttributesFallback() -> [NSAttributedString.Key: Any] {
             let paragraphStyle = NSMutableParagraphStyle()
@@ -807,18 +974,87 @@ struct FormattedTextEditor: UIViewRepresentable {
             textView.setNeedsDisplay()
         }
         
-        init(_ parent: FormattedTextEditor) {
+        init(_ parent: LegacyFormattedTextEditor) {
             self.parent = parent
         }
         
         deinit {
+            pendingTypingWorkItem?.cancel()
             NotificationCenter.default.removeObserver(self)
+        }
+
+        private func isSimpleCharacterInsertion(range: NSRange?, replacementText: String?) -> Bool {
+            guard let range,
+                  range.length == 0,
+                  let replacementText,
+                  !replacementText.isEmpty,
+                  replacementText.rangeOfCharacter(from: .newlines) == nil else {
+                return false
+            }
+
+            return (replacementText as NSString).length == 1
+        }
+
+        private func emitPendingTypingChange(from textView: UITextView) {
+            guard let startLocation = pendingTypingStartLocation,
+                  !pendingTypingText.isEmpty,
+                  let attributedText = textView.attributedText else {
+                pendingTypingStartLocation = nil
+                pendingTypingText = ""
+                return
+            }
+
+            let typedText = pendingTypingText
+            pendingTypingStartLocation = nil
+            pendingTypingText = ""
+            pendingTypingWorkItem?.cancel()
+            pendingTypingWorkItem = nil
+            isLiveTypingSimpleInsertion = false
+
+            isProcessingUserTextChange = true
+            lastUserTextChangeTime = Date()
+            parent.onTextChange?(TextEditorChange(
+                attributedText: attributedText,
+                range: NSRange(location: startLocation, length: 0),
+                replacementText: typedText
+            ))
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                let currentRange = textView.selectedRange
+                self.parent.selectedRange = currentRange
+                self.parent.onSelectionChange?(currentRange)
+                self.isProcessingUserTextChange = false
+            }
+        }
+
+        private func schedulePendingTypingChange(from textView: UITextView, range: NSRange, replacementText: String) {
+            if let startLocation = pendingTypingStartLocation,
+               startLocation + (pendingTypingText as NSString).length == range.location {
+                pendingTypingText += replacementText
+            } else {
+                emitPendingTypingChange(from: textView)
+                pendingTypingStartLocation = range.location
+                pendingTypingText = replacementText
+            }
+
+            guard pendingTypingWorkItem == nil else { return }
+
+            let workItem = DispatchWorkItem { [weak self, weak textView] in
+                guard let self, let textView else { return }
+                self.emitPendingTypingChange(from: textView)
+            }
+            pendingTypingWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + liveTypingEmissionDelay, execute: workItem)
         }
         
         // MARK: - UITextViewDelegate
         
         // Intercept text changes to handle Enter key and ensure correct styling
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            pendingChangeRange = range
+            pendingReplacementText = text
+            isLiveTypingSimpleInsertion = isSimpleCharacterInsertion(range: range, replacementText: text)
+
             #if DEBUG
             if text.isEmpty && range.length > 0 {
                 print("📝 shouldChangeTextIn: deletion detected (range: \(range), text: '\(text)' - empty: \(text.isEmpty))")
@@ -903,6 +1139,8 @@ struct FormattedTextEditor: UIViewRepresentable {
                         refreshLineNumberDisplay(in: textView, from: range.location - 1)
                         
                         // Notify delegate of text change manually since we handled it
+                        pendingChangeRange = range
+                        pendingReplacementText = "\n\u{200B}"
                         self.textViewDidChange(textView)
                         
                         // Return false - we handled the insertion ourselves
@@ -943,6 +1181,8 @@ struct FormattedTextEditor: UIViewRepresentable {
                         
                         refreshLineNumberDisplay(in: textView, from: range.location - 1)
                         
+                        pendingChangeRange = range
+                        pendingReplacementText = "\n\u{200B}"
                         self.textViewDidChange(textView)
                         return false
                     }
@@ -973,6 +1213,8 @@ struct FormattedTextEditor: UIViewRepresentable {
                     
                     refreshLineNumberDisplay(in: textView, from: range.location - 1)
                     
+                    pendingChangeRange = range
+                    pendingReplacementText = "\n"
                     self.textViewDidChange(textView)
                     return false
                 }
@@ -1017,6 +1259,8 @@ struct FormattedTextEditor: UIViewRepresentable {
                                     textView.selectedRange = NSRange(location: range.location - 1, length: 0)
                                     
                                     // Notify delegate of text change
+                                    pendingChangeRange = extendedRange
+                                    pendingReplacementText = ""
                                     self.textViewDidChange(textView)
                                     
                                     refreshLineNumberDisplay(in: textView, from: range.location - 1)
@@ -1085,6 +1329,8 @@ struct FormattedTextEditor: UIViewRepresentable {
                             print("🗑️ Mixed attachments found: \(referencesToDelete.count) references, \(commentsToDelete.count) comments, \(footnotesToDelete.count) footnotes - using unified handler")
                             #endif
                             
+                            pendingChangeRange = nil
+                            pendingReplacementText = nil
                             parent.onMixedAttachmentsDeleted?(referencesToDelete, commentsToDelete, footnotesToDelete, range)
                             return false
                         }
@@ -1096,6 +1342,8 @@ struct FormattedTextEditor: UIViewRepresentable {
                             #endif
                            
                             // Prevent the deletion for now - we'll handle it after user confirms
+                            pendingChangeRange = nil
+                            pendingReplacementText = nil
                             parent.onReferenceDeleted?(referencesToDelete, range)
                            
                             // Return false to prevent UITextView from deleting the text
@@ -1110,6 +1358,8 @@ struct FormattedTextEditor: UIViewRepresentable {
                             #endif
                            
                             // Prevent the deletion for now - we'll handle it after user confirms
+                            pendingChangeRange = nil
+                            pendingReplacementText = nil
                             parent.onCommentDeleted?(commentsToDelete, range)
                            
                             // Return false to prevent UITextView from deleting the text
@@ -1123,6 +1373,8 @@ struct FormattedTextEditor: UIViewRepresentable {
                             #endif
                            
                             // Prevent the deletion for now - we'll handle it after user confirms
+                            pendingChangeRange = nil
+                            pendingReplacementText = nil
                             parent.onFootnoteDeleted?(footnotesToDelete, range)
                            
                             // Return false to prevent UITextView from deleting the text
@@ -1146,39 +1398,32 @@ struct FormattedTextEditor: UIViewRepresentable {
         
         func textViewDidChange(_ textView: UITextView) {
             guard !isUpdatingFromSwiftUI else { return }
+            WriteCoalescer.shared?.noteEditingActivity()
+
+            let textStorage = textView.textStorage
+            let currentLength = textStorage.length
+
+            if isSimpleCharacterInsertion(range: pendingChangeRange, replacementText: pendingReplacementText),
+               let range = pendingChangeRange,
+               let replacementText = pendingReplacementText {
+                previousTextLength = currentLength
+                lastUserTextChangeTime = Date()
+                schedulePendingTypingChange(from: textView, range: range, replacementText: replacementText)
+                parent.selectedRange = textView.selectedRange
+                pendingChangeRange = nil
+                pendingReplacementText = nil
+                return
+            }
+
+            emitPendingTypingChange(from: textView)
 
             if let layoutManager = textView.layoutManager as? NumberingLayoutManager,
                layoutManager.showDocumentLineNumbers {
                 refreshLineNumberDisplay(in: textView, from: textView.selectedRange.location)
             }
             
-            #if DEBUG
-            print("📝 textViewDidChange called - text: '\(textView.attributedText?.string.prefix(50) ?? "")'")
-            print("🧪 [FootnoteDiag] textViewDidChange BEGIN textView=\(parent.footnoteDebugSummary(textView.attributedText)) previousTextLength=\(previousTextLength) selected=\(textView.selectedRange)")
-            
-            // Log color information at the start of text
-            if let attrText = textView.attributedText, attrText.length > 0 {
-                let attrs = attrText.attributes(at: 0, effectiveRange: nil)
-                if let color = attrs[.foregroundColor] as? UIColor {
-                    print("   Text has color at position 0: \(color.toHex() ?? "unknown")")
-                } else {
-                    print("   Text has NO color at position 0 (will use default)")
-                }
-            }
-            
-            // Log current typing attributes
-            print("   Current typingAttributes:")
-            if let color = textView.typingAttributes[.foregroundColor] as? UIColor {
-                print("      foregroundColor: \(color.toHex() ?? "unknown")")
-            } else {
-                print("      foregroundColor: NONE")
-            }
-            #endif
-            
             // Detect paste operation: more than 1 character was inserted
-            let textStorage = textView.textStorage
             let cursorPos = textView.selectedRange.location
-            let currentLength = textStorage.length
             let insertedLength = currentLength - previousTextLength
             
             // PASTE FIX: If multiple characters were inserted, normalize colors for the entire range
@@ -1232,9 +1477,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                     if checkPos > 0 {
                         if let prevStyle = textStorage.attribute(.textStyle, at: checkPos - 1, effectiveRange: nil) as? String {
                             styleToApply = prevStyle
-                            #if DEBUG
-                            print("⚠️ Text missing .textStyle at range {\(checkPos), 1} - inheriting from previous char: \(prevStyle)")
-                            #endif
                         }
                     }
                     textStorage.addAttribute(.textStyle, value: styleToApply, range: NSRange(location: checkPos, length: 1))
@@ -1248,16 +1490,10 @@ struct FormattedTextEditor: UIViewRepresentable {
                     if let hex = existingColor.toHex()?.uppercased(), 
                        (hex == "#000000" || hex == "#000000FF") {
                         textStorage.addAttribute(.foregroundColor, value: UIColor.label, range: NSRange(location: checkPos, length: 1))
-                        #if DEBUG
-                        print("⚠️ Text had black color at {\(checkPos), 1} - replaced with .label for dark mode")
-                        #endif
                     }
                 } else {
                     // No color attribute - add .label for proper dark mode support
                     textStorage.addAttribute(.foregroundColor, value: UIColor.label, range: NSRange(location: checkPos, length: 1))
-                    #if DEBUG
-                    print("⚠️ Text missing foregroundColor at {\(checkPos), 1} - added .label")
-                    #endif
                 }
             }
             
@@ -1268,17 +1504,28 @@ struct FormattedTextEditor: UIViewRepresentable {
             // Update if either content OR formatting changed
             if let attributedText = textView.attributedText {
                 // Always update - could be text change or formatting change
-                #if DEBUG
-                print("📝 Text or formatting changed - updating binding")
-                print("📝 Binding will be set to: '\(attributedText.string.prefix(50))'")
-                print("🧪 [FootnoteDiag] textViewDidChange SET binding=\(parent.footnoteDebugSummary(attributedText))")
-                #endif
-                parent.attributedText = attributedText
-                parent.onTextChange?(attributedText)
-                #if DEBUG
-                print("📝 Binding updated successfully")
-                #endif
+                isProcessingUserTextChange = true
+                lastUserTextChangeTime = Date()
+                parent.onTextChange?(TextEditorChange(
+                    attributedText: attributedText,
+                    range: pendingChangeRange,
+                    replacementText: pendingReplacementText
+                ))
+                pendingChangeRange = nil
+                pendingReplacementText = nil
+                DispatchQueue.main.async { [weak self] in
+                    self?.isProcessingUserTextChange = false
+                }
             }
+        }
+
+        func textViewDidEndEditing(_ textView: UITextView) {
+            emitPendingTypingChange(from: textView)
+        }
+
+        @objc func flushPendingTypingNotification(_ notification: Notification) {
+            guard let textView else { return }
+            emitPendingTypingChange(from: textView)
         }
         
         func textViewDidChangeSelection(_ textView: UITextView) {
@@ -1291,10 +1538,6 @@ struct FormattedTextEditor: UIViewRepresentable {
             let newRange = textView.selectedRange
             let textLength = textView.attributedText?.length ?? 0
             
-            #if DEBUG
-            print("📍 textViewDidChangeSelection: position=\(newRange.location), length=\(newRange.length), textLength=\(textLength)")
-            #endif
-            
             // Safety check: ensure location is within bounds
             guard newRange.location <= textLength else {
                 #if DEBUG
@@ -1305,6 +1548,11 @@ struct FormattedTextEditor: UIViewRepresentable {
                 parent.onSelectionChange?(newRange)
                 return
             }
+
+            if isLiveTypingSimpleInsertion && newRange.length == 0 {
+                previousSelection = newRange
+                return
+            }
             
             // Check if cursor landed on a zero-width space
             if newRange.length == 0, newRange.location > 0, newRange.location < textLength {
@@ -1312,10 +1560,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                     // Use NSString for UTF-16 safe character access (NSRange uses UTF-16 offsets)
                     let nsString = attributedText.string as NSString
                     let nsStringLength = nsString.length
-                    
-                    #if DEBUG
-                    print("📍 Checking character at \(newRange.location), nsString.length=\(nsStringLength), attributedText.length=\(attributedText.length)")
-                    #endif
                     
                     // Extra safety check for nsString bounds
                     guard newRange.location < nsStringLength else {
@@ -1332,18 +1576,11 @@ struct FormattedTextEditor: UIViewRepresentable {
                     
                     // Check for zero-width space (U+200B = 0x200B = 8203)
                     if charAtLocation == 0x200B {
-                        #if DEBUG
-                        print("📍 Cursor on zero-width space at position \(newRange.location)")
-                        #endif
-                        
                         // Determine direction: are we moving forward or backward?
                         let movingForward = newRange.location > previousSelection.location
                         
                         if movingForward {
                             // Moving forward (right arrow) - skip to next position
-                            #if DEBUG
-                            print("📍 Moving forward - skipping to position \(newRange.location + 1)")
-                            #endif
                             let nextPosition = newRange.location + 1
                             if nextPosition <= textLength {
                                 isUpdatingFromSwiftUI = true
@@ -1360,19 +1597,11 @@ struct FormattedTextEditor: UIViewRepresentable {
                             // Moving backward (left arrow/backspace) - skip back to find the image
                             // Zero-width space structure: [image][newline][zero-width-space]
                             // We need to skip back 2 positions to get to the image
-                            #if DEBUG
-                            print("📍 Moving backward - checking for image before zero-width space")
-                            #endif
-                            
                             // Check position - 2 for image (skip newline at position - 1)
                             let imagePosition = newRange.location - 2
                             if imagePosition >= 0,
                                let attributedText = textView.attributedText,
                                attributedText.attribute(.attachment, at: imagePosition, effectiveRange: nil) is ImageAttachment {
-                                
-                                #if DEBUG
-                                print("📍 Found image at position \(imagePosition) - selecting it")
-                                #endif
                                 
                                 // Select the image directly (don't just place cursor, select with length=1)
                                 isUpdatingFromSwiftUI = true
@@ -1391,10 +1620,6 @@ struct FormattedTextEditor: UIViewRepresentable {
             // Only check for images if it's a zero-length selection (cursor, not selection)
             // and the position is valid (not at end of document)
             if newRange.length == 0, newRange.location < textLength {
-                #if DEBUG
-                print("📍 Checking position \(newRange.location): has attachment? \(textView.attributedText?.attribute(.attachment, at: newRange.location, effectiveRange: nil) != nil)")
-                #endif
-                
                 // Get the character at the cursor position to check for attachment
                 if let attributedText = textView.attributedText {
                     // Note: Comment taps are now handled by CustomTextView tap gesture
@@ -1406,10 +1631,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                     // Check if this image was already selected (previous selection was length=1 at this position)
                     // If so, move BEFORE the image instead of re-selecting it
                     if previousSelection.length == 1 && previousSelection.location == newRange.location {
-                        #if DEBUG
-                        print("📍 Image was already selected - moving before it to position \(newRange.location - 1)")
-                        #endif
-                        
                         let beforeImagePosition = newRange.location - 1
                         if beforeImagePosition >= 0 {
                             isUpdatingFromSwiftUI = true
@@ -1437,10 +1658,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                         }
                     }
                     
-                    #if DEBUG
-                    print("📍 Cursor navigated to image at position \(newRange.location) - selecting it")
-                    #endif
-                    
                     // Cursor landed directly on an image character
                     // Select the image (which includes calling the tap handler)
                     selectImage(at: newRange.location, in: textView)
@@ -1455,10 +1672,6 @@ struct FormattedTextEditor: UIViewRepresentable {
             // 2. The previous selection was length 1 (was on an image)
             // 3. The position has changed
             if newRange.length == 0 && previousSelection.length == 1 && newRange.location != previousSelection.location {
-                #if DEBUG
-                print("📍 Cursor moved away from image - clearing selection")
-                #endif
-                
                 // Check if moving forward from image - if so, skip past the newline and zero-width space
                 let movingForward = newRange.location > previousSelection.location
                 if movingForward {
@@ -1467,10 +1680,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                     // and go directly to position 5
                     let targetPosition = previousSelection.location + 3  // Skip image (1) + newline (1) + zero-width space (1)
                     if targetPosition < textView.attributedText.length {
-                        #if DEBUG
-                        print("📍 Moving forward from image - skipping to position \(targetPosition)")
-                        #endif
-                        
                         isUpdatingFromSwiftUI = true
                         textView.selectedRange = NSRange(location: targetPosition, length: 0)
                         previousSelection = NSRange(location: targetPosition, length: 0)
@@ -1507,9 +1716,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                 
                 // Make sure cursor is visible again
                 textView.tintColor = .systemBlue
-                #if DEBUG
-                print("📍 Cursor visibility restored")
-                #endif
             }
             
             // Check if we have a length-1 selection and cursor moved away
@@ -1524,42 +1730,33 @@ struct FormattedTextEditor: UIViewRepresentable {
                 
                 // Restore cursor visibility
                 textView.tintColor = .systemBlue
-                #if DEBUG
-                print("📍 Cursor visibility restored, moved to position \(newRange.location)")
-                #endif
             }
             
             // Update stored previous selection
             previousSelection = newRange
+
+            if !pendingTypingText.isEmpty,
+               let lastUserTextChangeTime,
+               Date().timeIntervalSince(lastUserTextChangeTime) < 0.75 {
+                return
+            }
             
             // Check if position is out of bounds
             if newRange.location >= textLength {
-                #if DEBUG
-                print("📍 Position \(newRange.location) >= textLength \(textLength), skipping image check")
-                #endif
                 DispatchQueue.main.async {
                     self.parent.selectedRange = newRange
                     self.parent.onSelectionChange?(newRange)
                 }
-                #if DEBUG
-                print("📍 Selection changed to: \(newRange)")
-                #endif
                 return
             }
             
             // If we have a length-1 range (which happens when image is selected),
             // don't process further - the image is already selected
             if newRange.length == 1 {
-                #if DEBUG
-                print("📍 Range has length 1, skipping image check")
-                #endif
                 DispatchQueue.main.async {
                     self.parent.selectedRange = newRange
                     self.parent.onSelectionChange?(newRange)
                 }
-                #if DEBUG
-                print("📍 Selection changed to: \(newRange)")
-                #endif
                 return
             }
             
@@ -1571,9 +1768,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                 self.parent.selectedRange = newRange
                 self.parent.onSelectionChange?(newRange)
             }
-            #if DEBUG
-            print("📍 Selection changed to: \(newRange)")
-            #endif
         }
         
         private func selectImage(at position: Int, in textView: UITextView) {
@@ -1802,9 +1996,6 @@ struct FormattedTextEditor: UIViewRepresentable {
             
             textView.typingAttributes = typingAttrs
             
-            #if DEBUG
-            print("🎯 Synced typing attributes at position \(position): alignment=\(paragraphStyle.alignment.rawValue)")
-            #endif
         }
         
         // MARK: - UIGestureRecognizerDelegate
@@ -1875,6 +2066,21 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     private let documentLineNumberWidth: CGFloat = 56
     private let documentLineNumberFontSize: CGFloat = 14
 
+    private final class FallbackSelectionRect: UITextSelectionRect {
+        private let fallbackRect: CGRect
+
+        init(rect: CGRect) {
+            self.fallbackRect = rect
+            super.init()
+        }
+
+        override var rect: CGRect { fallbackRect }
+        override var writingDirection: NSWritingDirection { .leftToRight }
+        override var containsStart: Bool { true }
+        override var containsEnd: Bool { true }
+        override var isVertical: Bool { false }
+    }
+
     var customAccessoryView: UIView?
     var isImageSelected: Bool = false
     var shouldHideSystemFormattingMenu: Bool = false
@@ -1912,6 +2118,52 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         addSubview(selectionBorderView)
         setupCommentInteraction()
         setupTraitChangeObservation()
+    }
+
+    #if targetEnvironment(macCatalyst)
+    override var textInputContextIdentifier: String? {
+        nil
+    }
+    #endif
+
+    private func validInputRect(_ rect: CGRect?) -> CGRect? {
+        guard let rect, !rect.isNull, !rect.isInfinite, !rect.isEmpty else { return nil }
+        return rect
+    }
+
+    private func fallbackInputRect() -> CGRect {
+        let fallbackBounds = bounds.inset(by: textContainerInset)
+        guard !fallbackBounds.isNull, !fallbackBounds.isInfinite, !fallbackBounds.isEmpty else {
+            return CGRect(x: 0, y: 0, width: 1, height: font?.lineHeight ?? 17)
+        }
+
+        return CGRect(
+            x: fallbackBounds.minX,
+            y: fallbackBounds.minY,
+            width: 1,
+            height: font?.lineHeight ?? 17
+        )
+    }
+
+    override func caretRect(for position: UITextPosition) -> CGRect {
+        if let rect = validInputRect(super.caretRect(for: position)) {
+            return rect
+        }
+
+        return fallbackInputRect()
+    }
+
+    override func firstRect(for range: UITextRange) -> CGRect {
+        let rect = super.firstRect(for: range)
+        if !rect.isNull && !rect.isInfinite && !rect.isEmpty {
+            return rect
+        }
+
+        if let caretRect = validInputRect(self.caretRect(for: range.start)) {
+            return caretRect
+        }
+
+        return fallbackInputRect()
     }
     
     // MARK: - Key Commands (Tab/Shift+Tab for list indent/outdent)
@@ -2002,19 +2254,13 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     
     /// Override pressesBegan to intercept Shift+Tab on Mac Catalyst
     /// UIKeyCommand doesn't reliably intercept modifier key combinations in UITextView on Catalyst
+    #if targetEnvironment(macCatalyst)
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         for press in presses {
             guard let key = press.key else { continue }
             
-            #if DEBUG
-            print("⌨️ pressesBegan - keyCode: \(key.keyCode), modifiers: \(key.modifierFlags), characters: '\(key.characters)'")
-            #endif
-            
             // Check for Shift+Tab (keyCode .keyboardTab with shift modifier)
             if key.keyCode == .keyboardTab && key.modifierFlags.contains(.shift) {
-                #if DEBUG
-                print("⌨️ pressesBegan intercepted Shift+Tab - onShiftTabPressed is \(onShiftTabPressed != nil ? "set" : "nil")")
-                #endif
                 if onShiftTabPressed != nil {
                     onShiftTabPressed?()
                     return  // Don't call super, we handled it
@@ -2023,24 +2269,21 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         }
         super.pressesBegan(presses, with: event)
     }
+    #endif
     
     // MARK: - Text Input Interception (Mac Catalyst Tab handling)
     
     /// Override insertText to intercept Tab key on Mac Catalyst
     /// UIKeyCommand doesn't reliably intercept Tab in UITextView on Catalyst
     override func insertText(_ text: String) {
-        #if DEBUG
-        // Log special characters
-        if text.count == 1, let scalar = text.unicodeScalars.first, scalar.value < 32 || scalar.value == 127 {
-            print("⌨️ insertText - control character: \\u{\(String(format: "%04X", scalar.value))}")
+        #if targetEnvironment(macCatalyst)
+        if fastInsertPlainCharacterIfPossible(text) {
+            return
         }
         #endif
-        
+
         // Check for backtab character (ASCII 25, sent by some systems for Shift+Tab)
         if text == "\u{0019}" || text == "\u{000F}" {
-            #if DEBUG
-            print("⌨️ insertText intercepted backtab character - onShiftTabPressed is \(onShiftTabPressed != nil ? "set" : "nil")")
-            #endif
             if onShiftTabPressed != nil {
                 onShiftTabPressed?()
                 return
@@ -2048,29 +2291,39 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         }
         
         if text == "\t" {
-            #if DEBUG
-            print("⌨️ insertText intercepted Tab - onTabPressed is \(onTabPressed != nil ? "set" : "nil")")
-            #endif
             // Call our Tab handler instead of inserting a tab character
             if onTabPressed != nil {
                 onTabPressed?()
-                #if DEBUG
-                print("⌨️ insertText - returning WITHOUT inserting tab")
-                #endif
                 return
             }
-            #if DEBUG
-            print("⌨️ WARNING: onTabPressed is nil, will insert tab!")
-            #endif
         }
-        #if DEBUG
-        if text == "\t" {
-            print("⌨️ CRITICAL: super.insertText called for Tab - this is a bug!")
-        }
-        #endif
         // For all other text, use default behavior
         super.insertText(text)
     }
+
+    #if targetEnvironment(macCatalyst)
+    private func fastInsertPlainCharacterIfPossible(_ text: String) -> Bool {
+        guard selectedRange.length == 0,
+              markedTextRange == nil,
+              !text.isEmpty,
+              text.rangeOfCharacter(from: .newlines) == nil,
+              text != "\t",
+              (text as NSString).length == 1 else {
+            return false
+        }
+
+        let range = selectedRange
+        if delegate?.textView?(self, shouldChangeTextIn: range, replacementText: text) == false {
+            return true
+        }
+
+        let insertion = NSAttributedString(string: text, attributes: typingAttributes)
+        textStorage.replaceCharacters(in: range, with: insertion)
+        selectedRange = NSRange(location: range.location + 1, length: 0)
+        delegate?.textViewDidChange?(self)
+        return true
+    }
+    #endif
     
     // MARK: - Appearance Handling
     
@@ -2225,7 +2478,13 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         if isImageSelected {
             return []
         }
-        return super.selectionRects(for: range)
+
+        let rects = super.selectionRects(for: range)
+        if rects.contains(where: { validInputRect($0.rect) != nil }) {
+            return rects
+        }
+
+        return [FallbackSelectionRect(rect: firstRect(for: range))]
     }
     
     // MARK: - Context Menu Customization
@@ -2439,10 +2698,6 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     // Custom drawing for empty document numbering (Feature 016)
     override func draw(_ rect: CGRect) {
         super.draw(rect)
-        
-        #if DEBUG
-        print("🎨 CustomTextView.draw() called, textStorage.length: \(textStorage.length)")
-        #endif
 
         if let numberingLayoutManager = layoutManager as? NumberingLayoutManager {
             drawEditorExtraLineNumberIfNeeded(in: rect, using: numberingLayoutManager)
@@ -2491,11 +2746,6 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             return
         }
         
-        #if DEBUG
-        print("🎨 Drawing number for empty document with style: \(style.name)")
-        print("   textContainerInset: \(textContainerInset)")
-        #endif
-        
         // Determine bullet level from style name for bullet lists
         let bulletLevel: Int
         if style.name.contains("level-3") { bulletLevel = 2 }
@@ -2538,10 +2788,6 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         )
         
         numberString.draw(in: numberRect, withAttributes: numberAttributes)
-        
-        #if DEBUG
-        print("   Drew number '\(formattedNumber)' in rect: \(numberRect)")
-        #endif
     }
     
     // Hide the system formatting menu on iPad with hardware keyboard (iOS 13+)

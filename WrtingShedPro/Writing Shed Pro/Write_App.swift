@@ -171,14 +171,12 @@ struct Write_App: App {
             ensemblesContainer.ensemble.globalIdentifiers = stableGlobalIdentifiers
             ensemblesContainer.didEncounterError = { error in
                 Task { @MainActor in
-                    let nsError = error as NSError
-                    let ensembleCase = (error as? EnsembleError).map { " raw=\($0.rawValue) case=\($0)" } ?? ""
-                    Write_App.logErrorToFile("❌ [Ensembles] Encountered error: \(error.localizedDescription) domain=\(nsError.domain) code=\(nsError.code)\(ensembleCase)")
+                    Write_App.logErrorToFile("❌ [Ensembles] Encountered error: \(Write_App.detailedErrorDescription(error))")
                 }
             }
             ensemblesContainer.didForceDetach = { error in
                 Task { @MainActor in
-                    Write_App.logErrorToFile("⚠️ [Ensembles] Forced detach: \(error.localizedDescription)")
+                    Write_App.logErrorToFile("⚠️ [Ensembles] Forced detach: \(Write_App.detailedErrorDescription(error))")
                 }
             }
             ensemblesContainer.didSaveMergeChanges = { _ in
@@ -188,7 +186,7 @@ struct Write_App: App {
             }
             Write_App.activeEnsemblesContainer = ensemblesContainer
             let container = ensemblesContainer.modelContainer
-            container.mainContext.autosaveEnabled = true
+            container.mainContext.autosaveEnabled = false
             #if DEBUG
             print("✅ [Write_App] SwiftDataEnsembleContainer active")
             #endif
@@ -411,15 +409,47 @@ struct Write_App: App {
         Write_App.logToFile("✅ [Ensembles] Local sync reset completed; backup=\(backupDirectory.lastPathComponent)")
     }
 
+    private static func detailedErrorDescription(_ error: Error) -> String {
+        detailedNSErrorDescription(error as NSError)
+    }
+
+    private static func detailedNSErrorDescription(_ error: NSError, depth: Int = 0) -> String {
+        let indent = String(repeating: "  ", count: depth)
+        var parts: [String] = [
+            "\(indent)\(error.localizedDescription) domain=\(error.domain) code=\(error.code)"
+        ]
+
+        if let ensembleError = error as? EnsembleError {
+            parts[0] += " raw=\(ensembleError.rawValue) case=\(ensembleError)"
+        }
+
+        let filteredUserInfo = error.userInfo
+            .filter { key, _ in key != NSUnderlyingErrorKey && key != NSDetailedErrorsKey }
+            .map { key, value in "\(key)=\(value)" }
+            .sorted()
+        if !filteredUserInfo.isEmpty {
+            parts.append("\(indent)userInfo={\(filteredUserInfo.joined(separator: ", "))}")
+        }
+
+        if let underlyingError = error.userInfo[NSUnderlyingErrorKey] as? NSError {
+            parts.append("\(indent)underlying: \(detailedNSErrorDescription(underlyingError, depth: depth + 1))")
+        }
+
+        if let detailedErrors = error.userInfo[NSDetailedErrorsKey] as? [NSError], !detailedErrors.isEmpty {
+            for detailedError in detailedErrors {
+                parts.append("\(indent)detailed: \(detailedNSErrorDescription(detailedError, depth: depth + 1))")
+            }
+        }
+
+        return parts.joined(separator: " | ")
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(writeCoalescer)
                 .environment(syncHealthMonitor)
                 .task {
-                    // Configure PoetryFormService with model context for database access
-                    PoetryFormService.shared.configureWithContext(sharedModelContainer.mainContext)
-                    
                     // Configure EntitlementManager for in-app purchases
                     if #available(macCatalyst 15, macOS 14.4, iOS 17.4, *) {
                         await EntitlementManager.shared.configure()
@@ -431,6 +461,12 @@ struct Write_App: App {
 
                     if Write_App.isUsingEnsemblesSync && !Write_App.shouldAutoSyncEnsembles {
                         await runManualEnsemblesSync(reason: "app launch")
+                    }
+
+                    // Configure PoetryFormService with model context for database access.
+                    // This can write, so keep it behind the Ensembles idle gate.
+                    if await waitForEnsemblesStartupWritesIfNeeded(reason: "poetry form migration") {
+                        PoetryFormService.shared.configureWithContext(sharedModelContainer.mainContext)
                     }
                 }
         }
@@ -464,9 +500,41 @@ struct Write_App: App {
 
     private func runManualEnsemblesSync(reason: String) async {
         guard let container = Write_App.activeEnsemblesContainer else { return }
-        Write_App.logToFile("🔄 [Ensembles] Manual sync started (reason=\(reason))")
+        Write_App.logToFile("🔄 [Ensembles] Manual sync started (reason=\(reason), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
         let didSync = await container.sync()
         Write_App.logToFile("✅ [Ensembles] Manual sync completed (reason=\(reason), didSync=\(didSync), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+    }
+
+    private func waitForEnsemblesStartupWritesIfNeeded(reason: String) async -> Bool {
+        guard let ensemblesContainer = Write_App.activeEnsemblesContainer else { return true }
+
+        let maxWaitSeconds = 60
+        let requiredIdleSeconds = 3
+        var consecutiveIdleSeconds = 0
+        for second in 0..<maxWaitSeconds {
+            let activity = String(describing: ensemblesContainer.currentActivity)
+            if ensemblesContainer.isAttached && activity == "none" {
+                consecutiveIdleSeconds += 1
+                if consecutiveIdleSeconds >= requiredIdleSeconds {
+                    return true
+                }
+            } else {
+                consecutiveIdleSeconds = 0
+            }
+
+            #if DEBUG
+            if second == 0 || second % 5 == 0 {
+                print("⏳ [Write_App] Waiting for Ensembles attach before \(reason)... attached=\(ensemblesContainer.isAttached) activity=\(activity)")
+            }
+            #endif
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+
+        #if DEBUG
+        let activity = String(describing: ensemblesContainer.currentActivity)
+        print("⚠️ [Write_App] Skipping \(reason); Ensembles not attached after \(maxWaitSeconds)s attached=\(ensemblesContainer.isAttached) activity=\(activity)")
+        #endif
+        return false
     }
     
     private func checkCloudKitStatus() {
@@ -516,7 +584,11 @@ struct Write_App: App {
                 // Try to access the private database
                 container.privateCloudDatabase.fetchAllRecordZones { zones, error in
                     if let zones = zones {
-                        let zoneMsg = "✅ Private database accessible, zones: \(zones.count)"
+                        let zoneNames = zones
+                            .map { $0.zoneID.zoneName }
+                            .sorted()
+                            .joined(separator: ", ")
+                        let zoneMsg = "✅ Private database accessible, zones: \(zones.count) [\(zoneNames)]"
                         #if DEBUG
                         print(zoneMsg)
                         #endif
@@ -549,7 +621,7 @@ struct Write_App: App {
     
     
     /// Log messages to a file in the app's documents directory for TestFlight diagnostics
-    private static func logToFile(_ message: String) {
+    static func logToFile(_ message: String) {
         guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
             return
         }

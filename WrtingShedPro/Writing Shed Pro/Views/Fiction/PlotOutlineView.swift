@@ -137,13 +137,7 @@ struct PlotOutlineView: View {
                     }
                 } header: {
                     if let stageOrder = group.stageOrder, let stageName = group.stageName {
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack {
-                                Text("\(stageOrder).")
-                                    .fontWeight(.bold)
-                                Text(stageName)
-                            }
-                        }
+                        Text(stageHeaderTitle(stageOrder: stageOrder, stageName: stageName))
                     } else {
                         Text(NSLocalizedString("fiction.plot.unassigned", comment: "Unassigned"))
                     }
@@ -216,6 +210,13 @@ struct PlotOutlineView: View {
         modelContext.delete(element)
         try? modelContext.save()
         renumberPlotElements()
+    }
+
+    private func stageHeaderTitle(stageOrder: Int, stageName: String) -> String {
+        if project.storyStructure == .threeAct {
+            return stageName
+        }
+        return "\(stageOrder). \(stageName)"
     }
     
     private func movePlotElements(from source: IndexSet, to destination: Int) {

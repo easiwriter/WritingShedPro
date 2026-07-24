@@ -77,19 +77,27 @@ final class WriteCoalescer {
     /// Timestamps of recent `requestSave()` calls for burst detection.
     @ObservationIgnored private var recentRequestTimes: [Date] = []
 
+    /// Last live editor activity, including changes that have not yet requested a save.
+    @ObservationIgnored private var lastEditingActivityDate: Date?
+
     /// Interval for periodic diagnostic logging (seconds). 0 disables.
     private let diagnosticInterval: TimeInterval = 300 // 5 minutes
 
-    /// Safety-net interval to detect local model mutations that did not call
-    /// `requestSave()` and still need to be persisted/exported.
-    private let unsignaledChangeCheckInterval: TimeInterval = 20
+    /// Disabled: `ModelContext.hasChanges` can be set by SwiftData @Transient
+    /// cache mutations, so saving from this timer creates idle WAL churn.
+    private let unsignaledChangeCheckInterval: TimeInterval = 0
+
+    #if DEBUG
+    private var lastSaveRequestSource: String?
+    private var lastSaveTraceLogTime: Date = .distantPast
+    #endif
 
     /// Snapshot of `saveCount` at last diagnostic log, used to detect activity.
     private var lastDiagnosticSaveCount: Int = 0
 
     #if canImport(UIKit)
-    /// Observation token for `willResignActiveNotification`.
-    @ObservationIgnored private var resignActiveObserver: NSObjectProtocol?
+    /// Observation token for `didEnterBackgroundNotification`.
+    @ObservationIgnored private var backgroundObserver: NSObjectProtocol?
     #endif
 
     // MARK: - Init
@@ -102,8 +110,8 @@ final class WriteCoalescer {
         self.flushDelay = flushDelay
 
         #if canImport(UIKit)
-        resignActiveObserver = NotificationCenter.default.addObserver(
-            forName: UIApplication.willResignActiveNotification,
+        backgroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -139,7 +147,7 @@ final class WriteCoalescer {
         diagnosticTimer?.invalidate()
         unsignaledChangeTimer?.invalidate()
         #if canImport(UIKit)
-        if let observer = resignActiveObserver {
+        if let observer = backgroundObserver {
             NotificationCenter.default.removeObserver(observer)
         }
         #endif
@@ -150,15 +158,26 @@ final class WriteCoalescer {
     /// Request a coalesced save. Resets the flush timer each time it is called
     /// so that rapid successive requests produce a single save. The flush
     /// delay adapts based on editing activity (burst vs. normal).
-    func requestSave() {
+    func requestSave(reason: String = "requestSave", file: StaticString = #fileID, line: UInt = #line) {
         requestCount += 1
         pendingSave = true
-        updateEditingActivity()
         #if DEBUG
-        print("🔵 [SYNC TRACE 4/5] requestSave() received — request #\(requestCount), effectiveDelay=\(effectiveDelay)s, hasChanges=\(modelContext.hasChanges)")
+        lastSaveRequestSource = "\(reason) @ \(file):\(line)"
         #endif
+        updateEditingActivity()
         resetTimer()
         resetIdleTimer()
+    }
+
+    /// Record live editor input without scheduling a save.
+    /// This lets other UI paths defer nonessential refresh work while typing is active.
+    func noteEditingActivity() {
+        lastEditingActivityDate = Date()
+    }
+
+    func hasRecentEditingActivity(within interval: TimeInterval) -> Bool {
+        guard let lastEditingActivityDate else { return false }
+        return Date().timeIntervalSince(lastEditingActivityDate) < interval
     }
 
     /// Immediately save if there are pending changes. Safe to call multiple
@@ -194,16 +213,16 @@ final class WriteCoalescer {
 
     private func updateEditingActivity() {
         let now = Date()
+        lastEditingActivityDate = now
         recentRequestTimes.append(now)
 
         // Trim timestamps outside the burst window.
         let windowStart = now.addingTimeInterval(-burstWindowDuration)
         recentRequestTimes.removeAll { $0 < windowStart }
 
-        if recentRequestTimes.count >= burstRequestThreshold {
-            editingActivity = .burst
-        } else {
-            editingActivity = .active
+        let newActivity: EditingActivity = recentRequestTimes.count >= burstRequestThreshold ? .burst : .active
+        if editingActivity != newActivity {
+            editingActivity = newActivity
         }
     }
 
@@ -236,36 +255,38 @@ final class WriteCoalescer {
     }
 
     private func executeSave() {
-        #if DEBUG
-        print("🔵 [SYNC TRACE 5/5] executeSave() — hasChanges=\(modelContext.hasChanges) pendingSave=\(pendingSave) save #\(saveCount + 1)")
-        #endif
         pendingSave = false
+        guard modelContext.hasChanges else {
+            return
+        }
         do {
             try modelContext.save()
             saveCount += 1
             lastFlushTime = Date()
             syncHealthMonitor?.recordLocalChange()
             #if DEBUG
-            print("🔵 [SYNC TRACE 5/5] ✅ modelContext.save() SUCCEEDED — save #\(saveCount)")
+            let now = Date()
+            if now.timeIntervalSince(lastSaveTraceLogTime) >= 2 {
+                print("💾 [WriteCoalescer] saved source=\(lastSaveRequestSource ?? "unknown") activity=\(editingActivity.rawValue) requests=\(requestCount) saves=\(saveCount)")
+                lastSaveTraceLogTime = now
+            }
             #endif
         } catch {
             #if DEBUG
-            print("🔵 [SYNC TRACE 5/5] ❌ modelContext.save() FAILED: \(error)")
+            print("❌ [WriteCoalescer] modelContext.save() failed: \(error)")
             #endif
         }
     }
 
-    /// Catch writes that mutated models but forgot to request a save.
-    /// This keeps the local DB from silently stalling.
+    /// Diagnostic only. Do not auto-save arbitrary `hasChanges` here: SwiftData
+    /// may report changes after @Transient cache reads, which are not persistent edits.
     private func checkForUnsignaledChanges() {
         guard !pendingSave else { return }
         guard modelContext.hasChanges else { return }
 
         #if DEBUG
-        print("⚠️ [WriteCoalescer] Detected unsignaled model changes — scheduling coalesced save")
+        print("⚠️ [WriteCoalescer] unsignaled modelContext changes detected while idle; not auto-saving")
         #endif
-
-        requestSave()
     }
 
     #if DEBUG

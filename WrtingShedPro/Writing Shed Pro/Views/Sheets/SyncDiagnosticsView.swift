@@ -153,8 +153,10 @@ struct SyncDiagnosticsView: View {
     private func runManualSync() async {
         guard let container = Write_App.activeEnsemblesContainer else { return }
         syncStatusMessage = "Syncing..."
+        Write_App.logToFile("🔄 [Ensembles] Manual sync started from diagnostics (isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
         let didSync = await container.sync()
         syncStatusMessage = "Sync completed at \(Date().formatted(date: .omitted, time: .standard)) (didSync=\(didSync))"
+        Write_App.logToFile("✅ [Ensembles] Manual sync completed from diagnostics (didSync=\(didSync), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
         refreshCounts()
     }
 

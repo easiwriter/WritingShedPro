@@ -16,6 +16,8 @@ struct FileEditView: View {
     private static let editorZoomScaleDefaultsKey = "editorZoomScale"
     private static let showLineNumbersDefaultsKey = "showDocumentLineNumbers"
 
+    @Environment(\.scenePhase) private var scenePhase
+
         @State private var presentDeleteBackMatterAlert = false
     @Bindable var file: TextFile
     
@@ -27,6 +29,7 @@ struct FileEditView: View {
     @State private var previousContent: String = ""
     @State private var previousAttributedContent: NSAttributedString?  // Track for undo without expensive DB fetch
     @State private var saveDebounceTimer: Timer?  // Debounce saves to reduce I/O
+    @State private var pendingDebouncedAttributedContent: NSAttributedString?
     @State private var endnoteCleanupTimer: Timer?  // Debounce endnote cleanup
     @State private var validationBadgeTimer: Timer?  // Debounce poetry validation
     /// True when the loaded content has U+FFFC placeholders but the corresponding
@@ -300,8 +303,8 @@ struct FileEditView: View {
                                 showLineNumbers: showLineNumbers,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
-                                onTextChange: { newText in
-                                    handleAttributedTextChange(newText)
+                                onTextChange: { change in
+                                    handleAttributedTextChange(change)
                                 },
                                 onImageTapped: { attachment, frame, position in
                                     handleImageTap(attachment: attachment, frame: frame, position: position)
@@ -367,8 +370,8 @@ struct FileEditView: View {
                                 showLineNumbers: showLineNumbers,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
-                                onTextChange: { newText in
-                                    handleAttributedTextChange(newText)
+                                onTextChange: { change in
+                                    handleAttributedTextChange(change)
                                 },
                                 onImageTapped: { attachment, frame, position in
                                     handleImageTap(attachment: attachment, frame: frame, position: position)
@@ -441,8 +444,8 @@ struct FileEditView: View {
                                 showLineNumbers: showLineNumbers,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
-                                onTextChange: { newText in
-                                    handleAttributedTextChange(newText)
+                                onTextChange: { change in
+                                    handleAttributedTextChange(change)
                                 },
                                 onImageTapped: { attachment, frame, position in
                                     handleImageTap(attachment: attachment, frame: frame, position: position)
@@ -505,8 +508,8 @@ struct FileEditView: View {
                                 showLineNumbers: showLineNumbers,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
-                                onTextChange: { newText in
-                                    handleAttributedTextChange(newText)
+                                onTextChange: { change in
+                                    handleAttributedTextChange(change)
                                 },
                                 onImageTapped: { attachment, frame, position in
                                     handleImageTap(attachment: attachment, frame: frame, position: position)
@@ -1891,10 +1894,10 @@ struct FileEditView: View {
                 // Disconnect search manager to clean up highlights and observers
                 searchManager.disconnect()
 
-                flushPendingEditorChanges()
+                flushPendingEditorChanges(reason: "editor-disappear-flush")
             }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
-                flushPendingEditorChanges()
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+                handleEditorDidEnterBackground()
             }
             .onAppear {
                 setupOnAppear()
@@ -2648,7 +2651,7 @@ struct FileEditView: View {
                     processedContent = cleanedContent
                     // Persist the cleaned content so the stale U+FFFC doesn't recur
                     file.currentVersion?.attributedContent = cleanedContent
-                    WriteCoalescer.shared?.requestSave()
+                    WriteCoalescer.shared?.requestSave(reason: "open-orphaned-attachment-placeholder-cleanup")
                 }
             }
             
@@ -2661,7 +2664,7 @@ struct FileEditView: View {
             if shouldPersistInlineHeadingRepair {
                 file.currentVersion?.attributedContent = processedContent
                 file.modifiedDate = Date()
-                WriteCoalescer.shared?.requestSave()
+                WriteCoalescer.shared?.requestSave(reason: "open-inline-heading-repair")
                 #if DEBUG
                 print("🩹 Persisted inline-heading repair for CloudKit sync")
                 #endif
@@ -3117,8 +3120,7 @@ struct FileEditView: View {
                 textView.setNeedsDisplay()
             }
 
-            saveDebounceTimer?.invalidate()
-            saveDebounceTimer = nil
+            cancelPendingEditorSave()
             hasMissingAttachments = false
             saveChanges()
             refreshTrigger = UUID()
@@ -3184,28 +3186,92 @@ struct FileEditView: View {
     }
     
     // MARK: - Attributed Text Handling
+
+    private func simpleInsertion(from oldText: String, to newText: String) -> (position: Int, text: String)? {
+        guard newText.count > oldText.count else { return nil }
+
+        var oldPrefixIndex = oldText.startIndex
+        var newPrefixIndex = newText.startIndex
+        var position = 0
+
+        while oldPrefixIndex < oldText.endIndex,
+              newPrefixIndex < newText.endIndex,
+              oldText[oldPrefixIndex] == newText[newPrefixIndex] {
+            oldPrefixIndex = oldText.index(after: oldPrefixIndex)
+            newPrefixIndex = newText.index(after: newPrefixIndex)
+            position += 1
+        }
+
+        var oldSuffixIndex = oldText.endIndex
+        var newSuffixIndex = newText.endIndex
+
+        while oldSuffixIndex > oldPrefixIndex,
+              newSuffixIndex > newPrefixIndex {
+            let previousOldIndex = oldText.index(before: oldSuffixIndex)
+            let previousNewIndex = newText.index(before: newSuffixIndex)
+            guard oldText[previousOldIndex] == newText[previousNewIndex] else { break }
+            oldSuffixIndex = previousOldIndex
+            newSuffixIndex = previousNewIndex
+        }
+
+        guard oldPrefixIndex == oldSuffixIndex else { return nil }
+
+        let insertedText = String(newText[newPrefixIndex..<newSuffixIndex])
+        guard !insertedText.isEmpty else { return nil }
+        return (position, insertedText)
+    }
     
-    private func handleAttributedTextChange(_ newAttributedText: NSAttributedString) {
-        #if DEBUG
-        print("🔄 handleAttributedTextChange called")
-        #if DEBUG
-        print("🔄 isPerformingUndoRedo: \(isPerformingUndoRedo)")
-        #endif
-        #if DEBUG
-        print("🔄 isPerformingBatchReplace: \(searchManager.isPerformingBatchReplace)")
-        #endif
-        #endif
-        
-        #if DEBUG
-        print("🔵 [SYNC TRACE 1/5] handleAttributedTextChange — file='\(file.name)' version=#\(file.currentVersion?.versionNumber ?? -1) currentVersionIndex=\(file.currentVersionIndex) versionCount=\(file.versions?.count ?? 0)")
-        #endif
-        
+    private func scheduleEditorSave(_ attributedTextToSave: NSAttributedString) {
+        saveDebounceTimer?.invalidate()
+        pendingDebouncedAttributedContent = attributedTextToSave
+        let coalescer = WriteCoalescer.shared
+        scheduleEditorSaveTimer(coalescer: coalescer)
+    }
+
+    private func scheduleEditorSaveTimer(coalescer: WriteCoalescer?) {
+        saveDebounceTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: false) { _ in
+            Task { @MainActor in
+                if coalescer?.editingActivity != .idle || coalescer?.hasRecentEditingActivity(within: 20) == true {
+                    self.scheduleEditorSaveTimer(coalescer: coalescer)
+                    return
+                }
+
+                self.commitPendingEditorSave(reason: "file-editor-typing-save-timer", coalescer: coalescer)
+            }
+        }
+    }
+
+    @discardableResult
+    private func commitPendingEditorSave(reason: String, coalescer: WriteCoalescer? = nil) -> Bool {
+        guard let attributedTextToSave = pendingDebouncedAttributedContent else { return false }
+        saveDebounceTimer?.invalidate()
+        saveDebounceTimer = nil
+        pendingDebouncedAttributedContent = nil
+
+        attributedContent = attributedTextToSave
+        file.currentVersion?.attributedContent = attributedTextToSave
+        previousContent = attributedTextToSave.string
+        previousAttributedContent = attributedTextToSave
+        file.modifiedDate = Date()
+
+        Task { @MainActor in
+            (coalescer ?? WriteCoalescer.shared)?.requestSave(reason: reason)
+        }
+        return true
+    }
+
+    private func cancelPendingEditorSave() {
+        saveDebounceTimer?.invalidate()
+        saveDebounceTimer = nil
+        pendingDebouncedAttributedContent = nil
+    }
+
+    private func handleAttributedTextChange(_ change: TextEditorChange) {
+        let newAttributedText = change.attributedText
         guard !isPerformingUndoRedo else {
-            #if DEBUG
-            print("🔵 [SYNC TRACE 1/5] BLOCKED — isPerformingUndoRedo=true")
-            #endif
             return
         }
+        WriteCoalescer.shared?.noteEditingActivity()
         
         // If the user is intentionally editing, clear the missing-attachment guard.
         // An actual text change (not just style reapply) means the user is actively
@@ -3219,14 +3285,9 @@ struct FileEditView: View {
         
         // Skip during batch replace - undo will be handled manually
         guard !searchManager.isPerformingBatchReplace else {
-            #if DEBUG
-            print("🔵 [SYNC TRACE 1/5] BLOCKED — isPerformingBatchReplace=true")
-            #endif
             return
         }
-        
-        let newContent = newAttributedText.string
-        
+
         // Check if version is locked
         if file.currentVersion?.isLocked == true, !attemptedEdit {
             // Show warning on first edit attempt
@@ -3237,32 +3298,32 @@ struct FileEditView: View {
             }
             return
         }
+
+        if let range = change.range,
+           range.length == 0,
+           let replacementText = change.replacementText,
+           !replacementText.isEmpty,
+           replacementText.rangeOfCharacter(from: .newlines) == nil {
+            undoManager.execute(TextInsertCommand(position: range.location, text: replacementText, targetFile: file))
+            previousContent = newAttributedText.string
+            previousAttributedContent = newAttributedText
+            scheduleEditorSave(newAttributedText)
+            return
+        }
         
-        #if DEBUG
-        print("🔄 Previous: '\(previousContent)'")
-        #if DEBUG
-        print("🔄 New: '\(newContent)'")
-        #endif
-        #endif
+        let newContent = newAttributedText.string
         
         // Register both text changes and attribute-only formatting changes.
         // BIU actions and some system edit actions can change attributes while keeping the same string.
         let hasTextChanged = newContent != previousContent
-        let hasAttributeChanged: Bool = {
+        let hasAttributeChanged: Bool = hasTextChanged ? false : {
             guard let previousAttributedContent else { return false }
             return !newAttributedText.isEqual(to: previousAttributedContent)
         }()
 
         guard hasTextChanged || hasAttributeChanged else {
-            #if DEBUG
-            print("� [SYNC TRACE 1/5] BLOCKED — no change detected (text same, attrs same)")
-            #endif
             return
         }
-        
-        #if DEBUG
-        print("🔵 [SYNC TRACE 1/5] PASSED all guards — change detected, will schedule save")
-        #endif
 
         
         // Clear image selection when text changes
@@ -3275,78 +3336,35 @@ struct FileEditView: View {
             textView.tintColor = .label
         }
         
-        #if DEBUG
-        print("🔄 Content changed - registering with undo manager")
-        #endif
-        
-        // Create and execute undo command
-        // PERFORMANCE FIX: Use cached previousAttributedContent instead of fetching from DB
-        // Fetching from file.currentVersion?.attributedContent triggers expensive RTF/JSON decoding
-        let beforeContent = previousAttributedContent ?? NSAttributedString(
-            string: previousContent,
-            attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
-        )
+        if hasTextChanged, let insertion = simpleInsertion(from: previousContent, to: newContent) {
+            undoManager.execute(TextInsertCommand(position: insertion.position, text: insertion.text, targetFile: file))
+        } else {
+            // Create and execute undo command
+            // PERFORMANCE FIX: Use cached previousAttributedContent instead of fetching from DB
+            // Fetching from file.currentVersion?.attributedContent triggers expensive RTF/JSON decoding
+            let beforeContent = previousAttributedContent ?? NSAttributedString(
+                string: previousContent,
+                attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+            )
 
-        let command = FormatApplyCommand(
-            description: "Typing",
-            range: NSRange(location: 0, length: newAttributedText.length),
-            beforeContent: beforeContent,
-            afterContent: newAttributedText,
-            targetFile: file
-        )
-        // PERFORMANCE FIX: Don't call undoManager.execute() which triggers expensive
-        // AttributedStringSerializer.encode() on every keystroke via the attributedContent setter.
-        // Instead, just push the command for undo support and defer encoding to the save timer.
-        undoManager.push(command)
+            let command = FormatApplyCommand(
+                description: "Typing",
+                range: NSRange(location: 0, length: newAttributedText.length),
+                beforeContent: beforeContent,
+                afterContent: newAttributedText,
+                targetFile: file
+            )
+            // PERFORMANCE FIX: Don't call undoManager.execute() which triggers expensive
+            // AttributedStringSerializer.encode() on every keystroke via the attributedContent setter.
+            // Instead, just push the command for undo support and defer encoding to the save timer.
+            undoManager.push(command)
+        }
         
         // Update previous content for next comparison
         previousContent = newContent
         previousAttributedContent = newAttributedText  // Cache for next change
         
-        file.modifiedDate = Date()
-        #if DEBUG
-        print("🔵 [SYNC TRACE 2/5] file.modifiedDate set — TextFile '\(file.name)' is now dirty")
-        #endif
-        
-        // PERFORMANCE FIX: Debounce saves AND encoding to reduce I/O
-        // The expensive AttributedStringSerializer.encode() now only runs when we actually save,
-        // not on every keystroke.
-        saveDebounceTimer?.invalidate()
-        let coalescer = WriteCoalescer.shared
-        #if DEBUG
-        print("🔵 [SYNC TRACE 2/5] scheduling debounce timer (0.5s) — version=#\(file.currentVersion?.versionNumber ?? -1) currentVersion=\(file.currentVersion != nil ? "EXISTS" : "NIL ⚠️")")
-        #endif
-        saveDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
-            #if DEBUG
-            let contentBefore = self.file.currentVersion?.content
-            let hasChangesBefore = self.file.modelContext?.hasChanges ?? false
-            print("🔵 [SYNC TRACE 3/5] debounce timer FIRED — currentVersion=\(self.file.currentVersion != nil ? "EXISTS version=#\(self.file.currentVersion!.versionNumber)" : "NIL ⚠️ CONTENT WILL NOT BE SAVED"), hasChanges=\(hasChangesBefore)")
-            #endif
-            // Encode attributed content only when saving (was previously per-keystroke)
-            self.file.currentVersion?.attributedContent = newAttributedText
-            // FIX: Re-touch modifiedDate here, AFTER writing version content.
-            // The earlier set (before the timer) may have been captured by a prior coalesced
-            // flush (e.g. the idle timer from a previous requestSave). Without this, hasChanges
-            // can be false by the time executeSave() runs, making modelContext.save() a no-op
-            // and silently dropping the edit from CloudKit's export queue.
-            self.file.modifiedDate = Date()
-            #if DEBUG
-            let savedBytes = self.file.currentVersion?.formattedContent?.count ?? 0
-            let contentAfter = self.file.currentVersion?.content
-            let hasChangesAfter = self.file.modelContext?.hasChanges ?? false
-            let contentChanged = contentBefore != contentAfter
-            print("🔵 [SYNC TRACE 3/5] version.attributedContent SET — formattedContent=\(savedBytes) bytes \(savedBytes == 0 ? "⚠️ ZERO BYTES" : "✅")")
-            print("🔵 [SYNC TRACE 3b] content \(contentChanged ? "CHANGED ✅" : "UNCHANGED ⚠️") (\(contentBefore?.count ?? 0)→\(contentAfter?.count ?? 0) chars), hasChanges: \(hasChangesBefore)→\(hasChangesAfter)")
-            #endif
-            // Use WriteCoalescer for save batching + CloudKit export coalescing.
-            // This also notifies SyncHealthMonitor of local changes.
-            Task { @MainActor in
-                #if DEBUG
-                print("🔵 [SYNC TRACE 4/5] Task on MainActor — calling requestSave()")
-                #endif
-                coalescer?.requestSave()
-            }
-        }
+        scheduleEditorSave(newAttributedText)
         
         // PERFORMANCE FIX: Debounce endnote cleanup - no need to check on every keystroke
         endnoteCleanupTimer?.invalidate()
@@ -3547,8 +3565,7 @@ struct FileEditView: View {
                 #endif
                 // Cancel any pending debounce timer to prevent it from overwriting
                 // our save with stale pre-comment content
-                saveDebounceTimer?.invalidate()
-                saveDebounceTimer = nil
+                cancelPendingEditorSave()
                 
                 // Update the attributed content binding
                 let updatedContent = textView.attributedText ?? NSAttributedString()
@@ -3620,8 +3637,7 @@ struct FileEditView: View {
                 
                 // Cancel any pending debounce timer to prevent it from overwriting
                 // our save with stale pre-footnote content
-                saveDebounceTimer?.invalidate()
-                saveDebounceTimer = nil
+                cancelPendingEditorSave()
                 
                 // Update the attributed content binding
                 attributedContent = updatedContent
@@ -4238,6 +4254,7 @@ struct FileEditView: View {
             ("References", .references),
             ("Index", .index)
         ]
+        var didChangeSettings = false
         
         for (fileName, backMatterType) in backMatterItems {
             let fileExists = fileNames.contains(fileName)
@@ -4252,15 +4269,24 @@ struct FileEditView: View {
                 print("  ✅ Enabling \(fileName) setting (file exists)")
                 #endif
                 backMatterFolder.backMatterSettings.setEnabled(backMatterType, enabled: true)
+                didChangeSettings = true
             } else if !fileExists && isCurrentlyEnabled {
                 #if DEBUG
                 print("  ❌ Disabling \(fileName) setting (file doesn't exist)")
                 #endif
                 backMatterFolder.backMatterSettings.setEnabled(backMatterType, enabled: false)
+                didChangeSettings = true
             }
         }
-        
-        WriteCoalescer.shared?.requestSave()
+
+        guard didChangeSettings else {
+            #if DEBUG
+            print("✅ Back matter settings already matched files")
+            #endif
+            return
+        }
+
+        WriteCoalescer.shared?.requestSave(reason: "back-matter-settings-sync")
         
         #if DEBUG
         print("✅ Back matter settings synced")
@@ -6636,7 +6662,7 @@ struct FileEditView: View {
         // Persist formatting changes immediately.
         // On Catalyst, project/file close can happen before a debounce timer fires,
         // which drops BIU changes on reopen.
-        saveDebounceTimer?.invalidate()
+        cancelPendingEditorSave()
         file.currentVersion?.attributedContent = newAttributedContent
         WriteCoalescer.shared?.requestSave()
         
@@ -7532,6 +7558,13 @@ struct FileEditView: View {
         #if DEBUG
         print("🔄 Has changes: \(hasChanges)")
         #endif
+
+        if hasChanges && mutableText.isEqual(to: attributedContent) {
+            hasChanges = false
+            #if DEBUG
+            print("📝 Reapplied style output matches existing content - skipping open-time rewrite")
+            #endif
+        }
         
         // Update document if any changes were made
         if hasChanges {
@@ -8309,8 +8342,7 @@ struct FileEditView: View {
         previousAttributedContent = clearedContent
         selectedRange = NSRange(location: 0, length: 0)
 
-        saveDebounceTimer?.invalidate()
-        saveDebounceTimer = nil
+        cancelPendingEditorSave()
 
         saveChanges()
         saveUndoState()
@@ -8577,7 +8609,7 @@ struct FileEditView: View {
     }
     #endif
     
-    private func saveChanges() {
+    private func saveChanges(reason: String = "file-editor-saveChanges") {
         // IMPORTANT: Do NOT save if formattedContent is incomplete from CloudKit sync.
         // The decoded content is missing image attachments that exist on another device.
         // Saving would overwrite the phone's complete formattedContent with a stripped version.
@@ -8600,23 +8632,16 @@ struct FileEditView: View {
         
         // Save the current attributed content to the model
         // IMPORTANT: Get the current content from the textView to include all attachments (comments, images)
+        var contentToPersist: NSAttributedString
+        var metadataToPersist: Data?
         if let textView = textViewCoordinator.textView {
             let rawContent = textView.attributedText ?? NSAttributedString()
             let currentContent = normalizeReferenceAttachmentsToText(in: rawContent)
             if rawContent !== currentContent {
                 textView.textStorage.setAttributedString(currentContent)
             }
-            #if DEBUG
-            print("🧪 [FootnoteDiag] saveChanges FROM textView current=\(footnoteDebugSummary(currentContent)) binding=\(footnoteDebugSummary(attributedContent))")
-            #endif
-            
-            // On iPhone, content is already normalized to 12pt for display.
-            // Save it as-is - no scaling needed since we normalize on load, not on save.
-            file.currentVersion?.attributedContent = currentContent
-            
-            // FEATURE 029: Extract and save reference metadata
-            let referenceMetadata = extractReferenceMetadata(from: currentContent)
-            file.currentVersion?.referenceMetadataData = referenceMetadata.encode()
+            contentToPersist = currentContent
+            metadataToPersist = extractReferenceMetadata(from: currentContent).encode()
             
             // Count attachments for debugging
             var commentCount = 0
@@ -8638,39 +8663,57 @@ struct FileEditView: View {
             currentContent.enumerateAttribute(.poemSectionType, in: NSRange(location: 0, length: currentContent.length)) { value, range, _ in
                 if value != nil {
                     poemSectionCount += 1
-                    #if DEBUG
-                    print("💾 Found poemSectionType '\(value!)' at range \(range)")
-                    #endif
                 }
             }
-            #if DEBUG
-            print("💾 Saving attributed content with \(commentCount) comments, \(imageCount) images, \(footnoteCount) footnotes, \(referenceCount) references, and \(poemSectionCount) marked sections")
-            #endif
         } else {
-            let contentToSave = attributedContent
-            #if DEBUG
-            print("🧪 [FootnoteDiag] saveChanges FROM binding content=\(footnoteDebugSummary(contentToSave))")
-            #endif
-
-            file.currentVersion?.attributedContent = contentToSave
-            
-            // FEATURE 029: Extract and save reference metadata
-            let referenceMetadata = extractReferenceMetadata(from: contentToSave)
-            file.currentVersion?.referenceMetadataData = referenceMetadata.encode()
+            contentToPersist = attributedContent
+            metadataToPersist = extractReferenceMetadata(from: contentToPersist).encode()
         }
+
+        guard let currentVersion = file.currentVersion else { return }
+
+        let storedContent = currentVersion.attributedContent ?? NSAttributedString()
+        let contentChanged = !storedContent.isEqual(to: contentToPersist)
+        let metadataChanged = currentVersion.referenceMetadataData != metadataToPersist
+
+        guard contentChanged || metadataChanged else {
+            return
+        }
+
+        currentVersion.attributedContent = contentToPersist
+        currentVersion.referenceMetadataData = metadataToPersist
         
         file.modifiedDate = Date()
         
-        WriteCoalescer.shared?.requestSave()
+        WriteCoalescer.shared?.requestSave(reason: reason)
     }
 
-    private func flushPendingEditorChanges() {
-        saveDebounceTimer?.invalidate()
-        saveDebounceTimer = nil
-
-        saveChanges()
+    private func flushPendingEditorChanges(reason: String = "editor-flush") {
+        if !commitPendingEditorSave(reason: reason) {
+            saveChanges(reason: reason)
+        }
         saveUndoState()
         WriteCoalescer.shared?.flush()
+    }
+
+    private func handleEditorDidEnterBackground() {
+        #if targetEnvironment(macCatalyst)
+        if textViewCoordinator.textView?.isFirstResponder == true || WriteCoalescer.shared?.hasRecentEditingActivity(within: 20) == true {
+            #if DEBUG
+            print("💾 [FileEditView] skipped Catalyst background flush — editor input active")
+            #endif
+            return
+        }
+        #else
+        if scenePhase == .active, textViewCoordinator.textView?.isFirstResponder == true {
+            #if DEBUG
+            print("💾 [FileEditView] skipped background flush — editor still active")
+            #endif
+            return
+        }
+        #endif
+
+        flushPendingEditorChanges(reason: "editor-did-enter-background-flush")
     }
 
     /// Reload the editor's attributed content from the SwiftData model after a CloudKit import,
@@ -9145,4 +9188,5 @@ private struct ImageStyleEditorSheetContent: View {
         )
     }
 }
+/// Helper view to encapsulate the caption style logic for ImageStyleEditorView
 

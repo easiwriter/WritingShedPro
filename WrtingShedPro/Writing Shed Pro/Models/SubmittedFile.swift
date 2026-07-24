@@ -16,7 +16,7 @@ class SubmittedFile {
     var textFile: TextFile?
     var version: Version?
     
-    var status: SubmissionStatus?
+    var statusRaw: String = SubmissionStatus.pending.rawValue
     var statusDate: Date?
     var statusNotes: String?
     
@@ -39,7 +39,7 @@ class SubmittedFile {
         self.submission = submission
         self.textFile = textFile
         self.version = version
-        self.status = status
+        self.statusRaw = status.rawValue
         self.statusDate = statusDate
         self.statusNotes = statusNotes
         self.project = project
@@ -87,13 +87,31 @@ class SubmittedFile {
     }
     
     // MARK: - Computed Properties
+
+    var submissionStatus: SubmissionStatus? {
+        get { SubmissionStatus(rawValue: normalizedStatusRawValue(statusRaw)) }
+        set { statusRaw = newValue?.rawValue ?? SubmissionStatus.pending.rawValue }
+    }
+
+    private func normalizedStatusRawValue(_ rawValue: String) -> String {
+        if SubmissionStatus(rawValue: rawValue) != nil {
+            return rawValue
+        }
+        if rawValue.contains("accepted") {
+            return SubmissionStatus.accepted.rawValue
+        }
+        if rawValue.contains("rejected") {
+            return SubmissionStatus.rejected.rawValue
+        }
+        return SubmissionStatus.pending.rawValue
+    }
     
     var acceptanceDate: Date? {
-        status == .accepted ? statusDate : nil
+        submissionStatus == .accepted ? statusDate : nil
     }
     
     var rejectionDate: Date? {
-        status == .rejected ? statusDate : nil
+        submissionStatus == .rejected ? statusDate : nil
     }
     
     var daysSinceSubmission: Int {

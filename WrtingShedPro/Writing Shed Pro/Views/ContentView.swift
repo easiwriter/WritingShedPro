@@ -126,9 +126,11 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             if newPhase == .active && oldPhase != .active {
-                syncOnForegroundResume()
+                let shouldReconcile = syncOnForegroundResume()
                 startPeriodicSyncTimer()
-                scheduleRemoteReconcile(reason: "foreground-resume")
+                if shouldReconcile {
+                    scheduleRemoteReconcile(reason: "foreground-resume")
+                }
                 Task {
                     await checkForNewSupportMessagesIfNeeded()
                 }
@@ -234,19 +236,34 @@ struct ContentView: View {
     // MARK: - Foreground Resume Sync
     
     /// When the app returns to the foreground, reconcile the visible project list.
-    private func syncOnForegroundResume() {
+    private func syncOnForegroundResume() -> Bool {
         let now = Date()
+        guard !isEditorInputActiveForReconcile() else {
+            #if DEBUG
+            if now.timeIntervalSince(lastReconcileTriggerLogDate) >= 10 {
+                print("🔄 [ContentView] Foreground resume ignored — editor input active")
+                lastReconcileTriggerLogDate = now
+            }
+            #endif
+            return false
+        }
+
         guard now.timeIntervalSince(lastForegroundSyncDate) > 60 else {
             #if DEBUG
             print("🔄 [ContentView] Foreground resume ignored — last observation was \(Int(now.timeIntervalSince(lastForegroundSyncDate)))s ago")
             #endif
-            return
+            return false
         }
         lastForegroundSyncDate = now
 
         #if DEBUG
         print("🔄 [ContentView] App became active — reconciling local store")
         #endif
+        return true
+    }
+
+    private func isEditorInputActiveForReconcile() -> Bool {
+        writeCoalescer.editingActivity != .idle || writeCoalescer.hasRecentEditingActivity(within: 20)
     }
 
     @MainActor
@@ -342,6 +359,20 @@ struct ContentView: View {
         remoteReconcileTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 800_000_000) // debounce notification bursts
             guard !Task.isCancelled else { return }
+            guard !isEditorInputActiveForReconcile() else {
+                #if DEBUG
+                let now = Date()
+                if now.timeIntervalSince(lastReconcileTriggerLogDate) >= 10 {
+                    print("⏸️ [ContentView] Reconcile deferred during active editor input (\(reason))")
+                    lastReconcileTriggerLogDate = now
+                }
+                #endif
+
+                try? await Task.sleep(nanoseconds: 5_500_000_000)
+                guard !Task.isCancelled else { return }
+                scheduleRemoteReconcile(reason: reason)
+                return
+            }
             reconcileProjectListIfNeeded()
 
             #if DEBUG
@@ -523,9 +554,13 @@ struct ContentView: View {
             #endif
             return
         }
-        hasRunStartupMigrations = true
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
+
+            guard await waitForEnsemblesStartupWritesIfNeeded(reason: "startup migrations") else {
+                return
+            }
+            hasRunStartupMigrations = true
 
             #if DEBUG
             print("✅ [ContentView] Running startup migrations")
@@ -664,6 +699,10 @@ struct ContentView: View {
             // Give sync a brief chance to deliver existing stylesheets before we initialize defaults.
             try? await Task.sleep(nanoseconds: 2_000_000_000)
 
+            guard await waitForEnsemblesStartupWritesIfNeeded(reason: "stylesheet initialization") else {
+                return
+            }
+
             var waitCycles = 0
             let isFreshDatabase = projects.isEmpty
             let maxWait = isFreshDatabase ? 10 : 0
@@ -716,6 +755,38 @@ struct ContentView: View {
             // One-time fix: Convert user guide files to markdown mode
             migrateUserGuideToMarkdown()
         }
+    }
+
+    private func waitForEnsemblesStartupWritesIfNeeded(reason: String) async -> Bool {
+        guard let ensemblesContainer = Write_App.activeEnsemblesContainer else { return true }
+
+        let maxWaitSeconds = 60
+        let requiredIdleSeconds = 3
+        var consecutiveIdleSeconds = 0
+        for second in 0..<maxWaitSeconds {
+            let activity = String(describing: ensemblesContainer.currentActivity)
+            if ensemblesContainer.isAttached && activity == "none" {
+                consecutiveIdleSeconds += 1
+                if consecutiveIdleSeconds >= requiredIdleSeconds {
+                    return true
+                }
+            } else {
+                consecutiveIdleSeconds = 0
+            }
+
+            #if DEBUG
+            if second == 0 || second % 5 == 0 {
+                print("⏳ [ContentView] Waiting for Ensembles attach before \(reason)... attached=\(ensemblesContainer.isAttached) activity=\(activity)")
+            }
+            #endif
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+
+        #if DEBUG
+        let activity = String(describing: ensemblesContainer.currentActivity)
+        print("⚠️ [ContentView] Deferring \(reason); Ensembles not attached after \(maxWaitSeconds)s attached=\(ensemblesContainer.isAttached) activity=\(activity)")
+        #endif
+        return false
     }
     
     /// One-time migration: Convert Writing Shed Pro Guide files to markdown mode
@@ -929,23 +1000,39 @@ struct ContentView: View {
             return
         }
 
-        for (index, project) in allProjects.enumerated() {
-            project.userOrder = index
-        }
+        Task { @MainActor in
+            guard await waitForEnsemblesStartupWritesIfNeeded(reason: "userOrder initialization") else {
+                return
+            }
 
-        if state.selectedSortOrder != .byUserOrder {
-            state.selectedSortOrder = .byUserOrder
-        }
+            let descriptor = FetchDescriptor<Project>(sortBy: [SortDescriptor(\Project.creationDate)])
+            guard let allProjects = try? modelContext.fetch(descriptor), !allProjects.isEmpty else {
+                return
+            }
 
-        do {
-            try modelContext.save()
-            #if DEBUG
-            print("✅ [ContentView] Initialized userOrder for \(allProjects.count) projects")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ [ContentView] Failed to initialize userOrder: \(error.localizedDescription)")
-            #endif
+            let projectsNeedingOrder = allProjects.filter { $0.userOrder == nil }
+            guard projectsNeedingOrder.count == allProjects.count else {
+                return
+            }
+
+            for (index, project) in allProjects.enumerated() {
+                project.userOrder = index
+            }
+
+            if state.selectedSortOrder != .byUserOrder {
+                state.selectedSortOrder = .byUserOrder
+            }
+
+            do {
+                try modelContext.save()
+                #if DEBUG
+                print("✅ [ContentView] Initialized userOrder for \(allProjects.count) projects")
+                #endif
+            } catch {
+                #if DEBUG
+                print("❌ [ContentView] Failed to initialize userOrder: \(error.localizedDescription)")
+                #endif
+            }
         }
     }
     

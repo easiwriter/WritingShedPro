@@ -14,7 +14,7 @@ class Publication {
     var id: UUID = UUID()
     var projectId: UUID?
     var name: String = ""
-    var type: PublicationType?
+    var typeRaw: String = PublicationType.magazine.rawValue
     var url: String?
     var notes: String?
     var deadline: Date?
@@ -46,7 +46,7 @@ class Publication {
     ) {
         self.id = id
         self.name = name
-        self.type = type
+        self.typeRaw = type.rawValue
         self.url = url
         self.notes = notes
         self.deadline = deadline
@@ -70,6 +70,22 @@ class Publication {
     }
     
     // MARK: - Computed Properties
+
+    var publicationType: PublicationType? {
+        get { PublicationType(rawValue: normalizedTypeRawValue(typeRaw)) }
+        set { typeRaw = newValue?.rawValue ?? PublicationType.magazine.rawValue }
+    }
+
+    private func normalizedTypeRawValue(_ rawValue: String) -> String {
+        if PublicationType(rawValue: rawValue) != nil {
+            return rawValue
+        }
+        for type in [PublicationType.magazine, .competition, .commission, .publisher, .agent, .other]
+        where rawValue.contains(type.rawValue) {
+            return type.rawValue
+        }
+        return PublicationType.magazine.rawValue
+    }
     
     var hasDeadline: Bool {
         deadline != nil
