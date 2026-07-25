@@ -374,7 +374,8 @@ struct BodyMatterView: View {
         }
         
         project.modifiedDate = Date()
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "body-matter-add-item")
+        WriteCoalescer.shared?.flush()
     }
     
     private func removeItems(at offsets: IndexSet) {
@@ -425,7 +426,8 @@ struct BodyMatterView: View {
         // Renumber remaining items
         renumberBodyMatterItems()
         project.modifiedDate = Date()
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "body-matter-remove-item")
+        WriteCoalescer.shared?.flush()
     }
     
     private func moveItems(from source: IndexSet, to destination: Int) {
@@ -488,7 +490,8 @@ struct BodyMatterView: View {
         }
         
         project.modifiedDate = Date()
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "body-matter-move-item")
+        WriteCoalescer.shared?.flush()
     }
     
     private func renumberBodyMatterItems() {

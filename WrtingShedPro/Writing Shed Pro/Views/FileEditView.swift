@@ -30,6 +30,7 @@ struct FileEditView: View {
     @State private var previousAttributedContent: NSAttributedString?  // Track for undo without expensive DB fetch
     @State private var saveDebounceTimer: Timer?  // Debounce saves to reduce I/O
     @State private var pendingDebouncedAttributedContent: NSAttributedString?
+    @State private var pendingDebouncedSaveNeedsTextViewSnapshot = false
     @State private var endnoteCleanupTimer: Timer?  // Debounce endnote cleanup
     @State private var validationBadgeTimer: Timer?  // Debounce poetry validation
     /// True when the loaded content has U+FFFC placeholders but the corresponding
@@ -306,6 +307,9 @@ struct FileEditView: View {
                                 onTextChange: { change in
                                     handleAttributedTextChange(change)
                                 },
+                                onSimpleTypingChange: { range, replacementText, selectedRange in
+                                    handleSimpleTypingChange(range: range, replacementText: replacementText, selectedRange: selectedRange)
+                                },
                                 onImageTapped: { attachment, frame, position in
                                     handleImageTap(attachment: attachment, frame: frame, position: position)
                                 },
@@ -372,6 +376,9 @@ struct FileEditView: View {
                                 isEditable: isFileEditable,
                                 onTextChange: { change in
                                     handleAttributedTextChange(change)
+                                },
+                                onSimpleTypingChange: { range, replacementText, selectedRange in
+                                    handleSimpleTypingChange(range: range, replacementText: replacementText, selectedRange: selectedRange)
                                 },
                                 onImageTapped: { attachment, frame, position in
                                     handleImageTap(attachment: attachment, frame: frame, position: position)
@@ -447,6 +454,9 @@ struct FileEditView: View {
                                 onTextChange: { change in
                                     handleAttributedTextChange(change)
                                 },
+                                onSimpleTypingChange: { range, replacementText, selectedRange in
+                                    handleSimpleTypingChange(range: range, replacementText: replacementText, selectedRange: selectedRange)
+                                },
                                 onImageTapped: { attachment, frame, position in
                                     handleImageTap(attachment: attachment, frame: frame, position: position)
                                 },
@@ -510,6 +520,9 @@ struct FileEditView: View {
                                 isEditable: isFileEditable,
                                 onTextChange: { change in
                                     handleAttributedTextChange(change)
+                                },
+                                onSimpleTypingChange: { range, replacementText, selectedRange in
+                                    handleSimpleTypingChange(range: range, replacementText: replacementText, selectedRange: selectedRange)
                                 },
                                 onImageTapped: { attachment, frame, position in
                                     handleImageTap(attachment: attachment, frame: frame, position: position)
@@ -3224,6 +3237,15 @@ struct FileEditView: View {
     private func scheduleEditorSave(_ attributedTextToSave: NSAttributedString) {
         saveDebounceTimer?.invalidate()
         pendingDebouncedAttributedContent = attributedTextToSave
+        pendingDebouncedSaveNeedsTextViewSnapshot = false
+        let coalescer = WriteCoalescer.shared
+        scheduleEditorSaveTimer(coalescer: coalescer)
+    }
+
+    private func scheduleEditorSaveFromTextView() {
+        saveDebounceTimer?.invalidate()
+        pendingDebouncedAttributedContent = nil
+        pendingDebouncedSaveNeedsTextViewSnapshot = true
         let coalescer = WriteCoalescer.shared
         scheduleEditorSaveTimer(coalescer: coalescer)
     }
@@ -3243,10 +3265,20 @@ struct FileEditView: View {
 
     @discardableResult
     private func commitPendingEditorSave(reason: String, coalescer: WriteCoalescer? = nil) -> Bool {
-        guard let attributedTextToSave = pendingDebouncedAttributedContent else { return false }
+        let attributedTextToSave: NSAttributedString
+        if let pendingDebouncedAttributedContent {
+            attributedTextToSave = pendingDebouncedAttributedContent
+        } else if pendingDebouncedSaveNeedsTextViewSnapshot,
+                  let textView = textViewCoordinator.textView,
+                  let textViewContent = textView.attributedText {
+            attributedTextToSave = NSAttributedString(attributedString: textViewContent)
+        } else {
+            return false
+        }
         saveDebounceTimer?.invalidate()
         saveDebounceTimer = nil
         pendingDebouncedAttributedContent = nil
+        pendingDebouncedSaveNeedsTextViewSnapshot = false
 
         attributedContent = attributedTextToSave
         file.currentVersion?.attributedContent = attributedTextToSave
@@ -3264,6 +3296,38 @@ struct FileEditView: View {
         saveDebounceTimer?.invalidate()
         saveDebounceTimer = nil
         pendingDebouncedAttributedContent = nil
+        pendingDebouncedSaveNeedsTextViewSnapshot = false
+    }
+
+    private func handleSimpleTypingChange(range: NSRange, replacementText: String, selectedRange newSelectedRange: NSRange) {
+        guard !isPerformingUndoRedo else { return }
+        WriteCoalescer.shared?.noteEditingActivity()
+
+        if hasMissingAttachments {
+            hasMissingAttachments = false
+        }
+
+        guard !searchManager.isPerformingBatchReplace else { return }
+
+        if file.currentVersion?.isLocked == true, !attemptedEdit {
+            showLockedVersionWarning = true
+            if let currentVersion = file.currentVersion {
+                attributedContent = currentVersion.attributedContent ?? NSAttributedString(string: "")
+            }
+            return
+        }
+
+        undoManager.execute(TextInsertCommand(position: range.location, text: replacementText, targetFile: file))
+
+        let previousNSString = previousContent as NSString
+        if range.location <= previousNSString.length,
+           range.location + range.length <= previousNSString.length {
+            previousContent = previousNSString.replacingCharacters(in: range, with: replacementText)
+        } else if let liveText = textViewCoordinator.textView?.attributedText?.string {
+            previousContent = liveText
+        }
+        previousAttributedContent = nil
+        scheduleEditorSaveFromTextView()
     }
 
     private func handleAttributedTextChange(_ change: TextEditorChange) {
@@ -6277,7 +6341,10 @@ struct FileEditView: View {
         #if DEBUG
         print("🔄 performUndo called - canUndo: \(undoManager.canUndo)")
         #endif
+        textViewCoordinator.flushPendingTyping?()
         guard undoManager.canUndo else { return }
+
+        commitPendingEditorSave(reason: "file-editor-undo-flush")
         
         isPerformingUndoRedo = true
         
@@ -8689,6 +8756,7 @@ struct FileEditView: View {
     }
 
     private func flushPendingEditorChanges(reason: String = "editor-flush") {
+        textViewCoordinator.flushPendingTyping?()
         if !commitPendingEditorSave(reason: reason) {
             saveChanges(reason: reason)
         }

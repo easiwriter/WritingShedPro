@@ -572,7 +572,8 @@ struct TrashView: View {
             modelContext.delete(item)
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "trash-delete-items")
+        WriteCoalescer.shared?.flush()
         itemsToDelete = []
         exitEditMode()
     }
@@ -591,7 +592,8 @@ struct TrashView: View {
             scene.restore()
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "trash-restore-scenes")
+        WriteCoalescer.shared?.flush()
         scenesToRestore = []
         exitEditMode()
     }
@@ -615,7 +617,8 @@ struct TrashView: View {
             modelContext.delete(scene)
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "trash-delete-scenes")
+        WriteCoalescer.shared?.flush()
         scenesToDelete = []
         exitEditMode()
     }

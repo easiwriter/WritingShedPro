@@ -20,6 +20,40 @@ final class ProjectPresentationDeduplicationTests: XCTestCase {
         XCTAssertEqual(visible.first?.id, rich.id)
     }
 
+    func testPresentedProjectsCollapsesStructurallyIdenticalRecoveryClones() {
+        let first = Project(name: "Poems 2026", type: .poetry, creationDate: Date(timeIntervalSince1970: 1_710_000_000))
+        let second = Project(name: "Poems 2026", type: .poetry, creationDate: Date(timeIntervalSince1970: 1_720_000_000))
+
+        let firstManuscript = Folder(name: "Manuscript", project: first)
+        let firstDraft = TextFile(name: "Draft", parentFolder: firstManuscript)
+        firstManuscript.textFiles = [firstDraft]
+        first.folders = [firstManuscript]
+
+        let secondManuscript = Folder(name: "Manuscript", project: second)
+        let secondDraft = TextFile(name: "Draft", parentFolder: secondManuscript)
+        secondManuscript.textFiles = [secondDraft]
+        second.folders = [secondManuscript]
+
+        let visible = DeduplicationService.presentedProjects(from: [first, second])
+
+        XCTAssertEqual(visible.count, 1)
+    }
+
+    func testPresentedProjectsCollapsesSameNameTypeRecoveryClonesEvenWhenRelationshipsDiffer() {
+        let populated = Project(name: "Poems 2026", type: .poetry, creationDate: Date(timeIntervalSince1970: 1_710_000_000))
+        let relationshipLagging = Project(name: "Poems 2026", type: .poetry, creationDate: Date(timeIntervalSince1970: 1_720_000_000))
+
+        let manuscript = Folder(name: "Manuscript", project: populated)
+        let draft = TextFile(name: "Draft", parentFolder: manuscript)
+        manuscript.textFiles = [draft]
+        populated.folders = [manuscript]
+
+        let visible = DeduplicationService.presentedProjects(from: [populated, relationshipLagging])
+
+        XCTAssertEqual(visible.count, 1)
+        XCTAssertEqual(visible.first?.id, populated.id)
+    }
+
     func testPresentedProjectsDoesNotCollapseUnnamedProjects() {
         let first = Project(name: nil, type: .prose)
         let second = Project(name: nil, type: .prose)

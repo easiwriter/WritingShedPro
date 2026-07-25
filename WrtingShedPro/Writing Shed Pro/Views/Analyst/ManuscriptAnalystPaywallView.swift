@@ -25,118 +25,21 @@ struct ManuscriptAnalystPaywallView: View {
 
     private var paywallContent: some View {
             VStack(spacing: 10) {
-                // Hero section
-                VStack(spacing: 12) {
-                    Image(systemName: "text.magnifyingglass")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.cyan)
-                    
-                    VStack(spacing: 8) {
-                        Text("Manuscript Analyst")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        Text("AI-Powered Editorial Feedback")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 12)
+                heroSection
 
                 Divider()
 
-                // Features list
-                VStack(alignment: .leading, spacing: 8) {
-                    featureRow("text.magnifyingglass", "Smart editorial suggestions tailored to your genre", .cyan)
-                    featureRow("chart.line", "Track writing improvements over time", .green)
-                    featureRow("lightning.bolt", "Analyze entire manuscripts in seconds", .orange)
-                    featureRow("brain.fill", "AI powered by Claude 3.5 Sonnet", .purple)
-                }
-                .padding(.vertical, 8)
+                featuresList
 
                 Divider()
 
-                // Pricing info
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Subscription Plans")
-                        .font(.headline)
-                    
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Monthly")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                            Text("$5.99/month")
-                                .font(.title3)
-                                .fontWeight(.bold)
-                                .foregroundStyle(.cyan)
-                        }
-                        Spacer()
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("First Month")
-                                .font(.caption)
-                                .foregroundStyle(.green)
-                                .fontWeight(.semibold)
-                            Text("FREE")
-                                .font(.headline)
-                                .foregroundStyle(.green)
-                        }
-                    }
-                    .padding(12)
-                    .background(Color(.systemBackground))
-                    .cornerRadius(8)
-
-                    Text("Includes AI-powered editorial feedback for one manuscript or file at a time. Billed monthly after the free first month until cancelled.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 4)
+                pricingInfo
 
                 Spacer(minLength: 0)
 
-                // CTA buttons
-                VStack(spacing: 12) {
-                    Button(action: { Task { await purchaseSubscription() } }) {
-                        Group {
-                            if isPurchasing {
-                                ProgressView()
-                                    .tint(.white)
-                            } else {
-                                Label("Start Free Trial", systemImage: "star.fill")
-                                    .foregroundStyle(.white)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(.cyan)
-                        .cornerRadius(8)
-                    }
-                    .disabled(isPurchasing)
+                ctaButtons
 
-                    Button(action: { cancelFlow() }) {
-                        Text("Cancel")
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .foregroundStyle(.cyan)
-                            .background(Color.cyan.opacity(0.1))
-                            .cornerRadius(8)
-                    }
-                }
-
-                // Fine print
-                Button(action: { showTrialTerms = true }) {
-                    Label("Trial Terms", systemImage: "info.circle")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack(spacing: 16) {
-                    Link("Terms of Use", destination: URL(string: "https://writingshedpro.com/terms")!)
-                    Text("•")
-                        .foregroundStyle(.secondary)
-                    Link("Privacy Policy", destination: URL(string: "https://writingshedpro.com/privacy")!)
-                }
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                finePrint
             }
             .padding()
             .navigationBarTitleDisplayMode(.inline)
@@ -158,6 +61,131 @@ struct ManuscriptAnalystPaywallView: View {
             } message: {
                 Text(purchaseError ?? "")
             }
+    }
+
+    private var heroSection: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "text.magnifyingglass")
+                .font(.system(size: 48))
+                .foregroundStyle(.cyan)
+
+            VStack(spacing: 8) {
+                Text("Manuscript Analyst")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Text("AI-Powered Editorial Feedback")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 12)
+    }
+
+    private var featuresList: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            featureRow("text.magnifyingglass", "Smart editorial suggestions tailored to your genre", .cyan)
+            featureRow("chart.line", "Track writing improvements over time", .green)
+            featureRow("lightning.bolt", "Analyze entire manuscripts in seconds", .orange)
+            featureRow("brain.fill", "AI powered by Claude 3.5 Sonnet", .purple)
+        }
+        .padding(.vertical, 8)
+    }
+
+    private var pricingInfo: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Subscription Plans")
+                .font(.headline)
+
+            subscriptionPlanCard
+
+            Text("Includes AI-powered editorial feedback for one manuscript or file at a time. Billed monthly after the free first month until cancelled.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var subscriptionPlanCard: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Monthly")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text("$5.99/month")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.cyan)
+            }
+            Spacer()
+            VStack(alignment: .leading, spacing: 4) {
+                Text("First Month")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+                    .fontWeight(.semibold)
+                Text("FREE")
+                    .font(.headline)
+                    .foregroundStyle(.green)
+            }
+        }
+        .padding(12)
+        .background(Color(.systemBackground))
+        .cornerRadius(8)
+    }
+
+    private var ctaButtons: some View {
+        VStack(spacing: 12) {
+            Button(action: { Task { await purchaseSubscription() } }) {
+                purchaseButtonLabel
+            }
+            .disabled(isPurchasing)
+
+            Button(action: { cancelFlow() }) {
+                Text("Cancel")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .foregroundStyle(.cyan)
+                    .background(Color.cyan.opacity(0.1))
+                    .cornerRadius(8)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var purchaseButtonLabel: some View {
+        if isPurchasing {
+            ProgressView()
+                .tint(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(.cyan)
+                .cornerRadius(8)
+        } else {
+            Label("Start Free Trial", systemImage: "star.fill")
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(.cyan)
+                .cornerRadius(8)
+        }
+    }
+
+    private var finePrint: some View {
+        VStack(spacing: 8) {
+            Button(action: { showTrialTerms = true }) {
+                Label("Trial Terms", systemImage: "info.circle")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 16) {
+                Link("Terms of Use", destination: URL(string: "https://writingshedpro.com/terms")!)
+                Text("•")
+                    .foregroundStyle(.secondary)
+                Link("Privacy Policy", destination: URL(string: "https://writingshedpro.com/privacy")!)
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+        }
     }
 
     private func cancelFlow() {

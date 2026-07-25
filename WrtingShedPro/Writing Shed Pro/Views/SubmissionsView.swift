@@ -303,7 +303,7 @@ struct SubmissionsView: View {
         modelContext.insert(submission)
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "submissions-view-save")
             refreshFetchedSubmissions()
             NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
         } catch {
@@ -355,14 +355,14 @@ struct SubmissionsView: View {
             // Update status of existing submitted files to pending with current date
             if let submittedFiles = existingSubmission.submittedFiles {
                 for submittedFile in submittedFiles {
-                    submittedFile.status = .pending
+                                submittedFile.submissionStatus = .pending
                     submittedFile.statusDate = Date()
                 }
             }
         }
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "submissions-view-save")
             refreshFetchedSubmissions()
             selectedSubmissionIDs.removeAll()
             withAnimation {
@@ -388,7 +388,7 @@ struct SubmissionsView: View {
             modelContext.delete(submission)
         }
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "submissions-view-save")
             fetchedSubmissions.removeAll { submissionIDs.contains($0.id) }
             NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
         } catch {

@@ -378,7 +378,7 @@ struct CitationEditorSheet: View {
         
         // Save context
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "citation-editor-save")
         } catch {
             #if DEBUG
             print("❌ Error saving citation: \(error)")

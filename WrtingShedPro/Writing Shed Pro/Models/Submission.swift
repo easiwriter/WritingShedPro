@@ -96,15 +96,15 @@ class Submission {
     }
     
     var pendingCount: Int {
-        submittedFiles?.filter { $0.status == .pending }.count ?? 0
+        submittedFiles?.filter { $0.submissionStatus == .pending }.count ?? 0
     }
     
     var acceptedCount: Int {
-        submittedFiles?.filter { $0.status == .accepted }.count ?? 0
+        submittedFiles?.filter { $0.submissionStatus == .accepted }.count ?? 0
     }
     
     var rejectedCount: Int {
-        submittedFiles?.filter { $0.status == .rejected }.count ?? 0
+        submittedFiles?.filter { $0.submissionStatus == .rejected }.count ?? 0
     }
     
     var overallStatus: OverallStatus {
@@ -113,7 +113,7 @@ class Submission {
         var accepted = 0
         var rejected = 0
         for f in files {
-            switch f.status {
+            switch f.submissionStatus {
             case .accepted: accepted += 1
             case .rejected: rejected += 1
             default: break

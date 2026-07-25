@@ -267,7 +267,9 @@ struct SectionListView: View {
             modelContext.delete(section)
         }
         
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "section-list-delete")
+        WriteCoalescer.shared?.flush()
         selectedSectionIDs.removeAll()
         renumberSections()
         exitEditMode()
@@ -279,7 +281,9 @@ struct SectionListView: View {
         section.name = name
         section.synopsis = synopsis.isEmpty ? nil : synopsis
         section.modifiedDate = Date()
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "section-list-update")
+        WriteCoalescer.shared?.flush()
     }
     
     private func moveSections(from source: IndexSet, to destination: Int) {
@@ -292,7 +296,9 @@ struct SectionListView: View {
             section.modifiedDate = Date()
         }
         
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "section-list-move")
+        WriteCoalescer.shared?.flush()
     }
     
     private func renumberSections() {
@@ -300,7 +306,9 @@ struct SectionListView: View {
             section.userOrder = index
             section.modifiedDate = Date()
         }
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "section-list-renumber")
+        WriteCoalescer.shared?.flush()
     }
     
     private func createSubmissionFromSections(name: String) {
@@ -337,7 +345,8 @@ struct SectionListView: View {
             }
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "section-list-create-submission")
+        WriteCoalescer.shared?.flush()
         createdSubmissionName = trimmedName
         showSubmissionCreated = true
         selectedSectionIDs.removeAll()

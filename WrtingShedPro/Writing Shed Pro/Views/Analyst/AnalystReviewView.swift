@@ -755,6 +755,7 @@ struct SuggestionCard: View {
 
     private func toggleAddressed() {
         suggestion.isAddressed.toggle()
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "analyst-review-toggle-addressed")
+        WriteCoalescer.shared?.flush()
     }
 }

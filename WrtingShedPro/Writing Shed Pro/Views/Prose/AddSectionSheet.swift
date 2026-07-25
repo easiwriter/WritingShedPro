@@ -119,7 +119,9 @@ struct AddSectionSheet: View {
         modelContext.insert(section)
         
         do {
-            try modelContext.save()
+            section.modifiedDate = Date()
+            project.modifiedDate = Date()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "add-prose-section")
             dismiss()
         } catch {
             errorMessage = error.localizedDescription

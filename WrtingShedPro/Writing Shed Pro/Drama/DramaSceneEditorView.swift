@@ -166,7 +166,9 @@ struct DramaSceneEditorView: View {
             renderContent()
             // Save script type preference to project
             project.dramaScriptType = scriptType
-            try? modelContext.save()
+            project.modifiedDate = Date()
+            WriteCoalescer.shared?.requestSave(reason: "drama-scene-script-type")
+            WriteCoalescer.shared?.flush()
         }
         .onChange(of: viewMode) { _, _ in
             renderContent()
@@ -361,7 +363,8 @@ struct DramaSceneEditorView: View {
         case 2: // Duplicate
             file.addVersion()
             loadContent()
-            try? modelContext.save()
+            WriteCoalescer.shared?.requestSave(reason: "drama-scene-duplicate-version")
+            WriteCoalescer.shared?.flush()
         case 3: // Delete
             #if DEBUG
             logVersionDiagnostics("about to present delete alert")
@@ -743,7 +746,8 @@ struct DramaSceneEditorView: View {
         // Save DML source as plain text
         file.currentVersion?.content = text
         file.modifiedDate = Date()
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "drama-scene-save-content")
+        WriteCoalescer.shared?.flush()
     }
     
     private func debounceParse(_ text: String) {

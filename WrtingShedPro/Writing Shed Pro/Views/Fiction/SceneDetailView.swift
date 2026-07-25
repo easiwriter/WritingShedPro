@@ -634,14 +634,22 @@ struct SceneDetailView: View {
         scene.locations = Array(editLocations)
         scene.characters = Array(editCharacters)
         scene.plotElements = Array(editPlotElements)
+        scene.modifiedDate = Date()
+        project.modifiedDate = Date()
+        for plotElement in editPlotElements {
+            plotElement.modifiedDate = Date()
+        }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "scene-detail-save")
+        WriteCoalescer.shared?.flush()
         isEditing = false
     }
     
     private func deleteScene() {
         modelContext.delete(scene)
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "scene-detail-delete")
+        WriteCoalescer.shared?.flush()
         dismiss()
     }
 }

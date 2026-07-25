@@ -81,7 +81,7 @@ struct ManuscriptAnalystActionSheet: View {
                 
                 // Save the review to the model context
                 modelContext.insert(reviewResult)
-                try modelContext.save()
+                try WriteCoalescer.shared.requestSaveAndFlush(reason: "manuscript-analyst-action-save")
                 
                 withAnimation(.easeInOut(duration: 0.3)) {
                     self.review = reviewResult

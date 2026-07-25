@@ -66,9 +66,16 @@ struct ReferenceCreatorSheet: View {
     }
     
     private var existingReferences: [ReferenceEntry] {
-        project.referenceEntries?
-            .filter { $0.referenceCount > 0 }
-        ?? []
+        let projectId = project.id
+        let projectName = project.name
+        if let fetchedReferences = try? ModelContext(modelContext.container).fetch(FetchDescriptor<ReferenceEntry>()) {
+            let projectReferences = fetchedReferences.filter { $0.project?.id == projectId || $0.project?.name == projectName }
+            if !projectReferences.isEmpty {
+                return sortedReferences(projectReferences)
+            }
+        }
+
+        return sortedReferences(project.referenceEntries ?? [])
     }
     
     private var isReferencingExisting: Bool {
@@ -82,7 +89,7 @@ struct ReferenceCreatorSheet: View {
         let trimmedDate = publicationDate.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !trimmedAuthor.isEmpty && !trimmedDate.isEmpty else { return nil }
         
-        return project.referenceEntries?.first { entry in
+        return existingReferences.first { entry in
             entry.author.lowercased() == trimmedAuthor &&
             entry.publicationDate.lowercased() == trimmedDate
         }
@@ -204,7 +211,7 @@ struct ReferenceCreatorSheet: View {
             }
         }) {
             HStack {
-                Text(showingReferenceExistingList ? "Hide Reference Existing" : "Reference Existing")
+                Text(showingReferenceExistingList ? "Hide Existing References" : "Use Existing Reference")
                 Spacer()
                 Image(systemName: showingReferenceExistingList ? "chevron.up" : "chevron.down")
             }
@@ -215,6 +222,13 @@ struct ReferenceCreatorSheet: View {
     }
     
     // MARK: - Create New Form
+
+    private func sortedReferences(_ references: [ReferenceEntry]) -> [ReferenceEntry] {
+        references.sorted {
+            ($0.author.localizedLowercase, $0.publicationDate.localizedLowercase, $0.id.uuidString) <
+            ($1.author.localizedLowercase, $1.publicationDate.localizedLowercase, $1.id.uuidString)
+        }
+    }
     
     @ViewBuilder
     private var createNewReferenceForm: some View {
@@ -403,7 +417,7 @@ struct ReferenceCreatorSheet: View {
             
             // Save context
             do {
-                try modelContext.save()
+                try WriteCoalescer.shared.requestSaveAndFlush(reason: "reference-creator-save")
             } catch {
                 #if DEBUG
                 print("❌ Error saving reference: \(error)")

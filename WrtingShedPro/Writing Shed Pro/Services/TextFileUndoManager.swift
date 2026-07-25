@@ -65,10 +65,10 @@ final class TextFileUndoManager {
     /// - Parameter command: The command to execute
     func execute(_ command: UndoableCommand) {
         #if DEBUG
-        print("🔄 TextFileUndoManager.execute() - command: \(command.description)")
-        #endif
-        #if DEBUG
-        print("🔄 Before execute - undo stack: \(undoStack.count), redo stack: \(redoStack.count)")
+        if !(command is TextInsertCommand) {
+            print("🔄 TextFileUndoManager.execute() - command: \(command.description)")
+            print("🔄 Before execute - undo stack: \(undoStack.count), redo stack: \(redoStack.count)")
+        }
         #endif
         
         // Flush any typing buffer if this isn't another insert command
@@ -106,7 +106,9 @@ final class TextFileUndoManager {
         
         updateState()
         #if DEBUG
-        print("🔄 After execute - undo stack: \(undoStack.count), redo stack: \(redoStack.count)")
+        if !(command is TextInsertCommand) {
+            print("🔄 After execute - undo stack: \(undoStack.count), redo stack: \(redoStack.count)")
+        }
         #endif
     }
     
@@ -131,7 +133,8 @@ final class TextFileUndoManager {
             undoStack.removeFirst()
         }
         
-        updateState()
+        // The typing buffer is flushed after the user pauses. Avoid publishing undo-state
+        // changes for every repeated keypress; that invalidates SwiftUI during live typing.
     }
     
     /// Undo the last command
@@ -251,7 +254,9 @@ final class TextFileUndoManager {
             startTypingTimer()
         }
         
-        updateState()
+        if undoStack.isEmpty {
+            updateState()
+        }
     }
     
     private func updateState() {

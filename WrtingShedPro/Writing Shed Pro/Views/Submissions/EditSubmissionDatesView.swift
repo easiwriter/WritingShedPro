@@ -160,7 +160,7 @@ struct EditSubmissionDatesView: View {
         submission.modifiedDate = Date()
 
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "edit-submission-dates-save")
             dismiss()
         } catch {
             #if DEBUG

@@ -30,8 +30,8 @@ struct NotesEditorSheet: View {
                     backgroundColor: .systemBackground,
                     textContainerInset: UIEdgeInsets(top: 12, left: 12, bottom: 12, right: 12),
                     isEditable: true,
-                    onTextChange: { newText in
-                        persistNotes(newText)
+                    onTextChange: { change in
+                        persistNotes(change.attributedText)
                     }
                 )
                 .background(Color(uiColor: .systemBackground))

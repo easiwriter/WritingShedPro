@@ -268,7 +268,7 @@ struct GlossaryEditorSheet: View {
         
         // Save context
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "glossary-editor-save")
         } catch {
             #if DEBUG
             print("❌ Error saving glossary term: \(error)")

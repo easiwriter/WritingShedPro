@@ -187,14 +187,10 @@ struct ContributorEditorSheet: View {
             project.contributorEntries?.append(newContributor)
         }
         
-        // Save context
-        do {
-            try modelContext.save()
-            onSave?()
-            dismiss()
-        } catch {
-            validationMessage = error.localizedDescription
-            showValidationAlert = true
-        }
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "contributor-editor-save")
+        WriteCoalescer.shared?.flush()
+        onSave?()
+        dismiss()
     }
 }

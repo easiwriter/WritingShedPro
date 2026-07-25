@@ -439,7 +439,7 @@ struct GlossaryListView: View {
         modelContext.delete(term)
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "glossary-list-save")
         } catch {
             #if DEBUG
             print("❌ Error deleting glossary term: \(error)")

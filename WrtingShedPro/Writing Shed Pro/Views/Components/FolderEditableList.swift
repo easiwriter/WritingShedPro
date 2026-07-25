@@ -106,7 +106,8 @@ struct FolderEditableList: View {
             let folder = sortedFolders[index]
             modelContext.delete(folder)
         }
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "folder-list-delete")
+        WriteCoalescer.shared?.flush()
         foldersToDelete = nil
     }
 }

@@ -10,6 +10,7 @@ import SwiftUI
 
 struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
+    private let ensemblesURL = URL(string: "https://ensembles.io")!
     
     // Get app version from bundle
     private var appVersion: String {
@@ -53,6 +54,16 @@ struct AboutView: View {
                      + Text(" button in the toolbar"))
                     .font(.subheadline)
                     .foregroundStyle(.blue)
+                }
+
+                // MARK: - Credits
+                Section(NSLocalizedString("about.credits.title", comment: "Credits section title")) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(NSLocalizedString("about.ensembles.credit", comment: "Credit for Ensembles sync support"))
+                            .foregroundStyle(.secondary)
+                        Link("ensembles.io", destination: ensemblesURL)
+                    }
+                    .font(.subheadline)
                 }
                 
                 // MARK: - Copyright

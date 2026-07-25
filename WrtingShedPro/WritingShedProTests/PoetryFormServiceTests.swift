@@ -8,11 +8,11 @@ final class PoetryFormServiceTests: XCTestCase {
     override func setUp() {
         super.setUp()
         service = PoetryFormService.shared
-        service.clearCache()
+        service.resetForTesting()
     }
     
     override func tearDown() {
-        service.clearCache()
+        service.resetForTesting()
         super.tearDown()
     }
     
@@ -278,16 +278,16 @@ final class PoetryFormServiceTests: XCTestCase {
     
     // MARK: - Template Generation Tests
     
-    func testGenerateTemplateWithTitle() {
-        let form = service.getForm(byId: PoetryForm.haikuId)!
+    func testGenerateTemplateWithTitle() throws {
+        let form = try XCTUnwrap(service.getForm(byId: PoetryForm.haikuId))
         let template = service.generateTemplate(for: form, title: "My Haiku")
         
         XCTAssertTrue(template.hasPrefix("# My Haiku\n\n"))
         XCTAssertTrue(template.contains("Line 1 (5 syllables)"))
     }
     
-    func testGenerateTemplateWithoutTitle() {
-        let form = service.getForm(byId: PoetryForm.haikuId)!
+    func testGenerateTemplateWithoutTitle() throws {
+        let form = try XCTUnwrap(service.getForm(byId: PoetryForm.haikuId))
         let template = service.generateTemplate(for: form)
         
         XCTAssertFalse(template.hasPrefix("#"))
@@ -337,21 +337,21 @@ final class PoetryFormServiceTests: XCTestCase {
         }
     }
     
-    func testSyllableBasedFormsHaveCorrectLineCount() {
+    func testSyllableBasedFormsHaveCorrectLineCount() throws {
         // Haiku: 3 lines with 5-7-5
-        let haiku = service.getForm(byId: PoetryForm.haikuId)!
+        let haiku = try XCTUnwrap(service.getForm(byId: PoetryForm.haikuId))
         XCTAssertEqual(haiku.lineCount, 3)
         XCTAssertEqual(haiku.syllablePattern?.count, 3)
         
         // Tanka: 5 lines with 5-7-5-7-7
-        let tanka = service.getForm(byId: PoetryForm.tankaId)!
+        let tanka = try XCTUnwrap(service.getForm(byId: PoetryForm.tankaId))
         XCTAssertEqual(tanka.lineCount, 5)
         XCTAssertEqual(tanka.syllablePattern?.count, 5)
     }
     
-    func testSonnetsHave14Lines() {
-        let shakespearean = service.getForm(byId: PoetryForm.sonnetShakespeareanId)!
-        let petrarchan = service.getForm(byId: PoetryForm.sonnetPetrarchanId)!
+    func testSonnetsHave14Lines() throws {
+        let shakespearean = try XCTUnwrap(service.getForm(byId: PoetryForm.sonnetShakespeareanId))
+        let petrarchan = try XCTUnwrap(service.getForm(byId: PoetryForm.sonnetPetrarchanId))
         
         XCTAssertEqual(shakespearean.lineCount, 14)
         XCTAssertEqual(petrarchan.lineCount, 14)

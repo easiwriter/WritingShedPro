@@ -350,7 +350,7 @@ struct IndexOccurrenceFinderSheet: View {
         
         // Save changes
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "index-occurrence-finder-save")
             
             #if DEBUG
             print("📑 Marked \(totalMarked) occurrences of '\(entry.keyword)'")

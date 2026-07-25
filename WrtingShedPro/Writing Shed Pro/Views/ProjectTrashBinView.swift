@@ -73,7 +73,8 @@ struct ProjectTrashBinView: View {
                     for project in projectsToPutBack {
                         DeduplicationService.restoreProjectFamily(project, context: modelContext)
                     }
-                    try? modelContext.save()
+                    WriteCoalescer.shared?.requestSave(reason: "project-trash-restore")
+                    WriteCoalescer.shared?.flush()
                     selectedProjectIDs.removeAll()
                 }
             }
@@ -84,7 +85,7 @@ struct ProjectTrashBinView: View {
                         DeduplicationService.permanentlyDeleteProjectFamily(project, context: modelContext)
                     }
                     do {
-                        try modelContext.save()
+                        try WriteCoalescer.shared.requestSaveAndFlush(reason: "project-trash-bin-delete")
                     } catch {
                         deleteErrorMessage = String(
                             format: NSLocalizedString("project.deleteForever.saveFailed.message", comment: "Delete failed message"),

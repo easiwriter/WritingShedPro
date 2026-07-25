@@ -130,7 +130,9 @@ struct LocationListView: View {
     
     private func deleteLocation(_ location: Location) {
         modelContext.delete(location)
-        try? modelContext.save()
+        location.project?.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "location-list-delete")
+        WriteCoalescer.shared?.flush()
     }
 }
 

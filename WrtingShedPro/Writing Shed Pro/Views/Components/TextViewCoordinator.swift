@@ -6,6 +6,7 @@ import PhotosUI
 class TextViewCoordinator: NSObject, ObservableObject, UIDocumentPickerDelegate, PHPickerViewControllerDelegate {
     weak var textView: UITextView?
     var onImagePicked: ((URL) -> Void)?
+    var flushPendingTyping: (() -> Void)?
     weak var presentingViewController: UIViewController?
     var documentPicker: UIDocumentPickerViewController? // Strong reference for Mac Catalyst
     var phPicker: PHPickerViewController? // Strong reference for PHPicker

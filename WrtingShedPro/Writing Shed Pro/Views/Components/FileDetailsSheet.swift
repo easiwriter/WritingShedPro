@@ -269,7 +269,8 @@ struct FileDetailsSheet: View {
 
         file.name = trimmed
         file.modifiedDate = Date()
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "file-details-save")
+        WriteCoalescer.shared?.flush()
         dismiss()
     }
 }

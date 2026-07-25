@@ -7,6 +7,7 @@
 
 import Foundation
 import Network
+import StoreKit
 import SwiftData
 import StoreKitManager
 import Observation
@@ -68,11 +69,15 @@ final class EntitlementManager {
 
     func setPaywallCaptureModeEnabled(_ enabled: Bool) async {
         UserDefaults.standard.set(enabled, forKey: Self.paywallCaptureModeKey)
+        if enabled {
+            locallyVerifiedProductIDs.removeAll()
+        }
         await refreshEntitlements()
     }
 
     func resetPaywallCaptureState() async {
         UserDefaults.standard.removeObject(forKey: Self.paywallCaptureModeKey)
+        locallyVerifiedProductIDs.removeAll()
         await refreshEntitlements()
     }
 #endif
@@ -97,7 +102,16 @@ final class EntitlementManager {
         let hasConfirmedPath = hasConfirmedNetworkPath
         let wasOffline = hasConfirmedPath ? !isNetworkReachable : false
         await purchaseManager.checkEntitlement()
-        cachedEntitlements = purchaseManager.entitledProductIDs.union(locallyVerifiedProductIDs)
+        let verifiedEntitlements = await loadCurrentEntitlementProductIDs()
+#if DEBUG
+        if isPaywallCaptureModeEnabled {
+            cachedEntitlements = locallyVerifiedProductIDs
+        } else {
+            cachedEntitlements = verifiedEntitlements.union(locallyVerifiedProductIDs)
+        }
+#else
+        cachedEntitlements = verifiedEntitlements.union(locallyVerifiedProductIDs)
+#endif
         isLoaded = true
 
         // Show the offline warning only if we got no entitlements AND we were
@@ -110,8 +124,20 @@ final class EntitlementManager {
         }
         
         #if DEBUG
-        print("📦 [EntitlementManager] Loaded entitlements: \(cachedEntitlements) (offline=\(wasOffline), pathConfirmed=\(hasConfirmedPath))")
+        print("📦 [EntitlementManager] Loaded entitlements: \(cachedEntitlements) (storeKitManager=\(purchaseManager.entitledProductIDs), offline=\(wasOffline), pathConfirmed=\(hasConfirmedPath))")
         #endif
+    }
+
+    private func loadCurrentEntitlementProductIDs() async -> Set<String> {
+        var productIDs: Set<String> = []
+        for await result in Transaction.currentEntitlements {
+            guard case .verified(let transaction) = result else { continue }
+            guard WSPProduct.allProductIDs.contains(transaction.productID) else { continue }
+            guard transaction.revocationDate == nil else { continue }
+            if let expirationDate = transaction.expirationDate, expirationDate <= Date() { continue }
+            productIDs.insert(transaction.productID)
+        }
+        return productIDs
     }
 
     // MARK: - Network Monitoring
@@ -143,24 +169,15 @@ final class EntitlementManager {
     
     /// Check if a specific product is purchased
     func isModulePurchased(_ product: WSPProduct) -> Bool {
-#if DEBUG
-        if isPaywallCaptureModeEnabled {
-            return false
-        }
-#endif
-        // If entitlements haven't loaded yet, assume purchased to avoid
-        // false blocks while the async StoreKit check is still in-flight.
+        // Until StoreKit has reported entitlements, do not mark products owned.
         guard isLoaded else {
-            return true
+            return false
         }
         // Check cached entitlements first (includes locally verified purchases
         // that Transaction.currentEntitlements may not yet reflect on iOS).
         let cachedBundle = cachedEntitlements.contains(WSPProduct.allInBundle.rawValue)
         let cachedProduct = cachedEntitlements.contains(product.rawValue)
-        // Also check the purchase manager directly as a fallback
-        let bundleEntitled = cachedBundle || purchaseManager.isEntitled(to: WSPProduct.allInBundle.rawValue)
-        let productEntitled = cachedProduct || purchaseManager.isEntitled(to: product.rawValue)
-        return bundleEntitled || productEntitled
+        return cachedBundle || cachedProduct
     }
     
     /// Check if a project type is unlocked (purchased or bundle)
@@ -171,29 +188,19 @@ final class EntitlementManager {
     
     /// Check if user has any purchases
     var hasAnyPurchase: Bool {
-#if DEBUG
-        if isPaywallCaptureModeEnabled {
-            return false
-        }
-#endif
-        return !purchaseManager.entitledProductIDs.isEmpty
+        return !cachedEntitlements.isEmpty
     }
     
     /// Check if user has purchased the full bundle
     var hasBundle: Bool {
-#if DEBUG
-        if isPaywallCaptureModeEnabled {
-            return false
-        }
-#endif
-        return purchaseManager.isEntitled(to: WSPProduct.allInBundle.rawValue)
+        return cachedEntitlements.contains(WSPProduct.allInBundle.rawValue)
     }
     
     /// Check if user has purchased at least one individual module (not via bundle)
     var hasAnyIndividualModulePurchase: Bool {
         guard !hasBundle else { return false }  // Bundle doesn't count as individual
         return WSPProduct.individualModules.contains { product in
-            purchaseManager.isEntitled(to: product.rawValue)
+            cachedEntitlements.contains(product.rawValue)
         }
     }
     
@@ -271,21 +278,13 @@ final class EntitlementManager {
 
     /// Check if user has active Manuscript Analyst subscription
     func isManuscriptAnalystSubscriptionActive() -> Bool {
-#if DEBUG
-        if isPaywallCaptureModeEnabled {
-            return false
-        }
-#endif
-        // If entitlements haven't loaded yet, assume subscribed to avoid
-        // false blocks while the async StoreKit check is still in-flight.
+        // Until StoreKit has reported entitlements, do not mark subscriptions active.
         guard isLoaded else {
-            return true
+            return false
         }
         // Check if the subscription product is in cached entitlements
         let subscriptionProductID = WSPProduct.manuscriptAnalystSubscription.rawValue
-        let hasCachedSubscription = cachedEntitlements.contains(subscriptionProductID)
-        let hasDirectSubscription = purchaseManager.isEntitled(to: subscriptionProductID)
-        return hasCachedSubscription || hasDirectSubscription
+        return cachedEntitlements.contains(subscriptionProductID)
     }
     
     // MARK: - Free Tier Limits

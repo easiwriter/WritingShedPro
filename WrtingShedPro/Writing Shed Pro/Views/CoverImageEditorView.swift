@@ -144,7 +144,9 @@ struct CoverImageEditorView: View {
             Button(role: .destructive) {
                 withAnimation {
                     file.coverImageData = nil
-                    try? modelContext.save()
+                    file.modifiedDate = Date()
+                    WriteCoalescer.shared?.requestSave(reason: "cover-image-remove")
+                    WriteCoalescer.shared?.flush()
                 }
             } label: {
                 Label(
@@ -194,7 +196,9 @@ struct CoverImageEditorView: View {
         if let compressed = Self.compressImage(uiImage) {
             withAnimation {
                 file.coverImageData = compressed
-                try? modelContext.save()
+                file.modifiedDate = Date()
+                WriteCoalescer.shared?.requestSave(reason: "cover-image-process")
+                WriteCoalescer.shared?.flush()
             }
         }
         isProcessing = false
@@ -207,7 +211,9 @@ struct CoverImageEditorView: View {
         if let compressed = Self.compressImage(uiImage) {
             await MainActor.run {
                 file.coverImageData = compressed
-                try? modelContext.save()
+                file.modifiedDate = Date()
+                WriteCoalescer.shared?.requestSave(reason: "cover-image-load")
+                WriteCoalescer.shared?.flush()
             }
         }
     }

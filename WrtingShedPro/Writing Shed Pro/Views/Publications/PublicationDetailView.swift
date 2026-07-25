@@ -31,7 +31,7 @@ struct PublicationDetailView: View {
                     
                     LabeledContent("publications.form.type.label") {
                         HStack {
-                            if let type = publication.type {
+                            if let type = publication.publicationType {
                                 Text(type.icon)
                                 Text(type.displayName)
                             }

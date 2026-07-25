@@ -125,16 +125,14 @@ struct AddCharacterSheet: View {
             work: nil
         )
         character.project = project
+        character.modifiedDate = Date()
+        project.modifiedDate = Date()
         
         modelContext.insert(character)
         
-        do {
-            try modelContext.save()
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-            showErrorAlert = true
-        }
+        WriteCoalescer.shared?.requestSave(reason: "add-character")
+        WriteCoalescer.shared?.flush()
+        dismiss()
     }
 
     private func resolvedRoleValue() -> String? {

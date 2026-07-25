@@ -472,7 +472,7 @@ struct IndexListView: View {
         modelContext.delete(entry)
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "index-list-save")
         } catch {
             #if DEBUG
             print("❌ Error deleting index entry: \(error)")
@@ -518,7 +518,7 @@ struct IndexListView: View {
         modelContext.delete(source)
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "index-list-save")
         } catch {
             #if DEBUG
             print("❌ Error merging index entry: \(error)")

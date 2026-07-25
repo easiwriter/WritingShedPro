@@ -36,6 +36,17 @@ class NumberingLayoutManager: NSLayoutManager {
     /// Whether the layout manager should draw the extra trailing editor line number.
     /// FormattedTextEditor handles this in CustomTextView.draw(_:) to avoid clip issues.
     var drawDocumentExtraLineInBackground: Bool = true
+
+    private var suppressDecorativeDrawingUntil: Date?
+
+    var isDecorativeDrawingSuppressed: Bool {
+        guard let suppressDecorativeDrawingUntil else { return false }
+        return Date() < suppressDecorativeDrawingUntil
+    }
+
+    func suppressDecorativeDrawing(for interval: TimeInterval) {
+        suppressDecorativeDrawingUntil = Date().addingTimeInterval(interval)
+    }
     
     /// Initial counter state for cross-page numbering continuity.
     /// Set by VirtualPageScrollView to continue numbering from previous pages.
@@ -173,6 +184,25 @@ class NumberingLayoutManager: NSLayoutManager {
         }
 
         return fallbackNumberFormat(for: styleName)
+    }
+
+    private func visibleRangeCanDrawParagraphNumbers(_ visibleRange: NSRange, textStorage: NSTextStorage, styleSheet: StyleSheet) -> Bool {
+        if textStorage.length == 0,
+           let bodyStyle = styleSheet.style(named: "UICTFontTextStyleBody"),
+           bodyStyle.numberFormat != .none {
+            return true
+        }
+
+        var foundNumberedParagraph = false
+        textStorage.enumerateAttributes(in: visibleRange, options: []) { attrs, _, stop in
+            guard let styleName = attrs[.textStyle] as? String else { return }
+            let style = styleSheet.style(named: styleName)
+            if Self.effectiveNumberFormat(for: styleName, style: style, attrs: attrs) != .none {
+                foundNumberedParagraph = true
+                stop.pointee = true
+            }
+        }
+        return foundNumberedParagraph
     }
 
     private func fallbackStyle(
@@ -344,6 +374,10 @@ class NumberingLayoutManager: NSLayoutManager {
     /// For poetry projects, also draws line numbers on the right margin
     override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
         super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
+
+        guard !isDecorativeDrawingSuppressed else {
+            return
+        }
         
         guard let textStorage = textStorage,
               let project = project else {
@@ -370,6 +404,9 @@ class NumberingLayoutManager: NSLayoutManager {
         
         // Get the visible character range
         let charRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
+        guard visibleRangeCanDrawParagraphNumbers(charRange, textStorage: textStorage, styleSheet: styleSheet) else {
+            return
+        }
         
         // Build parent-child style map for hierarchical numbering
         let parentStyleMap = buildParentStyleMap(from: styleSheet)
@@ -837,17 +874,20 @@ class NumberingLayoutManager: NSLayoutManager {
         
         let charRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
         let text = textStorage.string as NSString
+        let fullRange = NSRange(location: 0, length: text.length)
+        let visibleRange = NSIntersectionRange(charRange, fullRange)
+        guard visibleRange.length > 0 else { return }
         
-        text.enumerateSubstrings(in: charRange, options: .byComposedCharacterSequences) { [weak self] substring, substringRange, _, _ in
-            guard let self = self,
-                  substring == "\u{000C}",
-                  substringRange.length == 1 else { return }
+        var searchRange = visibleRange
+        while searchRange.length > 0 {
+            let substringRange = text.range(of: "\u{000C}", options: [], range: searchRange)
+            guard substringRange.location != NSNotFound else { return }
             
-            let glyphIndex = self.glyphIndexForCharacter(at: substringRange.location)
-            let lineFragmentRect = self.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: nil)
+            let glyphIndex = glyphIndexForCharacter(at: substringRange.location)
+            let lineFragmentRect = lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: nil)
             
             // Get the text container width for line span
-            let containerWidth = self.textContainers.first?.size.width ?? lineFragmentRect.width
+            let containerWidth = textContainers.first?.size.width ?? lineFragmentRect.width
             
             let lineColor = UIColor.systemGray2
             let lineY = origin.y + lineFragmentRect.origin.y + lineFragmentRect.height / 2
@@ -897,6 +937,11 @@ class NumberingLayoutManager: NSLayoutManager {
             
             // Draw label text
             label.draw(in: labelRect, withAttributes: labelAttrs)
+
+            let nextLocation = NSMaxRange(substringRange)
+            let visibleEnd = NSMaxRange(visibleRange)
+            guard nextLocation < visibleEnd else { return }
+            searchRange = NSRange(location: nextLocation, length: visibleEnd - nextLocation)
         }
     }
     
@@ -906,6 +951,10 @@ class NumberingLayoutManager: NSLayoutManager {
     /// Page breaks are drawn separately by drawPageBreakLines (always visible)
     override func drawGlyphs(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
         super.drawGlyphs(forGlyphRange: glyphsToShow, at: origin)
+
+        guard !isDecorativeDrawingSuppressed else {
+            return
+        }
         
         // Always draw page break lines regardless of showInvisibles
         drawPageBreakLines(forGlyphRange: glyphsToShow, at: origin)

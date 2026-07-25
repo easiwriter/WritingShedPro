@@ -160,7 +160,7 @@ struct ProjectCreationService {
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
 
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "onboarding-fiction-project")
             ReviewManager.shared.recordSignificantEvent()
             return project
         } catch {
@@ -220,7 +220,7 @@ struct TextFileCreationService {
         }
 
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "onboarding-poetry-project")
             ReviewManager.shared.recordSignificantEvent()
             return file
         } catch {
@@ -350,7 +350,7 @@ struct OnboardingCreationService {
         }
 
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "onboarding-empty-project")
             ReviewManager.shared.recordSignificantEvent()
             return file
         } catch {

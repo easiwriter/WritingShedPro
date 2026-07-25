@@ -607,7 +607,7 @@ struct ProseFilesView: View {
         }
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "prose-files-save")
             let format = copiedCount == 1
                 ? NSLocalizedString("copyToProject.success.single", comment: "1 file copied")
                 : NSLocalizedString("copyToProject.success.multiple", comment: "%d files copied")
@@ -651,7 +651,9 @@ struct ProseFilesView: View {
             file.section = nil
         }
         
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "prose-files-remove")
+        WriteCoalescer.shared?.flush()
         selectedFileIDs.removeAll()
         renumberFiles()
         exitEditMode()
@@ -666,14 +668,18 @@ struct ProseFilesView: View {
             file.userOrder = index
         }
         
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "prose-files-move")
+        WriteCoalescer.shared?.flush()
     }
     
     private func renumberFiles() {
         for (index, file) in sortedFiles.enumerated() {
             file.userOrder = index
         }
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "prose-files-renumber")
+        WriteCoalescer.shared?.flush()
     }
     
     private func exitEditMode() {
@@ -712,7 +718,8 @@ struct ProseFilesView: View {
             modelContext.insert(submittedFile)
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "prose-files-create-submission")
+        WriteCoalescer.shared?.flush()
         createdSubmissionName = trimmedName
         showSubmissionCreated = true
         selectedFileIDs.removeAll()

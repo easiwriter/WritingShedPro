@@ -480,7 +480,7 @@ struct NotesListView: View {
         modelContext.delete(note)
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "notes-list-save")
             #if DEBUG
             print("💾 Saved deletion to database")
             #endif

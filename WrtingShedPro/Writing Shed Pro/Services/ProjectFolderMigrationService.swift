@@ -139,7 +139,7 @@ struct ProjectFolderMigrationService {
         // if oldVersion < 17 { ... }
         
         do {
-            try modelContext.save()
+            try EnsemblesSaveGate.save(modelContext, reason: "project-folder-migration")
             #if DEBUG
             print("[ProjectFolderMigration] ✅ Migration saved successfully")
             #endif
@@ -823,7 +823,7 @@ struct ProjectFolderMigrationService {
                 }
             }
             
-            try modelContext.save()
+            try EnsemblesSaveGate.save(modelContext, reason: "project-folder-cleanup-root-manuscript")
             #if DEBUG
             print("[ProjectFolderMigration] ✅ Cleanup complete")
             #endif
@@ -866,7 +866,7 @@ struct ProjectFolderMigrationService {
                 }
             }
             
-            try modelContext.save()
+            try EnsemblesSaveGate.save(modelContext, reason: "project-folder-fix-manuscript-subfolders")
             #if DEBUG
             print("[ProjectFolderMigration] ✅ Parent relationship fix complete")
             #endif

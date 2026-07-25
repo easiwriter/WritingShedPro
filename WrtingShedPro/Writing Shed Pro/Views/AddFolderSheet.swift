@@ -80,8 +80,9 @@ struct AddFolderSheet: View {
             parentFolder.folders?.append(newFolder)
         }
         
-        // Explicitly save to trigger CloudKit sync
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "add-folder")
+        WriteCoalescer.shared?.flush()
         
         isPresented = false
     }

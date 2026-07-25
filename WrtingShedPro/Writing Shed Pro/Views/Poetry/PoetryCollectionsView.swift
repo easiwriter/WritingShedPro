@@ -331,7 +331,9 @@ struct PoetryCollectionsView: View {
             collectionToEdit = nil
         }
         
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "poetry-collections-delete")
+        WriteCoalescer.shared?.flush()
         refreshLiveFileCounts()
         selectedCollectionIDs.removeAll()
         editMode = .inactive
@@ -343,7 +345,9 @@ struct PoetryCollectionsView: View {
         collection.name = name
         collection.synopsis = synopsis.isEmpty ? nil : synopsis
         collection.modifiedDate = Date()
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "poetry-collections-update")
+        WriteCoalescer.shared?.flush()
         refreshLiveFileCounts()
     }
     
@@ -352,8 +356,11 @@ struct PoetryCollectionsView: View {
         collections.move(fromOffsets: source, toOffset: destination)
         for (index, collection) in collections.enumerated() {
             collection.userOrder = index
+            collection.modifiedDate = Date()
         }
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "poetry-collections-move")
+        WriteCoalescer.shared?.flush()
         refreshLiveFileCounts()
     }
     
@@ -391,7 +398,8 @@ struct PoetryCollectionsView: View {
             }
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "poetry-collections-create-submission")
+        WriteCoalescer.shared?.flush()
         createdSubmissionName = trimmedName
         showSubmissionCreated = true
         selectedCollectionIDs.removeAll()

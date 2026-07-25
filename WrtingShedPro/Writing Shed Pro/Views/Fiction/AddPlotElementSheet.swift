@@ -396,14 +396,15 @@ struct AddPlotElementSheet: View {
             
             modelContext.insert(scene)
             modelContext.insert(textFile)
+            scene.modifiedDate = Date()
+            textFile.modifiedDate = Date()
+            element.modifiedDate = Date()
         }
         
-        do {
-            try modelContext.save()
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-            showErrorAlert = true
-        }
+        element.modifiedDate = Date()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "add-plot-element")
+        WriteCoalescer.shared?.flush()
+        dismiss()
     }
 }

@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// Command for inserting text at a specific position
 final class TextInsertCommand: UndoableCommand {
@@ -35,33 +36,61 @@ final class TextInsertCommand: UndoableCommand {
     
     func execute() {
         guard let file = targetFile,
-              let content = file.currentVersion?.content,
+              let currentVersion = file.currentVersion,
+              let content = currentVersion.attributedContent,
               position >= 0,
-              position <= content.count else {
+              position <= content.length else {
             return
         }
-        
-        let index = content.index(content.startIndex, offsetBy: position)
-        var newContent = content
-        newContent.insert(contentsOf: text, at: index)
-        file.currentVersion?.updateContent(newContent)
+
+        let updatedContent = NSMutableAttributedString(attributedString: content)
+        let insertionAttributes: [NSAttributedString.Key: Any]
+        if position > 0 {
+            insertionAttributes = updatedContent.attributes(at: position - 1, effectiveRange: nil)
+        } else if updatedContent.length > 0 {
+            insertionAttributes = updatedContent.attributes(at: 0, effectiveRange: nil)
+        } else {
+            insertionAttributes = [
+                .font: UIFont.preferredFont(forTextStyle: .body),
+                .textStyle: UIFont.TextStyle.body.attributeValue
+            ]
+        }
+        updatedContent.insert(NSAttributedString(string: text, attributes: insertionAttributes), at: position)
+
+        currentVersion.attributedContent = updatedContent
+        currentVersion.updateContent(updatedContent.string)
         file.modifiedDate = Date()
+
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+        NotificationCenter.default.post(
+            name: NSNotification.Name("UndoRedoContentRestored"),
+            object: file,
+            userInfo: ["content": updatedContent]
+        )
     }
     
     func undo() {
         guard let file = targetFile,
-              let content = file.currentVersion?.content,
+              let currentVersion = file.currentVersion,
+              let content = currentVersion.attributedContent,
               position >= 0,
-              position + text.count <= content.count else {
+              position + (text as NSString).length <= content.length else {
             return
         }
-        
-        let startIndex = content.index(content.startIndex, offsetBy: position)
-        let endIndex = content.index(startIndex, offsetBy: text.count)
-        var newContent = content
-        newContent.removeSubrange(startIndex..<endIndex)
-        file.currentVersion?.updateContent(newContent)
+
+        let updatedContent = NSMutableAttributedString(attributedString: content)
+        updatedContent.deleteCharacters(in: NSRange(location: position, length: (text as NSString).length))
+
+        currentVersion.attributedContent = updatedContent
+        currentVersion.updateContent(updatedContent.string)
         file.modifiedDate = Date()
+
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+        NotificationCenter.default.post(
+            name: NSNotification.Name("UndoRedoContentRestored"),
+            object: file,
+            userInfo: ["content": updatedContent]
+        )
     }
     
     // MARK: - Codable

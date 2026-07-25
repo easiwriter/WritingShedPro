@@ -119,7 +119,8 @@ struct AddActSheet: View {
         modelContext.insert(act)
         
         do {
-            try modelContext.save()
+            project.modifiedDate = Date()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "add-act")
             dismiss()
         } catch {
             errorMessage = error.localizedDescription

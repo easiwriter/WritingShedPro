@@ -161,7 +161,8 @@ struct ReferenceEditorSheet: View {
         
         // Save to database
         do {
-            try modelContext.save()
+            project.modifiedDate = Date()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "reference-editor-save")
         } catch {
             errorMessage = NSLocalizedString("error.saveFailed", comment: "Failed to save changes")
             showError = true
@@ -243,7 +244,7 @@ struct ReferenceEditorSheet: View {
         
         // Save the updated back matter files
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "reference-editor-delete")
         } catch {
             #if DEBUG
             print("❌ Failed to save updated back matter files: \(error)")

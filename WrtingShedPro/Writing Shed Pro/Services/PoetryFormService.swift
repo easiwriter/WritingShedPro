@@ -179,6 +179,13 @@ final class PoetryFormService {
         cachedCustomForms = nil
         formsByCategory = nil
     }
+
+    #if DEBUG
+    func resetForTesting() {
+        modelContext = nil
+        clearCache()
+    }
+    #endif
     
     // MARK: - Custom Form CRUD Operations
     
@@ -380,6 +387,13 @@ final class PoetryFormService {
                 #endif
                 return loadPredefinedFormsFromJSON()
             }
+
+            guard hasRequiredPredefinedForms(forms) else {
+                #if DEBUG
+                print("[PoetryFormService] ⚠️ Database forms are incomplete, merging JSON predefined forms")
+                #endif
+                return mergePredefinedForms(loadPredefinedFormsFromJSON(), with: forms)
+            }
             
             #if DEBUG
             print("[PoetryFormService] ✅ Loaded \(forms.count) forms from database")
@@ -408,6 +422,13 @@ final class PoetryFormService {
             guard !forms.isEmpty else {
                 #if DEBUG
                 print("[PoetryFormService] ⚠️ No predefined forms in database, falling back to JSON")
+                #endif
+                return loadPredefinedFormsFromJSON()
+            }
+
+            guard hasRequiredPredefinedForms(forms) else {
+                #if DEBUG
+                print("[PoetryFormService] ⚠️ Predefined forms in database are incomplete, falling back to JSON")
                 #endif
                 return loadPredefinedFormsFromJSON()
             }
@@ -503,6 +524,22 @@ final class PoetryFormService {
             seen.insert(form.id)
             return true
         }
+    }
+
+    private func hasRequiredPredefinedForms(_ forms: [PoetryForm]) -> Bool {
+        let ids = Set(forms.map(\.id))
+        return ids.contains(PoetryForm.freeVerseId) && ids.contains(PoetryForm.haikuId)
+    }
+
+    private func mergePredefinedForms(_ predefinedForms: [PoetryForm], with databaseForms: [PoetryForm]) -> [PoetryForm] {
+        var mergedByID: [UUID: PoetryForm] = [:]
+        for form in predefinedForms {
+            mergedByID[form.id] = form
+        }
+        for form in databaseForms {
+            mergedByID[form.id] = form
+        }
+        return mergedByID.values.sorted { $0.name < $1.name }
     }
     
     private func createDefaultFreeVerse() -> PoetryForm {

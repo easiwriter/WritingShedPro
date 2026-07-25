@@ -112,7 +112,8 @@ struct FrontMatterSettingsDialog: View {
             saveFictionSettings()
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "front-matter-settings-save")
+        WriteCoalescer.shared?.flush()
         isProcessing = false
         dismiss()
     }
@@ -451,7 +452,8 @@ struct BackMatterSettingsDialog: View {
             saveFictionSettings()
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "back-matter-settings-save")
+        WriteCoalescer.shared?.flush()
         isProcessing = false
         dismiss()
     }

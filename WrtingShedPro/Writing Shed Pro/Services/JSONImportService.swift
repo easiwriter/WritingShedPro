@@ -423,8 +423,8 @@ class JSONImportService {
             }
         }
 
-        // Save phase 1: ensure parent records exist in CloudKit before join links.
-        try modelContext.save()
+        // Save phase 1: ensure parent records exist before join links.
+        try EnsemblesSaveGate.save(modelContext, reason: "json-import-wsp-phase-1")
 
         // Save phase 2: create scene join-table links.
         for linkPlan in deferredSceneLinks {
@@ -735,7 +735,7 @@ class JSONImportService {
         DeduplicationService.clearTombstone(name: project.name ?? "", typeRaw: project.typeRaw)
         
         // Save
-        try modelContext.save()
+        try EnsemblesSaveGate.save(modelContext, reason: "json-import-wsp-final")
         
         #if DEBUG
         print("[JSONImport] ===== WSP IMPORT COMPLETE =====")
@@ -1136,7 +1136,7 @@ class JSONImportService {
         DeduplicationService.clearTombstone(name: project.name ?? "", typeRaw: project.typeRaw)
         
         // Save
-        try modelContext.save()
+        try EnsemblesSaveGate.save(modelContext, reason: "json-import-legacy-final")
         
         #if DEBUG
         print("[JSONImport] ===== IMPORT COMPLETE =====")
@@ -1591,7 +1591,7 @@ class JSONImportService {
             // Create Publication
             let publication = Publication()
             publication.name = metadata.name
-            publication.type = mapPublicationType(metadata.groupName)
+                    publication.publicationType = mapPublicationType(metadata.groupName)
             publication.project = project
             publication.createdDate = Date()
             publication.modifiedDate = Date()
@@ -1602,7 +1602,7 @@ class JSONImportService {
             }
             
             #if DEBUG
-            print("[JSONImport]   Publication name: \(publication.name), type: \(String(describing: publication.type))")
+                    print("[JSONImport]   Publication name: \(publication.name), type: \(String(describing: publication.publicationType))")
             #endif
             #if DEBUG
             print("[JSONImport]   Caching publication with component ID: \(componentData.id)")
@@ -2132,9 +2132,9 @@ class JSONImportService {
                     // Try to get acceptance status from metadata
                     if let textFileId = submittedFile.textFile?.id.uuidString,
                        let acceptedStatus = metadata.acceptedFiles?[textFileId] {
-                        newFile.status = acceptedStatus ? .accepted : .pending
+                        newFile.submissionStatus = acceptedStatus ? .accepted : .pending
                     } else {
-                        newFile.status = .pending
+                        newFile.submissionStatus = .pending
                     }
                     
                     modelContext.insert(newFile)

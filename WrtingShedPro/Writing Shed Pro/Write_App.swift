@@ -22,8 +22,10 @@ struct Write_App: App {
     static private(set) var activeEnsemblesContainer: SwiftDataEnsembleContainer?
     private static let ensemblesAutoSyncUserDefaultsKey = "ensemblesAutoSyncEnabled"
     static let resetLocalEnsemblesStoreOnNextLaunchKey = "resetLocalEnsemblesStoreOnNextLaunch"
+    static let detachLocalEnsemblesBeforeResetOnNextLaunchKey = "detachLocalEnsemblesBeforeResetOnNextLaunch"
 
     private static var shouldAutoSyncEnsembles: Bool {
+        if UserDefaults.standard.bool(forKey: detachLocalEnsemblesBeforeResetOnNextLaunchKey) { return false }
         let environment = ProcessInfo.processInfo.environment
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("--ensembles-manual-sync") { return false }
@@ -191,6 +193,11 @@ struct Write_App: App {
             print("✅ [Write_App] SwiftDataEnsembleContainer active")
             #endif
             Write_App.logToFile("✅ [Ensembles] SwiftDataEnsembleContainer active")
+            if UserDefaults.standard.bool(forKey: Write_App.detachLocalEnsemblesBeforeResetOnNextLaunchKey) {
+                Task { @MainActor in
+                    await Write_App.detachForQueuedLocalReset(ensemblesContainer)
+                }
+            }
             return container
         }
 
@@ -409,7 +416,22 @@ struct Write_App: App {
         Write_App.logToFile("✅ [Ensembles] Local sync reset completed; backup=\(backupDirectory.lastPathComponent)")
     }
 
-    private static func detailedErrorDescription(_ error: Error) -> String {
+    @MainActor
+    private static func detachForQueuedLocalReset(_ ensemblesContainer: SwiftDataEnsembleContainer) async {
+        Write_App.logToFile("🔌 [Ensembles] Launch-time detach before local reset started (isAttached=\(ensemblesContainer.isAttached), activity=\(String(describing: ensemblesContainer.currentActivity)))")
+        do {
+            if ensemblesContainer.isAttached {
+                try await ensemblesContainer.detach()
+            }
+            UserDefaults.standard.removeObject(forKey: Write_App.detachLocalEnsemblesBeforeResetOnNextLaunchKey)
+            UserDefaults.standard.set(true, forKey: Write_App.resetLocalEnsemblesStoreOnNextLaunchKey)
+            Write_App.logToFile("✅ [Ensembles] Launch-time detach completed; local reset queued for next launch")
+        } catch {
+            Write_App.logErrorToFile("❌ [Ensembles] Launch-time detach before local reset failed: \(Write_App.detailedErrorDescription(error))")
+        }
+    }
+
+    static func detailedErrorDescription(_ error: Error) -> String {
         detailedNSErrorDescription(error as NSError)
     }
 
@@ -648,7 +670,7 @@ struct Write_App: App {
     }
     
     /// Static helper to log errors during initialization
-    private static func logErrorToFile(_ message: String) {
+    static func logErrorToFile(_ message: String) {
         guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
             return
         }

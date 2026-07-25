@@ -42,7 +42,7 @@ class MigrationService {
 
         if removedVersions > 0 {
             do {
-                try context.save()
+                try EnsemblesSaveGate.save(context, reason: "migration-post-import-repair")
                 #if DEBUG
                 print("🧹 [MigrationService] Post-import repair removed \(removedVersions) empty orphaned version(s)")
                 #endif
@@ -98,7 +98,7 @@ class MigrationService {
 
         if removedCount > 0 {
             do {
-                try context.save()
+                try EnsemblesSaveGate.save(context, reason: "migration-deduplicate-stylesheets")
                 #if DEBUG
                 print("🧹 [MigrationService] Deduplicated \(removedCount) custom stylesheets")
                 #endif
@@ -256,7 +256,13 @@ class MigrationService {
         }
         
         if cleanedCount > 0 {
-            try? context.save()
+            do {
+                try EnsemblesSaveGate.save(context, reason: "migration-cleanup-orphaned-folders")
+            } catch {
+                #if DEBUG
+                print("❌ [MigrationService] Failed early folder cleanup save: \(error)")
+                #endif
+            }
             #if DEBUG
             print("✅ [MigrationService] Early cleanup: Fixed \(cleanedCount) folders with dual relationships")
             #endif
@@ -292,7 +298,7 @@ class MigrationService {
         
         if removedCount > 0 {
             do {
-                try context.save()
+                try EnsemblesSaveGate.save(context, reason: "migration-cleanup-trash-items")
                 #if DEBUG
                 print("🧹 [MigrationService] Removed \(removedCount) orphaned TrashItem records")
                 #endif
@@ -333,7 +339,7 @@ class MigrationService {
         
         if removedCount > 0 {
             do {
-                try context.save()
+                try EnsemblesSaveGate.save(context, reason: "migration-cleanup-join-links")
                 #if DEBUG
                 print("🧹 [MigrationService] Removed \(removedCount) orphaned join-link records")
                 #endif
@@ -372,7 +378,13 @@ class MigrationService {
         }
         
         if totalRemoved > 0 {
-            try? context.save()
+            do {
+                try EnsemblesSaveGate.save(context, reason: "migration-deduplicate-manuscript-subfolders")
+            } catch {
+                #if DEBUG
+                print("❌ [MigrationService] Failed manuscript subfolder deduplication save: \(error)")
+                #endif
+            }
             #if DEBUG
             print("🧹 [MigrationService] Removed \(totalRemoved) duplicate folders/files from Manuscript subfolders")
             #endif
@@ -652,7 +664,7 @@ class MigrationService {
         // Only save if there are actual changes to avoid dirtying CloudKit records
         if context.hasChanges {
             do {
-                try context.save()
+                try EnsemblesSaveGate.save(context, reason: "migration-feature-036")
                 UserDefaults.standard.set(true, forKey: feature036MigrationKey)
                 #if DEBUG
                 print("✅ [MigrationService] Feature 036 migration complete for \(activeProjects.count) projects (saved changes)")

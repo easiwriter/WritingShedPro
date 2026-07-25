@@ -192,7 +192,7 @@ struct PublicationFormView: View {
             // Editing existing publication
             name = publication.name
             // Use existing type if available for this project, otherwise use first available
-            if let existingType = publication.type, availableTypes.contains(existingType) {
+            if let existingType = publication.publicationType, availableTypes.contains(existingType) {
                 selectedType = existingType
             } else {
                 selectedType = availableTypes.first ?? .other
@@ -239,7 +239,7 @@ struct PublicationFormView: View {
         if let publication = publication {
             // Edit existing
             publication.name = finalName
-            publication.type = selectedType
+            publication.publicationType = selectedType
             publication.url = trimmedURL.isEmpty ? nil : trimmedURL
             publication.deadline = hasDeadline ? deadline : nil
             publication.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
@@ -285,7 +285,8 @@ struct PublicationFormView: View {
         }
 
         do {
-            try modelContext.save()
+            project.modifiedDate = Date()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "publication-form-save")
             NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
             dismiss()
         } catch {

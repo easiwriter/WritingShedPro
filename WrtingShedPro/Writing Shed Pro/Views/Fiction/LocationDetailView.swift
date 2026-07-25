@@ -175,14 +175,19 @@ struct LocationDetailView: View {
         location.sights = nil
         location.sounds = nil
         location.smells = nil
+        location.modifiedDate = Date()
+        location.project?.modifiedDate = Date()
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "location-detail-save")
+        WriteCoalescer.shared?.flush()
         isEditing = false
     }
     
     private func deleteLocation() {
         modelContext.delete(location)
-        try? modelContext.save()
+        location.project?.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "location-detail-delete")
+        WriteCoalescer.shared?.flush()
         dismiss()
     }
 

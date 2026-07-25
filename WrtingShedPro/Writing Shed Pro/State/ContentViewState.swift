@@ -67,6 +67,13 @@ final class ContentViewState {
         !hiddenProjectIDs.isEmpty
     }
 
+    static var hiddenProjectIDsForDiagnostics: [UUID] {
+        guard let storedHiddenIDs = UserDefaults.standard.array(forKey: hiddenProjectIDsKey) as? [String] else {
+            return []
+        }
+        return storedHiddenIDs.compactMap(UUID.init(uuidString:))
+    }
+
     var autoOpenLastProjectOnLaunch: Bool {
         didSet {
             UserDefaults.standard.set(autoOpenLastProjectOnLaunch, forKey: Self.autoOpenLastProjectOnLaunchKey)

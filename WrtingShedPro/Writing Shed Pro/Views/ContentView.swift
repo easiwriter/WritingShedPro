@@ -339,7 +339,7 @@ struct ContentView: View {
         }
 
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "content-auto-normalize-project-order")
             lastAutoOrderNormalizationDate = now
             #if DEBUG
             print("✅ [ContentView] Assigned userOrder to \(changedCount) new project(s), starting at \(maxExisting + 1)")
@@ -414,6 +414,24 @@ struct ContentView: View {
                 refreshTrigger.toggle()
                 return
             }
+        }
+
+        let exactDuplicateResult = DeduplicationService.cleanupExactIDDuplicates(context: modelContext)
+        if exactDuplicateResult.recordsRemoved > 0 {
+            #if DEBUG
+            print("🧹 [ContentView] Reconcile: removed \(exactDuplicateResult.recordsRemoved) exact-ID duplicate record(s)")
+            #endif
+            refreshTrigger.toggle()
+            return
+        }
+
+        let templateFolderResult = DeduplicationService.cleanupDuplicateTemplateFolders(context: modelContext)
+        if templateFolderResult.recordsRemoved > 0 {
+            #if DEBUG
+            print("🧹 [ContentView] Reconcile: removed \(templateFolderResult.recordsRemoved) duplicate template folder(s)")
+            #endif
+            refreshTrigger.toggle()
+            return
         }
 
         // Automatically clean up strict clone rows once sync is settled.
@@ -704,8 +722,9 @@ struct ContentView: View {
             }
 
             var waitCycles = 0
-            let isFreshDatabase = projects.isEmpty
-            let maxWait = isFreshDatabase ? 10 : 0
+            let isFreshDatabase = isStoreEmptyForInitialSync()
+            let isUsingEnsembles = Write_App.activeEnsemblesContainer != nil
+            let maxWait = isFreshDatabase && isUsingEnsembles ? 60 : (isFreshDatabase ? 10 : 0)
             
             if isFreshDatabase {
                 while waitCycles < maxWait {
@@ -726,6 +745,13 @@ struct ContentView: View {
                     }
                     #endif
                 }
+            }
+
+            if isFreshDatabase && isUsingEnsembles && isStoreEmptyForInitialSync() {
+                #if DEBUG
+                print("⏳ [ContentView] Deferring stylesheet initialization — empty Ensembles store is still waiting for import")
+                #endif
+                return
             }
 
             // Run async on main thread (ModelContext must stay on its creation thread)
@@ -788,6 +814,17 @@ struct ContentView: View {
         #endif
         return false
     }
+
+    private func isStoreEmptyForInitialSync() -> Bool {
+        let freshContext = ModelContext(modelContext.container)
+        let projectCount = (try? freshContext.fetchCount(FetchDescriptor<Project>())) ?? 0
+        let folderCount = (try? freshContext.fetchCount(FetchDescriptor<Folder>())) ?? 0
+        let fileCount = (try? freshContext.fetchCount(FetchDescriptor<TextFile>())) ?? 0
+        let versionCount = (try? freshContext.fetchCount(FetchDescriptor<Version>())) ?? 0
+        let publicationCount = (try? freshContext.fetchCount(FetchDescriptor<Publication>())) ?? 0
+        let sceneCount = (try? freshContext.fetchCount(FetchDescriptor<StoryScene>())) ?? 0
+        return projectCount == 0 && folderCount == 0 && fileCount == 0 && versionCount == 0 && publicationCount == 0 && sceneCount == 0
+    }
     
     /// One-time migration: Convert Writing Shed Pro Guide files to markdown mode
     /// These files were imported as markdown but contentType was not set correctly
@@ -846,7 +883,7 @@ struct ContentView: View {
             }
             
             if migratedCount > 0 {
-                try modelContext.save()
+                try WriteCoalescer.shared.requestSaveAndFlush(reason: "content-user-guide-markdown-migration")
                 #if DEBUG
                 print("✅ [ContentView] Migrated \(migratedCount) files to markdown mode in 'Writing Shed Pro Guide'")
                 #endif
@@ -1024,7 +1061,7 @@ struct ContentView: View {
             }
 
             do {
-                try modelContext.save()
+                try WriteCoalescer.shared.requestSaveAndFlush(reason: "content-initialize-user-order")
                 #if DEBUG
                 print("✅ [ContentView] Initialized userOrder for \(allProjects.count) projects")
                 #endif
@@ -1043,7 +1080,7 @@ struct ContentView: View {
             modelContext.delete(project)
         }
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "content-debug-delete-all-projects")
             #if DEBUG
             print("[ContentView] DEBUG: Successfully deleted all projects")
             #endif

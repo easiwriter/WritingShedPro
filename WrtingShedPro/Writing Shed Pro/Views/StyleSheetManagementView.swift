@@ -240,7 +240,7 @@ struct StyleSheetManagementView: View {
         modelContext.insert(duplicate)
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "stylesheet-management-duplicate")
             loadStyleSheets()
         } catch {
             #if DEBUG
@@ -253,7 +253,7 @@ struct StyleSheetManagementView: View {
         modelContext.delete(sheet)
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "stylesheet-management-delete")
             loadStyleSheets()
         } catch {
             #if DEBUG
@@ -328,7 +328,7 @@ struct StyleSheetManagementView: View {
         }
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "stylesheet-management-debug-reset")
             #if DEBUG
             print("✅ Database cleared")
             #endif
@@ -508,7 +508,7 @@ struct CreateStyleSheetView: View {
         modelContext.insert(newSheet)
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "stylesheet-management-create")
             onCreated()
             dismiss()
         } catch {

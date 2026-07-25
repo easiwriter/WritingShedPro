@@ -380,7 +380,7 @@ class JSONExportService {
             WSPPublicationData(
                 id: publication.id.uuidString,
                 name: publication.name,
-                type: publication.type?.rawValue,
+                        type: publication.publicationType?.rawValue,
                 url: publication.url,
                 notes: publication.notes,
                 deadline: publication.deadline,
@@ -423,7 +423,7 @@ class JSONExportService {
             id: submittedFile.id.uuidString,
             textFileId: submittedFile.textFile?.id.uuidString,
             versionId: submittedFile.version?.id.uuidString,
-            status: submittedFile.status?.rawValue,
+                        status: submittedFile.submissionStatus?.rawValue,
             statusDate: submittedFile.statusDate,
             statusNotes: submittedFile.statusNotes,
             createdDate: submittedFile.createdDate,

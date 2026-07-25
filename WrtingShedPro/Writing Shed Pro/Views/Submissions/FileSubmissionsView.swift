@@ -165,7 +165,7 @@ private struct SubmissionFilesView: View {
                         Spacer()
                         
                         // For publication submissions, show status
-                        if !isCollection, let status = submittedFile.status {
+                            if !isCollection, let status = submittedFile.submissionStatus {
                             Text(status.displayName)
                                 .font(.caption)
                                 .foregroundStyle(status.color)

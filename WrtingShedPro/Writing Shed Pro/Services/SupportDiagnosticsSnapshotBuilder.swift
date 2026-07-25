@@ -112,7 +112,29 @@ enum SupportDiagnosticsSnapshotBuilder {
         lines.append("- StoryScene: \((try? freshContext.fetchCount(FetchDescriptor<StoryScene>())) ?? -1)")
         lines.append("- TrashItem: \((try? freshContext.fetchCount(FetchDescriptor<TrashItem>())) ?? -1)")
         lines.append("- Version: \((try? freshContext.fetchCount(FetchDescriptor<Version>())) ?? -1)")
+        lines.append("- StyleSheet: \((try? freshContext.fetchCount(FetchDescriptor<StyleSheet>())) ?? -1)")
+        lines.append("- TextStyleModel: \((try? freshContext.fetchCount(FetchDescriptor<TextStyleModel>())) ?? -1)")
+        lines.append("- ImageStyle: \((try? freshContext.fetchCount(FetchDescriptor<ImageStyle>())) ?? -1)")
+        lines.append("- PoetryFormModel: \((try? freshContext.fetchCount(FetchDescriptor<PoetryFormModel>())) ?? -1)")
         lines.append("- PoetryCollection: \((try? freshContext.fetchCount(FetchDescriptor<PoetryCollection>())) ?? -1)")
+
+        let hiddenProjectIDs = Set(ContentViewState.hiddenProjectIDsForDiagnostics)
+        let hiddenActiveProjectCount = storeProjects.filter { !$0.isTrashed && hiddenProjectIDs.contains($0.id) }.count
+        lines.append("")
+        lines.append("Project Visibility Filter:")
+        lines.append("- hiddenProjectIDs: \(hiddenProjectIDs.count)")
+        lines.append("- hiddenActiveProjectsInStore: \(hiddenActiveProjectCount)")
+        lines.append("- visibleActiveProjectsAfterFilter: \(max(0, storeProjects.filter { !$0.isTrashed }.count - hiddenActiveProjectCount))")
+
+        let exactIDDuplicateCount = DeduplicationService.countExactIDDuplicateRecords(context: freshContext)
+        lines.append("")
+        lines.append("Exact ID Duplicates:")
+        lines.append("- duplicateRecords: \(exactIDDuplicateCount)")
+
+        let duplicateTemplateFolderCount = DeduplicationService.countDuplicateTemplateFolderRecords(context: freshContext)
+        lines.append("")
+        lines.append("Duplicate Template Folders:")
+        lines.append("- duplicateRecords: \(duplicateTemplateFolderCount)")
 
         let tombstones = DeduplicationService.tombstoneDescriptions()
         lines.append("")
@@ -122,28 +144,82 @@ enum SupportDiagnosticsSnapshotBuilder {
         }
 
         lines.append("")
+        lines.append("Local Ensembles Event Cache")
+        for cacheLine in localEnsemblesEventCacheLines() {
+            lines.append(cacheLine)
+        }
+
+        lines.append("")
+        lines.append("Zone Verification Log")
+        for logLine in recentZoneVerificationLines(limit: 10) {
+            lines.append(logLine)
+        }
+
+        lines.append("")
         lines.append("Recent Sync Log")
-        for logLine in recentDiagnosticsLogLines(limit: 40) {
+        for logLine in recentDiagnosticsLogLines(limit: 80) {
             lines.append(logLine)
         }
 
         return lines.joined(separator: "\n")
     }
 
-    private static func recentDiagnosticsLogLines(limit: Int) -> [String] {
+    private static func localEnsemblesEventCacheLines() -> [String] {
         guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
             return ["- unavailable: documents directory not found"]
         }
 
-        let logURL = documentsDirectory.appendingPathComponent("CloudKitDiagnostics.log")
-        guard let data = try? Data(contentsOf: logURL),
-              let content = String(data: data, encoding: .utf8) else {
-            return ["- unavailable: CloudKitDiagnostics.log not found"]
+        let eventDataURL = documentsDirectory.appendingPathComponent("EnsemblesEventData", isDirectory: true)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: eventDataURL.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return ["- missing"]
         }
 
-        let relevantLines = content
-            .split(separator: "\n", omittingEmptySubsequences: true)
-            .map(String.init)
+        guard let enumerator = FileManager.default.enumerator(
+            at: eventDataURL,
+            includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return ["- unavailable: could not enumerate"]
+        }
+
+        var fileCount = 0
+        var directoryCount = 0
+        var totalBytes = 0
+        var samples: [String] = []
+
+        for case let url as URL in enumerator {
+            let resourceValues = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .isDirectoryKey])
+            if resourceValues?.isDirectory == true {
+                directoryCount += 1
+                continue
+            }
+
+            guard resourceValues?.isRegularFile == true else { continue }
+            fileCount += 1
+            let fileSize = resourceValues?.fileSize ?? 0
+            totalBytes += fileSize
+
+            if samples.count < 12 {
+                let relativePath = url.path.replacingOccurrences(of: eventDataURL.path + "/", with: "")
+                samples.append("\(relativePath)(\(fileSize)b)")
+            }
+        }
+
+        return [
+            "- directories=\(directoryCount) files=\(fileCount) bytes=\(totalBytes)",
+            "- samples=\(samples.isEmpty ? "none" : samples.joined(separator: ", "))"
+        ]
+    }
+
+    private static func recentZoneVerificationLines(limit: Int) -> [String] {
+        let lines = diagnosticsLogLines()
+            .filter { $0.contains("Zone verification") }
+        return lines.isEmpty ? ["- none"] : Array(lines.suffix(limit))
+    }
+
+    private static func recentDiagnosticsLogLines(limit: Int) -> [String] {
+        let relevantLines = diagnosticsLogLines()
             .filter { line in
                 line.contains("[Ensembles]") ||
                 line.contains("iCloud account") ||
@@ -155,6 +231,22 @@ enum SupportDiagnosticsSnapshotBuilder {
             }
 
         return Array(relevantLines.suffix(limit))
+    }
+
+    private static func diagnosticsLogLines() -> [String] {
+        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return ["- unavailable: documents directory not found"]
+        }
+
+        let logURL = documentsDirectory.appendingPathComponent("CloudKitDiagnostics.log")
+        guard let data = try? Data(contentsOf: logURL),
+              let content = String(data: data, encoding: .utf8) else {
+            return ["- unavailable: CloudKitDiagnostics.log not found"]
+        }
+
+        return content
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map(String.init)
     }
 
     private static func countFolders(in project: Project) -> Int {

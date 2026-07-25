@@ -215,14 +215,19 @@ struct CharacterDetailView: View {
         character.looks = nil
         character.traits = nil
         character.work = nil
+        character.modifiedDate = Date()
+        character.project?.modifiedDate = Date()
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "character-detail-save")
+        WriteCoalescer.shared?.flush()
         isEditing = false
     }
     
     private func deleteCharacter() {
         modelContext.delete(character)
-        try? modelContext.save()
+        character.project?.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "character-detail-delete")
+        WriteCoalescer.shared?.flush()
         dismiss()
     }
 

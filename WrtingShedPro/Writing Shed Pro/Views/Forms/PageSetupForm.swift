@@ -66,7 +66,9 @@ struct PageSetupForm: View {
         // Ensure project has a page setup
         if project.pageSetup == nil {
             project.pageSetup = PageSetup.createWithDefaults()
-            try? modelContext.save()
+            project.modifiedDate = Date()
+            WriteCoalescer.shared?.requestSave(reason: "page-setup-create-default")
+            WriteCoalescer.shared?.flush()
         }
         
         guard let pageSetup = project.pageSetup else { return }
@@ -95,7 +97,9 @@ struct PageSetupForm: View {
         let expectedStyle: ManuscriptSettings.SectionBreakStyle = shouldHavePageBreak ? .pageBreak : .none
         if project.manuscriptSettings.sectionBreakStyle != expectedStyle {
             project.manuscriptSettings.sectionBreakStyle = expectedStyle
-            try? modelContext.save()
+            project.modifiedDate = Date()
+            WriteCoalescer.shared?.requestSave(reason: "page-setup-sync-manuscript-settings")
+            WriteCoalescer.shared?.flush()
             #if DEBUG
             print("[PageSetupForm] Synced sectionBreakStyle to: \(expectedStyle.localizedName)")
             #endif
@@ -370,7 +374,9 @@ struct PageSetupForm: View {
         #if DEBUG
         print("[PageSetupForm] Saving to SwiftData...")
         #endif
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "page-setup-save")
+        WriteCoalescer.shared?.flush()
         #if DEBUG
         print("[PageSetupForm] Save complete")
         #endif

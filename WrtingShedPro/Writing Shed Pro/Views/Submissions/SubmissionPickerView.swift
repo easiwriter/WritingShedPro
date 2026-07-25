@@ -101,7 +101,7 @@ struct SubmissionPickerView: View {
             selectPublication(publication)
         }) {
             HStack {
-                Text(publication.type?.icon ?? "")
+                Text(publication.publicationType?.icon ?? "")
                     .font(.title3)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -109,7 +109,7 @@ struct SubmissionPickerView: View {
                         .font(.body)
                         .foregroundStyle(.primary)
 
-                    if let type = publication.type {
+                    if let type = publication.publicationType {
                         Text(type.displayName)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -377,7 +377,7 @@ struct NewPublicationForSubmissionView: View {
         modelContext.insert(publication)
 
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "submission-picker-save")
             NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
             // Notify parent to create submission
             onPublicationCreated(publication)

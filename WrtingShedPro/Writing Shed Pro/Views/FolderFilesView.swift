@@ -204,7 +204,7 @@ struct FolderFilesView: View {
     private func handleRename(_ files: [TextFile]) {
         // FileListView already renamed the file - just save the context
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
         } catch {
             #if DEBUG
             print("Error saving renamed file: \(error)")
@@ -491,7 +491,7 @@ struct FolderFilesView: View {
         
         // Save context
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
         } catch {
             #if DEBUG
             print("Error saving reordered matter files: \(error)")
@@ -798,7 +798,7 @@ struct FolderFilesView: View {
         folderSortOrder = .byUserOrder
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
         } catch {
             #if DEBUG
             print("Error saving folder order: \(error)")
@@ -821,7 +821,7 @@ struct FolderFilesView: View {
         fileSortOrder = .byUserOrder
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
         } catch {
             #if DEBUG
             print("Error saving file order: \(error)")
@@ -843,7 +843,7 @@ struct FolderFilesView: View {
         
         // Save context
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
         } catch {
             #if DEBUG
             print("Error saving reordered content files: \(error)")
@@ -855,7 +855,7 @@ struct FolderFilesView: View {
     private func deleteSubfolder(_ subfolder: Folder) {
         modelContext.delete(subfolder)
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
         } catch {
             #if DEBUG
             print("Error deleting subfolder: \(error)")
@@ -907,7 +907,8 @@ struct FolderFilesView: View {
             modelContext.insert(submittedFile)
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "folder-files-create-submission")
+        WriteCoalescer.shared?.flush()
         NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
         createdSubmissionName = trimmedName
         showSubmissionCreated = true
@@ -930,7 +931,8 @@ struct FolderFilesView: View {
             modelContext.insert(submittedFile)
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "folder-files-add-submission-files")
+        WriteCoalescer.shared?.flush()
         NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
         createdSubmissionName = submission.name ?? ""
         showSubmissionCreated = true
@@ -1018,7 +1020,7 @@ struct FolderFilesView: View {
         }
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
         } catch {
             #if DEBUG
             print("Error changing file status: \(error)")
@@ -1039,8 +1041,8 @@ struct FolderFilesView: View {
         do {
             let submittedFiles = try modelContext.fetch(descriptor)
             for submittedFile in submittedFiles {
-                if submittedFile.status == .accepted {
-                    submittedFile.status = .pending
+                if submittedFile.submissionStatus == .accepted {
+                    submittedFile.submissionStatus = .pending
                     submittedFile.statusDate = Date()
                 }
             }
@@ -1058,7 +1060,7 @@ struct FolderFilesView: View {
         }
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
         } catch {
             #if DEBUG
             print("Error assigning files to collection: \(error)")
@@ -1161,7 +1163,7 @@ struct FolderFilesView: View {
             modelContext.insert(file)
             
             do {
-                try modelContext.save()
+                try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
                 
                 #if DEBUG
                 print("✅ Imported Markdown '\(filename)' successfully")
@@ -1213,7 +1215,7 @@ struct FolderFilesView: View {
             modelContext.insert(file)
             
             do {
-                try modelContext.save()
+                try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
                 
                 #if DEBUG
                 print("✅ Imported '\(filename)' successfully")
@@ -1706,7 +1708,7 @@ struct FolderFilesView: View {
         file.name = newName
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
         } catch {
             #if DEBUG
             print("Error renaming file: \(error)")

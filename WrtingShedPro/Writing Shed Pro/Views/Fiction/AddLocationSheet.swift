@@ -98,15 +98,13 @@ struct AddLocationSheet: View {
             smells: nil
         )
         location.project = project
+        location.modifiedDate = Date()
+        project.modifiedDate = Date()
         
         modelContext.insert(location)
         
-        do {
-            try modelContext.save()
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-            showErrorAlert = true
-        }
+        WriteCoalescer.shared?.requestSave(reason: "add-location")
+        WriteCoalescer.shared?.flush()
+        dismiss()
     }
 }

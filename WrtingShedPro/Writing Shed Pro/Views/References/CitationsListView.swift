@@ -485,7 +485,7 @@ struct CitationsListView: View {
         modelContext.delete(citation)
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "citations-list-save")
         } catch {
             #if DEBUG
             print("❌ Error deleting citation: \(error)")

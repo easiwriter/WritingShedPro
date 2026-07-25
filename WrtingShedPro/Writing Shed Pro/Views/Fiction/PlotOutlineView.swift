@@ -208,7 +208,9 @@ struct PlotOutlineView: View {
     
     private func deletePlotElement(_ element: PlotElement) {
         modelContext.delete(element)
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "plot-outline-delete")
+        WriteCoalescer.shared?.flush()
         renumberPlotElements()
     }
 
@@ -226,16 +228,22 @@ struct PlotOutlineView: View {
         // Update order indices
         for (index, element) in elements.enumerated() {
             element.userOrder = index
+            element.modifiedDate = Date()
         }
         
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "plot-outline-move")
+        WriteCoalescer.shared?.flush()
     }
     
     private func renumberPlotElements() {
         for (index, element) in sortedPlotElements.enumerated() {
             element.userOrder = index
+            element.modifiedDate = Date()
         }
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "plot-outline-renumber")
+        WriteCoalescer.shared?.flush()
     }
 }
 

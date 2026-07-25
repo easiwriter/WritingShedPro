@@ -447,14 +447,21 @@ struct PlotElementDetailView: View {
         plotElement.linkedScenes = Array(editLinkedScenes)
         plotElement.characters = Array(editCharacters)
         plotElement.locations = Array(editLocations)
+        plotElement.modifiedDate = Date()
+        project.modifiedDate = Date()
+        for scene in editLinkedScenes {
+            scene.modifiedDate = Date()
+        }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "plot-element-detail-save")
+        WriteCoalescer.shared?.flush()
         isEditing = false
     }
     
     private func deletePlotElement() {
         modelContext.delete(plotElement)
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "plot-element-delete")
+        WriteCoalescer.shared?.flush()
         dismiss()
     }
 }
@@ -626,17 +633,17 @@ struct CreateSceneForPlotElementSheet: View {
         textFile.workflowStatus = .draft  // New scenes/episodes start as drafts
         textFile.scene = scene
         scene.textFile = textFile
+        plotElement.modifiedDate = Date()
+        scene.modifiedDate = Date()
+        textFile.modifiedDate = Date()
+        project.modifiedDate = Date()
         
         modelContext.insert(scene)
         modelContext.insert(textFile)
         
-        do {
-            try modelContext.save()
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-            showErrorAlert = true
-        }
+        WriteCoalescer.shared?.requestSave(reason: "plot-element-create-linked-scene")
+        WriteCoalescer.shared?.flush()
+        dismiss()
     }
 
 }

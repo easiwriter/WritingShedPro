@@ -10,7 +10,7 @@ struct ProjectDetailView: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     @State private var editedName = ""
-    
+
     var body: some View {
         // Main content: FolderListView
         FolderListView(project: project)
@@ -45,10 +45,11 @@ struct ProjectDetailView: View {
             Text(errorMessage)
         }
     }
-    
+
     private func deleteProject() {
         DeduplicationService.trashProjectFamily(project, context: modelContext, deletedAt: Date())
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "project-detail-trash")
+        WriteCoalescer.shared?.flush()
         dismiss()
     }
 }
@@ -72,6 +73,7 @@ struct ProjectInfoSheet: View {
     @State private var originalNotes = ""
     @State private var selectedStyleSheet: StyleSheet?
     @State private var originalStyleSheet: StyleSheet?
+    @State private var originalFictionClass: FictionClass = .novel
     @State private var hasInitialized = false
     @State private var nameValidationError = ""
 
@@ -81,7 +83,7 @@ struct ProjectInfoSheet: View {
             preferredSheetID: selectedStyleSheet?.id ?? project.styleSheet?.id
         )
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             dismissBar
@@ -108,9 +110,9 @@ struct ProjectInfoSheet: View {
             project.styleSheet = defaultSheet
         }
     }
-    
+
     // MARK: - Extracted Subviews
-    
+
     private var dismissBar: some View {
         HStack {
             Spacer()
@@ -128,6 +130,9 @@ struct ProjectInfoSheet: View {
                 if selectedStyleSheet?.id != originalStyleSheet?.id {
                     project.styleSheet = originalStyleSheet
                 }
+                if project.fictionClass != originalFictionClass {
+                    project.fictionClass = originalFictionClass
+                }
                 isPresented = false
             }) {
                 Image(systemName: "xmark.circle.fill")
@@ -139,51 +144,51 @@ struct ProjectInfoSheet: View {
         }
         .padding()
     }
-    
+
     private var projectInfoScrollContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 Text(NSLocalizedString("projectDetail.projectInfo", comment: "Section header for project information"))
                     .font(.headline)
-                
+
                 Divider()
-                
+
                 nameField
-                
+
                 if !nameValidationError.isEmpty {
                     Text(nameValidationError)
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
-                
+
                 authorField
-                
+
                 HStack {
                     Text(NSLocalizedString("projectDetail.type", comment: "Field label for project type"))
                     Spacer()
                     Text((project.type).rawValue.capitalized)
                 }
-                
+
                 fictionClassPicker
-                
+
                 HStack {
                     Text(NSLocalizedString("projectDetail.created", comment: "Field label for creation date"))
                     Spacer()
                     Text((project.creationDate ?? Date()).formatted(date: .abbreviated, time: .shortened))
                 }
-                
+
                 Divider()
-                
+
                 stylesheetPicker
-                
+
                 Divider()
-                
+
                 notesSection
             }
             .padding()
         }
     }
-    
+
     private var nameField: some View {
         HStack {
             Text(NSLocalizedString("projectDetail.name", comment: "Field label for project name"))
@@ -201,7 +206,7 @@ struct ProjectInfoSheet: View {
                 .accessibilityHint("Double tap to edit the project name")
         }
     }
-    
+
     private var authorField: some View {
         HStack {
             Text(NSLocalizedString("projectDetail.author", comment: "Field label for project author"))
@@ -217,7 +222,7 @@ struct ProjectInfoSheet: View {
                 .accessibilityHint("Double tap to edit the author name")
         }
     }
-    
+
     @ViewBuilder
     private var fictionClassPicker: some View {
         if project.type == .fiction {
@@ -225,7 +230,7 @@ struct ProjectInfoSheet: View {
                 Text(NSLocalizedString("projectDetail.fictionClass", comment: "Field label for fiction class"))
                 Spacer()
                 Picker("", selection: Binding(
-                    get: { project.fictionClass ?? .novel },
+                    get: { currentFictionClass },
                     set: { updateFictionClass($0) }
                 )) {
                     ForEach(FictionClass.allCases, id: \.self) { fictionClass in
@@ -237,27 +242,78 @@ struct ProjectInfoSheet: View {
             }
         }
     }
-    
+
+    private var currentFictionClass: FictionClass {
+        project.fictionClass ?? inferredFictionClassFromFolders()
+    }
+
     private func updateFictionClass(_ newValue: FictionClass) {
-        let oldValue: FictionClass = project.fictionClass ?? .novel
         project.fictionClass = newValue
-        
-        if oldValue != newValue, let folders = project.folders {
-            let oldFolderName: String = oldValue == .novel ? "Chapters" : "Stories"
-            let newFolderName: String = newValue == .novel ? "Chapters" : "Stories"
-            
-            if let folder = folders.first(where: { $0.name == oldFolderName && $0.parentFolder == nil }) {
-                folder.name = newFolderName
-            }
-            
-            if let manuscriptFolder = folders.first(where: { $0.name == "Manuscript" && $0.parentFolder == nil }),
-               let subfolders = manuscriptFolder.subfolders,
-               let bodyFolder = subfolders.first(where: { $0.name == oldFolderName }) {
-                bodyFolder.name = newFolderName
+    }
+
+    private func reconcileFictionFolders(from oldValue: FictionClass, to newValue: FictionClass) {
+        guard let folders = project.folders else { return }
+
+        let oldNames = fictionRootFolderNames(for: oldValue)
+        let newNames = fictionRootFolderNames(for: newValue)
+
+        for (oldName, newName) in zip(oldNames, newNames) where oldName != newName {
+            let targetExists = folders.contains { $0.name == newName && $0.parentFolder == nil }
+            if !targetExists,
+               let folder = folders.first(where: { $0.name == oldName && $0.parentFolder == nil }) {
+                folder.name = newName
             }
         }
+
+        let currentRootNames = Set((project.folders ?? []).filter { $0.parentFolder == nil }.compactMap { $0.name })
+        for (index, name) in newNames.enumerated() where !currentRootNames.contains(name) {
+            let folder = Folder(name: name, project: project, userOrder: index + 1)
+            folder.parentFolder = nil
+            modelContext.insert(folder)
+        }
+
+        removeEmptyObsoleteFictionFolders(keeping: Set(newNames))
     }
-    
+
+    private func removeEmptyObsoleteFictionFolders(keeping newNames: Set<String>) {
+        let allFictionFolderNames = Set(FictionClass.allCases.flatMap { fictionRootFolderNames(for: $0) })
+        let obsoleteNames = allFictionFolderNames.subtracting(newNames)
+        let obsoleteFolders = (project.folders ?? []).filter { folder in
+            guard folder.parentFolder == nil, let name = folder.name else { return false }
+            return obsoleteNames.contains(name) && isEmptyFolder(folder)
+        }
+
+        for folder in obsoleteFolders {
+            modelContext.delete(folder)
+        }
+    }
+
+    private func isEmptyFolder(_ folder: Folder) -> Bool {
+        (folder.textFiles?.isEmpty ?? true) && (folder.folders?.isEmpty ?? true)
+    }
+
+    private func inferredFictionClassFromFolders() -> FictionClass {
+        let rootNames = Set((project.folders ?? []).filter { $0.parentFolder == nil }.compactMap { $0.name })
+        if rootNames.contains("Books") || rootNames.contains("Episodes") {
+            return .verseNovel
+        }
+        if rootNames.contains("Stories") {
+            return .shortFiction
+        }
+        return .novel
+    }
+
+    private func fictionRootFolderNames(for fictionClass: FictionClass) -> [String] {
+        switch fictionClass {
+        case .novel:
+            return ["Chapters", "Scenes"]
+        case .shortFiction:
+            return ["Stories", "Scenes"]
+        case .verseNovel:
+            return ["Books", "Episodes"]
+        }
+    }
+
     private var stylesheetPicker: some View {
         HStack {
             Text(NSLocalizedString("projectDetail.stylesheet", comment: "Field label for stylesheet"))
@@ -290,13 +346,13 @@ struct ProjectInfoSheet: View {
             .accessibilityHint(NSLocalizedString("projectDetail.stylesheetAccessibility", comment: "Stylesheet picker hint"))
         }
     }
-    
+
     private var notesSection: some View {
         Group {
             Text(NSLocalizedString("projectDetail.notes", comment: "Notes label"))
                 .font(.subheadline)
                 .fontWeight(.semibold)
-            
+
             TextEditor(text: $notesText)
                 .border(Color.gray, width: 1)
                 .frame(minHeight: 100)
@@ -307,7 +363,7 @@ struct ProjectInfoSheet: View {
                 .accessibilityHint(NSLocalizedString("projectDetail.notesAccessibility", comment: "Edit notes hint"))
         }
     }
-    
+
     private var saveProjectButton: some View {
         Button(action: { saveAndClose() }) {
             Text(NSLocalizedString("projectDetail.done", comment: "Done button"))
@@ -318,17 +374,17 @@ struct ProjectInfoSheet: View {
         .accessibilityHint(NSLocalizedString("projectDetail.doneAccessibility", comment: "Save changes hint"))
         .padding()
     }
-    
+
     // MARK: - Helper Methods
-    
+
     private func saveAndClose() {
         let trimmedName: String = editedName.trimmingCharacters(in: .whitespaces)
-        
+
         if trimmedName.isEmpty {
             nameValidationError = NSLocalizedString("validation.emptyProjectName", comment: "Error when project name is empty")
             return
         }
-        
+
         // CRITICAL: Check for name conflicts using ALL projects in the database,
         // not just the ones visible in @Query. @Query may exclude trashed or hidden duplicates.
         // This prevents users from renaming to a name that another project already has,
@@ -336,9 +392,9 @@ struct ProjectInfoSheet: View {
         let freshContext = ModelContext(modelContext.container)
         let allProjectsDescriptor = FetchDescriptor<Project>()
         let allProjects = (try? freshContext.fetch(allProjectsDescriptor)) ?? []
-        
+
         let isDuplicate = DeduplicationService.hasProjectNameConflict(trimmedName, in: allProjects, excluding: project)
-        
+
         if isDuplicate {
             nameValidationError = NSLocalizedString("validation.duplicateProjectName", comment: "Error when project name already exists")
             return
@@ -347,19 +403,24 @@ struct ProjectInfoSheet: View {
         // If user intentionally renames to this value, clear any stale tombstone
         // for the same name/type so post-import zombie cleanup cannot remove it.
         DeduplicationService.clearTombstone(name: trimmedName, typeRaw: project.typeRaw)
-        
+
+        let savedFictionClass = currentFictionClass
+        if originalFictionClass != savedFictionClass {
+            reconcileFictionFolders(from: originalFictionClass, to: savedFictionClass)
+        }
+
         project.name = trimmedName
         project.modifiedDate = Date()
 
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "project-detail-save")
             isPresented = false
         } catch {
             errorMessage = error.localizedDescription
             showErrorAlert = true
         }
     }
-    
+
     private func initializeFields() {
         notesText = project.notes ?? ""
         originalNotes = project.notes ?? ""
@@ -367,8 +428,9 @@ struct ProjectInfoSheet: View {
         originalAuthor = project.author ?? ""
         editedName = project.name ?? ""
         originalName = project.name ?? ""
+        originalFictionClass = currentFictionClass
         nameValidationError = ""
-        
+
         if let currentStyleSheet = project.styleSheet {
             selectedStyleSheet = currentStyleSheet
             originalStyleSheet = currentStyleSheet
@@ -380,7 +442,7 @@ struct ProjectInfoSheet: View {
             }
         }
     }
-    
+
     private func validateAndUpdateName(_ newName: String) {
         // Validate name
         do {
@@ -390,7 +452,7 @@ struct ProjectInfoSheet: View {
             showErrorAlert = true
             return
         }
-        
+
         // Update name if valid
         project.name = newName
     }

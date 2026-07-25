@@ -5,6 +5,49 @@ import SwiftData
 import UIKit
 #endif
 
+enum EnsemblesSaveGateError: LocalizedError {
+    case syncBusy(reason: String, attached: Bool, activity: String)
+
+    var errorDescription: String? {
+        switch self {
+        case let .syncBusy(reason, attached, activity):
+            return "Save deferred because Ensembles is not idle (reason=\(reason), attached=\(attached), activity=\(activity))"
+        }
+    }
+}
+
+enum EnsemblesSaveGate {
+    static func canSaveNow(reason: String) -> Bool {
+        guard let ensemblesContainer = Write_App.activeEnsemblesContainer else {
+            return true
+        }
+
+        let activity = String(describing: ensemblesContainer.currentActivity)
+        guard ensemblesContainer.isAttached && activity == "none" else {
+            let message = "⏳ [EnsemblesSaveGate] Blocked direct save while Ensembles busy reason=\(reason) attached=\(ensemblesContainer.isAttached) activity=\(activity)"
+            #if DEBUG
+            print(message)
+            #endif
+            Task { @MainActor in Write_App.logToFile(message) }
+            return false
+        }
+
+        return true
+    }
+
+    static func save(_ context: ModelContext, reason: String) throws {
+        if let ensemblesContainer = Write_App.activeEnsemblesContainer, !canSaveNow(reason: reason) {
+            throw EnsemblesSaveGateError.syncBusy(
+                reason: reason,
+                attached: ensemblesContainer.isAttached,
+                activity: String(describing: ensemblesContainer.currentActivity)
+            )
+        }
+
+        try context.save()
+    }
+}
+
 /// Centralised save coalescer that batches `modelContext.save()` calls.
 ///
 /// Callers invoke `requestSave()` instead of saving directly. The coalescer
@@ -90,6 +133,7 @@ final class WriteCoalescer {
     #if DEBUG
     private var lastSaveRequestSource: String?
     private var lastSaveTraceLogTime: Date = .distantPast
+    private var lastDeferredForSyncLogTime: Date = .distantPast
     #endif
 
     /// Snapshot of `saveCount` at last diagnostic log, used to detect activity.
@@ -119,6 +163,7 @@ final class WriteCoalescer {
                 self?.flush()
             }
         }
+
         #endif
 
         // Periodic diagnostic logging
@@ -189,6 +234,14 @@ final class WriteCoalescer {
         executeSave()
     }
 
+    /// Compatibility wrapper for older `try modelContext.save()` call sites.
+    /// It keeps existing `do/catch` shapes valid while routing saves through
+    /// the Ensembles-aware deferral logic in `executeSave()`.
+    func requestSaveAndFlush(reason: String = "requestSaveAndFlush") throws {
+        requestSave(reason: reason)
+        flush()
+    }
+
     /// Cancel any pending save without flushing.
     func cancelPending() {
         flushTimer?.invalidate()
@@ -255,6 +308,10 @@ final class WriteCoalescer {
     }
 
     private func executeSave() {
+        if deferSaveIfEnsemblesBusy() {
+            return
+        }
+
         pendingSave = false
         guard modelContext.hasChanges else {
             return
@@ -276,6 +333,36 @@ final class WriteCoalescer {
             print("❌ [WriteCoalescer] modelContext.save() failed: \(error)")
             #endif
         }
+    }
+
+    private func deferSaveIfEnsemblesBusy() -> Bool {
+        guard pendingSave,
+              let ensemblesContainer = Write_App.activeEnsemblesContainer else {
+            return false
+        }
+
+        let activity = String(describing: ensemblesContainer.currentActivity)
+        guard !ensemblesContainer.isAttached || activity != "none" else {
+            return false
+        }
+
+        flushTimer?.invalidate()
+        flushTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.executeSave()
+            }
+        }
+
+        #if DEBUG
+        let now = Date()
+        if now.timeIntervalSince(lastDeferredForSyncLogTime) >= 10 {
+            let message = "⏳ [WriteCoalescer] Deferred save while Ensembles busy attached=\(ensemblesContainer.isAttached) activity=\(activity) source=\(lastSaveRequestSource ?? "unknown")"
+            print(message)
+            Write_App.logToFile(message)
+            lastDeferredForSyncLogTime = now
+        }
+        #endif
+        return true
     }
 
     /// Diagnostic only. Do not auto-save arbitrary `hasChanges` here: SwiftData

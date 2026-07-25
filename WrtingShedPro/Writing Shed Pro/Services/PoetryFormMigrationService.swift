@@ -70,7 +70,7 @@ struct PoetryFormMigrationService {
             for form in existingForms {
                 modelContext.delete(form)
             }
-            try modelContext.save()
+            try EnsemblesSaveGate.save(modelContext, reason: "poetry-form-reset-delete")
             
             #if DEBUG
             print("[PoetryFormMigration] Deleted \(existingForms.count) predefined forms")
@@ -107,7 +107,7 @@ struct PoetryFormMigrationService {
         }
         
         do {
-            try modelContext.save()
+            try EnsemblesSaveGate.save(modelContext, reason: "poetry-form-seed")
             #if DEBUG
             print("[PoetryFormMigration] ✅ Successfully seeded predefined forms")
             #endif
@@ -152,7 +152,7 @@ struct PoetryFormMigrationService {
                 modelContext.delete(form)
             }
             
-            try modelContext.save()
+            try EnsemblesSaveGate.save(modelContext, reason: "poetry-form-remove-predefined-duplicates")
             
             #if DEBUG
             print("[PoetryFormMigration] ✅ Removed \(duplicatesToDelete.count) duplicate predefined forms")
@@ -193,7 +193,7 @@ struct PoetryFormMigrationService {
                 modelContext.delete(form)
             }
             
-            try modelContext.save()
+            try EnsemblesSaveGate.save(modelContext, reason: "poetry-form-remove-custom-duplicates")
             
             #if DEBUG
             print("[PoetryFormMigration] ✅ Removed \(duplicatesToDelete.count) duplicate custom forms")
@@ -248,7 +248,7 @@ struct PoetryFormMigrationService {
         
         if addedCount > 0 {
             do {
-                try modelContext.save()
+                try EnsemblesSaveGate.save(modelContext, reason: "poetry-form-add-new-predefined")
                 #if DEBUG
                 print("[PoetryFormMigration] ✅ Added \(addedCount) new predefined forms")
                 #endif
@@ -279,7 +279,7 @@ struct PoetryFormMigrationService {
                 modelContext.delete(form)
             }
 
-            try modelContext.save()
+            try EnsemblesSaveGate.save(modelContext, reason: "poetry-form-remove-deprecated")
 
             #if DEBUG
             print("[PoetryFormMigration] ✅ Removed \(formsToDelete.count) deprecated predefined forms")
@@ -314,7 +314,7 @@ struct PoetryFormMigrationService {
 
             if didChange {
                 sestina.modifiedDate = Date()
-                try modelContext.save()
+                try EnsemblesSaveGate.save(modelContext, reason: "poetry-form-update-sestina-spec")
                 #if DEBUG
                 print("[PoetryFormMigration] ✅ Updated predefined Sestina spec (category + no rhymeScheme)")
                 #endif

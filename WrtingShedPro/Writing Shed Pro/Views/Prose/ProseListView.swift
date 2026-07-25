@@ -627,7 +627,9 @@ struct ProseListView: View {
                     pageSetup.footerLeft = footerLeft
                     pageSetup.footerCenter = footerCenter
                     pageSetup.footerRight = footerRight
-                    try? modelContext.save()
+                    project.modifiedDate = Date()
+                    WriteCoalescer.shared?.requestSave(reason: "prose-list-header-footer-save")
+                    WriteCoalescer.shared?.flush()
                 }
                 showHeaderFooterEditor = false
             }
@@ -1030,7 +1032,8 @@ struct ProseListView: View {
             modelContext.insert(submittedFile)
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "prose-list-create-submission")
+        WriteCoalescer.shared?.flush()
         createdSubmissionName = trimmedName
         showSubmissionCreated = true
         exitEditMode()
@@ -1078,7 +1081,9 @@ struct ProseListView: View {
             file.section = nil
             file.modifiedDate = Date()
         }
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "prose-list-trash-files")
+        WriteCoalescer.shared?.flush()
     }
     
     private func deleteFilesPermanently(_ files: [TextFile]) {
@@ -1087,7 +1092,9 @@ struct ProseListView: View {
             FileMoveService.cleanupIndexReferences(for: file, context: modelContext)
             modelContext.delete(file)
         }
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "prose-list-delete-files")
+        WriteCoalescer.shared?.flush()
     }
     
     private func renameFile(_ file: TextFile, to newName: String) {
@@ -1097,7 +1104,8 @@ struct ProseListView: View {
         file.name = trimmedName
         file.modifiedDate = Date()
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "prose-list-rename-file")
+        WriteCoalescer.shared?.flush()
         
         fileToRename = nil
         showRenameSheet = false
@@ -1402,7 +1410,7 @@ struct ProseListView: View {
         }
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "prose-list-save")
             let format = copiedCount == 1
                 ? NSLocalizedString("copyToProject.success.single", comment: "1 file copied")
                 : NSLocalizedString("copyToProject.success.multiple", comment: "%d files copied")
@@ -1454,14 +1462,17 @@ struct ProseListView: View {
             // Place at end of section's file list
             file.userOrder = existingMaxOrder + 1 + index
         }
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "prose-list-assign-section")
+        WriteCoalescer.shared?.flush()
     }
     
     private func changeFilesStatus(_ files: [TextFile], to newStatus: WorkflowStatus) {
         for file in files {
             file.workflowStatus = newStatus
         }
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "prose-list-change-status")
+        WriteCoalescer.shared?.flush()
     }
     
     private func moveFiles(from source: IndexSet, to destination: Int) {
@@ -1472,7 +1483,9 @@ struct ProseListView: View {
             file.userOrder = index
         }
         
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "prose-list-move-files")
+        WriteCoalescer.shared?.flush()
     }
     
     // MARK: - Import Functions
@@ -1532,7 +1545,7 @@ struct ProseListView: View {
             modelContext.insert(file)
             
             do {
-                try modelContext.save()
+                try WriteCoalescer.shared.requestSaveAndFlush(reason: "prose-list-save")
                 modelContext.processPendingChanges()
                 
                 #if DEBUG
@@ -1578,7 +1591,7 @@ struct ProseListView: View {
             modelContext.insert(file)
             
             do {
-                try modelContext.save()
+                try WriteCoalescer.shared.requestSaveAndFlush(reason: "prose-list-save")
                 modelContext.processPendingChanges()
                 
                 #if DEBUG

@@ -318,7 +318,8 @@ struct ProjectEditableList: View {
             )
 
             _ = try importService.importFromJSON(fileURL: tempURL)
-            try? modelContext.save()
+            WriteCoalescer.shared?.requestSave(reason: "project-duplicate-import")
+            WriteCoalescer.shared?.flush()
         } catch {
             exportErrorMessage = error.localizedDescription
             showExportError = true
@@ -352,7 +353,8 @@ struct ProjectEditableList: View {
             let project = sortedProjects[index]
             DeduplicationService.trashProjectFamily(project, context: modelContext, deletedAt: deletedAt)
         }
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "project-list-trash")
+        WriteCoalescer.shared?.flush()
         projectsToDelete = nil
         deleteInfo = nil
     }
@@ -365,7 +367,7 @@ struct ProjectEditableList: View {
             DeduplicationService.permanentlyDeleteProjectFamily(project, context: modelContext)
         }
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "project-editable-list-permanent-delete")
         } catch {
             deleteErrorMessage = String(
                 format: NSLocalizedString("project.deleteForever.saveFailed.message", comment: "Delete failed message"),
@@ -395,7 +397,8 @@ struct ProjectEditableList: View {
         _ = ProjectSortService.updateUserOrder(for: currentOrder, movedFromOffsets: source, toOffset: destination)
 
         // Save the changes
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "project-list-reorder")
+        WriteCoalescer.shared?.flush()
     }
 
     private func logProjectInventory(reason: String) {

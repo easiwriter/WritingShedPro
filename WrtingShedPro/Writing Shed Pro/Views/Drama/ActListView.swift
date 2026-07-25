@@ -265,7 +265,9 @@ struct ActListView: View {
             modelContext.delete(act)
         }
         
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "act-list-delete")
+        WriteCoalescer.shared?.flush()
         selectedActIDs.removeAll()
         renumberActs()
         exitEditMode()
@@ -277,7 +279,9 @@ struct ActListView: View {
         act.name = name
         act.synopsis = synopsis.isEmpty ? nil : synopsis
         act.modifiedDate = Date()
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "act-list-update")
+        WriteCoalescer.shared?.flush()
     }
     
     private func moveActs(from source: IndexSet, to destination: Int) {
@@ -290,7 +294,9 @@ struct ActListView: View {
             act.modifiedDate = Date()
         }
         
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "act-list-move")
+        WriteCoalescer.shared?.flush()
     }
     
     private func renumberActs() {
@@ -298,7 +304,9 @@ struct ActListView: View {
             act.userOrder = index
             act.modifiedDate = Date()
         }
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "act-list-renumber")
+        WriteCoalescer.shared?.flush()
     }
     
     private func createSubmissionFromActs(name: String) {
@@ -335,7 +343,8 @@ struct ActListView: View {
             }
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "act-list-create-submission")
+        WriteCoalescer.shared?.flush()
         createdSubmissionName = trimmedName
         showSubmissionCreated = true
         selectedActIDs.removeAll()

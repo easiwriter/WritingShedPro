@@ -110,16 +110,7 @@ final class InsertNoteMarkerCommand: UndoableCommand {
         print("📝 Incremented note ref count to: \(noteEntry.referenceCount), referencingFiles: \(noteEntry.referencingFileIDs.count)")
         #endif
         
-        do {
-            try context.save()
-            #if DEBUG
-            print("💾 InsertNoteMarkerCommand.execute: Saved model context")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ InsertNoteMarkerCommand.execute: Error saving: \(error)")
-            #endif
-        }
+        Task { @MainActor in WriteCoalescer.shared?.requestSave(reason: "insert-note-marker-execute") }
         
         // Update back matter
         #if DEBUG
@@ -163,16 +154,7 @@ final class InsertNoteMarkerCommand: UndoableCommand {
         print("📝 Restored note ref count to: \(noteEntry.referenceCount), referencingFiles: \(noteEntry.referencingFileIDs.count)")
         #endif
         
-        do {
-            try context.save()
-            #if DEBUG
-            print("💾 InsertNoteMarkerCommand.undo: Saved model context")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ InsertNoteMarkerCommand.undo: Error saving: \(error)")
-            #endif
-        }
+        Task { @MainActor in WriteCoalescer.shared?.requestSave(reason: "insert-note-marker-undo") }
         
         // Update back matter
         #if DEBUG

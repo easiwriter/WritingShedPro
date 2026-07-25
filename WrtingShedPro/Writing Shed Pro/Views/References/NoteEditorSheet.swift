@@ -360,7 +360,7 @@ struct NoteEditorSheet: View {
             
             // Save context
             do {
-                try modelContext.save()
+                try WriteCoalescer.shared.requestSaveAndFlush(reason: "note-editor-save")
             } catch {
                 #if DEBUG
                 print("❌ Error saving note: \(error)")

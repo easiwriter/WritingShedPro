@@ -130,7 +130,9 @@ struct CharacterListView: View {
     
     private func deleteCharacter(_ character: Character) {
         modelContext.delete(character)
-        try? modelContext.save()
+        character.project?.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "character-list-delete")
+        WriteCoalescer.shared?.flush()
     }
 }
 

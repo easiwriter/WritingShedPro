@@ -54,30 +54,37 @@ struct ContentViewBody: View {
         )
     }
 
+    private var visibleActiveProjectCount: Int {
+        activeProjects.count
+    }
+
+    private var storedActiveProjectCount: Int {
+        projects.filter { !$0.isTrashed }.count
+    }
+
     private var shouldShowProjectTrashButton: Bool {
         !trashedProjects.isEmpty
     }
 
     var body: some View {
+        navigationRoot
+    }
+
+    private var navigationRoot: some View {
         NavigationStack(path: $state.navigationPath) {
-            VStack(spacing: 0) {
-                ProjectEditableList(
-                    projects: activeProjects,
-                    selectedSortOrder: $state.selectedSortOrder,
-                    isEditMode: Binding(
-                        get: { state.editMode == .active },
-                        set: { state.editMode = $0 ? .active : .inactive }
-                    ),
-                    onOpenProject: onOpenProject
-                )
-                // Only show Trash bin button if there are trashed projects
-                if shouldShowProjectTrashButton {
-                    Button(action: { showProjectTrash = true }) {
-                        Label(NSLocalizedString("projectTrash.title", comment: "Deleted Projects"), systemImage: "trash")
-                    }
-                    .padding(.vertical, 8)
-                }
-            }
+            navigationStackContent
+        }
+        .onReceive(NotificationCenter.default.publisher(for: GuideNavigationService.openGuideSectionNotification)) { notification in
+            let section = notification.userInfo?["section"] as? String
+            // Open in-app HTML manual sheet — uses WKWebView with JS scrollIntoView
+            // for section navigation (works on both iOS and Catalyst).
+            state.htmlManualSection = section
+            state.showHTMLManual = true
+        }
+    }
+
+    private var navigationStackContent: some View {
+        projectListSection
             .environment(\.editMode, $state.editMode)
             #if !targetEnvironment(macCatalyst)
             .preferredColorScheme(state.appearancePreferences.colorScheme)
@@ -122,7 +129,11 @@ struct ContentViewBody: View {
                     }
                 }
             }
+            #if targetEnvironment(macCatalyst)
+            .navigationTitle("Writing Shed Pro")
+            #else
             .navigationTitle(NSLocalizedString("contentView.title", comment: "Title of projects list"))
+            #endif
             .toolbar {
                 ContentViewToolbar(state: state, projects: projects, onHandleImportMenu: onHandleImportMenu)
             }
@@ -218,13 +229,42 @@ struct ContentViewBody: View {
                         Text(NSLocalizedString("onboarding.editorIntro.body", comment: "Editor introduction body"))
                     }
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: GuideNavigationService.openGuideSectionNotification)) { notification in
-            let section = notification.userInfo?["section"] as? String
-            // Open in-app HTML manual sheet — uses WKWebView with JS scrollIntoView
-            // for section navigation (works on both iOS and Catalyst).
-            state.htmlManualSection = section
-            state.showHTMLManual = true
+    }
+
+    private var projectListSection: some View {
+        VStack(spacing: 0) {
+            if state.hideAllProjects && storedActiveProjectCount > visibleActiveProjectCount {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Projects are hidden")
+                        .font(.headline)
+                    Text("\(storedActiveProjectCount - visibleActiveProjectCount) project(s) are hidden by the demo visibility setting.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button {
+                        state.showAllProjects()
+                    } label: {
+                        Label("Show Hidden Projects", systemImage: "eye")
+                    }
+                }
+                .padding()
+            }
+
+            ProjectEditableList(
+                projects: activeProjects,
+                selectedSortOrder: $state.selectedSortOrder,
+                isEditMode: Binding(
+                    get: { state.editMode == .active },
+                    set: { state.editMode = $0 ? .active : .inactive }
+                ),
+                onOpenProject: onOpenProject
+            )
+
+            if shouldShowProjectTrashButton {
+                Button(action: { showProjectTrash = true }) {
+                    Label(NSLocalizedString("projectTrash.title", comment: "Deleted Projects"), systemImage: "trash")
+                }
+                .padding(.vertical, 8)
+            }
         }
     }
 

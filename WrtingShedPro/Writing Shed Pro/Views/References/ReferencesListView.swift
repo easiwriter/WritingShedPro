@@ -219,7 +219,7 @@ struct ReferencesListView: View {
         modelContext.delete(reference)
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "references-list-save")
             #if DEBUG
             print("📚 Deleted reference: \(reference.author)")
             #endif

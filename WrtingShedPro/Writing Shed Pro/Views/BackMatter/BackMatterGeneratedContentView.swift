@@ -337,7 +337,9 @@ struct BackMatterGeneratedContentView: View {
                 ForEach(availableBodyStyles, id: \.id) { style in
                     Button {
                         project.contributorBodyStyleName = style.name
-                        try? modelContext.save()
+                        project.modifiedDate = Date()
+                        WriteCoalescer.shared?.requestSave(reason: "back-matter-contributor-body-style")
+                        WriteCoalescer.shared?.flush()
                         refreshTrigger = UUID()
                     } label: {
                         HStack {
@@ -357,7 +359,9 @@ struct BackMatterGeneratedContentView: View {
             Button {
                 withAnimation {
                     project.contributorDisplayRunTogether.toggle()
-                    try? modelContext.save()
+                    project.modifiedDate = Date()
+                    WriteCoalescer.shared?.requestSave(reason: "back-matter-contributor-display-mode")
+                    WriteCoalescer.shared?.flush()
                     refreshTrigger = UUID()
                 }
             } label: {
@@ -371,7 +375,9 @@ struct BackMatterGeneratedContentView: View {
             Button {
                 withAnimation {
                     project.contributorDisplaySurnameFirst.toggle()
-                    try? modelContext.save()
+                    project.modifiedDate = Date()
+                    WriteCoalescer.shared?.requestSave(reason: "back-matter-contributor-sort-display")
+                    WriteCoalescer.shared?.flush()
                     refreshTrigger = UUID()
                 }
             } label: {
@@ -413,14 +419,10 @@ struct BackMatterGeneratedContentView: View {
     
     private func deleteIndexEntry(_ entry: IndexEntry) {
         modelContext.delete(entry)
-        do {
-            try modelContext.save()
-            refreshTrigger = UUID()
-        } catch {
-            #if DEBUG
-            print("❌ Error deleting index entry: \(error)")
-            #endif
-        }
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "back-matter-index-entry-delete")
+        WriteCoalescer.shared?.flush()
+        refreshTrigger = UUID()
         indexEntryToDelete = nil
     }
     
@@ -1334,7 +1336,8 @@ struct BackMatterGeneratedContentView: View {
         }
         
         file.modifiedDate = Date()
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "back-matter-store-generated-content")
+        WriteCoalescer.shared?.flush()
     }
     
     // MARK: - Helper Views

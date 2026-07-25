@@ -30,7 +30,7 @@ struct PublicationsListView: View {
             let projectMatches: Bool = publication.projectId == projectID || publication.project?.id == projectID
             
             // Check type match (if filter specified)
-            let typeMatches: Bool = publicationType == nil || publication.type == publicationType
+            let typeMatches: Bool = publicationType == nil || publication.publicationType == publicationType
             
             return projectMatches && typeMatches
         }
@@ -232,7 +232,7 @@ struct PublicationsListView: View {
         
         // Save context to persist all deletions
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "publications-list-delete")
             #if DEBUG
             print("✅ Successfully deleted \(publicationsToDelete.count) publication(s)")
             #endif

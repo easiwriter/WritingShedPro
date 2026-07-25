@@ -12,6 +12,7 @@ struct FormattedTextEditor: View {
     @Binding var attributedText: NSAttributedString
     @Binding var selectedRange: NSRange
     var onTextChange: ((TextEditorChange) -> Void)?
+    var onSimpleTypingChange: ((NSRange, String, NSRange) -> Void)?
     var onSelectionChange: ((NSRange) -> Void)?
     var onImageTapped: ((ImageAttachment, CGRect, Int) -> Void)?
     var onClearImageSelection: (() -> Void)?
@@ -52,6 +53,7 @@ struct FormattedTextEditor: View {
         isEditable: Bool = true,
         inputAccessoryView: UIView? = nil,
         onTextChange: ((TextEditorChange) -> Void)? = nil,
+        onSimpleTypingChange: ((NSRange, String, NSRange) -> Void)? = nil,
         onSelectionChange: ((NSRange) -> Void)? = nil,
         onImageTapped: ((ImageAttachment, CGRect, Int) -> Void)? = nil,
         onClearImageSelection: (() -> Void)? = nil,
@@ -81,6 +83,7 @@ struct FormattedTextEditor: View {
         self.isEditable = isEditable
         self.inputAccessoryView = inputAccessoryView
         self.onTextChange = onTextChange
+        self.onSimpleTypingChange = onSimpleTypingChange
         self.onSelectionChange = onSelectionChange
         self.onImageTapped = onImageTapped
         self.onClearImageSelection = onClearImageSelection
@@ -117,6 +120,7 @@ struct FormattedTextEditor: View {
             isEditable: isEditable,
             inputAccessoryView: inputAccessoryView,
             onTextChange: onTextChange,
+            onSimpleTypingChange: onSimpleTypingChange,
             onSelectionChange: onSelectionChange,
             onImageTapped: onImageTapped,
             onClearImageSelection: onClearImageSelection,
@@ -149,6 +153,9 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
     
     /// Optional callback when text changes
     var onTextChange: ((TextEditorChange) -> Void)?
+
+    /// Lightweight callback for simple live typing where the text view already owns the change.
+    var onSimpleTypingChange: ((NSRange, String, NSRange) -> Void)?
     
     /// Optional callback when selection changes
     var onSelectionChange: ((NSRange) -> Void)?
@@ -247,6 +254,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         isEditable: Bool = true,
         inputAccessoryView: UIView? = nil,
         onTextChange: ((TextEditorChange) -> Void)? = nil,
+        onSimpleTypingChange: ((NSRange, String, NSRange) -> Void)? = nil,
         onSelectionChange: ((NSRange) -> Void)? = nil,
         onImageTapped: ((ImageAttachment, CGRect, Int) -> Void)? = nil,
         onClearImageSelection: (() -> Void)? = nil,
@@ -276,6 +284,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         self.isEditable = isEditable
         self.inputAccessoryView = inputAccessoryView
         self.onTextChange = onTextChange
+        self.onSimpleTypingChange = onSimpleTypingChange
         self.onSelectionChange = onSelectionChange
         self.onImageTapped = onImageTapped
         self.onClearImageSelection = onClearImageSelection
@@ -316,6 +325,11 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         // Store reference to textView in coordinator (if provided)
         context.coordinator.textView = textView
         textViewCoordinator?.textView = textView
+        textViewCoordinator?.flushPendingTyping = { [weak coordinator = context.coordinator] in
+            #if targetEnvironment(macCatalyst)
+            coordinator?.flushPendingSimpleTypingChange()
+            #endif
+        }
         
         // Wire up comment tap callback
         let coordinator = context.coordinator
@@ -613,18 +627,20 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         let textViewString = textViewAttrs.string
         let newString = attributedText.string
         let stringsMatch = textViewString == newString
-        if !stringsMatch, textView.isFirstResponder {
+        let shouldCheckAttachments = !stringsMatch || !context.coordinator.isProcessingUserTextChange
+        let attachmentsMatch = shouldCheckAttachments ? attachmentSignature(in: textViewAttrs) == attachmentSignature(in: attributedText) : true
+        let hasAttachmentChange = !attachmentsMatch
+
+        if !stringsMatch, textView.isFirstResponder, !hasAttachmentChange {
             return
         }
 
         if !stringsMatch,
+           !hasAttachmentChange,
            let lastUserTextChangeTime = context.coordinator.lastUserTextChangeTime,
            Date().timeIntervalSince(lastUserTextChangeTime) < 0.75 {
             return
         }
-
-        let shouldCheckAttachments = !stringsMatch || !context.coordinator.isProcessingUserTextChange
-        let attachmentsMatch = shouldCheckAttachments ? attachmentSignature(in: textViewAttrs) == attachmentSignature(in: attributedText) : true
         #if DEBUG
         if shouldCheckAttachments && (!attachmentsMatch || textViewAttrs.footnoteAttachments().count != attributedText.footnoteAttachments().count) {
             print("🧪 [FootnoteDiag] updateUIView compare stringsMatch=\(stringsMatch) attachmentsMatch=\(attachmentsMatch) textView=\(footnoteDebugSummary(textViewAttrs)) binding=\(footnoteDebugSummary(attributedText))")
@@ -934,11 +950,15 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         var pendingChangeRange: NSRange?
         var pendingReplacementText: String?
         var lastUserTextChangeTime: Date?
-        var pendingTypingStartLocation: Int?
-        var pendingTypingText = ""
-        var pendingTypingWorkItem: DispatchWorkItem?
         var isLiveTypingSimpleInsertion = false
-        private let liveTypingEmissionDelay: TimeInterval = 3.0
+        #if targetEnvironment(macCatalyst)
+        private var pendingSimpleTypingRange: NSRange?
+        private var pendingSimpleTypingText = ""
+        private var pendingSimpleTypingSelection = NSRange(location: 0, length: 0)
+        private var pendingSimpleTypingWorkItem: DispatchWorkItem?
+        private var pendingDecorativeRedrawWorkItem: DispatchWorkItem?
+        private let simpleTypingIdleDelay: TimeInterval = 0.75
+        #endif
 
         private func bodyStyleAttributesFallback() -> [NSAttributedString.Key: Any] {
             let paragraphStyle = NSMutableParagraphStyle()
@@ -979,7 +999,10 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         }
         
         deinit {
-            pendingTypingWorkItem?.cancel()
+            #if targetEnvironment(macCatalyst)
+            pendingSimpleTypingWorkItem?.cancel()
+            pendingDecorativeRedrawWorkItem?.cancel()
+            #endif
             NotificationCenter.default.removeObserver(self)
         }
 
@@ -995,57 +1018,94 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             return (replacementText as NSString).length == 1
         }
 
-        private func emitPendingTypingChange(from textView: UITextView) {
-            guard let startLocation = pendingTypingStartLocation,
-                  !pendingTypingText.isEmpty,
-                  let attributedText = textView.attributedText else {
-                pendingTypingStartLocation = nil
-                pendingTypingText = ""
-                return
-            }
-
-            let typedText = pendingTypingText
-            pendingTypingStartLocation = nil
-            pendingTypingText = ""
-            pendingTypingWorkItem?.cancel()
-            pendingTypingWorkItem = nil
-            isLiveTypingSimpleInsertion = false
-
+        private func emitSimpleTypingChange(from textView: UITextView, range: NSRange, replacementText: String) {
+            #if targetEnvironment(macCatalyst)
+            lastUserTextChangeTime = Date()
+            suppressDecorativeDrawingDuringLiveTyping(in: textView)
+            appendPendingSimpleTypingChange(range: range, replacementText: replacementText, selection: textView.selectedRange)
+            #else
+            guard let attributedText = textView.attributedText else { return }
             isProcessingUserTextChange = true
             lastUserTextChangeTime = Date()
             parent.onTextChange?(TextEditorChange(
                 attributedText: attributedText,
-                range: NSRange(location: startLocation, length: 0),
-                replacementText: typedText
+                range: range,
+                replacementText: replacementText
             ))
+            parent.selectedRange = textView.selectedRange
+            parent.onSelectionChange?(textView.selectedRange)
             DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                let currentRange = textView.selectedRange
-                self.parent.selectedRange = currentRange
-                self.parent.onSelectionChange?(currentRange)
-                self.isProcessingUserTextChange = false
+                self?.isProcessingUserTextChange = false
             }
+            #endif
         }
 
-        private func schedulePendingTypingChange(from textView: UITextView, range: NSRange, replacementText: String) {
-            if let startLocation = pendingTypingStartLocation,
-               startLocation + (pendingTypingText as NSString).length == range.location {
-                pendingTypingText += replacementText
+        #if targetEnvironment(macCatalyst)
+        private func suppressDecorativeDrawingDuringLiveTyping(in textView: UITextView) {
+            guard let layoutManager = textView.layoutManager as? NumberingLayoutManager else { return }
+
+            layoutManager.suppressDecorativeDrawing(for: simpleTypingIdleDelay)
+            pendingDecorativeRedrawWorkItem?.cancel()
+
+            let workItem = DispatchWorkItem { [weak textView] in
+                guard let textView else { return }
+                textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                textView.setNeedsDisplay()
+            }
+            pendingDecorativeRedrawWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + simpleTypingIdleDelay, execute: workItem)
+        }
+
+        private func appendPendingSimpleTypingChange(range: NSRange, replacementText: String, selection: NSRange) {
+            if let pendingRange = pendingSimpleTypingRange,
+               pendingRange.location + (pendingSimpleTypingText as NSString).length == range.location {
+                pendingSimpleTypingText += replacementText
             } else {
-                emitPendingTypingChange(from: textView)
-                pendingTypingStartLocation = range.location
-                pendingTypingText = replacementText
+                flushPendingSimpleTypingChange()
+                pendingSimpleTypingRange = range
+                pendingSimpleTypingText = replacementText
             }
 
-            guard pendingTypingWorkItem == nil else { return }
+            pendingSimpleTypingSelection = selection
+            pendingSimpleTypingWorkItem?.cancel()
 
-            let workItem = DispatchWorkItem { [weak self, weak textView] in
-                guard let self, let textView else { return }
-                self.emitPendingTypingChange(from: textView)
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.flushPendingSimpleTypingChange()
             }
-            pendingTypingWorkItem = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + liveTypingEmissionDelay, execute: workItem)
+            pendingSimpleTypingWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + simpleTypingIdleDelay, execute: workItem)
         }
+
+        func flushPendingSimpleTypingChange() {
+            guard let range = pendingSimpleTypingRange,
+                  !pendingSimpleTypingText.isEmpty else { return }
+
+            let replacementText = pendingSimpleTypingText
+            let selection = pendingSimpleTypingSelection
+            pendingSimpleTypingRange = nil
+            pendingSimpleTypingText = ""
+            pendingSimpleTypingWorkItem?.cancel()
+            pendingSimpleTypingWorkItem = nil
+
+            isProcessingUserTextChange = true
+            if let onSimpleTypingChange = parent.onSimpleTypingChange {
+                onSimpleTypingChange(range, replacementText, selection)
+            } else if let textView,
+                      let attributedText = textView.attributedText {
+                parent.onTextChange?(TextEditorChange(
+                    attributedText: attributedText,
+                    range: range,
+                    replacementText: replacementText
+                ))
+                parent.selectedRange = selection
+                parent.onSelectionChange?(selection)
+            }
+
+            DispatchQueue.main.async { [weak self] in
+                self?.isProcessingUserTextChange = false
+            }
+        }
+        #endif
         
         // MARK: - UITextViewDelegate
         
@@ -1398,7 +1458,6 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         
         func textViewDidChange(_ textView: UITextView) {
             guard !isUpdatingFromSwiftUI else { return }
-            WriteCoalescer.shared?.noteEditingActivity()
 
             let textStorage = textView.textStorage
             let currentLength = textStorage.length
@@ -1407,15 +1466,13 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                let range = pendingChangeRange,
                let replacementText = pendingReplacementText {
                 previousTextLength = currentLength
-                lastUserTextChangeTime = Date()
-                schedulePendingTypingChange(from: textView, range: range, replacementText: replacementText)
-                parent.selectedRange = textView.selectedRange
+                emitSimpleTypingChange(from: textView, range: range, replacementText: replacementText)
                 pendingChangeRange = nil
                 pendingReplacementText = nil
                 return
             }
 
-            emitPendingTypingChange(from: textView)
+            WriteCoalescer.shared?.noteEditingActivity()
 
             if let layoutManager = textView.layoutManager as? NumberingLayoutManager,
                layoutManager.showDocumentLineNumbers {
@@ -1520,12 +1577,15 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         }
 
         func textViewDidEndEditing(_ textView: UITextView) {
-            emitPendingTypingChange(from: textView)
+            #if targetEnvironment(macCatalyst)
+            flushPendingSimpleTypingChange()
+            #endif
         }
 
         @objc func flushPendingTypingNotification(_ notification: Notification) {
-            guard let textView else { return }
-            emitPendingTypingChange(from: textView)
+            #if targetEnvironment(macCatalyst)
+            flushPendingSimpleTypingChange()
+            #endif
         }
         
         func textViewDidChangeSelection(_ textView: UITextView) {
@@ -1536,6 +1596,12 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             // UITextView already ensures layout is valid around the cursor position when needed.
             
             let newRange = textView.selectedRange
+
+            if isLiveTypingSimpleInsertion && newRange.length == 0 {
+                previousSelection = newRange
+                return
+            }
+
             let textLength = textView.attributedText?.length ?? 0
             
             // Safety check: ensure location is within bounds
@@ -1549,11 +1615,6 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                 return
             }
 
-            if isLiveTypingSimpleInsertion && newRange.length == 0 {
-                previousSelection = newRange
-                return
-            }
-            
             // Check if cursor landed on a zero-width space
             if newRange.length == 0, newRange.location > 0, newRange.location < textLength {
                 if let attributedText = textView.attributedText {
@@ -1735,7 +1796,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             // Update stored previous selection
             previousSelection = newRange
 
-            if !pendingTypingText.isEmpty,
+            if isLiveTypingSimpleInsertion,
                let lastUserTextChangeTime,
                Date().timeIntervalSince(lastUserTextChangeTime) < 0.75 {
                 return
@@ -2276,12 +2337,6 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     /// Override insertText to intercept Tab key on Mac Catalyst
     /// UIKeyCommand doesn't reliably intercept Tab in UITextView on Catalyst
     override func insertText(_ text: String) {
-        #if targetEnvironment(macCatalyst)
-        if fastInsertPlainCharacterIfPossible(text) {
-            return
-        }
-        #endif
-
         // Check for backtab character (ASCII 25, sent by some systems for Shift+Tab)
         if text == "\u{0019}" || text == "\u{000F}" {
             if onShiftTabPressed != nil {
@@ -2300,30 +2355,6 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         // For all other text, use default behavior
         super.insertText(text)
     }
-
-    #if targetEnvironment(macCatalyst)
-    private func fastInsertPlainCharacterIfPossible(_ text: String) -> Bool {
-        guard selectedRange.length == 0,
-              markedTextRange == nil,
-              !text.isEmpty,
-              text.rangeOfCharacter(from: .newlines) == nil,
-              text != "\t",
-              (text as NSString).length == 1 else {
-            return false
-        }
-
-        let range = selectedRange
-        if delegate?.textView?(self, shouldChangeTextIn: range, replacementText: text) == false {
-            return true
-        }
-
-        let insertion = NSAttributedString(string: text, attributes: typingAttributes)
-        textStorage.replaceCharacters(in: range, with: insertion)
-        selectedRange = NSRange(location: range.location + 1, length: 0)
-        delegate?.textViewDidChange?(self)
-        return true
-    }
-    #endif
     
     // MARK: - Appearance Handling
     
@@ -2663,6 +2694,7 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
 
     private func drawEditorExtraLineNumberIfNeeded(in rect: CGRect, using layoutManager: NumberingLayoutManager) {
         guard layoutManager.showDocumentLineNumbers,
+                            !layoutManager.isDecorativeDrawingSuppressed,
               !layoutManager.isPaginatedView,
               layoutManager.extraLineFragmentTextContainer === textContainer else {
             return
@@ -2694,6 +2726,25 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
 
         drawDocumentLineNumber(lineNumber, at: extraRect)
     }
+
+    private func hasOnlyInvisiblePlaceholderText() -> Bool {
+        let length = textStorage.length
+        guard length > 0 else { return true }
+
+        let text = textStorage.string as NSString
+        for location in 0..<length {
+            let character = text.character(at: location)
+            if character == 0x200B {
+                continue
+            }
+
+            guard let scalar = UnicodeScalar(Int(character)),
+                  CharacterSet.whitespacesAndNewlines.contains(scalar) else {
+                return false
+            }
+        }
+        return true
+    }
     
     // Custom drawing for empty document numbering (Feature 016)
     override func draw(_ rect: CGRect) {
@@ -2705,11 +2756,12 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         
         // For empty documents (or documents with only invisible chars like zero-width space),
         // draw the number based on either the typingAttributes or the current style
-        guard textStorage.length == 0 || textStorage.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard hasOnlyInvisiblePlaceholderText() else {
             return
         }
         
         guard let numberingLayoutManager = layoutManager as? NumberingLayoutManager,
+              !numberingLayoutManager.isDecorativeDrawingSuppressed,
               let project = numberingLayoutManager.project,
               let styleSheet = project.styleSheet else {
             return

@@ -340,7 +340,8 @@ struct CollectionDetailView: View {
                 },
                 onSave: {
                     editingVersionItem = nil
-                    try? modelContext.save()
+                    WriteCoalescer.shared?.requestSave(reason: "collection-detail-edit-version")
+                    WriteCoalescer.shared?.flush()
                 }
             )
             .id(item.submittedFile.id)
@@ -686,7 +687,7 @@ struct CollectionDetailView: View {
         }
 
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "collection-detail-save")
             let format = copiedCount == 1
                 ? NSLocalizedString("copyToProject.success.single", comment: "1 file copied")
                 : NSLocalizedString("copyToProject.success.multiple", comment: "%d files copied")
@@ -850,7 +851,7 @@ struct CollectionDetailView: View {
         }
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "collection-detail-save")
         } catch {
             // Handle error silently for now
         }
@@ -950,7 +951,7 @@ struct CollectionDetailView: View {
         modelContext.insert(pubSubmission)
 
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "collection-detail-save")
         } catch {
             // Handle error silently for now
         }
@@ -1209,8 +1210,8 @@ struct AddFilesToCollectionSheet: View {
             }
         }
         
-        // Save changes
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "collection-detail-add-files")
+        WriteCoalescer.shared?.flush()
     }
 }
 

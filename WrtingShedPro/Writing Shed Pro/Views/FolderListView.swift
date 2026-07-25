@@ -80,8 +80,10 @@ struct FolderListView: View {
             }
         }
         
+        let collapsedFolders = collapseDuplicateTemplateFolders(topLevelFolders)
+
         // Sort folders by predefined order
-        return topLevelFolders.sorted { folder1, folder2 in
+        return collapsedFolders.sorted { folder1, folder2 in
             let name1 = folder1.name ?? ""
             let name2 = folder2.name ?? ""
             let index1 = order.firstIndex(of: name1) ?? Int.max
@@ -308,11 +310,46 @@ struct FolderListView: View {
     private func folderRowID(for folder: Folder) -> String {
         "\(folder.id.uuidString)-\(projectContentRefreshID.uuidString)"
     }
+
+    private func collapseDuplicateTemplateFolders(_ folders: [Folder]) -> [Folder] {
+        var result: [Folder] = []
+        var templateIndexes: [String: Int] = [:]
+
+        for folder in folders {
+            guard let name = folder.name, FolderCapabilityService.isTemplateFolder(name) else {
+                result.append(folder)
+                continue
+            }
+
+            if let existingIndex = templateIndexes[name] {
+                if shouldPreferFolderForDisplay(folder, over: result[existingIndex]) {
+                    result[existingIndex] = folder
+                }
+            } else {
+                templateIndexes[name] = result.count
+                result.append(folder)
+            }
+        }
+
+        return result
+    }
+
+    private func shouldPreferFolderForDisplay(_ lhs: Folder, over rhs: Folder) -> Bool {
+        let lhsScore = (lhs.textFiles?.count ?? 0) + (lhs.folders?.count ?? 0)
+        let rhsScore = (rhs.textFiles?.count ?? 0) + (rhs.folders?.count ?? 0)
+        if lhsScore != rhsScore { return lhsScore > rhsScore }
+
+        let lhsOrder = lhs.userOrder ?? Int.max
+        let rhsOrder = rhs.userOrder ?? Int.max
+        if lhsOrder != rhsOrder { return lhsOrder < rhsOrder }
+
+        return lhs.persistentModelID.hashValue < rhs.persistentModelID.hashValue
+    }
     
     // Get subfolders for the selected folder
     var currentSubfolders: [Folder] {
         guard let selectedFolder = selectedFolder else { return [] }
-        let subfolders = loadedSubfolders
+        let subfolders = collapseDuplicateTemplateFolders(loadedSubfolders)
         
         // Special ordering for Manuscript subfolders: Front Matter, Body, Back Matter
         if selectedFolder.name == "Manuscript" {
@@ -721,7 +758,8 @@ struct FolderListView: View {
             modelContext.insert(submittedFile)
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "folder-list-create-submission")
+        WriteCoalescer.shared?.flush()
         NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
         createdSubmissionName = trimmedName
         showSubmissionCreated = true

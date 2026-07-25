@@ -306,7 +306,7 @@ extension FolderFilesView {
         }
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-sheet-save")
             let format = copiedCount == 1
                 ? NSLocalizedString("copyToProject.success.single", comment: "1 file copied")
                 : NSLocalizedString("copyToProject.success.multiple", comment: "%d files copied")
@@ -387,7 +387,9 @@ extension FolderFilesView {
                     pageSetup.footerLeft = footerLeft
                     pageSetup.footerCenter = footerCenter
                     pageSetup.footerRight = footerRight
-                    try? modelContext.save()
+                    folder.project?.modifiedDate = Date()
+                    WriteCoalescer.shared?.requestSave(reason: "folder-files-header-footer-save")
+                    WriteCoalescer.shared?.flush()
                 }
                 showHeaderFooterEditor = false
             }

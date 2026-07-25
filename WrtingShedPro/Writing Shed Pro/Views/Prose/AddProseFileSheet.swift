@@ -120,7 +120,9 @@ struct AddProseFileSheet: View {
         modelContext.insert(newFile)
         
         do {
-            try modelContext.save()
+            newFile.modifiedDate = Date()
+            folder.project?.modifiedDate = Date()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "add-prose-file")
             ReviewManager.shared.recordSignificantEvent()
         } catch {
             errorMessage = "Failed to save file: \(error.localizedDescription)"

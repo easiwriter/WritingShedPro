@@ -214,7 +214,7 @@ class FileMoveService {
 
         // Permanent deletes must persist immediately so the file cannot
         // reappear after relaunch if the coalescer is unavailable or delayed.
-        try modelContext.save()
+        try EnsemblesSaveGate.save(modelContext, reason: "file-move-permanent-delete")
         modelContext.processPendingChanges()
     }
     

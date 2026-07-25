@@ -285,8 +285,13 @@ struct AddSceneSheet: View {
             return
         }
         
-        // Find Draft folder
-        let scenesFolder = project.folders?.first { $0.name == "Scenes" }
+        // Find content folder
+        let contentFolderName = isVerseNovel ? "Episodes" : "Scenes"
+        guard let scenesFolder = project.folders?.first(where: { $0.name == contentFolderName }) else {
+            errorMessage = String(format: NSLocalizedString("fiction.scene.error.folderMissing", comment: "Missing content folder"), contentFolderName)
+            showErrorAlert = true
+            return
+        }
         
         let scene = StoryScene(
             name: trimmedTitle,
@@ -303,6 +308,27 @@ struct AddSceneSheet: View {
             project.scenes = []
         }
         project.scenes?.append(scene)
+
+        if let chapter {
+            if chapter.scenes == nil {
+                chapter.scenes = []
+            }
+            chapter.scenes?.append(scene)
+        }
+
+        if let act {
+            if act.scenes == nil {
+                act.scenes = []
+            }
+            act.scenes?.append(scene)
+        }
+
+        if let book {
+            if book.scenes == nil {
+                book.scenes = []
+            }
+            book.scenes?.append(scene)
+        }
         
         // Set relationships
         scene.location = selectedLocation
@@ -351,17 +377,16 @@ struct AddSceneSheet: View {
         textFile.workflowStatus = .draft  // New scenes start as drafts
         textFile.scene = scene
         scene.textFile = textFile
+        scene.modifiedDate = Date()
+        textFile.modifiedDate = Date()
+        project.modifiedDate = Date()
         
         modelContext.insert(scene)
         modelContext.insert(textFile)
         
-        do {
-            try modelContext.save()
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-            showErrorAlert = true
-        }
+        WriteCoalescer.shared?.requestSave(reason: "add-scene")
+        WriteCoalescer.shared?.flush()
+        dismiss()
     }
 
 }

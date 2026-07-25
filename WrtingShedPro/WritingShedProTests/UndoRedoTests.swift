@@ -61,6 +61,31 @@ final class UndoRedoTests: XCTestCase {
         // Then
         XCTAssertEqual(testFile.currentVersion?.content, "Hello")
     }
+
+    func testTextInsertCommandUndoPostsRestoredContentNotification() {
+        // Given
+        testFile.currentVersion?.attributedContent = NSAttributedString(string: "Hello World")
+        let command = TextInsertCommand(position: 5, text: " World", targetFile: testFile)
+        let expectation = expectation(description: "Undo posts restored content notification")
+
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("UndoRedoContentRestored"),
+            object: testFile,
+            queue: nil
+        ) { notification in
+            let content = notification.userInfo?["content"] as? NSAttributedString
+            XCTAssertEqual(content?.string, "Hello")
+            expectation.fulfill()
+        }
+
+        // When
+        command.undo()
+
+        // Then
+        wait(for: [expectation], timeout: 1.0)
+        NotificationCenter.default.removeObserver(observer)
+        XCTAssertEqual(testFile.currentVersion?.content, "Hello")
+    }
     
     func testTextInsertAtBeginning() {
         // Given

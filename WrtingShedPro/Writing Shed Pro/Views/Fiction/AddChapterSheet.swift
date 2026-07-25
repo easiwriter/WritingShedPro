@@ -213,6 +213,7 @@ struct AddChapterSheet: View {
                 userOrder: nextOrderIndex
             )
             book.project = project
+            book.modifiedDate = Date()
             modelContext.insert(book)
         } else {
             let chapter = Chapter(
@@ -221,15 +222,13 @@ struct AddChapterSheet: View {
                 userOrder: nextOrderIndex
             )
             chapter.project = project
+            chapter.modifiedDate = Date()
             modelContext.insert(chapter)
         }
         
-        do {
-            try modelContext.save()
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-            showErrorAlert = true
-        }
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "add-chapter-or-book")
+        WriteCoalescer.shared?.flush()
+        dismiss()
     }
 }

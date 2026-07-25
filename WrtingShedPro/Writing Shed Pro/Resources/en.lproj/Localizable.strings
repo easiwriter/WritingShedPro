@@ -8,6 +8,10 @@
 "projectDetail.moveToTrashTitle" = "Move Project to Trash";
 "projectDetail.moveToTrashConfirmMessage" = "Are you sure you want to move \"%@\" to the Trash? You can restore it later from the Trash bin.";
 
+/* About */
+"about.credits.title" = "Credits";
+"about.ensembles.credit" = "Sync support powered by Ensembles.";
+
 /* Sync Recovery */
 "sync.recovery.banner" = "Sync delayed. Go to Settings → Sync Troubleshooting before making more changes.";
 /* Localization strings for Write! app */
@@ -272,6 +276,7 @@
 "fiction.scene.storyStage" = "Act";
 "fiction.scene.add.title" = "Add Scene";
 "fiction.scene.error.titleRequired" = "Scene title is required.";
+"fiction.scene.error.folderMissing" = "The %@ folder could not be found.";
 "fiction.scene.file" = "Scene File";
 "fiction.scene.delete" = "Delete Scene";
 

@@ -11,15 +11,15 @@ import SwiftData
 struct AddSubmissionView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    
+
     let publication: Publication
     let project: Project
-    
+
     @Query private var allFiles: [TextFile]
     @State private var selectedFiles: Set<TextFile> = []
     @State private var submissionDate: Date = Date()
     @State private var notes: String = ""
-    
+
     // Filter files for this project and exclude already submitted versions
     private var projectFiles: [TextFile] {
         let filtered = allFiles.filter { file in
@@ -27,21 +27,25 @@ struct AddSubmissionView: View {
         }
         return filtered.sorted { $0.name < $1.name }
     }
-    
+
     private func isFileEligibleForSubmission(_ file: TextFile) -> Bool {
         // Exclude trashed files
         guard file.trashItem == nil else { return false }
-        
-        // Exclude files without a parent folder (orphaned)
-        guard file.parentFolder != nil else { return false }
-        
+
+          // Exclude files outside project content folders, including manuscript front/back matter.
+          guard let parentFolder = file.parentFolder,
+              FolderCapabilityService.isContentFolder(parentFolder) else { return false }
+
+        // Only files marked Ready or Published should be available for submission.
+        guard file.workflowStatus == .ready || file.workflowStatus == .published else { return false }
+
         // Check if file belongs to project
         guard belongsToProject(file) else { return false }
-        
+
         // Check if this file/version has already been submitted
         return !isAlreadySubmitted(file)
     }
-    
+
     private func belongsToProject(_ file: TextFile) -> Bool {
         var currentFolder = file.parentFolder
         while let folder = currentFolder {
@@ -52,22 +56,22 @@ struct AddSubmissionView: View {
         }
         return false
     }
-    
+
     private func isAlreadySubmitted(_ file: TextFile) -> Bool {
         guard let submissions = publication.submissions else { return false }
         guard let currentVersion = file.currentVersion else { return false }
         let fileID: UUID = file.id
         let versionNumber: Int = currentVersion.versionNumber
-        
+
         return submissions.contains { (submission: Submission) -> Bool in
             guard let submittedFiles = submission.submittedFiles else { return false }
             return submittedFiles.contains { (submittedFile: SubmittedFile) -> Bool in
-                submittedFile.textFile?.id == fileID && 
+                submittedFile.textFile?.id == fileID &&
                 submittedFile.version?.versionNumber == versionNumber
             }
         }
     }
-    
+
     var body: some View {
         NavigationStack {
             Form {
@@ -75,14 +79,14 @@ struct AddSubmissionView: View {
                 Section {
                     LabeledContent(NSLocalizedString("publications.form.name.label", comment: "Publication")) {
                         HStack {
-                            Text(publication.type?.icon ?? "")
+                            Text(publication.publicationType?.icon ?? "")
                             Text(publication.name)
                         }
                     }
                 } header: {
                     Text(NSLocalizedString("submissions.submitting.to", comment: "Submitting to"))
                 }
-                
+
                 // File selection
                 Section {
                     if projectFiles.isEmpty {
@@ -103,7 +107,7 @@ struct AddSubmissionView: View {
                 } footer: {
                     Text(String(format: NSLocalizedString("submissions.files.selected", comment: "Files selected"), selectedFiles.count))
                 }
-                
+
                 // Submission date
                 Section {
                     DatePicker(
@@ -111,11 +115,11 @@ struct AddSubmissionView: View {
                         selection: $submissionDate,
                         displayedComponents: .date
                     )
-                    
+
                 } header: {
                     Text(NSLocalizedString("submissions.date.label", comment: "Date"))
                 }
-                
+
                 // Notes
                 Section {
                     TextEditor(text: $notes)
@@ -134,21 +138,21 @@ struct AddSubmissionView: View {
                     }
                     .accessibilityLabel(Text(NSLocalizedString("accessibility.cancel", comment: "Cancel")))
                 }
-                
+
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("submissions.button.submit", comment: "Submit")) {
                         createSubmission()
                     }
                     .disabled(selectedFiles.isEmpty)
                     .accessibilityLabel(Text(NSLocalizedString("submissions.button.submit", comment: "Submit")))
-                    .accessibilityHint(Text(selectedFiles.isEmpty ? 
+                    .accessibilityHint(Text(selectedFiles.isEmpty ?
                         NSLocalizedString("accessibility.submit.disabled", comment: "Submit disabled") :
                         NSLocalizedString("accessibility.submit.enabled", comment: "Submit enabled")))
                 }
             }
         }
     }
-    
+
     private func toggleFileSelection(_ file: TextFile) {
         if selectedFiles.contains(file) {
             selectedFiles.remove(file)
@@ -156,7 +160,7 @@ struct AddSubmissionView: View {
             selectedFiles.insert(file)
         }
     }
-    
+
     private func createSubmission() {
         // Create submission
         let submission = Submission(
@@ -165,10 +169,10 @@ struct AddSubmissionView: View {
             submittedDate: submissionDate,
             notes: notes.isEmpty ? nil : notes
         )
-        
+
         project.modifiedDate = Date()
         modelContext.insert(submission)
-        
+
         // Create submitted file records for each selected file
         for file in selectedFiles {
             if let currentVersion = file.currentVersion {
@@ -183,7 +187,7 @@ struct AddSubmissionView: View {
                 modelContext.insert(submittedFile)
             }
         }
-        
+
         dismiss()
     }
 }
@@ -192,25 +196,25 @@ struct FileSelectionRow: View {
     let file: TextFile
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(isSelected ? .blue : .secondary)
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(file.name)
                         .font(.body)
                         .foregroundStyle(.primary)
-                    
+
                     if let version = file.currentVersion {
                         Text(String(format: NSLocalizedString("submissions.version.label", comment: "Version"), version.versionNumber))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
-                
+
                 Spacer()
             }
             .contentShape(Rectangle())
@@ -218,8 +222,8 @@ struct FileSelectionRow: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(String(format: NSLocalizedString("accessibility.file.selection", comment: "File selection"), file.name)))
-        .accessibilityHint(Text(isSelected ? 
-            NSLocalizedString("accessibility.file.selected", comment: "Selected") : 
+        .accessibilityHint(Text(isSelected ?
+            NSLocalizedString("accessibility.file.selected", comment: "Selected") :
             NSLocalizedString("accessibility.file.not.selected", comment: "Not selected")))
     }
 }

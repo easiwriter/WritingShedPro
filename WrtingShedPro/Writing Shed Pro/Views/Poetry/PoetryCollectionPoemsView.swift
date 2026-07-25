@@ -338,7 +338,8 @@ struct PoetryCollectionPoemsView: View {
         let nextOrder = (sortedFiles.map { $0.userOrder ?? 0 }.max() ?? -1) + 1
         file.userOrder = nextOrder
         collection.modifiedDate = Date()
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "poetry-collection-add-poem")
+        WriteCoalescer.shared?.flush()
         NotificationCenter.default.post(name: .poetryCollectionMembershipDidChange, object: collection.id)
     }
     
@@ -347,7 +348,8 @@ struct PoetryCollectionPoemsView: View {
             file.removeFromPoetryCollection(collection)
         }
         collection.modifiedDate = Date()
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "poetry-collection-remove-poems")
+        WriteCoalescer.shared?.flush()
         NotificationCenter.default.post(name: .poetryCollectionMembershipDidChange, object: collection.id)
         selectedFileIDs.removeAll()
         editMode = .inactive
@@ -359,7 +361,8 @@ struct PoetryCollectionPoemsView: View {
             file.removeFromPoetryCollection(collection)
         }
         collection.modifiedDate = Date()
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "poetry-collection-delete-poems")
+        WriteCoalescer.shared?.flush()
         NotificationCenter.default.post(name: .poetryCollectionMembershipDidChange, object: collection.id)
     }
     
@@ -576,7 +579,8 @@ struct PoetryCollectionPoemsView: View {
             file.userOrder = index
         }
         collection.modifiedDate = Date()
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "poetry-collection-move-poems")
+        WriteCoalescer.shared?.flush()
         NotificationCenter.default.post(name: .poetryCollectionMembershipDidChange, object: collection.id)
     }
 }

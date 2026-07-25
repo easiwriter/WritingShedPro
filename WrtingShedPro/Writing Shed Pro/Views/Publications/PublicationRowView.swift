@@ -13,7 +13,7 @@ struct PublicationRowView: View {
     var body: some View {
         HStack(spacing: 12) {
             // Type icon
-            Text(publication.type?.icon ?? "📄")
+            Text(publication.publicationType?.icon ?? "📄")
                 .font(.title2)
                 .accessibilityHidden(true) // Announced in label
             
@@ -92,7 +92,7 @@ struct PublicationRowView: View {
             String(format: NSLocalizedString("accessibility.publication.row", comment: "Publication row"), publication.name)
         )
         
-        if let type = publication.type {
+        if let type = publication.publicationType {
             label = label + Text(", ") + Text(
                 String(format: NSLocalizedString("accessibility.publication.type", comment: "Type label"), type.displayName)
             )

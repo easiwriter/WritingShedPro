@@ -43,7 +43,6 @@ struct IndexEditorSheet: View {
     @State private var isPrimaryReference: Bool = false
     @State private var selectedSeeEntry: IndexEntry? = nil  // "see" cross-reference entry
     @State private var selectedSeeAlsoEntries: Set<UUID> = []  // "see also" entry IDs
-    @State private var showDiscardConfirmation = false
     @State private var showSaveError = false
     @State private var saveErrorMessage = ""
     @State private var isSaving = false
@@ -52,18 +51,6 @@ struct IndexEditorSheet: View {
     
     private var isEditing: Bool {
         existingEntry != nil
-    }
-    
-    private var hasChanges: Bool {
-        if let existing = existingEntry {
-            let existingSeeAlsoIDs = Set(existing.seeAlsoEntryIDs)
-            return keyword != existing.keyword ||
-                   selectedParent?.id != existing.parentEntry?.id ||
-                   selectedSeeEntry?.id != existing.seeEntryID ||
-                   selectedSeeAlsoEntries != existingSeeAlsoIDs
-        }
-        return !keyword.isEmpty || selectedParent != nil || isPrimaryReference ||
-               selectedSeeEntry != nil || !selectedSeeAlsoEntries.isEmpty
     }
     
     private var canSave: Bool {
@@ -391,19 +378,6 @@ struct IndexEditorSheet: View {
             } message: {
                 Text(saveErrorMessage)
             }
-            .confirmationDialog(
-                NSLocalizedString("indexEditor.discard.title", comment: "Discard Changes?"),
-                isPresented: $showDiscardConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button(NSLocalizedString("indexEditor.discard.button", comment: "Discard"), role: .destructive) {
-                    onCancel?()
-                    dismiss()
-                }
-                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
-            } message: {
-                Text(NSLocalizedString("indexEditor.discard.message", comment: "Your changes will be lost."))
-            }
         }
     }
     
@@ -476,12 +450,8 @@ struct IndexEditorSheet: View {
     }
     
     private func handleCancel() {
-        if hasChanges {
-            showDiscardConfirmation = true
-        } else {
-            onCancel?()
-            dismiss()
-        }
+        onCancel?()
+        dismiss()
     }
     
     private func saveEntry() {
@@ -571,7 +541,7 @@ struct IndexEditorSheet: View {
         
         // Save context
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "index-editor-save")
             #if DEBUG
             print("✅ Index entry saved successfully")
             // Verify the relationship persisted
@@ -583,9 +553,13 @@ struct IndexEditorSheet: View {
             }
             #endif
             
-            // Only dismiss and call onSave after successful save
-            onSave?(entry, isPrimaryReference)
             dismiss()
+            let callback = onSave
+            let savedEntry = entry
+            let savedIsPrimaryReference = isPrimaryReference
+            DispatchQueue.main.async {
+                callback?(savedEntry, savedIsPrimaryReference)
+            }
         } catch {
             #if DEBUG
             print("❌ Error saving index entry: \(error)")

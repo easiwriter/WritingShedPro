@@ -188,7 +188,7 @@ struct ImageStyleSheetEditorView: View {
         imageStyle.modifiedDate = Date()
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "image-style-sheet-save")
             #if DEBUG
             print("✅ Saved image style: \(imageStyle.displayName)")
             #endif

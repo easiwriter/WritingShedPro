@@ -145,7 +145,7 @@ struct SubmissionDetailView: View {
             if let publication = submission.publication {
                 NavigationLink(destination: PublicationDetailView(publication: publication)) {
                     HStack {
-                        Text(publication.type?.icon ?? "")
+                        Text(publication.publicationType?.icon ?? "")
                         Text(publication.name)
                     }
                 }
@@ -633,7 +633,7 @@ struct SubmissionDetailView: View {
         }
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "submission-detail-save")
             let format = copiedCount == 1
                 ? NSLocalizedString("copyToProject.success.single", comment: "1 file copied")
                 : NSLocalizedString("copyToProject.success.multiple", comment: "%d files copied")
@@ -674,7 +674,7 @@ struct SubmissionDetailView: View {
     }
     
     private func updateStatus(_ submittedFile: SubmittedFile, to status: SubmissionStatus) {
-        submittedFile.status = status
+        submittedFile.submissionStatus = status
         submittedFile.statusDate = Date()
         
         // If accepted, update file's workflow status to published
@@ -729,8 +729,8 @@ struct SubmittedFileRow: View {
                     }
                 } label: {
                     HStack {
-                        Text(submittedFile.status?.icon ?? "")
-                        Text(submittedFile.status?.displayName ?? NSLocalizedString("submissions.status.unknown", comment: "Unknown"))
+                        Text(submittedFile.submissionStatus?.icon ?? "")
+                        Text(submittedFile.submissionStatus?.displayName ?? NSLocalizedString("submissions.status.unknown", comment: "Unknown"))
                     }
                     .font(.caption)
                     .padding(.horizontal, 8)
@@ -740,7 +740,7 @@ struct SubmittedFileRow: View {
                     .cornerRadius(8)
                 }
                 .accessibilityLabel(Text(String(format: NSLocalizedString("accessibility.change.status", comment: "Change status"), 
-                                               submittedFile.status?.displayName ?? "")))
+                                               submittedFile.submissionStatus?.displayName ?? "")))
             }
             
             if let statusDate = submittedFile.statusDate {
@@ -754,7 +754,7 @@ struct SubmittedFileRow: View {
     }
     
     private var statusColor: Color {
-        guard let status = submittedFile.status else { return .gray }
+        guard let status = submittedFile.submissionStatus else { return .gray }
         return status.color
     }
 }

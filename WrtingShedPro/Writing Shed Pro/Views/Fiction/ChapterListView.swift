@@ -525,7 +525,9 @@ struct ChapterListView: View {
             }
         }
         
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "chapter-list-delete")
+        WriteCoalescer.shared?.flush()
         selectedChapterIDs.removeAll()
         renumberContainers()
         exitEditMode()
@@ -537,7 +539,9 @@ struct ChapterListView: View {
         chapter.name = name
         chapter.synopsis = synopsis.isEmpty ? nil : synopsis
         chapter.modifiedDate = Date()
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "chapter-list-update-chapter")
+        WriteCoalescer.shared?.flush()
     }
 
     private func updateBook(_ book: Book, name: String, synopsis: String) {
@@ -546,7 +550,9 @@ struct ChapterListView: View {
         book.name = name
         book.synopsis = synopsis.isEmpty ? nil : synopsis
         book.modifiedDate = Date()
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "chapter-list-update-book")
+        WriteCoalescer.shared?.flush()
     }
     
     private func moveContainers(from source: IndexSet, to destination: Int) {
@@ -566,7 +572,9 @@ struct ChapterListView: View {
             }
         }
 
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "chapter-list-move")
+        WriteCoalescer.shared?.flush()
     }
     
     private func renumberContainers() {
@@ -579,7 +587,9 @@ struct ChapterListView: View {
                 chapter.userOrder = index
             }
         }
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "chapter-list-renumber")
+        WriteCoalescer.shared?.flush()
     }
     
     private func createSubmissionFromContainers(name: String) {
@@ -619,7 +629,8 @@ struct ChapterListView: View {
             modelContext.insert(submittedFile)
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "chapter-list-create-submission")
+        WriteCoalescer.shared?.flush()
         createdSubmissionName = trimmedName
         showSubmissionCreated = true
         selectedChapterIDs.removeAll()

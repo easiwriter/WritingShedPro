@@ -47,7 +47,7 @@ class SubmissionMigrationService {
         
         if collectionsFixed > 0 || submissionsFixed > 0 {
             do {
-                try modelContext.save()
+                try EnsemblesSaveGate.save(modelContext, reason: "submission-migration")
                 #if DEBUG
                 print("[Migration] ✅ Migration complete:")
                 #endif

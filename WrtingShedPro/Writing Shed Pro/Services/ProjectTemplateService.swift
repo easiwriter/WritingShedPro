@@ -31,18 +31,14 @@ struct ProjectTemplateService {
             }
         }
         
-        // Explicitly save the context to ensure all relationships are persisted
-        do {
-            try modelContext.save()
-            #if DEBUG
-            print("✅ Successfully created folder structure for project: \(project.name ?? "Unknown")")
-            print("📁 Total folders created: \(orderedFolderKeys.count)")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ Error saving folder structure: \(error)")
-            #endif
+        Task { @MainActor in
+            WriteCoalescer.shared?.requestSave(reason: "project-template-default-folders")
+            WriteCoalescer.shared?.flush()
         }
+        #if DEBUG
+        print("✅ Created folder structure for project: \(project.name ?? "Unknown")")
+        print("📁 Total folders created: \(orderedFolderKeys.count)")
+        #endif
     }
     
     // MARK: - Manuscript Subfolders (Feature 029)

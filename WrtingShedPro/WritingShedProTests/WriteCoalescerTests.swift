@@ -23,10 +23,18 @@ final class WriteCoalescerTests: XCTestCase {
         super.tearDown()
     }
 
+    @discardableResult
+    private func insertDirtyProject(named name: String = "Coalescer Test") -> Project {
+        let project = Project(name: name, type: .prose)
+        context.insert(project)
+        return project
+    }
+
     // MARK: - T007(a): Single requestSave produces one save
 
     func testSingleRequestSaveProducesOneSave() async {
         let coalescer = WriteCoalescer(modelContext: context, flushDelay: 0.1)
+        insertDirtyProject()
 
         coalescer.requestSave()
 
@@ -42,6 +50,7 @@ final class WriteCoalescerTests: XCTestCase {
 
     func testRapidRequestsCoalesceIntoOneSave() async {
         let coalescer = WriteCoalescer(modelContext: context, flushDelay: 0.2)
+        insertDirtyProject()
 
         for _ in 0..<10 {
             coalescer.requestSave()
@@ -58,6 +67,7 @@ final class WriteCoalescerTests: XCTestCase {
 
     func testFlushImmediatelySavesWhenPending() {
         let coalescer = WriteCoalescer(modelContext: context, flushDelay: 10.0)
+        insertDirtyProject()
 
         coalescer.requestSave()
         XCTAssertTrue(coalescer.pendingSave)
@@ -84,16 +94,30 @@ final class WriteCoalescerTests: XCTestCase {
 
     func testRequestSaveAfterFlushStartsNewTimer() async {
         let coalescer = WriteCoalescer(modelContext: context, flushDelay: 0.1)
+        let project = insertDirtyProject()
 
         coalescer.requestSave()
         coalescer.flush()
         XCTAssertEqual(coalescer.saveCount, 1)
 
+        project.modifiedDate = Date()
         coalescer.requestSave()
         try? await Task.sleep(for: .milliseconds(200))
 
         XCTAssertEqual(coalescer.saveCount, 2)
         XCTAssertEqual(coalescer.requestCount, 2)
+    }
+
+    func testRequestSaveWithNoChangesSkipsCoreDataSave() async {
+        let coalescer = WriteCoalescer(modelContext: context, flushDelay: 0.1)
+
+        coalescer.requestSave()
+        try? await Task.sleep(for: .milliseconds(200))
+
+        XCTAssertEqual(coalescer.saveCount, 0)
+        XCTAssertEqual(coalescer.requestCount, 1)
+        XCTAssertFalse(coalescer.pendingSave)
+        XCTAssertNil(coalescer.lastFlushTime)
     }
 
     // MARK: - cancelPending

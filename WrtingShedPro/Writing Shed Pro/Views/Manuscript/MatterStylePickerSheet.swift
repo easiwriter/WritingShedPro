@@ -147,7 +147,8 @@ struct MatterStylePickerSheet: View {
         project.matterHeadingStyleName = selectedHeadingStyleName
         project.matterBodyStyleName = selectedBodyStyleName
         project.modifiedDate = Date()
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "matter-style-picker-save")
+        WriteCoalescer.shared?.flush()
         dismissSheet()
     }
 }

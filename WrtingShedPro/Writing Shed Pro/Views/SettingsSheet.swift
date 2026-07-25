@@ -16,6 +16,7 @@ struct SettingsSheet: View {
     let onSyncNow: () -> Void
     let onRestartOnboarding: () -> Void
     
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.requestReview) var requestReview
     @State private var receiveOperatorMessages = SupportMessagesService.receiveOperatorMessages
     @State private var allowCriticalOperatorMessages = SupportMessagesService.allowCriticalWhenOptedOut
@@ -27,7 +28,7 @@ struct SettingsSheet: View {
                 // MARK: - General Section
                 Section {
                     Button {
-                        isPresented = false
+                        dismissSheet()
                         state.showAbout = true
                     } label: {
                         Label("About Writing Shed Pro", systemImage: "info.circle")
@@ -41,14 +42,14 @@ struct SettingsSheet: View {
                     }
                     
                     Button {
-                        isPresented = false
+                        dismissSheet()
                         state.showStore = true
                     } label: {
                         Label("Manage Purchases", systemImage: "cart")
                     }
                     
                     Button {
-                        isPresented = false
+                        dismissSheet()
                         state.showManageStyles = true
                     } label: {
                         Label("Stylesheet Editor", systemImage: "paintbrush")
@@ -64,7 +65,7 @@ struct SettingsSheet: View {
                 // MARK: - Import Section
                 Section {
                     Button {
-                        isPresented = false
+                        dismissSheet()
                         onImport()
                     } label: {
                         Label("Import", systemImage: "arrow.down.doc")
@@ -106,28 +107,28 @@ struct SettingsSheet: View {
                     SyncStatusView()
 
                     Button {
-                        isPresented = false
+                        dismissSheet()
                         onSyncNow()
                     } label: {
                         Label("Sync Now", systemImage: "arrow.clockwise.icloud")
                     }
 
                     Button {
-                        isPresented = false
+                        dismissSheet()
                         state.showSyncDiagnostics = true
                     } label: {
                         Label("Sync Troubleshooting", systemImage: "arrow.triangle.2.circlepath")
                     }
                     
                     Button {
-                        isPresented = false
+                        dismissSheet()
                         state.showContactSupport = true
                     } label: {
                         Label("Contact Support", systemImage: "envelope")
                     }
 
                     Button {
-                        isPresented = false
+                        dismissSheet()
                         state.showSupportMessages = true
                     } label: {
                         Label("Support Messages", systemImage: "text.bubble")
@@ -149,7 +150,7 @@ struct SettingsSheet: View {
                                 requestReview()
                             }
                         }
-                        isPresented = false
+                        dismissSheet()
                     } label: {
                         Label("Rate This App", systemImage: "star.fill")
                     }
@@ -218,12 +219,16 @@ struct SettingsSheet: View {
             } message: {
                 Text(NSLocalizedString("onboarding.restart.message", comment: "Restart onboarding warning"))
             }
+            #if targetEnvironment(macCatalyst)
+            .navigationTitle("")
+            #else
             .navigationTitle("Settings")
+            #endif
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
-                        isPresented = false
+                        dismissSheet()
                     }
                 }
             }
@@ -231,5 +236,10 @@ struct SettingsSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Color(uiColor: .systemBackground))
+    }
+
+    private func dismissSheet() {
+        isPresented = false
+        dismiss()
     }
 }

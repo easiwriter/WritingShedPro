@@ -126,7 +126,9 @@ struct AddPoetryCollectionSheet: View {
         modelContext.insert(collection)
         
         do {
-            try modelContext.save()
+            collection.modifiedDate = Date()
+            project.modifiedDate = Date()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "add-poetry-collection")
             dismiss()
         } catch {
             errorMessage = error.localizedDescription

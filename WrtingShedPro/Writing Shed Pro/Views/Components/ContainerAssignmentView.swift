@@ -326,34 +326,8 @@ extension ContainerAssignmentView where Item == TextFile {
                 Set((file.poetryCollections ?? []).map(\.id))
             },
             onSave: {
-                // Save every distinct context participating in the mutation graph so
-                // link rows are persisted before this sheet dismisses.
-                var contextsToSave: [ModelContext] = []
-                var seenContextIDs: Set<ObjectIdentifier> = []
-
-                func addContextIfNeeded(_ context: ModelContext?) {
-                    guard let context else { return }
-                    let contextID = ObjectIdentifier(context)
-                    guard !seenContextIDs.contains(contextID) else { return }
-                    seenContextIDs.insert(contextID)
-                    contextsToSave.append(context)
-                }
-
-                addContextIfNeeded(modelContext)
-                for file in selectedFiles {
-                    addContextIfNeeded(file.modelContext)
-                }
-                for collection in collections {
-                    addContextIfNeeded(collection.modelContext)
-                }
-
-                for context in contextsToSave {
-                    do {
-                        try context.save()
-                    } catch {
-                        // Best effort: continue saving other contexts.
-                    }
-                }
+                WriteCoalescer.shared?.requestSave(reason: "container-assignment-poetry-save")
+                WriteCoalescer.shared?.flush()
                 NotificationCenter.default.post(name: .poetryCollectionMembershipDidChange, object: nil)
             }
         )
@@ -390,7 +364,8 @@ extension ContainerAssignmentView where Item == TextFile {
                 Set((file.sections ?? []).map(\.id))
             },
             onSave: {
-                try? modelContext.save()
+                WriteCoalescer.shared?.requestSave(reason: "container-assignment-prose-sections")
+                WriteCoalescer.shared?.flush()
             }
         )
     }
@@ -429,7 +404,8 @@ extension ContainerAssignmentView where Item == StoryScene {
                 Set((scene.acts ?? []).map(\.id))
             },
             onSave: {
-                try? modelContext.save()
+                WriteCoalescer.shared?.requestSave(reason: "container-assignment-acts")
+                WriteCoalescer.shared?.flush()
             }
         )
     }
@@ -480,7 +456,8 @@ extension ContainerAssignmentView where Item == StoryScene {
                 Set((scene.chapters ?? []).map(\.id))
             },
             onSave: {
-                try? modelContext.save()
+                WriteCoalescer.shared?.requestSave(reason: "container-assignment-chapters")
+                WriteCoalescer.shared?.flush()
             }
         )
     }
@@ -516,7 +493,8 @@ extension ContainerAssignmentView where Item == StoryScene {
                 Set((scene.books ?? []).map(\.id))
             },
             onSave: {
-                try? modelContext.save()
+                WriteCoalescer.shared?.requestSave(reason: "container-assignment-books")
+                WriteCoalescer.shared?.flush()
             }
         )
     }

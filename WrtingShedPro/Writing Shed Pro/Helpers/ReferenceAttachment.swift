@@ -256,20 +256,9 @@ final class ReferenceAttachment: NSTextAttachment {
             return createFallbackImage(at: charIndex)
         }
         
-        // Get the font at this character position (before the attachment)
-        let surroundingFont: UIFont
-        if charIndex > 0 {
-            surroundingFont = textStorage.attribute(.font, at: charIndex - 1, effectiveRange: nil) as? UIFont
-                ?? UIFont.systemFont(ofSize: 16)
-        } else if charIndex < textStorage.length {
-            surroundingFont = textStorage.attribute(.font, at: charIndex, effectiveRange: nil) as? UIFont
-                ?? UIFont.systemFont(ofSize: 16)
-        } else {
-            surroundingFont = UIFont.systemFont(ofSize: 16)
-        }
+        let surroundingFont = resolvedFont(in: textStorage, at: charIndex)
         
-        // Determine text color based on context
-        let textColor = isForPageView ? UIColor.black : UIColor.label
+        let textColor = isForPageView ? UIColor.black : resolvedForegroundColor(in: textStorage, at: charIndex)
         
         // Create attributed string using the surrounding text's font
         let attributes: [NSAttributedString.Key: Any] = [
@@ -354,17 +343,7 @@ final class ReferenceAttachment: NSTextAttachment {
             return CGRect(x: 0, y: font.descender, width: ceil(size.width), height: ceil(size.height))
         }
         
-        // Get the font at the character position before this attachment
-        let font: UIFont
-        if charIndex > 0 {
-            font = textStorage.attribute(.font, at: charIndex - 1, effectiveRange: nil) as? UIFont
-                ?? UIFont.systemFont(ofSize: 16)
-        } else if charIndex < textStorage.length {
-            font = textStorage.attribute(.font, at: charIndex, effectiveRange: nil) as? UIFont
-                ?? UIFont.systemFont(ofSize: 16)
-        } else {
-            font = UIFont.systemFont(ofSize: 16)
-        }
+        let font = resolvedFont(in: textStorage, at: charIndex)
         
         // Calculate bounds that match the surrounding text's baseline
         let size = (displayText as NSString).size(withAttributes: [.font: font])
@@ -382,6 +361,44 @@ final class ReferenceAttachment: NSTextAttachment {
     }
     
     // MARK: - Private Helpers
+
+    private func resolvedFont(in textStorage: NSTextStorage, at charIndex: Int) -> UIFont {
+        let candidateLocations = [charIndex - 1, charIndex + 1]
+        for location in candidateLocations where location >= 0 && location < textStorage.length {
+            if textStorage.attribute(.attachment, at: location, effectiveRange: nil) != nil {
+                continue
+            }
+            if let font = textStorage.attribute(.font, at: location, effectiveRange: nil) as? UIFont {
+                return font
+            }
+        }
+
+        if charIndex >= 0 && charIndex < textStorage.length,
+           let font = textStorage.attribute(.font, at: charIndex, effectiveRange: nil) as? UIFont {
+            return font
+        }
+
+        return UIFont.systemFont(ofSize: 16)
+    }
+
+    private func resolvedForegroundColor(in textStorage: NSTextStorage, at charIndex: Int) -> UIColor {
+        let candidateLocations = [charIndex - 1, charIndex + 1]
+        for location in candidateLocations where location >= 0 && location < textStorage.length {
+            if textStorage.attribute(.attachment, at: location, effectiveRange: nil) != nil {
+                continue
+            }
+            if let color = textStorage.attribute(.foregroundColor, at: location, effectiveRange: nil) as? UIColor {
+                return color
+            }
+        }
+
+        if charIndex >= 0 && charIndex < textStorage.length,
+           let color = textStorage.attribute(.foregroundColor, at: charIndex, effectiveRange: nil) as? UIColor {
+            return color
+        }
+
+        return UIColor.label
+    }
     
     private func stylingForType() -> (textColor: UIColor, backgroundColor: UIColor, borderColor: UIColor, font: UIFont) {
         switch referenceType {

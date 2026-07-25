@@ -547,7 +547,8 @@ struct SceneListView: View {
                     pageSetup.footerLeft = footerLeft
                     pageSetup.footerCenter = footerCenter
                     pageSetup.footerRight = footerRight
-                    try? modelContext.save()
+                    WriteCoalescer.shared?.requestSave(reason: "scene-list-header-footer-save")
+                    WriteCoalescer.shared?.flush()
                 }
                 showHeaderFooterEditor = false
             }
@@ -1445,7 +1446,8 @@ struct SceneListView: View {
             }
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "scene-list-create-submission")
+        WriteCoalescer.shared?.flush()
         createdSubmissionName = trimmedName
         showSubmissionCreated = true
         selectedSceneIDs.removeAll()
@@ -1754,7 +1756,7 @@ struct SceneListView: View {
         }
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "scene-list-copy-to-project")
             let format = copiedCount == 1
                 ? NSLocalizedString("copyToProject.success.single", comment: "1 file copied")
                 : NSLocalizedString("copyToProject.success.multiple", comment: "%d files copied")
@@ -1824,7 +1826,9 @@ struct SceneListView: View {
             scene.moveToTrash()
         }
         
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "scene-list-trash")
+        WriteCoalescer.shared?.flush()
         renumberScenes()
     }
     
@@ -1840,7 +1844,9 @@ struct SceneListView: View {
             modelContext.delete(scene)
         }
         
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "scene-list-delete-permanent")
+        WriteCoalescer.shared?.flush()
         renumberScenes()
     }
     
@@ -1854,7 +1860,9 @@ struct SceneListView: View {
             scene.modifiedDate = Date()
         }
         
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "scene-list-move")
+        WriteCoalescer.shared?.flush()
     }
     
     private func renumberScenes() {
@@ -1862,7 +1870,9 @@ struct SceneListView: View {
             scene.userOrder = index
             scene.modifiedDate = Date()
         }
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "scene-list-renumber")
+        WriteCoalescer.shared?.flush()
     }
     
     private func exitEditMode() {
@@ -1879,7 +1889,9 @@ struct SceneListView: View {
                 textFile.workflowStatus = .ready
             }
         }
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "scene-list-assign-act")
+        WriteCoalescer.shared?.flush()
     }
     
     private func assignScenesToChapter(_ scenes: [StoryScene], chapter: Chapter?) {
@@ -1890,7 +1902,9 @@ struct SceneListView: View {
                 textFile.workflowStatus = .ready
             }
         }
-        try? modelContext.save()
+        project.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "scene-list-assign-chapter")
+        WriteCoalescer.shared?.flush()
     }
 
     private func changeScenesStatus(_ scenes: [StoryScene], to newStatus: WorkflowStatus) {
@@ -1899,7 +1913,8 @@ struct SceneListView: View {
                 textFile.workflowStatus = newStatus
             }
         }
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "scene-list-change-status")
+        WriteCoalescer.shared?.flush()
     }
     
     // MARK: - Chapter Expand/Collapse Button
@@ -2089,7 +2104,7 @@ struct SceneListView: View {
                 
                 modelContext.insert(newScene)
                 modelContext.insert(textFile)
-                try modelContext.save()
+                try WriteCoalescer.shared.requestSaveAndFlush(reason: "scene-list-import-scene-file")
                 
             } catch {
                 print("Failed to import file: \(error)")

@@ -720,7 +720,7 @@ struct TextStyleEditorView: View {
         }
         
         do {
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "text-style-editor-save")
 
             if let stylesheet = style.styleSheet {
                 let updatedFiles = StyleSheetService.reapplyUpdatedStyle(
@@ -844,7 +844,8 @@ struct TextStyleEditorView: View {
             }
         }
         
-        try? modelContext.save()
+        WriteCoalescer.shared?.requestSave(reason: "text-style-back-matter-update")
+        WriteCoalescer.shared?.flush()
         
         #if DEBUG
         print("✅ Back matter files updated for stylesheet change")
@@ -909,7 +910,7 @@ struct TextStyleEditorView: View {
         
         do {
             modelContext.insert(newStyle)
-            try modelContext.save()
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "text-style-editor-delete")
             onSave?()
             
             #if DEBUG
