@@ -638,7 +638,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         if !stringsMatch,
            !hasAttachmentChange,
            let lastUserTextChangeTime = context.coordinator.lastUserTextChangeTime,
-           Date().timeIntervalSince(lastUserTextChangeTime) < 0.75 {
+           Date().timeIntervalSince(lastUserTextChangeTime) < Coordinator.simpleTypingIdleDelay {
             return
         }
         #if DEBUG
@@ -957,7 +957,9 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         private var pendingSimpleTypingSelection = NSRange(location: 0, length: 0)
         private var pendingSimpleTypingWorkItem: DispatchWorkItem?
         private var pendingDecorativeRedrawWorkItem: DispatchWorkItem?
-        private let simpleTypingIdleDelay: TimeInterval = 0.75
+        private var lastSimpleTypingSelectionSyncTime: CFTimeInterval = 0
+        fileprivate static let simpleTypingIdleDelay: TimeInterval = 1.5
+        private static let simpleTypingSelectionSyncInterval: CFTimeInterval = 0.08
         #endif
 
         private func bodyStyleAttributesFallback() -> [NSAttributedString.Key: Any] {
@@ -1021,7 +1023,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         private func emitSimpleTypingChange(from textView: UITextView, range: NSRange, replacementText: String) {
             #if targetEnvironment(macCatalyst)
             lastUserTextChangeTime = Date()
-            suppressDecorativeDrawingDuringLiveTyping(in: textView)
+            WriteCoalescer.shared?.noteEditingActivity()
             appendPendingSimpleTypingChange(range: range, replacementText: replacementText, selection: textView.selectedRange)
             #else
             guard let attributedText = textView.attributedText else { return }
@@ -1044,16 +1046,23 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         private func suppressDecorativeDrawingDuringLiveTyping(in textView: UITextView) {
             guard let layoutManager = textView.layoutManager as? NumberingLayoutManager else { return }
 
-            layoutManager.suppressDecorativeDrawing(for: simpleTypingIdleDelay)
+            layoutManager.suppressDecorativeDrawing(for: Self.simpleTypingIdleDelay)
             pendingDecorativeRedrawWorkItem?.cancel()
 
             let workItem = DispatchWorkItem { [weak textView] in
                 guard let textView else { return }
-                textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                let visibleBounds = CGRect(origin: textView.contentOffset, size: textView.bounds.size)
+                    .insetBy(dx: -40, dy: -40)
+                    .offsetBy(dx: -textView.textContainerInset.left, dy: -textView.textContainerInset.top)
+                let glyphRange = textView.layoutManager.glyphRange(forBoundingRect: visibleBounds, in: textView.textContainer)
+                let characterRange = textView.layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+                if characterRange.length > 0 {
+                    textView.layoutManager.invalidateDisplay(forCharacterRange: characterRange)
+                }
                 textView.setNeedsDisplay()
             }
             pendingDecorativeRedrawWorkItem = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + simpleTypingIdleDelay, execute: workItem)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.simpleTypingIdleDelay, execute: workItem)
         }
 
         private func appendPendingSimpleTypingChange(range: NSRange, replacementText: String, selection: NSRange) {
@@ -1067,13 +1076,21 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             }
 
             pendingSimpleTypingSelection = selection
+            syncSimpleTypingSelectionIfNeeded(selection)
             pendingSimpleTypingWorkItem?.cancel()
 
             let workItem = DispatchWorkItem { [weak self] in
                 self?.flushPendingSimpleTypingChange()
             }
             pendingSimpleTypingWorkItem = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + simpleTypingIdleDelay, execute: workItem)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.simpleTypingIdleDelay, execute: workItem)
+        }
+
+        private func syncSimpleTypingSelectionIfNeeded(_ selection: NSRange) {
+            let now = CACurrentMediaTime()
+            guard now - lastSimpleTypingSelectionSyncTime >= Self.simpleTypingSelectionSyncInterval else { return }
+            lastSimpleTypingSelectionSyncTime = now
+            parent.selectedRange = selection
         }
 
         func flushPendingSimpleTypingChange() {
@@ -1114,6 +1131,13 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             pendingChangeRange = range
             pendingReplacementText = text
             isLiveTypingSimpleInsertion = isSimpleCharacterInsertion(range: range, replacementText: text)
+
+            #if targetEnvironment(macCatalyst)
+            if isLiveTypingSimpleInsertion {
+                lastUserTextChangeTime = Date()
+                suppressDecorativeDrawingDuringLiveTyping(in: textView)
+            }
+            #endif
 
             #if DEBUG
             if text.isEmpty && range.length > 0 {
@@ -1798,7 +1822,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
 
             if isLiveTypingSimpleInsertion,
                let lastUserTextChangeTime,
-               Date().timeIntervalSince(lastUserTextChangeTime) < 0.75 {
+               Date().timeIntervalSince(lastUserTextChangeTime) < Self.simpleTypingIdleDelay {
                 return
             }
             
@@ -1811,9 +1835,11 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                 return
             }
             
-            // If we have a length-1 range (which happens when image is selected),
-            // don't process further - the image is already selected
-            if newRange.length == 1 {
+            // If we have a length-1 range over an image, don't process further - the image is already selected.
+            // Other length-1 selections are normal text selections and must not leave image state active.
+            if newRange.length == 1,
+               newRange.location < textLength,
+               textView.attributedText?.attribute(.attachment, at: newRange.location, effectiveRange: nil) is ImageAttachment {
                 DispatchQueue.main.async {
                     self.parent.selectedRange = newRange
                     self.parent.onSelectionChange?(newRange)

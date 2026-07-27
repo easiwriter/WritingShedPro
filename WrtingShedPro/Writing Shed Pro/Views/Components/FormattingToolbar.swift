@@ -193,6 +193,10 @@ struct FormattingToolbar: View {
         }
         .frame(height: 44)
         .onChange(of: selectedRange) { _, _ in
+            if WriteCoalescer.shared?.hasRecentEditingActivity(within: 0.25) == true,
+               selectedRange.length == 0 {
+                return
+            }
             Task { @MainActor in
                 updateButtonStates()
             }

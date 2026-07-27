@@ -1912,10 +1912,18 @@ struct FileEditView: View {
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
                 handleEditorDidEnterBackground()
             }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
+                flushPendingEditorChanges(reason: "editor-will-terminate-flush")
+            }
             .onAppear {
                 setupOnAppear()
             }
             .onChange(of: selectedRange) { oldValue, newValue in
+                if WriteCoalescer.shared?.hasRecentEditingActivity(within: 0.25) == true,
+                   oldValue.length == 0,
+                   newValue.length == 0 {
+                    return
+                }
                 updateCurrentParagraphStyle()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ImageWasPasted"))) { _ in
@@ -3242,19 +3250,20 @@ struct FileEditView: View {
         scheduleEditorSaveTimer(coalescer: coalescer)
     }
 
-    private func scheduleEditorSaveFromTextView() {
+    private func scheduleEditorSaveFromTextView(delay: TimeInterval = 15.0, waitsForRecentEditingToSettle: Bool = true) {
         saveDebounceTimer?.invalidate()
         pendingDebouncedAttributedContent = nil
         pendingDebouncedSaveNeedsTextViewSnapshot = true
         let coalescer = WriteCoalescer.shared
-        scheduleEditorSaveTimer(coalescer: coalescer)
+        scheduleEditorSaveTimer(coalescer: coalescer, delay: delay, waitsForRecentEditingToSettle: waitsForRecentEditingToSettle)
     }
 
-    private func scheduleEditorSaveTimer(coalescer: WriteCoalescer?) {
-        saveDebounceTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: false) { _ in
+    private func scheduleEditorSaveTimer(coalescer: WriteCoalescer?, delay: TimeInterval = 15.0, waitsForRecentEditingToSettle: Bool = true) {
+        saveDebounceTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { _ in
             Task { @MainActor in
-                if coalescer?.editingActivity != .idle || coalescer?.hasRecentEditingActivity(within: 20) == true {
-                    self.scheduleEditorSaveTimer(coalescer: coalescer)
+                if waitsForRecentEditingToSettle,
+                   coalescer?.editingActivity != .idle || coalescer?.hasRecentEditingActivity(within: 20) == true {
+                    self.scheduleEditorSaveTimer(coalescer: coalescer, delay: delay, waitsForRecentEditingToSettle: waitsForRecentEditingToSettle)
                     return
                 }
 
@@ -3286,9 +3295,7 @@ struct FileEditView: View {
         previousAttributedContent = attributedTextToSave
         file.modifiedDate = Date()
 
-        Task { @MainActor in
-            (coalescer ?? WriteCoalescer.shared)?.requestSave(reason: reason)
-        }
+        (coalescer ?? WriteCoalescer.shared)?.requestSave(reason: reason)
         return true
     }
 
@@ -3327,7 +3334,7 @@ struct FileEditView: View {
             previousContent = liveText
         }
         previousAttributedContent = nil
-        scheduleEditorSaveFromTextView()
+        scheduleEditorSaveFromTextView(delay: 2.0, waitsForRecentEditingToSettle: false)
     }
 
     private func handleAttributedTextChange(_ change: TextEditorChange) {
@@ -8766,12 +8773,8 @@ struct FileEditView: View {
 
     private func handleEditorDidEnterBackground() {
         #if targetEnvironment(macCatalyst)
-        if textViewCoordinator.textView?.isFirstResponder == true || WriteCoalescer.shared?.hasRecentEditingActivity(within: 20) == true {
-            #if DEBUG
-            print("💾 [FileEditView] skipped Catalyst background flush — editor input active")
-            #endif
-            return
-        }
+        flushPendingEditorChanges(reason: "editor-did-enter-background-flush")
+        return
         #else
         if scenePhase == .active, textViewCoordinator.textView?.isFirstResponder == true {
             #if DEBUG
