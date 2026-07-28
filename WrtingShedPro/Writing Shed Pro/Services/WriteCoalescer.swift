@@ -17,14 +17,38 @@ enum EnsemblesSaveGateError: LocalizedError {
 }
 
 enum EnsemblesSaveGate {
+    private static func canBypassFirstSyncForUserImport(reason: String, activity: String) -> Bool {
+        guard reason.hasPrefix("json-import-") else { return false }
+        return activity.lowercased() == "none"
+    }
+
+    static func isInStartupAttachGracePeriod() -> Bool {
+        guard let activatedAt = Write_App.activeEnsemblesContainerActivatedAt else { return false }
+        return Date().timeIntervalSince(activatedAt) < Write_App.minimumEnsemblesStartupWriteDelay
+    }
+
+    static func canSaveAfterFirstSuccessfulSync() -> Bool {
+        guard Write_App.activeEnsemblesContainer != nil else { return true }
+        return Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch
+    }
+
     static func canSaveNow(reason: String) -> Bool {
         guard let ensemblesContainer = Write_App.activeEnsemblesContainer else {
             return true
         }
 
         let activity = String(describing: ensemblesContainer.currentActivity)
-        guard ensemblesContainer.isAttached && activity == "none" else {
-            let message = "⏳ [EnsemblesSaveGate] Blocked direct save while Ensembles busy reason=\(reason) attached=\(ensemblesContainer.isAttached) activity=\(activity)"
+        guard Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch else {
+            if canBypassFirstSyncForUserImport(reason: reason, activity: activity) {
+                let message = "⚠️ [EnsemblesSaveGate] Allowing user import save before first successful sync because Ensembles is idle reason=\(reason) attached=\(ensemblesContainer.isAttached)"
+                #if DEBUG
+                print(message)
+                #endif
+                Task { @MainActor in Write_App.logToFile(message) }
+                return true
+            }
+
+            let message = "⏳ [EnsemblesSaveGate] Blocked direct save before first successful sync this launch reason=\(reason) attached=\(ensemblesContainer.isAttached) activity=\(activity)"
             #if DEBUG
             print(message)
             #endif
@@ -129,6 +153,12 @@ final class WriteCoalescer {
     /// Disabled: `ModelContext.hasChanges` can be set by SwiftData @Transient
     /// cache mutations, so saving from this timer creates idle WAL churn.
     private let unsignaledChangeCheckInterval: TimeInterval = 0
+
+    /// Back off pending save retries while Ensembles is merging so we don't keep
+    /// waking Core Data during heavy checkpoint/vacuum maintenance.
+    private let minimumSyncDeferralDelay: TimeInterval = 2.0
+    private let maximumSyncDeferralDelay: TimeInterval = 30.0
+    @ObservationIgnored private var syncDeferralDelay: TimeInterval = 2.0
 
     #if DEBUG
     private var lastSaveRequestSource: String?
@@ -239,7 +269,41 @@ final class WriteCoalescer {
     /// the Ensembles-aware deferral logic in `executeSave()`.
     func requestSaveAndFlush(reason: String = "requestSaveAndFlush") throws {
         requestSave(reason: reason)
-        flush()
+        try flushOrThrow(reason: reason)
+    }
+
+    /// Immediately save and report failures to callers that need a definitive
+    /// result before updating UI state, such as destructive actions.
+    func flushOrThrow(reason: String = "flushOrThrow") throws {
+        flushTimer?.invalidate()
+        flushTimer = nil
+
+        if let ensemblesContainer = Write_App.activeEnsemblesContainer,
+           !EnsemblesSaveGate.canSaveNow(reason: reason) {
+            throw EnsemblesSaveGateError.syncBusy(
+                reason: reason,
+                attached: ensemblesContainer.isAttached,
+                activity: String(describing: ensemblesContainer.currentActivity)
+            )
+        }
+
+        resetSyncDeferralDelay()
+        pendingSave = false
+        guard modelContext.hasChanges else {
+            return
+        }
+
+        try modelContext.save()
+        saveCount += 1
+        lastFlushTime = Date()
+        syncHealthMonitor?.recordLocalChange()
+        #if DEBUG
+        let now = Date()
+        if now.timeIntervalSince(lastSaveTraceLogTime) >= 2 {
+            print("💾 [WriteCoalescer] saved source=\(reason) activity=\(editingActivity.rawValue) requests=\(requestCount) saves=\(saveCount)")
+            lastSaveTraceLogTime = now
+        }
+        #endif
     }
 
     /// Cancel any pending save without flushing.
@@ -250,6 +314,7 @@ final class WriteCoalescer {
         idleTimer = nil
         pendingSave = false
         editingActivity = .idle
+        resetSyncDeferralDelay()
     }
 
     // MARK: - Activity Tracking
@@ -312,6 +377,7 @@ final class WriteCoalescer {
             return
         }
 
+        resetSyncDeferralDelay()
         pendingSave = false
         guard modelContext.hasChanges else {
             return
@@ -342,27 +408,34 @@ final class WriteCoalescer {
         }
 
         let activity = String(describing: ensemblesContainer.currentActivity)
-        guard !ensemblesContainer.isAttached || activity != "none" else {
+        guard !EnsemblesSaveGate.canSaveAfterFirstSuccessfulSync() else {
             return false
         }
 
+        let retryDelay = syncDeferralDelay
         flushTimer?.invalidate()
-        flushTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+        flushTimer = Timer.scheduledTimer(withTimeInterval: retryDelay, repeats: false) { [weak self] _ in
             Task { @MainActor in
                 self?.executeSave()
             }
         }
+        syncDeferralDelay = min(syncDeferralDelay * 2, maximumSyncDeferralDelay)
 
         #if DEBUG
         let now = Date()
         if now.timeIntervalSince(lastDeferredForSyncLogTime) >= 10 {
-            let message = "⏳ [WriteCoalescer] Deferred save while Ensembles busy attached=\(ensemblesContainer.isAttached) activity=\(activity) source=\(lastSaveRequestSource ?? "unknown")"
+            let firstSyncComplete = Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch
+            let message = "⏳ [WriteCoalescer] Deferred save while Ensembles unavailable firstSync=\(firstSyncComplete) attached=\(ensemblesContainer.isAttached) activity=\(activity) retryIn=\(String(format: "%.0f", retryDelay))s source=\(lastSaveRequestSource ?? "unknown")"
             print(message)
             Write_App.logToFile(message)
             lastDeferredForSyncLogTime = now
         }
         #endif
         return true
+    }
+
+    private func resetSyncDeferralDelay() {
+        syncDeferralDelay = minimumSyncDeferralDelay
     }
 
     /// Diagnostic only. Do not auto-save arbitrary `hasChanges` here: SwiftData

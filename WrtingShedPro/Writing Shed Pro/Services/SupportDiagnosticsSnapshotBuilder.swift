@@ -13,11 +13,13 @@ enum SupportDiagnosticsSnapshotBuilder {
         lines.append("syncBackend: Ensembles")
         lines.append("cloudContainer: iCloud.com.appworks.writingshedpro")
         lines.append("activeEnsemblesContainer: \(Write_App.activeEnsemblesContainer != nil)")
+        lines.append("firstSuccessfulSyncThisLaunch: \(Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch)")
         if let ensemblesContainer = Write_App.activeEnsemblesContainer {
             lines.append("ensemblesIsAttached: \(ensemblesContainer.isAttached)")
             lines.append("ensemblesSyncSuspended: \(ensemblesContainer.isSyncSuspended)")
             lines.append("ensemblesCurrentActivity: \(String(describing: ensemblesContainer.currentActivity))")
         }
+        lines.append(contentsOf: recentSyncOutcomeLines())
 
         let freshContext = ModelContext(modelContext.container)
         let formatter = ISO8601DateFormatter()
@@ -104,6 +106,15 @@ enum SupportDiagnosticsSnapshotBuilder {
         lines.append("- count=\(storePublications.count)")
 
         lines.append("")
+        lines.append("Image Attachment Diagnostics (store)")
+        let imageAttachmentLines = imageAttachmentDiagnosticsLines(for: storeProjects)
+        if imageAttachmentLines.isEmpty {
+            lines.append("- none")
+        } else {
+            lines.append(contentsOf: imageAttachmentLines)
+        }
+
+        lines.append("")
         lines.append("Entity Counts (store):")
         lines.append("- Project: \((try? freshContext.fetchCount(FetchDescriptor<Project>())) ?? -1)")
         lines.append("- Publication: \((try? freshContext.fetchCount(FetchDescriptor<Publication>())) ?? -1)")
@@ -130,6 +141,10 @@ enum SupportDiagnosticsSnapshotBuilder {
         lines.append("")
         lines.append("Exact ID Duplicates:")
         lines.append("- duplicateRecords: \(exactIDDuplicateCount)")
+        let exactDuplicateSummary = DeduplicationService.exactIDDuplicateSummaryLines(context: freshContext)
+        if !exactDuplicateSummary.isEmpty {
+            lines.append(contentsOf: exactDuplicateSummary)
+        }
 
         let duplicateTemplateFolderCount = DeduplicationService.countDuplicateTemplateFolderRecords(context: freshContext)
         lines.append("")
@@ -162,6 +177,60 @@ enum SupportDiagnosticsSnapshotBuilder {
         }
 
         return lines.joined(separator: "\n")
+    }
+
+    private static func imageAttachmentDiagnosticsLines(for projects: [Project]) -> [String] {
+        var lines: [String] = []
+
+        for project in projects {
+            var fileSummaries: [(name: String, id: UUID, imageCount: Int, versionCount: Int, modified: Date?)] = []
+
+            for file in allTextFiles(in: project) {
+                let versions = file.versions ?? []
+                let imageCount = versions.reduce(0) { $0 + countImageAttachments(in: $1) }
+                guard imageCount > 0 else { continue }
+                fileSummaries.append((
+                    name: file.name,
+                    id: file.id,
+                    imageCount: imageCount,
+                    versionCount: versions.count,
+                    modified: file.modifiedDate
+                ))
+            }
+
+            guard !fileSummaries.isEmpty else { continue }
+
+            let totalImages = fileSummaries.reduce(0) { $0 + $1.imageCount }
+            lines.append("- project=\(project.name ?? "Untitled") | id=\(project.id.uuidString) | filesWithImages=\(fileSummaries.count) | imageAttachments=\(totalImages)")
+
+            for summary in fileSummaries.sorted(by: imageFileSort).prefix(8) {
+                let modified = summary.modified.map { ISO8601DateFormatter().string(from: $0) } ?? "nil"
+                lines.append("  - file=\(summary.name) | id=\(summary.id.uuidString) | images=\(summary.imageCount) | versions=\(summary.versionCount) | modified=\(modified)")
+            }
+        }
+
+        return lines
+    }
+
+    private static func countImageAttachments(in version: Version) -> Int {
+        guard let attributedContent = version.attributedContent else { return 0 }
+        var count = 0
+        attributedContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedContent.length)) { value, _, _ in
+            if value is ImageAttachment {
+                count += 1
+            }
+        }
+        return count
+    }
+
+    private static func imageFileSort(
+        _ lhs: (name: String, id: UUID, imageCount: Int, versionCount: Int, modified: Date?),
+        _ rhs: (name: String, id: UUID, imageCount: Int, versionCount: Int, modified: Date?)
+    ) -> Bool {
+        let lhsModified = lhs.modified ?? .distantPast
+        let rhsModified = rhs.modified ?? .distantPast
+        if lhsModified != rhsModified { return lhsModified > rhsModified }
+        return lhs.name < rhs.name
     }
 
     private static func localEnsemblesEventCacheLines() -> [String] {
@@ -231,6 +300,22 @@ enum SupportDiagnosticsSnapshotBuilder {
             }
 
         return Array(relevantLines.suffix(limit))
+    }
+
+    private static func recentSyncOutcomeLines() -> [String] {
+        let lines = diagnosticsLogLines()
+        let lastMerge = lines.last { $0.contains("[Ensembles] Merge changes saved") }
+        let lastError = lines.last { line in
+            line.contains("[Ensembles] Encountered error") || line.contains("[Ensembles] Forced detach")
+        }
+        let lastManualCompletion = lines.last { line in
+            line.contains("Manual sync completed") || line.contains("Manual sync transferred changes") || line.contains("Manual sync stopped with no changes")
+        }
+
+        var summary = ["lastMergeSaved: \(lastMerge ?? "none")"]
+        summary.append("lastSyncError: \(lastError ?? "none")")
+        summary.append("lastManualSyncResult: \(lastManualCompletion ?? "none")")
+        return summary
     }
 
     private static func diagnosticsLogLines() -> [String] {
@@ -312,6 +397,14 @@ enum SupportDiagnosticsSnapshotBuilder {
         return count
     }
 
+    private static func allTextFiles(in project: Project) -> [TextFile] {
+        var files: [TextFile] = []
+        for folder in project.folders ?? [] {
+            files.append(contentsOf: textFilesInFolderTree(folder))
+        }
+        return files
+    }
+
     private static func sortScenesByOrderThenName(_ lhs: StoryScene, _ rhs: StoryScene) -> Bool {
         let lhsOrder = lhs.userOrder ?? Int.max
         let rhsOrder = rhs.userOrder ?? Int.max
@@ -375,6 +468,14 @@ enum SupportDiagnosticsSnapshotBuilder {
             count += countTextFilesInFolderTree(child)
         }
         return count
+    }
+
+    private static func textFilesInFolderTree(_ folder: Folder) -> [TextFile] {
+        var files = folder.textFiles ?? []
+        for child in folder.folders ?? [] {
+            files.append(contentsOf: textFilesInFolderTree(child))
+        }
+        return files
     }
 
     private static func countVersionsInFolderTree(_ folder: Folder) -> Int {

@@ -157,19 +157,21 @@ final class ContentViewState {
         rememberOpenedProject(project)
     }
 
-    func hideExistingProjects(from projects: [Project]) {
-        hiddenProjectIDs = Set(projects.filter { !$0.isTrashed }.map(\.id))
+    func hideExistingProjects(from projects: [Project], excluding projectIDToKeepVisible: UUID? = nil) {
+        hiddenProjectIDs = Set(projects.filter { project in
+            !project.isTrashed && project.id != projectIDToKeepVisible
+        }.map(\.id))
     }
 
     func showAllProjects() {
         hiddenProjectIDs.removeAll()
     }
 
-    func toggleProjectVisibilityMode(using projects: [Project]) {
+    func toggleProjectVisibilityMode(using projects: [Project], keepingProjectVisible projectIDToKeepVisible: UUID? = nil) {
         if hideAllProjects {
             showAllProjects()
         } else {
-            hideExistingProjects(from: projects)
+            hideExistingProjects(from: projects, excluding: projectIDToKeepVisible)
         }
     }
 

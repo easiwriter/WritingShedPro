@@ -3490,6 +3490,11 @@ struct FileEditView: View {
         // Select the image character so backspace/delete will remove it
         if let textView = textViewCoordinator.textView {
             DispatchQueue.main.async {
+                guard position >= 0,
+                      position < textView.textStorage.length,
+                      textView.textStorage.attribute(.attachment, at: position, effectiveRange: nil) is ImageAttachment else {
+                    return
+                }
                 textView.selectedRange = NSRange(location: position, length: 1)
                 textView.tintColor = .clear // Hide cursor when image is selected
             }
@@ -8290,6 +8295,7 @@ struct FileEditView: View {
         )
         
         undoManager.execute(command)
+        let imagePosition = command.insertedImagePosition ?? insertionPoint
         
         // Mark the time of insertion to prevent immediate editor popup
         lastImageInsertTime = Date()
@@ -8304,18 +8310,19 @@ struct FileEditView: View {
         #endif
         
         // Check if there's an attachment at the insertion point
-        if newContent.length > insertionPoint {
-            let attrs = newContent.attributes(at: insertionPoint, effectiveRange: nil)
+        if newContent.length > imagePosition {
+            let attrs = newContent.attributes(at: imagePosition, effectiveRange: nil)
             if let attachment = attrs[.attachment] as? NSTextAttachment {
                 #if DEBUG
-                print("🖼️ Found attachment at position \(insertionPoint): \(type(of: attachment))")
+                print("🖼️ Found attachment at position \(imagePosition): \(type(of: attachment))")
                 #endif
             } else {
                 #if DEBUG
-                print("⚠️ NO attachment found at position \(insertionPoint)")
+                print("⚠️ NO attachment found at position \(imagePosition)")
                 #endif
                 #if DEBUG
-                print("⚠️ Character at \(insertionPoint): '\(newContent.string[newContent.string.index(newContent.string.startIndex, offsetBy: insertionPoint)])'")
+                let character = (newContent.string as NSString).substring(with: NSRange(location: imagePosition, length: 1))
+                print("⚠️ Character at \(imagePosition): '\(character)'")
                 #endif
             }
         }
@@ -8323,7 +8330,7 @@ struct FileEditView: View {
         attributedContent = newContent
         
         // Move cursor after the inserted image
-        selectedRange = NSRange(location: insertionPoint + 1, length: 0)
+        selectedRange = NSRange(location: imagePosition + 1, length: 0)
         
         #if DEBUG
         print("🖼️ Image inserted at position \(insertionPoint) with scale \(scale)")
@@ -8774,7 +8781,6 @@ struct FileEditView: View {
     private func handleEditorDidEnterBackground() {
         #if targetEnvironment(macCatalyst)
         flushPendingEditorChanges(reason: "editor-did-enter-background-flush")
-        return
         #else
         if scenePhase == .active, textViewCoordinator.textView?.isFirstResponder == true {
             #if DEBUG
@@ -8782,9 +8788,9 @@ struct FileEditView: View {
             #endif
             return
         }
-        #endif
 
         flushPendingEditorChanges(reason: "editor-did-enter-background-flush")
+        #endif
     }
 
     /// Reload the editor's attributed content from the SwiftData model after a CloudKit import,

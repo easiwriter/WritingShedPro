@@ -589,6 +589,55 @@ class DeduplicationService {
     }
 
     @MainActor
+    static func exactIDDuplicateSummaryLines(context: ModelContext) -> [String] {
+        var lines: [String] = []
+
+        func summarize<T: PersistentModel>(_ type: T.Type, label: String, id: (T) -> UUID) {
+            let descriptor = FetchDescriptor<T>()
+            guard let records = try? context.fetch(descriptor) else { return }
+            let groups = Dictionary(grouping: records, by: id).filter { $0.value.count > 1 }
+            guard !groups.isEmpty else { return }
+
+            let duplicateRecords = groups.values.reduce(0) { $0 + max(0, $1.count - 1) }
+            lines.append("- \(label): duplicateRecords=\(duplicateRecords) groups=\(groups.count)")
+        }
+
+        summarize(Project.self, label: "Project") { $0.id }
+        summarize(Folder.self, label: "Folder") { $0.id }
+        summarize(TextFile.self, label: "TextFile") { $0.id }
+        summarize(Version.self, label: "Version") { $0.id }
+        summarize(Publication.self, label: "Publication") { $0.id }
+        summarize(Submission.self, label: "Submission") { $0.id }
+        summarize(SubmittedFile.self, label: "SubmittedFile") { $0.id }
+        summarize(PoetryCollection.self, label: "PoetryCollection") { $0.id }
+        summarize(Book.self, label: "Book") { $0.id }
+        summarize(StoryScene.self, label: "StoryScene") { $0.id }
+        summarize(Chapter.self, label: "Chapter") { $0.id }
+        summarize(Act.self, label: "Act") { $0.id }
+        summarize(ProseSection.self, label: "ProseSection") { $0.id }
+        summarize(Character.self, label: "Character") { $0.id }
+        summarize(Location.self, label: "Location") { $0.id }
+        summarize(PlotElement.self, label: "PlotElement") { $0.id }
+        summarize(StyleSheet.self, label: "StyleSheet") { $0.id }
+        summarize(TextStyleModel.self, label: "TextStyleModel") { $0.id }
+        summarize(ImageStyle.self, label: "ImageStyle") { $0.id }
+        summarize(PoetryFormModel.self, label: "PoetryFormModel") { $0.id }
+        summarize(PageSetup.self, label: "PageSetup") { $0.id }
+        summarize(TextFileSectionLink.self, label: "TextFileSectionLink") { $0.id }
+        summarize(TextFileCollectionLink.self, label: "TextFileCollectionLink") { $0.id }
+        summarize(SceneChapterLink.self, label: "SceneChapterLink") { $0.id }
+        summarize(SceneActLink.self, label: "SceneActLink") { $0.id }
+        summarize(SceneBookLink.self, label: "SceneBookLink") { $0.id }
+        summarize(ScenePlotElementLink.self, label: "ScenePlotElementLink") { $0.id }
+        summarize(SceneCharacterLink.self, label: "SceneCharacterLink") { $0.id }
+        summarize(SceneLocationLink.self, label: "SceneLocationLink") { $0.id }
+        summarize(CharacterPlotElementLink.self, label: "CharacterPlotElementLink") { $0.id }
+        summarize(LocationPlotElementLink.self, label: "LocationPlotElementLink") { $0.id }
+
+        return lines
+    }
+
+    @MainActor
     static func cleanupDuplicateTemplateFolders(context: ModelContext) -> TemplateFolderCleanupResult {
         guard EnsemblesSaveGate.canSaveNow(reason: "deduplication-template-folders") else {
             return TemplateFolderCleanupResult(recordsRemoved: 0, groupsAffected: 0, skippedNonEmptyGroups: 0, errors: ["Skipped template folder cleanup because Ensembles is not idle"])

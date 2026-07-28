@@ -787,22 +787,22 @@ struct ContentView: View {
         guard let ensemblesContainer = Write_App.activeEnsemblesContainer else { return true }
 
         let maxWaitSeconds = 60
-        let requiredIdleSeconds = 3
-        var consecutiveIdleSeconds = 0
         for second in 0..<maxWaitSeconds {
             let activity = String(describing: ensemblesContainer.currentActivity)
-            if ensemblesContainer.isAttached && activity == "none" {
-                consecutiveIdleSeconds += 1
-                if consecutiveIdleSeconds >= requiredIdleSeconds {
-                    return true
-                }
-            } else {
-                consecutiveIdleSeconds = 0
+            if Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch {
+                return true
+            }
+
+            if Write_App.recordFirstEnsemblesDataAvailableIfNeeded(
+                modelContainer: modelContext.container,
+                reason: "\(reason) store populated"
+            ) {
+                return true
             }
 
             #if DEBUG
             if second == 0 || second % 5 == 0 {
-                print("⏳ [ContentView] Waiting for Ensembles attach before \(reason)... attached=\(ensemblesContainer.isAttached) activity=\(activity)")
+                print("⏳ [ContentView] Waiting for first successful Ensembles sync before \(reason)... attached=\(ensemblesContainer.isAttached) activity=\(activity)")
             }
             #endif
             try? await Task.sleep(nanoseconds: 1_000_000_000)
@@ -810,7 +810,7 @@ struct ContentView: View {
 
         #if DEBUG
         let activity = String(describing: ensemblesContainer.currentActivity)
-        print("⚠️ [ContentView] Deferring \(reason); Ensembles not attached after \(maxWaitSeconds)s attached=\(ensemblesContainer.isAttached) activity=\(activity)")
+        print("⚠️ [ContentView] Deferring \(reason); first successful Ensembles sync did not complete after \(maxWaitSeconds)s attached=\(ensemblesContainer.isAttached) activity=\(activity)")
         #endif
         return false
     }
@@ -942,11 +942,19 @@ struct ContentView: View {
                 }
                 
                 do {
+                    guard await waitForEnsemblesUserImportWindow(reason: "JSON/WSP import") else {
+                        await MainActor.run {
+                            state.importErrorMessage = "Ensembles is still preparing sync. Please wait a minute, then try importing the WSP file again."
+                            state.showImportError = true
+                        }
+                        return
+                    }
+
                     // Create error handler
                     let errorHandler = ImportErrorHandler()
 
                     // Guard against import-vs-zombie cleanup races.
-                    DeduplicationService.pauseZombieDeletion(for: 45)
+                    DeduplicationService.pauseZombieDeletion(for: 180)
                     
                     // JSON/WSP/WSD import
                     // Always generate new UUIDs to prevent CloudKit from merging
@@ -1007,6 +1015,30 @@ struct ContentView: View {
             print("[ContentView] File selection failed: \(error)")
             #endif
         }
+    }
+
+    private func waitForEnsemblesUserImportWindow(reason: String) async -> Bool {
+        guard let ensemblesContainer = Write_App.activeEnsemblesContainer else { return true }
+
+        let maxWaitSeconds = 120
+        for second in 0..<maxWaitSeconds {
+            let activity = String(describing: ensemblesContainer.currentActivity)
+            if Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch || activity.lowercased() == "none" {
+                return true
+            }
+
+            #if DEBUG
+            if second == 0 || second % 10 == 0 {
+                print("⏳ [ContentView] Waiting for Ensembles before \(reason)... attached=\(ensemblesContainer.isAttached) activity=\(activity)")
+            }
+            #endif
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+
+        #if DEBUG
+        print("⚠️ [ContentView] Timed out waiting for Ensembles before \(reason); attached=\(ensemblesContainer.isAttached) activity=\(String(describing: ensemblesContainer.currentActivity))")
+        #endif
+        return false
     }
     
     private func initializeUserOrderIfNeeded() {

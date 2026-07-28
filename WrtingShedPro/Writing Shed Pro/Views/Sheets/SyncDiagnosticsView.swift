@@ -2,6 +2,7 @@ import SwiftData
 import SwiftUI
 import CloudKit
 import Ensembles
+import EnsemblesCloudKit
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -23,15 +24,16 @@ struct SyncDiagnosticsView: View {
     @State private var poetryFormCount = 0
     @State private var poetryCollectionCount = 0
     @State private var duplicateProjectCount = 0
+    @State private var exactIDDuplicateCount = 0
+    @State private var duplicateTemplateFolderCount = 0
     @State private var detachedSceneCount = 0
     @State private var tombstoneCount = 0
     @State private var snapshotCopied = false
     @State private var syncStatusMessage = ""
     @State private var showLocalResetConfirmation = false
-    @State private var showForceRebaseConfirmation = false
-    @State private var showDeleteEnsemblesZoneConfirmation = false
+    @State private var showRemoveEnsemblesCloudDataConfirmation = false
     @State private var localResetQueued = false
-    @State private var ensemblesZoneDeletedThisSession = false
+    @State private var ensemblesCloudDataRemovedThisSession = false
     @State private var lastSafetyBackupName: String?
     @State private var lastRefreshed: Date?
 
@@ -55,18 +57,11 @@ struct SyncDiagnosticsView: View {
                 message: localResetDialogMessage
             )
             .confirmationDialog(
-                "Force this device to rebuild the sync baseline?",
-                isPresented: $showForceRebaseConfirmation,
+                "Remove the Ensembles cloud data?",
+                isPresented: $showRemoveEnsemblesCloudDataConfirmation,
                 titleVisibility: .visible,
-                actions: forceRebaseDialogActions,
-                message: forceRebaseDialogMessage
-            )
-            .confirmationDialog(
-                "Delete the Ensembles cloud zone?",
-                isPresented: $showDeleteEnsemblesZoneConfirmation,
-                titleVisibility: .visible,
-                actions: deleteZoneDialogActions,
-                message: deleteZoneDialogMessage
+                actions: removeCloudDataDialogActions,
+                message: removeCloudDataDialogMessage
             )
         }
     }
@@ -86,6 +81,7 @@ struct SyncDiagnosticsView: View {
             LabeledContent("Backend", value: "Ensembles")
             LabeledContent("Cloud Container", value: "iCloud.com.appworks.writingshedpro")
             LabeledContent("Container Active", value: Write_App.activeEnsemblesContainer == nil ? "No" : "Yes")
+            LabeledContent("First Sync This Launch", value: Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch ? "Yes" : "No")
 
             Button {
                 Task { await runManualSync() }
@@ -107,16 +103,9 @@ struct SyncDiagnosticsView: View {
             }
 
             Button(role: .destructive) {
-                showForceRebaseConfirmation = true
+                showRemoveEnsemblesCloudDataConfirmation = true
             } label: {
-                Label("Force Rebase This Device to Cloud", systemImage: "arrow.triangle.branch")
-            }
-            .disabled(Write_App.activeEnsemblesContainer == nil || projectCount == 0 || ensemblesZoneDeletedThisSession)
-
-            Button(role: .destructive) {
-                showDeleteEnsemblesZoneConfirmation = true
-            } label: {
-                Label("Delete Ensembles Cloud Zone", systemImage: "icloud.slash")
+                Label("Remove Ensembles Cloud Data", systemImage: "icloud.slash")
             }
             .disabled(projectCount == 0)
 
@@ -138,8 +127,8 @@ struct SyncDiagnosticsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            if ensemblesZoneDeletedThisSession {
-                Text("Ensembles cloud zone was deleted in this app session. Quit and relaunch this source device before attempting force rebase.")
+            if ensemblesCloudDataRemovedThisSession {
+                Text("Ensembles cloud data was removed in this app session. Wait a few minutes for CloudKit propagation, then sync this complete source device first.")
                     .font(.caption)
                     .foregroundStyle(.red)
             }
@@ -177,6 +166,8 @@ struct SyncDiagnosticsView: View {
     private var dataHealthSection: some View {
         Section("Data Health") {
             LabeledContent("Duplicate Projects", value: "\(duplicateProjectCount)")
+            LabeledContent("Exact-ID Duplicate Records", value: "\(exactIDDuplicateCount)")
+            LabeledContent("Duplicate Template Folders", value: "\(duplicateTemplateFolderCount)")
             LabeledContent("Detached Scene Rows", value: "\(detachedSceneCount)")
             LabeledContent("Zombie Tombstones", value: "\(tombstoneCount)")
 
@@ -193,6 +184,30 @@ struct SyncDiagnosticsView: View {
                 } label: {
                     Label("Clear Tombstones", systemImage: "trash")
                 }
+            }
+
+            if exactIDDuplicateCount > 0 {
+                Button(role: .destructive) {
+                    cleanupExactIDDuplicates()
+                } label: {
+                    Label("Clean Exact-ID Duplicates", systemImage: "square.stack.3d.up.slash")
+                }
+                .disabled(!isEnsemblesIdle)
+            }
+
+            if duplicateTemplateFolderCount > 0 {
+                Button(role: .destructive) {
+                    cleanupDuplicateTemplateFolders()
+                } label: {
+                    Label("Clean Duplicate Template Folders", systemImage: "folder.badge.minus")
+                }
+                .disabled(!isEnsemblesIdle)
+            }
+
+            if !isEnsemblesIdle && (exactIDDuplicateCount > 0 || duplicateTemplateFolderCount > 0) {
+                Text("Cleanup is available once Ensembles activity is none.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             if detachedSceneCount > 0 {
@@ -233,28 +248,21 @@ struct SyncDiagnosticsView: View {
         Text("This only affects this Mac. The app will detach this Mac from Ensembles, then on next launch back up its local SQLite store and Ensembles event cache, remove the local copies, and re-import from the sync cloud. Do not use this if this Mac has unsynced work that is not on your iOS devices.")
     }
 
+    private var isEnsemblesIdle: Bool {
+        guard let container = Write_App.activeEnsemblesContainer else { return true }
+        return container.isAttached && String(describing: container.currentActivity) == "none"
+    }
+
     @ViewBuilder
-    private func forceRebaseDialogActions() -> some View {
-        Button("Force Rebase From This Device", role: .destructive) {
-            Task { await forceRebaseFromThisDevice() }
+    private func removeCloudDataDialogActions() -> some View {
+        Button("Remove Ensembles Cloud Data", role: .destructive) {
+            Task { await removeEnsemblesCloudDataFromSourceDevice() }
         }
         Button("Cancel", role: .cancel) { }
     }
 
-    private func forceRebaseDialogMessage() -> some View {
-        Text("Use this only on a device that already shows the complete project list and is attached to Ensembles. If you just deleted the Ensembles cloud zone, quit and relaunch this source device first.")
-    }
-
-    @ViewBuilder
-    private func deleteZoneDialogActions() -> some View {
-        Button("Delete Ensembles Cloud Zone", role: .destructive) {
-            Task { await deleteEnsemblesCloudZoneFromSourceDevice() }
-        }
-        Button("Cancel", role: .cancel) { }
-    }
-
-    private func deleteZoneDialogMessage() -> some View {
-        Text("Use this only on the source device that visibly has the complete project list. Do not run this on the empty Mac. After deletion, quit and relaunch this source device, then force rebase from it so Ensembles recreates a clean cloud state.")
+    private func removeCloudDataDialogMessage() -> some View {
+        Text("Use this only on the source device that visibly has the complete project list, after all other devices have been detached or kept offline. This first detaches this device, then removes the shared Ensembles cloud history. Wait a few minutes, then sync this source device first to seed clean cloud data.")
     }
 
     @MainActor
@@ -301,67 +309,49 @@ struct SyncDiagnosticsView: View {
     }
 
     @MainActor
-    private func forceRebaseFromThisDevice() async {
+    private func removeEnsemblesCloudDataFromSourceDevice() async {
         guard projectCount > 0 else {
-            syncStatusMessage = "Force rebase blocked: this device has no local projects."
-            Write_App.logErrorToFile("⚠️ [Ensembles] Force rebase blocked because local project count is zero")
+            syncStatusMessage = "Cloud data removal blocked: this device has no local projects."
+            Write_App.logErrorToFile("⚠️ [Ensembles] Cloud data removal blocked because local project count is zero")
             return
         }
 
-        guard let container = Write_App.activeEnsemblesContainer else { return }
-        guard !ensemblesZoneDeletedThisSession else {
-            syncStatusMessage = "Force rebase blocked: quit and relaunch this source device after deleting the Ensembles zone."
-            Write_App.logErrorToFile("⚠️ [Ensembles] Force rebase blocked because zone was deleted in this app session")
+        guard createLocalSafetyBackup(reason: "remove-ensembles-cloud-data") != nil else {
+            syncStatusMessage = "Cloud data removal blocked: local safety backup failed. Copy diagnostics before trying again."
             return
         }
-        guard container.isAttached else {
-            syncStatusMessage = "Force rebase blocked: this device is not attached to Ensembles. Quit and relaunch, then confirm it is attached before rebasing."
-            Write_App.logErrorToFile("⚠️ [Ensembles] Force rebase blocked because container is detached")
-            return
+
+        if let container = Write_App.activeEnsemblesContainer, container.isAttached {
+            let activity = String(describing: container.currentActivity)
+            guard activity == "none" else {
+                syncStatusMessage = "Cloud data removal blocked: Ensembles is busy (activity=\(activity)). Try again when activity is none."
+                Write_App.logErrorToFile("⚠️ [Ensembles] Cloud data removal blocked because source device activity=\(activity)")
+                return
+            }
+
+            syncStatusMessage = "Detaching this source device before removing cloud data..."
+            Write_App.logToFile("🔌 [Ensembles] Source detach before cloud data removal started (isAttached=\(container.isAttached), activity=\(activity))")
+            do {
+                try await container.detach()
+                Write_App.logToFile("✅ [Ensembles] Source device detached before cloud data removal")
+            } catch {
+                syncStatusMessage = "Cloud data removal blocked: detach failed. Copy diagnostics and try again after sync activity stops."
+                Write_App.logErrorToFile("❌ [Ensembles] Source detach before cloud data removal failed: \(Write_App.detailedErrorDescription(error))")
+                return
+            }
         }
-        guard createLocalSafetyBackup(reason: "force-rebase") != nil else {
-            syncStatusMessage = "Force rebase blocked: local safety backup failed. Copy diagnostics before trying again."
-            return
-        }
-        syncStatusMessage = "Force rebasing this device to cloud..."
-        Write_App.logToFile("🔁 [Ensembles] Force rebase started from diagnostics (projects=\(projectCount), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+
+        syncStatusMessage = "Removing Ensembles cloud data..."
+        Write_App.logToFile("🧨 [Ensembles] Ensembles cloud data removal started from diagnostics (projects=\(projectCount))")
 
         do {
-            try await container.ensemble.sync(options: .forceRebase)
-            syncStatusMessage = "Force rebase completed at \(Date().formatted(date: .omitted, time: .standard))"
-            Write_App.logToFile("✅ [Ensembles] Force rebase completed from diagnostics")
+            try await removeEnsemblesCloudData()
+            ensemblesCloudDataRemovedThisSession = true
+            syncStatusMessage = "Ensembles cloud data removed. Wait a few minutes, then sync this complete source device first."
+            Write_App.logToFile("✅ [Ensembles] Ensembles cloud data removed from diagnostics")
         } catch {
-            syncStatusMessage = "Force rebase failed. Copy diagnostics."
-            Write_App.logErrorToFile("❌ [Ensembles] Force rebase failed from diagnostics: \(Write_App.detailedErrorDescription(error))")
-        }
-
-        refreshCounts()
-    }
-
-    @MainActor
-    private func deleteEnsemblesCloudZoneFromSourceDevice() async {
-        guard projectCount > 0 else {
-            syncStatusMessage = "Zone delete blocked: this device has no local projects."
-            Write_App.logErrorToFile("⚠️ [Ensembles] Cloud zone delete blocked because local project count is zero")
-            return
-        }
-
-        guard createLocalSafetyBackup(reason: "delete-ensembles-zone") != nil else {
-            syncStatusMessage = "Zone delete blocked: local safety backup failed. Copy diagnostics before trying again."
-            return
-        }
-
-        syncStatusMessage = "Deleting Ensembles CloudKit zone..."
-        Write_App.logToFile("🧨 [Ensembles] Ensembles CloudKit zone delete started from diagnostics (projects=\(projectCount))")
-
-        do {
-            try await deleteEnsemblesCloudKitZone()
-            ensemblesZoneDeletedThisSession = true
-            syncStatusMessage = "Ensembles cloud zone deleted. Quit and relaunch this source device, then force rebase from it."
-            Write_App.logToFile("✅ [Ensembles] Ensembles CloudKit zone deleted from diagnostics")
-        } catch {
-            syncStatusMessage = "Ensembles cloud zone delete failed. Copy diagnostics."
-            Write_App.logErrorToFile("❌ [Ensembles] Ensembles CloudKit zone delete failed: \(Write_App.detailedErrorDescription(error))")
+            syncStatusMessage = "Ensembles cloud data removal failed. Copy diagnostics."
+            Write_App.logErrorToFile("❌ [Ensembles] Ensembles cloud data removal failed: \(Write_App.detailedErrorDescription(error))")
         }
     }
 
@@ -409,22 +399,15 @@ struct SyncDiagnosticsView: View {
         return backupDirectory
     }
 
-    private func deleteEnsemblesCloudKitZone() async throws {
-        let database = CKContainer(identifier: "iCloud.com.appworks.writingshedpro").privateCloudDatabase
-        let zoneID = CKRecordZone.ID(zoneName: "com.mentalfaculty.ensembles.zone.schema2", ownerName: CKCurrentUserDefaultName)
-
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let operation = CKModifyRecordZonesOperation(recordZonesToSave: nil, recordZoneIDsToDelete: [zoneID])
-            operation.modifyRecordZonesResultBlock = { result in
-                switch result {
-                case .success:
-                    continuation.resume()
-                case .failure(let error):
-                    continuation.resume(throwing: error)
-                }
-            }
-            database.add(operation)
-        }
+    private func removeEnsemblesCloudData() async throws {
+        let cloudFileSystem = CloudKitFileSystem(
+            privateDatabaseForUbiquityContainerIdentifier: "iCloud.com.appworks.writingshedpro",
+            schemaVersion: .v2
+        )
+        try await CoreDataEnsemble.removeEnsemble(
+            withIdentifier: "WritingShedProConfiguration",
+            in: cloudFileSystem
+        )
     }
 
     private func fetchEnsemblesZoneSummary() async throws -> String {
@@ -529,8 +512,14 @@ struct SyncDiagnosticsView: View {
         syncStatusMessage = "Syncing..."
         Write_App.logToFile("🔄 [Ensembles] Manual sync started from diagnostics (isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
         let didSync = await container.sync()
-        syncStatusMessage = "Sync completed at \(Date().formatted(date: .omitted, time: .standard)) (didSync=\(didSync))"
-        Write_App.logToFile("✅ [Ensembles] Manual sync completed from diagnostics (didSync=\(didSync), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+        if didSync {
+            Write_App.recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: "diagnostics manual sync")
+            syncStatusMessage = "Sync transferred changes at \(Date().formatted(date: .omitted, time: .standard))."
+            Write_App.logToFile("✅ [Ensembles] Manual sync transferred changes from diagnostics (didSync=true, isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+        } else {
+            syncStatusMessage = "Sync stopped with no changes reported. If this device is stale, copy diagnostics."
+            Write_App.logToFile("⚠️ [Ensembles] Manual sync stopped with no changes from diagnostics (didSync=false, isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+        }
         refreshCounts()
     }
 
@@ -553,9 +542,41 @@ struct SyncDiagnosticsView: View {
         poetryFormCount = fetchCount(PoetryFormModel.self, in: freshContext)
         poetryCollectionCount = fetchCount(PoetryCollection.self, in: freshContext)
         duplicateProjectCount = DeduplicationService.countDuplicateProjects(context: freshContext)
+        exactIDDuplicateCount = DeduplicationService.countExactIDDuplicateRecords(context: freshContext)
+        duplicateTemplateFolderCount = DeduplicationService.countDuplicateTemplateFolderRecords(context: freshContext)
         detachedSceneCount = countDetachedScenes(in: freshContext)
         tombstoneCount = DeduplicationService.tombstoneCount
         lastRefreshed = Date()
+    }
+
+    @MainActor
+    private func cleanupExactIDDuplicates() {
+        let freshContext = ModelContext(modelContext.container)
+        let result = DeduplicationService.cleanupExactIDDuplicates(context: freshContext)
+        if result.recordsRemoved > 0 {
+            syncStatusMessage = "Removed \(result.recordsRemoved) exact-ID duplicate record\(result.recordsRemoved == 1 ? "" : "s") across \(result.groupsAffected) group\(result.groupsAffected == 1 ? "" : "s")."
+        } else if let error = result.errors.first {
+            syncStatusMessage = error
+        } else {
+            syncStatusMessage = "No exact-ID duplicate records found."
+        }
+        refreshCounts()
+    }
+
+    @MainActor
+    private func cleanupDuplicateTemplateFolders() {
+        let freshContext = ModelContext(modelContext.container)
+        let result = DeduplicationService.cleanupDuplicateTemplateFolders(context: freshContext)
+        if result.recordsRemoved > 0 {
+            syncStatusMessage = "Removed \(result.recordsRemoved) duplicate template folder\(result.recordsRemoved == 1 ? "" : "s")."
+        } else if let error = result.errors.first {
+            syncStatusMessage = error
+        } else if result.skippedNonEmptyGroups > 0 {
+            syncStatusMessage = "Skipped \(result.skippedNonEmptyGroups) non-empty duplicate template folder group\(result.skippedNonEmptyGroups == 1 ? "" : "s")."
+        } else {
+            syncStatusMessage = "No duplicate template folders found."
+        }
+        refreshCounts()
     }
 
     @MainActor

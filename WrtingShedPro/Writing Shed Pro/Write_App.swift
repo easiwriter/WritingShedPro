@@ -20,6 +20,9 @@ struct Write_App: App {
     @State private var writeCoalescer: WriteCoalescer
     @State private var syncHealthMonitor: SyncHealthMonitor
     static private(set) var activeEnsemblesContainer: SwiftDataEnsembleContainer?
+    static private(set) var activeEnsemblesContainerActivatedAt: Date?
+    static private(set) var hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch = false
+    static let minimumEnsemblesStartupWriteDelay: TimeInterval = 15
     private static let ensemblesAutoSyncUserDefaultsKey = "ensemblesAutoSyncEnabled"
     static let resetLocalEnsemblesStoreOnNextLaunchKey = "resetLocalEnsemblesStoreOnNextLaunch"
     static let detachLocalEnsemblesBeforeResetOnNextLaunchKey = "detachLocalEnsemblesBeforeResetOnNextLaunch"
@@ -187,6 +190,8 @@ struct Write_App: App {
                 }
             }
             Write_App.activeEnsemblesContainer = ensemblesContainer
+            Write_App.activeEnsemblesContainerActivatedAt = Date()
+            Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch = false
             let container = ensemblesContainer.modelContainer
             container.mainContext.autosaveEnabled = false
             #if DEBUG
@@ -481,7 +486,7 @@ struct Write_App: App {
                     try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
                     checkCloudKitStatus()
 
-                    if Write_App.isUsingEnsemblesSync && !Write_App.shouldAutoSyncEnsembles {
+                    if Write_App.isUsingEnsemblesSync {
                         await runManualEnsemblesSync(reason: "app launch")
                     }
 
@@ -524,29 +529,65 @@ struct Write_App: App {
         guard let container = Write_App.activeEnsemblesContainer else { return }
         Write_App.logToFile("🔄 [Ensembles] Manual sync started (reason=\(reason), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
         let didSync = await container.sync()
-        Write_App.logToFile("✅ [Ensembles] Manual sync completed (reason=\(reason), didSync=\(didSync), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+        if didSync {
+            Write_App.recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: reason)
+            syncHealthMonitor.recordExportSuccess()
+            Write_App.logToFile("✅ [Ensembles] Manual sync completed (reason=\(reason), didSync=true, isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+        } else {
+            syncHealthMonitor.recordExportFailure(isBlocking: false)
+            Write_App.logToFile("⚠️ [Ensembles] Manual sync stopped with no successful transfer (reason=\(reason), didSync=false, isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+        }
+    }
+
+    static func recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: String) {
+        guard !hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch else { return }
+        hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch = true
+        logToFile("✅ [Ensembles] First successful sync completed this launch (reason=\(reason))")
+    }
+
+    static func recordFirstEnsemblesDataAvailableIfNeeded(modelContainer: ModelContainer, reason: String) -> Bool {
+        guard activeEnsemblesContainer != nil,
+              !hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch else {
+            return hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch
+        }
+
+        let context = ModelContext(modelContainer)
+        let projectCount = (try? context.fetchCount(FetchDescriptor<Project>())) ?? 0
+        let folderCount = (try? context.fetchCount(FetchDescriptor<Folder>())) ?? 0
+        let fileCount = (try? context.fetchCount(FetchDescriptor<TextFile>())) ?? 0
+        let versionCount = (try? context.fetchCount(FetchDescriptor<Version>())) ?? 0
+        let publicationCount = (try? context.fetchCount(FetchDescriptor<Publication>())) ?? 0
+        let sceneCount = (try? context.fetchCount(FetchDescriptor<StoryScene>())) ?? 0
+
+        guard projectCount > 0 || folderCount > 0 || fileCount > 0 || versionCount > 0 || publicationCount > 0 || sceneCount > 0 else {
+            return false
+        }
+
+        hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch = true
+        logToFile("✅ [Ensembles] First synced data available locally (reason=\(reason), projects=\(projectCount), folders=\(folderCount), files=\(fileCount), versions=\(versionCount), publications=\(publicationCount), scenes=\(sceneCount))")
+        return true
     }
 
     private func waitForEnsemblesStartupWritesIfNeeded(reason: String) async -> Bool {
         guard let ensemblesContainer = Write_App.activeEnsemblesContainer else { return true }
 
         let maxWaitSeconds = 60
-        let requiredIdleSeconds = 3
-        var consecutiveIdleSeconds = 0
         for second in 0..<maxWaitSeconds {
             let activity = String(describing: ensemblesContainer.currentActivity)
-            if ensemblesContainer.isAttached && activity == "none" {
-                consecutiveIdleSeconds += 1
-                if consecutiveIdleSeconds >= requiredIdleSeconds {
-                    return true
-                }
-            } else {
-                consecutiveIdleSeconds = 0
+            if Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch {
+                return true
+            }
+
+            if Write_App.recordFirstEnsemblesDataAvailableIfNeeded(
+                modelContainer: sharedModelContainer,
+                reason: "\(reason) store populated"
+            ) {
+                return true
             }
 
             #if DEBUG
             if second == 0 || second % 5 == 0 {
-                print("⏳ [Write_App] Waiting for Ensembles attach before \(reason)... attached=\(ensemblesContainer.isAttached) activity=\(activity)")
+                print("⏳ [Write_App] Waiting for first successful Ensembles sync before \(reason)... attached=\(ensemblesContainer.isAttached) activity=\(activity)")
             }
             #endif
             try? await Task.sleep(nanoseconds: 1_000_000_000)
@@ -554,7 +595,7 @@ struct Write_App: App {
 
         #if DEBUG
         let activity = String(describing: ensemblesContainer.currentActivity)
-        print("⚠️ [Write_App] Skipping \(reason); Ensembles not attached after \(maxWaitSeconds)s attached=\(ensemblesContainer.isAttached) activity=\(activity)")
+        print("⚠️ [Write_App] Skipping \(reason); first successful Ensembles sync did not complete after \(maxWaitSeconds)s attached=\(ensemblesContainer.isAttached) activity=\(activity)")
         #endif
         return false
     }

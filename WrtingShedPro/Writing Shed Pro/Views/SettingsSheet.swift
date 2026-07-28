@@ -72,7 +72,7 @@ struct SettingsSheet: View {
                     }
 
                     Button {
-                        state.toggleProjectVisibilityMode(using: projects)
+                        state.toggleProjectVisibilityMode(using: projects, keepingProjectVisible: state.lastOpenedProjectID)
                     } label: {
                         Label(
                             state.hideAllProjects ? "Show Hidden Projects" : "Hide Existing Projects",

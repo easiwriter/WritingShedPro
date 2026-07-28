@@ -11,12 +11,27 @@ import SwiftData
 import UIKit
 
 /// Errors that can occur during import
-public enum ImportError: Error {
+public enum ImportError: Error, LocalizedError {
     case missingContent
     case invalidData
     case decodingFailed
     case fileNotFound
     case unknownError
+
+    public var errorDescription: String? {
+        switch self {
+        case .missingContent:
+            return "The selected file does not contain the data required for this import format."
+        case .invalidData:
+            return "The selected file contains invalid import data."
+        case .decodingFailed:
+            return "The selected file could not be decoded as a Writing Shed Pro project."
+        case .fileNotFound:
+            return "The selected file could not be found."
+        case .unknownError:
+            return "The project could not be imported."
+        }
+    }
 }
 
 /// Handles import of JSON files exported from Writing Shed v1
@@ -67,22 +82,30 @@ class JSONImportService {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         
-        // Check file extension first for hint
+        // Check file extension first for hint, but do not rely on it: some
+        // document providers hand us security-scoped temp URLs with altered
+        // extensions even when the selected file is a valid .wsp archive.
         let fileExtension = fileURL.pathExtension.lowercased()
+        let jsonObject = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+        let looksLikeWSP = jsonObject?["formatVersion"] != nil
+            && jsonObject?["project"] != nil
+            && jsonObject?["folders"] != nil
         
-        if fileExtension == "wsp" {
+        if fileExtension == "wsp" || looksLikeWSP {
             // Try WSP format
+            let wspData: WSPExportData
             do {
-                let wspData = try decoder.decode(WSPExportData.self, from: jsonData)
+                wspData = try decoder.decode(WSPExportData.self, from: jsonData)
                 #if DEBUG
                 print("[JSONImport] Detected WSP format (version \(wspData.formatVersion))")
                 #endif
-                return try importFromWSP(wspData)
             } catch {
                 #if DEBUG
-                print("[JSONImport] WSP decode failed: \(error), trying legacy format")
+                print("[JSONImport] WSP decode failed: \(error)")
                 #endif
+                throw ImportError.decodingFailed
             }
+            return try importFromWSP(wspData)
         }
         
         // Try legacy WSD format (also used for .json files)

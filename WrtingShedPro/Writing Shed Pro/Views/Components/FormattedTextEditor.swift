@@ -951,6 +951,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         var pendingReplacementText: String?
         var lastUserTextChangeTime: Date?
         var isLiveTypingSimpleInsertion = false
+        fileprivate static let simpleTypingIdleDelay: TimeInterval = 1.5
         #if targetEnvironment(macCatalyst)
         private var pendingSimpleTypingRange: NSRange?
         private var pendingSimpleTypingText = ""
@@ -958,7 +959,6 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         private var pendingSimpleTypingWorkItem: DispatchWorkItem?
         private var pendingDecorativeRedrawWorkItem: DispatchWorkItem?
         private var lastSimpleTypingSelectionSyncTime: CFTimeInterval = 0
-        fileprivate static let simpleTypingIdleDelay: TimeInterval = 1.5
         private static let simpleTypingSelectionSyncInterval: CFTimeInterval = 0.08
         #endif
 

@@ -124,6 +124,19 @@ final class SyncHealthMonitor {
         }
 
         if let modelContainer {
+            _ = Write_App.recordFirstEnsemblesDataAvailableIfNeeded(
+                modelContainer: modelContainer,
+                reason: "sync health check"
+            )
+        }
+
+        if Write_App.activeEnsemblesContainer != nil,
+           !Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch {
+            transition(to: .degraded)
+            return
+        }
+
+        if let modelContainer {
             let context = ModelContext(modelContainer)
             let projectCount = (try? context.fetchCount(FetchDescriptor<Project>())) ?? 0
             let folderCount = (try? context.fetchCount(FetchDescriptor<Folder>())) ?? 0

@@ -99,7 +99,6 @@ struct ContactSupportView: View {
     }
 
     var body: some View {
-        let clipboardString: String = "\(mailSubject)\n\n\(mailBody)"
         let unavailableMessage: String = NSLocalizedString("support.mail.unavailable", comment: "")
         
         NavigationStack {
@@ -159,7 +158,8 @@ struct ContactSupportView: View {
             .alert(NSLocalizedString("support.mail.unavailableTitle", comment: ""),
                    isPresented: $showMailUnavailable) {
                 Button(NSLocalizedString("support.mail.copyToClipboard", comment: "")) {
-                    UIPasteboard.general.string = clipboardString
+                    prepareDiagnosticsSnapshotIfNeeded()
+                    UIPasteboard.general.string = "\(mailSubject)\n\n\(mailBody)"
                 }
                 Button("OK", role: .cancel) {}
             } message: {
@@ -415,17 +415,13 @@ struct ContactSupportView: View {
         """
 
         if includeSyncDiagnostics {
-            let snapshot = diagnosticsSnapshot.isEmpty
-                ? SupportDiagnosticsSnapshotBuilder.buildSnapshot(modelContext: modelContext)
-                : diagnosticsSnapshot
-
             body += """
 
 
             ----------------------------
             \(NSLocalizedString("support.syncDiagnostics.header", comment: ""))
             ----------------------------
-            \(snapshot)
+            \(diagnosticsSnapshot)
             """
         }
 

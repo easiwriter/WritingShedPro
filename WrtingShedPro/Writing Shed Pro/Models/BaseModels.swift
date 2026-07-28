@@ -917,11 +917,10 @@ final class TextFile {
         
         // Ensure currentVersionIndex is valid
         guard currentVersionIndex >= 0 && currentVersionIndex < sortedVersions.count else {
-            // Index out of bounds - reset to last version (highest version number)
+            // Index out of bounds while relationships are still syncing - read the last version without mutating.
             #if DEBUG
-            print("⚠️ currentVersionIndex (\(currentVersionIndex)) out of bounds for \(sortedVersions.count) versions, resetting to last")
+            print("⚠️ currentVersionIndex (\(currentVersionIndex)) out of bounds for \(sortedVersions.count) versions, reading last without saving")
             #endif
-            currentVersionIndex = sortedVersions.count - 1
             return sortedVersions.last
         }
         

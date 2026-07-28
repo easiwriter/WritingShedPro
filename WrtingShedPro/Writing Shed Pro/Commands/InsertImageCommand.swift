@@ -33,6 +33,9 @@ final class InsertImageCommand: UndoableCommand {
     
     /// Reference to the target file (weak to prevent retain cycles)
     weak var targetFile: TextFile?
+
+    /// The actual attachment position after any newline wrapping has been applied.
+    private(set) var insertedImagePosition: Int?
     
     // MARK: - Initialization
     
@@ -70,6 +73,7 @@ final class InsertImageCommand: UndoableCommand {
         #if DEBUG
         print("🖼️💾 InsertImageCommand.execute() called")
         #endif
+        insertedImagePosition = nil
         guard let file = targetFile,
               let currentVersion = file.currentVersion else {
             #if DEBUG
@@ -146,13 +150,15 @@ final class InsertImageCommand: UndoableCommand {
         
         // For center/right aligned images, wrap in newlines to isolate the paragraph
         if alignment == .center || alignment == .right {
+            let nsString = mutableContent.string as NSString
+
             // Check if we need newline before
             let needsNewlineBefore = position > 0 && 
-                                    mutableContent.string[mutableContent.string.index(mutableContent.string.startIndex, offsetBy: position - 1)] != "\n"
+                                    nsString.character(at: position - 1) != 0x0A
             
             // Check if we need newline after
             let needsNewlineAfter = position < mutableContent.length &&
-                                   mutableContent.string[mutableContent.string.index(mutableContent.string.startIndex, offsetBy: position)] != "\n"
+                                   nsString.character(at: position) != 0x0A
             
             var insertPosition = position
             
@@ -181,6 +187,7 @@ final class InsertImageCommand: UndoableCommand {
             }
             
             // Insert the attachment
+            insertedImagePosition = insertPosition
             mutableContent.insert(attachmentString, at: insertPosition)
             insertPosition += 1
             
@@ -192,6 +199,7 @@ final class InsertImageCommand: UndoableCommand {
             }
         } else {
             // For left/inline aligned images, just insert directly
+            insertedImagePosition = position
             mutableContent.insert(attachmentString, at: position)
         }
         
@@ -200,16 +208,17 @@ final class InsertImageCommand: UndoableCommand {
         #endif
         
         // Verify the attachment is there
-        if mutableContent.length > position {
+        let verificationPosition = insertedImagePosition ?? position
+        if mutableContent.length > verificationPosition {
             var effectiveRange = NSRange(location: 0, length: 0)
-            let attrs = mutableContent.attributes(at: position, effectiveRange: &effectiveRange)
+            let attrs = mutableContent.attributes(at: verificationPosition, effectiveRange: &effectiveRange)
             if let att = attrs[NSAttributedString.Key.attachment] {
                 #if DEBUG
-                print("🖼️💾 ✅ Attachment verified at position \(position): \(type(of: att))")
+                print("🖼️💾 ✅ Attachment verified at position \(verificationPosition): \(type(of: att))")
                 #endif
             } else {
                 #if DEBUG
-                print("❌ NO attachment at position \(position) after insert!")
+                print("❌ NO attachment at position \(verificationPosition) after insert!")
                 #endif
             }
         }
@@ -236,6 +245,9 @@ final class InsertImageCommand: UndoableCommand {
         }
         
         file.modifiedDate = Date()
+        Task { @MainActor in
+            try? WriteCoalescer.shared?.requestSaveAndFlush(reason: "insert-image-command")
+        }
     }
     
     func undo() {
@@ -245,17 +257,21 @@ final class InsertImageCommand: UndoableCommand {
         }
         
         let content = currentVersion.attributedContent ?? NSAttributedString()
-        guard position >= 0, position + 1 <= content.length else {
+        let removalPosition = insertedImagePosition ?? position
+        guard removalPosition >= 0, removalPosition + 1 <= content.length else {
             return
         }
         
         // Remove the image (attachments take up 1 character position)
         let mutableContent = NSMutableAttributedString(attributedString: content)
-        mutableContent.deleteCharacters(in: NSRange(location: position, length: 1))
+        mutableContent.deleteCharacters(in: NSRange(location: removalPosition, length: 1))
         
         // Update the version's content
         currentVersion.attributedContent = mutableContent
         file.modifiedDate = Date()
+        Task { @MainActor in
+            try? WriteCoalescer.shared?.requestSaveAndFlush(reason: "insert-image-command-undo")
+        }
     }
     
     // MARK: - Codable

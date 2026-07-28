@@ -348,15 +348,33 @@ struct ProjectEditableList: View {
     private func moveProjectsToTrash() {
         guard let offsets = projectsToDelete else { return }
         let deletedAt = Date()
+        let projects = offsets.compactMap { index in
+            index < sortedProjects.count ? sortedProjects[index] : nil
+        }
+
+        guard !projects.isEmpty else { return }
+
         for index in offsets {
             guard index < sortedProjects.count else { continue }
             let project = sortedProjects[index]
             DeduplicationService.trashProjectFamily(project, context: modelContext, deletedAt: deletedAt)
         }
-        WriteCoalescer.shared?.requestSave(reason: "project-list-trash")
-        WriteCoalescer.shared?.flush()
+        do {
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "project-list-trash")
+        } catch {
+            for project in projects {
+                DeduplicationService.restoreProjectFamily(project, context: modelContext)
+            }
+            deleteErrorMessage = String(
+                format: NSLocalizedString("project.deleteForever.saveFailed.message", comment: "Delete failed message"),
+                error.localizedDescription
+            )
+            showDeleteError = true
+            return
+        }
         projectsToDelete = nil
         deleteInfo = nil
+        showDeleteConfirmation = false
     }
     
     private func deleteProjectsPermanently() {
