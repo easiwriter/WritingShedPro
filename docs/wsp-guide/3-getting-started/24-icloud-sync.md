@@ -6,7 +6,7 @@ Writing Shed Pro uses iCloud to keep your projects synchronized across all your 
 
 When you enable iCloud:
 - All projects are stored in iCloud Drive
-- Changes sync automatically within seconds
+- Changes sync automatically, but not instantly
 - Your work is backed up continuously
 - Devices must be signed into the same Apple ID
 
@@ -46,8 +46,10 @@ For seamless sync across devices:
 4. Enable Writing Shed Pro in iCloud settings on all devices
 
 ### Sync Speed
+Sync is automatic, but it is not instant. Small edits may appear on another device quickly, while larger projects, first-time setup, images, imports, or a device that has been offline can take several minutes to catch up.
+
 - Local changes are saved instantly
-- Cloud sync typically completes within seconds
+- Cloud sync often completes quickly, but can take several minutes
 - Large files (with many images) may take longer
 - Wi-Fi is faster than cellular
 
@@ -72,7 +74,7 @@ If you edit the same file on two devices before sync completes:
 3. **Other changes saved**: Earlier changes are available in version history
 
 ### Avoiding Conflicts
-- Wait a few seconds after editing before switching devices
+- Wait for sync to finish before switching devices, especially after larger edits or imports
 - Ensure sync has completed (no pending upload indicators)
 - If in doubt, wait for the cloud icon to clear
 

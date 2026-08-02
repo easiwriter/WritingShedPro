@@ -5,7 +5,7 @@ Writing Shed Pro helps poets and fiction writers track where they've submitted t
 ## Understanding Submissions
 
 The submission system tracks:
-- **Publications**: Magazines, journals, competitions
+- **Publications**: Magazines, competitions, publishers, agents, and other destinations
 - **Submissions**: What you sent, when, and current status
 - **Submitted Files**: Which specific file versions you sent
 
@@ -18,7 +18,7 @@ Before tracking submissions, define your target publications:
 2. Tap **+**
 3. Enter publication details:
    - Name (e.g., "Poetry Magazine")
-   - Type (Magazine or Competition)
+   - Type (Magazine, Competition, Publisher, Agent, or Other)
    - URL (optional)
    - Notes (optional)
 4. Tap **Create**
@@ -26,6 +26,9 @@ Before tracking submissions, define your target publications:
 ### Publication Types
 - **Magazine**: Journals, literary magazines, online publications
 - **Competition**: Contests with deadlines and prizes
+- **Publisher**: Book publishers, presses, and imprints
+- **Agent**: Literary agents and agencies
+- **Other**: Any submission destination that does not fit the other categories
 
 ### Organizing Publications
 - Create entries for places you submit to regularly
@@ -143,7 +146,7 @@ Set a reminder to follow up on a pending submission:
 4. A system notification will alert you when the reminder fires
 
 ### Deadline Reminders
-Set a reminder for publication deadlines (magazines and competitions):
+Set a reminder for publication deadlines:
 1. Open the publication details
 2. Tap **Set Deadline Reminder**
 3. Choose a date and time

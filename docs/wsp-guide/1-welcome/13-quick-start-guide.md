@@ -33,7 +33,7 @@ Every file in your project has a workflow status that organises it automatically
 
 Poetry and short fiction projects also include:
 - **Collections** – Group related files together
-- **Publications** – Magazines and competitions you submit to
+- **Publications** – Magazines, competitions, publishers, agents, and other destinations you submit to
 - **Submissions** – Track what you've sent where
 
 ## Step 3: Create Your First File

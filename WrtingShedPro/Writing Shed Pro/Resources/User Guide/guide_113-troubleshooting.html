@@ -82,27 +82,46 @@ body > *:first-child { margin-top: 0 !important; }
 <li><strong>Check Apple's system status</strong> — Visit <a href="https://apple.com/support/systemstatus">apple.com/support/systemstatus</a> to see if iCloud is experiencing a known outage.</li>
 </ol>
 <h3 id="using-sync-troubleshooting">Using Sync Troubleshooting</h3>
-<p>If normal steps haven't helped, Writing Shed Pro has a built-in health screen. Go to <strong>Settings → Sync Troubleshooting</strong>.</p>
+<p>If normal steps haven't helped, Writing Shed Pro has a built-in recovery tool. Go to <strong>Settings → Sync Troubleshooting</strong>.</p>
 <p>The screen shows you:</p>
 <ul>
-<li><strong>Sync Backend</strong> — Confirms that Ensembles sync is active and lets you run a manual sync.</li>
-<li><strong>Local Data</strong> — Counts projects, publications, folders, files, versions, and collections on this device.</li>
-<li><strong>Data Health</strong> — Checks for duplicate projects and zombie tombstones.</li>
-<li><strong>Support</strong> — Copies a diagnostics snapshot you can include when contacting support.</li>
+<li><strong>iCloud Sync Status</strong> — A green checkmark means recent syncs succeeded. An orange warning means sync may need attention.</li>
+<li><strong>Sync Actions</strong> — Steps you can take to nudge or reset sync.</li>
+<li><strong>Guided Recovery</strong> — A one-tap recovery sequence that safely resolves most persistent sync problems.</li>
 </ul>
-<h4 id="sync-now">Sync Now</h4>
-<p>If you want to manually trigger sync, tap <strong>Sync Now</strong>. This asks the active Ensembles sync container to sync immediately and then refreshes the local counts shown on the screen.</p>
-<h4 id="copy-diagnostics-snapshot">Copy Diagnostics Snapshot</h4>
-<p>Tap <strong>Copy Diagnostics Snapshot</strong> to copy a report with sync backend information, project inventory, entity counts, project fingerprints, and tombstone details. This report is useful if you need to contact support.</p>
+<h4 id="run-guided-recovery">Run Guided Recovery</h4>
+<p><strong>Guided Recovery</strong> is the recommended first step for any stubborn sync issue. Tap <strong>Run Guided Recovery</strong> and the app will:</p>
+<ol>
+<li>Clear any rate-limiting backoff so sync can proceed at full speed.</li>
+<li>Ask iCloud to deliver any pending changes immediately.</li>
+<li>Wait for the sync activity to settle.</li>
+<li>Check whether your projects match the expected state and report any mismatches.</li>
+</ol>
+<p>This process takes 1–2 minutes. A status message tells you what happened. If projects are now fully synced, the status will show a green "Converged" result. If a problem was found, the status message describes it.</p>
+<p>After Guided Recovery completes, you can tap <strong>Copy Guided Recovery Report</strong> to copy a detailed report to your clipboard. This report is useful if you need to contact support.</p>
+<h4 id="force-sync-now">Force Sync Now</h4>
+<p>If you want to manually trigger an iCloud check without running the full Guided Recovery, tap <strong>Force Sync Now</strong>. This tells iCloud to deliver pending changes immediately. It is safe to use at any time.</p>
+<h4 id="reset-sync-backoff-state">Reset Sync Backoff State</h4>
+<p>If the app has encountered repeated network errors, it temporarily slows down sync attempts to avoid overloading iCloud. <strong>Reset Sync Backoff State</strong> clears this delay so normal sync speed resumes. This button only appears when a backoff is active.</p>
+<h4 id="reset-sync-database">Reset Sync Database</h4>
+<blockquote>
+<p><strong>Warning: this deletes all local data on this device.</strong> Only use this as a last resort.</p>
+</blockquote>
+<p><strong>Reset Sync Database</strong> removes the local copy of your data and re-downloads everything fresh from iCloud. Your iCloud data is not affected — nothing is deleted from iCloud. After resetting, the app will re-import all your projects from iCloud when it next launches.</p>
+<p>Use this only when:
+- Guided Recovery has not fixed the problem.
+- You are confident that iCloud holds a complete, up-to-date copy of your data.
+- Support has advised this step.</p>
+<p>After tapping Reset Sync Database, quit and relaunch the app. Re-import begins automatically. Depending on how much data you have, it may take a few minutes.</p>
 <h3 id="a-project-disappeared">A Project Disappeared</h3>
 <p>If a project that existed on one device doesn't appear on another:</p>
 <ol>
 <li>Scroll through the full project list — it may have moved.</li>
 <li>Check the Trash within the app (swipe left on a project or use the project menu).</li>
 <li>Wait a few minutes and check again — the project may still be syncing.</li>
-<li>Open <strong>Sync Troubleshooting → Sync Now</strong> and check the local data counts.</li>
+<li>Open <strong>Sync Troubleshooting → Run Guided Recovery</strong> and check the result.</li>
 </ol>
-<p>If the project is still missing after syncing, tap <strong>Copy Diagnostics Snapshot</strong> and <a href="guide:115-contact-support">contact support</a> with the report attached.</p>
+<p>If the project is still missing after Guided Recovery, tap <strong>Copy Guided Recovery Report</strong> and <a href="guide:115-contact-support">contact support</a> with the report attached.</p>
 <h3 id="duplicate-projects-appearing">Duplicate Projects Appearing</h3>
 <p>Occasionally iCloud can deliver the same project twice during a sync catch-up. Writing Shed Pro detects and removes true duplicates automatically. If you see duplicates:</p>
 <ol>
@@ -118,7 +137,7 @@ body > *:first-child { margin-top: 0 !important; }
 <ol>
 <li>Force-quit and reopen the app.</li>
 <li>If still missing, try <strong>rebooting your device</strong> — this restarts the iCloud sync service and often resolves stalled imports.</li>
-<li>If still missing, open <strong>Sync Troubleshooting → Sync Now</strong>, then copy the diagnostics snapshot if you need to contact support.</li>
+<li>If still missing, open <strong>Sync Troubleshooting → Run Guided Recovery</strong>.</li>
 </ol>
 <h3 id="sync-conflicts">Sync Conflicts</h3>
 <p><strong>Symptoms</strong>: Duplicate files appear, or you see a message about conflicting versions.</p>

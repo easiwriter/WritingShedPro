@@ -834,7 +834,6 @@
 "folder.publications" = "Publications";
 "folder.magazines" = "Magazines";
 "folder.competitions" = "Competitions";
-"folder.commissions" = "Commissions";
 "folder.publishers" = "Publishers";
 "folder.agents" = "Agents";
 "folder.other" = "Other";
@@ -1060,7 +1059,6 @@
 /* Type Picker */
 "publications.type.magazine" = "Magazine";
 "publications.type.competition" = "Competition";
-"publications.type.commission" = "Commission";
 "publications.type.publisher" = "Publisher";
 "publications.type.agent" = "Agent";
 "publications.type.other" = "Other";
@@ -1136,7 +1134,6 @@
 "publications.submissions.title" = "Submissions";
 "publications.magazines.title" = "Magazines";
 "publications.competitions.title" = "Competitions";
-"publications.commissions.title" = "Commissions";
 "publications.publishers.title" = "Publishers";
 "publications.agents.title" = "Agents";
 "publications.other.title" = "Other";

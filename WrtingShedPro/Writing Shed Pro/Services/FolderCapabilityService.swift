@@ -6,7 +6,7 @@ struct FolderCapabilityService {
     /// Folders that can ONLY contain subfolders (no files allowed)
     /// These are organizational containers for publications
     private static let subfolderOnlyFolders: Set<String> = [
-        "Magazines", "Competitions", "Commissions", "Other", "Publishers", "Agents"
+        "Magazines", "Competitions", "Other", "Publishers", "Agents"
     ]
     
     /// Folders that can contain BOTH subfolders AND files

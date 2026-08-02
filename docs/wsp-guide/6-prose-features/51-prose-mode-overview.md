@@ -20,6 +20,13 @@ When you create a Prose project, you get these folders:
 |--------|---------|
 | **Prose** | Your main writing area - all files live here |
 | **Sections** | Optional organizational divisions |
+| **Submissions** | Track where you've sent work |
+| **Research** | Reference material |
+| **Magazines** | Publication targets |
+| **Competitions** | Contest targets |
+| **Publishers** | Publisher submission targets |
+| **Agents** | Agent submission targets |
+| **Other** | Other submission destinations |
 | **Trash** | Deleted files (recoverable until emptied) |
 
 ### The Prose Folder

@@ -595,7 +595,7 @@ class JSONImportService {
             let publication = Publication(
                 id: generateNewUUIDs ? UUID() : (UUID(uuidString: pubData.id) ?? UUID()),
                 name: pubData.name,
-                type: pubData.type.flatMap { PublicationType(rawValue: $0) } ?? .magazine,
+                type: pubData.type.map { mapPublicationType($0) } ?? .magazine,
                 url: pubData.url,
                 notes: pubData.notes,
                 deadline: pubData.deadline,
@@ -1660,7 +1660,11 @@ class JSONImportService {
         case "competition", "competitions":
             return .competition
         case "commission", "commissions":
-            return .commission
+            return .other
+        case "publisher", "publishers":
+            return .publisher
+        case "agent", "agents":
+            return .agent
         default:
             return .other
         }
@@ -2265,6 +2269,8 @@ class JSONImportService {
                 "Collections",
                 "Submissions",
                 "Research",
+                "Magazines",
+                "Competitions",
                 "Publishers",
                 "Agents",
                 "Other",
@@ -2281,7 +2287,8 @@ class JSONImportService {
                 "Research",
                 "Magazines",
                 "Competitions",
-                "Commissions",
+                "Publishers",
+                "Agents",
                 "Other",
                 "Trash"
             ]
@@ -2301,6 +2308,8 @@ class JSONImportService {
                     "Research",
                     "Magazines",
                     "Competitions",
+                    "Publishers",
+                    "Agents",
                     "Other",
                     "Trash"
                 ]
@@ -2316,6 +2325,8 @@ class JSONImportService {
                     "Research",
                     "Magazines",
                     "Competitions",
+                    "Publishers",
+                    "Agents",
                     "Other",
                     "Trash"
                 ]
@@ -2331,6 +2342,8 @@ class JSONImportService {
                     "Research",
                     "Magazines",
                     "Competitions",
+                    "Publishers",
+                    "Agents",
                     "Other",
                     "Trash"
                 ]
@@ -2342,8 +2355,10 @@ class JSONImportService {
                 "Scripts",
                 "Submissions",
                 "Research",
+                "Magazines",
                 "Competitions",
-                "Commissions",
+                "Publishers",
+                "Agents",
                 "Other",
                 "Trash"
             ]

@@ -30,7 +30,9 @@ Poetry projects include specialized folders:
 | **Research** | Reference material |
 | **Magazines** | Publication targets |
 | **Competitions** | Contest targets |
-| **Other** | Miscellaneous files |
+| **Publishers** | Publisher submission targets |
+| **Agents** | Agent submission targets |
+| **Other** | Other submission destinations |
 | **Trash** | Deleted poems (restorable) |
 
 ## Creating a Poem

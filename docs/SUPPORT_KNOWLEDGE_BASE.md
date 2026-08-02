@@ -66,7 +66,7 @@ Files progress through statuses:
 - **Trash**: Deleted (recoverable until emptied)
 - **Published**: For tracking published work
 
-Poetry and Short Fiction also support: **Collections**, **Publications**, **Submissions**.
+Submission tracking is available across project types through **Publications** and **Submissions**. Publication destinations can be **Magazine**, **Competition**, **Publisher**, **Agent**, or **Other**.
 
 ---
 
@@ -77,7 +77,7 @@ Poetry and Short Fiction also support: **Collections**, **Publications**, **Subm
 - **Auto-save**: Constant. No need to manually save (⌘S forces immediate sync).
 - **Offline support**: Full editing offline; changes sync when reconnected.
 - **Conflict resolution**: Most recent version wins; both versions are preserved.
-- **First sync**: May take time for large projects. Be patient.
+- **Sync timing**: Sync is automatic but not instant. Small edits may appear quickly, while larger projects, images, imports, first-time setup, or devices that have been offline can take several minutes to catch up.
 - **Troubleshooting sync**:
   1. Check internet on both devices
   2. Ensure iCloud is enabled and not full
@@ -436,7 +436,7 @@ Page Break, Section Mark, Double Space, None
 ## 19. SUBMISSION TRACKING
 
 ### Publications
-- Types: Magazine or Competition
+- Types: Magazine, Competition, Publisher, Agent, or Other
 - Fields: Name, Type, URL, Notes, Deadline
 - Deadline reminders (system notifications)
 
@@ -583,7 +583,7 @@ Access: Main screen → Settings (gear icon)
 
 ### Sync Tips
 - Trust iCloud — no need to force sync
-- Wait a few seconds after changes before switching devices
+- Wait for sync to finish before switching devices, especially after larger edits, images, imports, or first-time setup
 - Export important finished work as PDFs for backup
 
 ---
@@ -596,7 +596,7 @@ Access: Main screen → Settings (gear icon)
 | **Files not syncing** | Check internet, ensure iCloud enabled, wait a few minutes, force quit app, check iCloud storage, verify same Apple ID |
 | **Sync conflicts** | Review both versions, keep correct one, delete duplicate |
 | **"Unable to Sync"** | Check internet, check iCloud status (apple.com/support/systemstatus), sign out/in iCloud, restart device |
-| **Slow sync** | First sync takes time; large projects take longer; poor internet slows sync |
+| **Slow sync** | Sync is not instant; first sync, large projects, images, imports, offline catch-up, and poor internet can take several minutes |
 
 ### App Performance
 | Problem | Solutions |

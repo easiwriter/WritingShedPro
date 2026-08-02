@@ -62,6 +62,13 @@ Fiction projects contain the following areas:
 - **Plot Elements** – Story beats linked to your chosen structure
 - **Characters** – People in your story with descriptions and arcs
 - **Locations** – Settings and places
+- **Submissions** – Track where you've sent work
+- **Research** – Notes and reference material
+- **Magazines** – Publication targets
+- **Competitions** – Contest targets
+- **Publishers** – Publisher submission targets
+- **Agents** – Agent submission targets
+- **Other** – Other submission destinations
 - **Trash** – Deleted items (can be restored)
 
 ### Workflow Status

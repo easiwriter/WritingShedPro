@@ -94,7 +94,7 @@ Read submission guidelines carefully. Format exactly as requested.
 Files sync automatically. No need to force anything.
 
 ### Wait Before Switching Devices
-If you've just made changes, wait a few seconds for sync before opening on another device.
+If you've just made changes, wait for sync before opening on another device. Small edits may appear quickly, but larger changes, images, imports, or first-time setup can take several minutes.
 
 ### Keep Backups
 Export important finished work as PDFs. It's a good safety net.

@@ -74,7 +74,10 @@ Project
 ├── Locations
 ├── Submissions
 ├── Research
-├── Publishers / Agents
+├── Magazines
+├── Competitions
+├── Publishers
+├── Agents
 ├── Other
 └── Trash
 ```

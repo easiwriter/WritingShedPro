@@ -54,7 +54,7 @@ Every file has a workflow status that determines where it appears:
 ### Poetry & Short Fiction Additions
 
 - **Collections**: Group related files together
-- **Publications**: Track magazines and competitions
+- **Publications**: Track magazines, competitions, publishers, agents, and other destinations
 - **Submissions**: Track what you've sent where
 
 ### Novel Additions
@@ -67,7 +67,7 @@ Every file has a workflow status that determines where it appears:
 ### Short Fiction Additions
 
 - **Collections**: Group related stories together
-- **Publications**: Track magazines and competitions
+- **Publications**: Track magazines, competitions, publishers, agents, and other destinations
 - **Submissions**: Track what you've sent where
 
 ### Verse Novel Additions

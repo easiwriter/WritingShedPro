@@ -9,7 +9,7 @@ This tutorial covers the complete submission workflow in Writing Shed Pro — fr
 
 ## What You'll Learn
 
-- Setting up publications (magazines and competitions)
+- Setting up publications (magazines, competitions, publishers, agents, and other destinations)
 - Creating a submission from a Poetry Collection
 - Tracking submission status (Pending → Accepted/Rejected)
 - Setting notification reminders for follow-ups and deadlines

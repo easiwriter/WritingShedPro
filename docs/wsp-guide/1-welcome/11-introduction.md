@@ -25,7 +25,7 @@ Keep all your writing organized in projects. Each project contains folders and f
 ### Publishing Ready
 - Export to PDF, RTF, and other formats
 - Professional pagination with headers and footers
-- Submission tracking for magazines and competitions
+- Submission tracking for magazines, competitions, publishers, agents, and other destinations
 - Print directly from the app
 
 ## Who Is Writing Shed Pro For?

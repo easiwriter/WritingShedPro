@@ -16,8 +16,10 @@ struct ProjectFolderMigrationService {
     // MARK: - Migration Version
     
     private static let migrationVersionKey = "projectFolderMigrationVersion"
-    // Version 16: Fix manuscript subfolder parent relationships
-    private static let currentMigrationVersion = 16
+    // Version 18: Convert legacy Commissions publication folders/types to Other
+    private static let currentMigrationVersion = 18
+    private static let publicationTargetMigrationVersionKey = "publicationTargetMigrationVersion"
+    private static let currentPublicationTargetMigrationVersion = 1
     
     // MARK: - Public Methods
     
@@ -41,6 +43,41 @@ struct ProjectFolderMigrationService {
         } else {
             #if DEBUG
             print("[ProjectFolderMigration] No migration needed")
+            #endif
+        }
+    }
+
+    /// Runs only the safe publication-target folder/type migration.
+    /// This is separate from the older folder migrations, which remain disabled at app launch.
+    static func migratePublicationTargetsIfNeeded(modelContext: ModelContext) {
+        let lastVersion = UserDefaults.standard.integer(forKey: publicationTargetMigrationVersionKey)
+        let hasLegacyCommissions = hasLegacyCommissionData(modelContext: modelContext)
+        let hasMissingPublicationFolders = hasMissingStandardPublicationFolders(modelContext: modelContext)
+
+        guard lastVersion < currentPublicationTargetMigrationVersion || hasLegacyCommissions || hasMissingPublicationFolders else {
+            #if DEBUG
+            print("[ProjectFolderMigration] Publication target migration not needed")
+            #endif
+            return
+        }
+
+        #if DEBUG
+        print("[ProjectFolderMigration] Running publication target migration: lastVersion=\(lastVersion), currentVersion=\(currentPublicationTargetMigrationVersion), hasLegacyCommissions=\(hasLegacyCommissions), hasMissingPublicationFolders=\(hasMissingPublicationFolders)")
+        #endif
+
+        addStandardPublicationFoldersToAllProjects(modelContext: modelContext)
+        migrateCommissionsToOther(modelContext: modelContext)
+
+        do {
+            try EnsemblesSaveGate.save(modelContext, reason: "publication-target-migration")
+            UserDefaults.standard.set(currentPublicationTargetMigrationVersion, forKey: publicationTargetMigrationVersionKey)
+
+            #if DEBUG
+            print("[ProjectFolderMigration] ✅ Publication target migration saved successfully")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[ProjectFolderMigration] ❌ Failed to save publication target migration: \(error)")
             #endif
         }
     }
@@ -135,8 +172,18 @@ struct ProjectFolderMigrationService {
             cleanupRootLevelManuscriptFolders(modelContext: modelContext)
         }
         
+        // Version 17: All project types support Magazines, Competitions, Publishers, Agents, Other
+        if oldVersion < 17 {
+            addStandardPublicationFoldersToAllProjects(modelContext: modelContext)
+        }
+
+        // Version 18: Commissions is now covered by Other
+        if oldVersion < 18 {
+            migrateCommissionsToOther(modelContext: modelContext)
+        }
+
         // Future migrations go here:
-        // if oldVersion < 17 { ... }
+        // if oldVersion < 19 { ... }
         
         do {
             try EnsemblesSaveGate.save(modelContext, reason: "project-folder-migration")
@@ -146,6 +193,140 @@ struct ProjectFolderMigrationService {
         } catch {
             #if DEBUG
             print("[ProjectFolderMigration] ❌ Failed to save migration: \(error)")
+            #endif
+        }
+    }
+
+    private static func hasLegacyCommissionData(modelContext: ModelContext) -> Bool {
+        do {
+            let folders = try modelContext.fetch(FetchDescriptor<Folder>())
+            if folders.contains(where: { $0.name == "Commissions" }) {
+                return true
+            }
+
+            let publications = try modelContext.fetch(FetchDescriptor<Publication>())
+            return publications.contains { $0.typeRaw.lowercased().contains("commission") }
+        } catch {
+            #if DEBUG
+            print("[ProjectFolderMigration] ❌ Failed to check legacy commission data: \(error)")
+            #endif
+            return false
+        }
+    }
+
+    private static func hasMissingStandardPublicationFolders(modelContext: ModelContext) -> Bool {
+        let requiredFolderNames = [
+            NSLocalizedString("folder.magazines", comment: "Magazines folder name"),
+            NSLocalizedString("folder.competitions", comment: "Competitions folder name"),
+            NSLocalizedString("folder.publishers", comment: "Publishers folder name"),
+            NSLocalizedString("folder.agents", comment: "Agents folder name"),
+            NSLocalizedString("folder.other", comment: "Other folder name")
+        ]
+
+        do {
+            let projects = try modelContext.fetch(FetchDescriptor<Project>())
+
+            for project in projects {
+                let rootFolders = try fetchRootFolders(for: project, modelContext: modelContext)
+                let rootFolderNames = Set(rootFolders.compactMap { $0.name })
+
+                if requiredFolderNames.contains(where: { !rootFolderNames.contains($0) }) {
+                    return true
+                }
+            }
+        } catch {
+            #if DEBUG
+            print("[ProjectFolderMigration] ❌ Failed to check standard publication folders: \(error)")
+            #endif
+        }
+
+        return false
+    }
+
+    /// Version 17 Migration: Ensure every project has all standard publication target folders.
+    /// This is additive only: it never deletes legacy folders.
+    private static func addStandardPublicationFoldersToAllProjects(modelContext: ModelContext) {
+        #if DEBUG
+        print("[ProjectFolderMigration] V17: Adding standard publication folders to all projects...")
+        #endif
+
+        let descriptor = FetchDescriptor<Project>()
+        let foldersToAdd = [
+            "folder.magazines",
+            "folder.competitions",
+            "folder.publishers",
+            "folder.agents",
+            "folder.other"
+        ]
+
+        do {
+            let projects = try modelContext.fetch(descriptor)
+
+            for project in projects {
+                var addedCount = 0
+
+                for folderKey in foldersToAdd {
+                    if addFolderIfMissing(folderKey: folderKey, to: project, modelContext: modelContext) {
+                        addedCount += 1
+                    }
+                }
+
+                fixFolderOrdering(for: project)
+
+                #if DEBUG
+                if addedCount > 0 {
+                    print("[ProjectFolderMigration] Added \(addedCount) publication folders to project: \(project.name ?? "Untitled")")
+                }
+                #endif
+            }
+        } catch {
+            #if DEBUG
+            print("[ProjectFolderMigration] ❌ Failed to add standard publication folders: \(error)")
+            #endif
+        }
+    }
+
+    /// Version 18 Migration: Convert legacy Commissions folders and publication records to Other.
+    /// This avoids deleting folders so late-arriving relationship data cannot be cascaded away during sync.
+    private static func migrateCommissionsToOther(modelContext: ModelContext) {
+        #if DEBUG
+        print("[ProjectFolderMigration] V18: Migrating Commissions to Other...")
+        #endif
+
+        let otherName = NSLocalizedString("folder.other", comment: "Other folder name")
+        let commissionsName = "Commissions"
+
+        do {
+            let projects = try modelContext.fetch(FetchDescriptor<Project>())
+            var renamedFolderCount = 0
+
+            for project in projects {
+                _ = addFolderIfMissing(folderKey: "folder.other", to: project, modelContext: modelContext)
+
+                fixFolderOrdering(for: project)
+            }
+
+            let folders = try modelContext.fetch(FetchDescriptor<Folder>())
+            for folder in folders where folder.name == commissionsName {
+                folder.name = otherName
+                renamedFolderCount += 1
+            }
+
+            let publications = try modelContext.fetch(FetchDescriptor<Publication>())
+            var migratedPublicationCount = 0
+
+            for publication in publications where publication.typeRaw.lowercased().contains("commission") {
+                publication.typeRaw = PublicationType.other.rawValue
+                publication.modifiedDate = Date()
+                migratedPublicationCount += 1
+            }
+
+            #if DEBUG
+            print("[ProjectFolderMigration] Migrated \(renamedFolderCount) Commissions folders and \(migratedPublicationCount) commission publications to Other")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[ProjectFolderMigration] ❌ Failed to migrate Commissions to Other: \(error)")
             #endif
         }
     }
@@ -249,6 +430,8 @@ struct ProjectFolderMigrationService {
                 "folder.collections",
                 "folder.submissions",
                 "folder.research",
+                "folder.magazines",
+                "folder.competitions",
                 "folder.publishers",
                 "folder.agents",
                 "folder.other"
@@ -324,7 +507,7 @@ struct ProjectFolderMigrationService {
             return [
                 "folder.manuscript", "folder.sections", "folder.prose",
                 "folder.collections", "folder.submissions", "folder.research",
-                "folder.publishers", "folder.agents", "folder.other",
+                "folder.magazines", "folder.competitions", "folder.publishers", "folder.agents", "folder.other",
                 "folder.trash"
             ]
             
@@ -333,7 +516,7 @@ struct ProjectFolderMigrationService {
                 "folder.all", "folder.draft", "folder.ready", "folder.submissions",
                 "folder.setAside", "folder.published", "folder.collections", "folder.manuscript",
                 "folder.research",
-                "folder.magazines", "folder.competitions", "folder.commissions", "folder.other",
+                "folder.magazines", "folder.competitions", "folder.publishers", "folder.agents", "folder.other",
                 "folder.trash"
             ]
             
@@ -343,11 +526,7 @@ struct ProjectFolderMigrationService {
                 "folder.characters", "folder.locations", "folder.chapters", "folder.plot",
                 "folder.research"
             ]
-            if project.fictionClass == .novel {
-                keys.append(contentsOf: ["folder.publishers", "folder.agents", "folder.other"])
-            } else {
-                keys.append(contentsOf: ["folder.magazines", "folder.competitions", "folder.agents", "folder.publishers", "folder.other"])
-            }
+            keys.append(contentsOf: ["folder.magazines", "folder.competitions", "folder.publishers", "folder.agents", "folder.other"])
             keys.append("folder.trash")
             return keys
             
@@ -355,7 +534,7 @@ struct ProjectFolderMigrationService {
             return [
                 "folder.all", "folder.draft", "folder.ready", "folder.setAside",
                 "folder.research",
-                "folder.competitions", "folder.commissions", "folder.other",
+                "folder.magazines", "folder.competitions", "folder.publishers", "folder.agents", "folder.other",
                 "folder.trash"
             ]
         }
@@ -371,7 +550,7 @@ struct ProjectFolderMigrationService {
     static func addFolderIfMissing(folderKey: String, to project: Project, modelContext: ModelContext) -> Bool {
         let folderName = NSLocalizedString(folderKey, comment: "Folder name")
         
-        let exists = project.folders?.contains { $0.name == folderName } ?? false
+        let exists = rootFolderExists(named: folderName, in: project, modelContext: modelContext)
         
         if !exists {
             let folder = Folder(name: folderName, project: project)
@@ -380,6 +559,29 @@ struct ProjectFolderMigrationService {
         }
         
         return false
+    }
+
+    private static func rootFolderExists(named folderName: String, in project: Project, modelContext: ModelContext) -> Bool {
+        do {
+            return try fetchRootFolders(for: project, modelContext: modelContext)
+                .contains { $0.name == folderName }
+        } catch {
+            #if DEBUG
+            print("[ProjectFolderMigration] ❌ Failed to check root folder '\(folderName)': \(error)")
+            #endif
+            return project.folders?.contains { $0.name == folderName && $0.parentFolder == nil } ?? false
+        }
+    }
+
+    private static func fetchRootFolders(for project: Project, modelContext: ModelContext) throws -> [Folder] {
+        let projectID = project.id
+        let descriptor = FetchDescriptor<Folder>(
+            predicate: #Predicate<Folder> { folder in
+                folder.project?.id == projectID && folder.parentFolder == nil
+            }
+        )
+
+        return try modelContext.fetch(descriptor)
     }
     
     // MARK: - Version 5 Migration: Fix Manuscript Body folders

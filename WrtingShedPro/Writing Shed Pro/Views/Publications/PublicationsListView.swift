@@ -164,8 +164,6 @@ struct PublicationsListView: View {
                 return "publications.magazines.title"
             case .competition:
                 return "publications.competitions.title"
-            case .commission:
-                return "publications.commissions.title"
             case .publisher:
                 return "publications.publishers.title"
             case .agent:

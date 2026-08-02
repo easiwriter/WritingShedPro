@@ -45,6 +45,9 @@ Additional project folders:
 - **Submissions**: Track what you've sent
 - **Magazines**: Publication targets
 - **Competitions**: Contest targets
+- **Publishers**: Publisher submission targets
+- **Agents**: Agent submission targets
+- **Other**: Other submission destinations
 
 ### Fiction (Novel, Verse Novel, Short Fiction)
 Additional project folders:
@@ -54,7 +57,11 @@ Additional project folders:
 - **Characters**: Character profiles
 - **Locations**: Setting definitions
 - **Submissions**: Track what you've sent
-- **Publishers / Agents**: Submission targets
+- **Magazines**: Publication targets
+- **Competitions**: Contest targets
+- **Publishers**: Publisher submission targets
+- **Agents**: Agent submission targets
+- **Other**: Other submission destinations
 
 ## Creating Files
 

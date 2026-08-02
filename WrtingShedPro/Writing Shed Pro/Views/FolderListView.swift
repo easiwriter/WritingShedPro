@@ -103,48 +103,46 @@ struct FolderListView: View {
                 // Section 2: Organization & Support
                 "Submissions", "Research",
                 // Section 3: Publications
-                "Publishers", "Agents", "Other",
+                "Magazines", "Competitions", "Publishers", "Agents", "Other",
                 // Section 4: System
                 "Trash"
             ]
             
         case .poetry:
-            // Manuscript, Collections, Poems // Submissions, Research // Magazines, Competitions, Other // Trash
+            // Manuscript, Collections, Poems // Submissions, Research // Magazines, Competitions, Publishers, Agents, Other // Trash
             return [
                 // Section 1: Primary Content
                 "Manuscript", "Collections", "Poems",
                 // Section 2: Organization & Support
                 "Submissions", "Research",
                 // Section 3: Publications
-                "Magazines", "Competitions", "Other",
+                "Magazines", "Competitions", "Publishers", "Agents", "Other",
                 // Section 4: System
                 "Trash"
             ]
             
         case .fiction:
-            // Novel: Manuscript, Chapters, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Publishers, Agents, Other // Trash
-            // Short: Manuscript, Stories, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
-            // Verse Novel: Manuscript, Books, Episodes, Characters, Locations, Plot // Collections, Submissions, Research // Publishers, Agents, Other // Trash
+            // Fiction: Manuscript, content/entity folders // Submissions, Research // Magazines, Competitions, Publishers, Agents, Other // Trash
             return [
                 // Section 1: Story Structure
                 "Manuscript", "Chapters", "Stories", "Books", "Scenes", "Episodes", "Characters", "Locations", "Plot",
                 // Section 2: Organization & Support
                 "Submissions", "Research",
-                // Section 3: Publications (all possible - some may not exist based on fiction class)
-                "Publishers", "Agents", "Magazines", "Competitions", "Other",
+                // Section 3: Publications
+                "Magazines", "Competitions", "Publishers", "Agents", "Other",
                 // Section 4: System
                 "Trash"
             ]
             
         case .drama:
-            // Manuscript, Acts, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Publishers, Agents, Other // Trash
+            // Manuscript, Acts, Scenes, Characters, Locations, Plot // Submissions, Research // Magazines, Competitions, Publishers, Agents, Other // Trash
             return [
                 // Section 1: Story Structure
                 "Manuscript", "Acts", "Scenes", "Characters", "Locations", "Plot",
                 // Section 2: Organization & Support
                 "Submissions", "Research",
                 // Section 3: Publications
-                "Publishers", "Agents", "Other",
+                "Magazines", "Competitions", "Publishers", "Agents", "Other",
                 // Section 4: System
                 "Trash"
             ]
@@ -1244,6 +1242,10 @@ struct FolderListView: View {
     private func loadFolders() async {
         let freshContext = ModelContext(modelContext.container)
 
+        if selectedFolder == nil {
+            ProjectFolderMigrationService.migratePublicationTargetsIfNeeded(modelContext: freshContext)
+        }
+
         if let selectedFolder {
             // Fetch subfolders directly from store to avoid traversing potentially
             // invalidated in-memory folder relationships after CloudKit deletes.
@@ -1277,8 +1279,6 @@ struct FolderListView: View {
             return .magazine
         case "Competitions":
             return .competition
-        case "Commissions":
-            return .commission
         case "Publishers":
             return .publisher
         case "Agents":
@@ -1311,7 +1311,7 @@ struct FolderRowView: View {
     // Check if this is a publication folder
     private var isPublicationFolder: Bool {
         let name = folder.name ?? ""
-        return ["Magazines", "Competitions", "Commissions", "Publishers", "Agents", "Other"].contains(name)
+        return ["Magazines", "Competitions", "Publishers", "Agents", "Other"].contains(name)
     }
     
     // Check if this is the Submissions folder
@@ -1478,8 +1478,6 @@ struct FolderRowView: View {
             publicationType = .magazine
         case "Competitions":
             publicationType = .competition
-        case "Commissions":
-            publicationType = .commission
         case "Publishers":
             publicationType = .publisher
         case "Agents":
@@ -1696,7 +1694,6 @@ struct FolderRowView: View {
         switch folder.name ?? "" {
         case "Magazines": return .magazine
         case "Competitions": return .competition
-        case "Commissions": return .commission
         case "Publishers": return .publisher
         case "Agents": return .agent
         case "Other": return .other
@@ -1804,8 +1801,6 @@ struct FolderRowView: View {
             return "magazine"
         case "Competitions":
             return "medal"
-        case "Commissions":
-            return "person.2"
         case "Other":
             return "tray"
         // Prose-specific folders

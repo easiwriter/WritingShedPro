@@ -111,6 +111,8 @@ struct ProjectTemplateService {
                 "folder.submissions",
                 "folder.research",
                 // Section 3: Publications
+                "folder.magazines",
+                "folder.competitions",
                 "folder.publishers",
                 "folder.agents",
                 "folder.other",
@@ -131,6 +133,8 @@ struct ProjectTemplateService {
                 // Section 3: Publications
                 "folder.magazines",
                 "folder.competitions",
+                "folder.publishers",
+                "folder.agents",
                 "folder.other",
                 // Section 4: System
                 "folder.trash"
@@ -176,22 +180,14 @@ struct ProjectTemplateService {
                 "folder.research"
             ])
             
-            // Publications based on fiction class
-            if project.fictionClass == .novel || project.fictionClass == .verseNovel {
-                // Novel/Verse Novel: Publishers, Agents, Other
-                keys.append(contentsOf: [
-                    "folder.publishers",
-                    "folder.agents",
-                    "folder.other"
-                ])
-            } else {
-                // Short Fiction: Magazines, Competitions, Other
-                keys.append(contentsOf: [
-                    "folder.magazines",
-                    "folder.competitions",
-                    "folder.other"
-                ])
-            }
+            keys.append(contentsOf: [
+                // Section 3: Publications
+                "folder.magazines",
+                "folder.competitions",
+                "folder.publishers",
+                "folder.agents",
+                "folder.other"
+            ])
             
             // System
             keys.append("folder.trash")
@@ -211,6 +207,8 @@ struct ProjectTemplateService {
                 "folder.submissions",
                 "folder.research",
                 // Section 3: Publications
+                "folder.magazines",
+                "folder.competitions",
                 "folder.publishers",
                 "folder.agents",
                 "folder.other",

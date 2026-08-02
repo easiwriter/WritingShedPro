@@ -59,6 +59,8 @@ Poetry projects include specialized tools for writing verse in both free and for
 - Research
 - Magazines
 - Competitions
+- Publishers
+- Agents
 - Other
 - Trash
 
@@ -98,7 +100,10 @@ When creating a fiction project, you choose a class:
 - Locations
 - Submissions
 - Research
-- Publishers / Agents
+- Magazines
+- Competitions
+- Publishers
+- Agents
 - Other
 - Trash
 
@@ -112,7 +117,10 @@ When creating a fiction project, you choose a class:
 - Locations
 - Submissions
 - Research
-- Publishers / Agents
+- Magazines
+- Competitions
+- Publishers
+- Agents
 - Other
 - Trash
 
@@ -125,7 +133,10 @@ When creating a fiction project, you choose a class:
 - Locations
 - Submissions
 - Research
-- Publishers / Agents
+- Magazines
+- Competitions
+- Publishers
+- Agents
 - Other
 - Trash
 
@@ -171,7 +182,10 @@ Drama projects provide script formatting tools for playwrights and screenwriters
 - Locations
 - Submissions
 - Research
-- Publishers / Agents
+- Magazines
+- Competitions
+- Publishers
+- Agents
 - Other
 - Trash
 

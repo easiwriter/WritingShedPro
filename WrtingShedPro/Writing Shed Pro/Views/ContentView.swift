@@ -312,6 +312,13 @@ struct ContentView: View {
             return
         }
 
+        if let ensemblesContainer = Write_App.activeEnsemblesContainer {
+            #if DEBUG
+            print("⏸️ [ContentView] Skipping auto project-order normalization under Ensembles attached=\(ensemblesContainer.isAttached) activity=\(String(describing: ensemblesContainer.currentActivity))")
+            #endif
+            return
+        }
+
         let now = Date()
         guard now.timeIntervalSince(lastAutoOrderNormalizationDate) > 600 else { return }
 
@@ -416,22 +423,24 @@ struct ContentView: View {
             }
         }
 
-        let exactDuplicateResult = DeduplicationService.cleanupExactIDDuplicates(context: modelContext)
-        if exactDuplicateResult.recordsRemoved > 0 {
-            #if DEBUG
-            print("🧹 [ContentView] Reconcile: removed \(exactDuplicateResult.recordsRemoved) exact-ID duplicate record(s)")
-            #endif
-            refreshTrigger.toggle()
-            return
-        }
+        if !disableRiskySyncMutationPaths && Write_App.activeEnsemblesContainer == nil {
+            let exactDuplicateResult = DeduplicationService.cleanupExactIDDuplicates(context: modelContext)
+            if exactDuplicateResult.recordsRemoved > 0 {
+                #if DEBUG
+                print("🧹 [ContentView] Reconcile: removed \(exactDuplicateResult.recordsRemoved) exact-ID duplicate record(s)")
+                #endif
+                refreshTrigger.toggle()
+                return
+            }
 
-        let templateFolderResult = DeduplicationService.cleanupDuplicateTemplateFolders(context: modelContext)
-        if templateFolderResult.recordsRemoved > 0 {
-            #if DEBUG
-            print("🧹 [ContentView] Reconcile: removed \(templateFolderResult.recordsRemoved) duplicate template folder(s)")
-            #endif
-            refreshTrigger.toggle()
-            return
+            let templateFolderResult = DeduplicationService.cleanupDuplicateTemplateFolders(context: modelContext)
+            if templateFolderResult.recordsRemoved > 0 {
+                #if DEBUG
+                print("🧹 [ContentView] Reconcile: removed \(templateFolderResult.recordsRemoved) duplicate template folder(s)")
+                #endif
+                refreshTrigger.toggle()
+                return
+            }
         }
 
         // Automatically clean up strict clone rows once sync is settled.
@@ -572,6 +581,15 @@ struct ContentView: View {
             #endif
             return
         }
+
+        guard Write_App.activeEnsemblesContainer == nil else {
+            hasRunStartupMigrations = true
+            #if DEBUG
+            print("⏸️ [ContentView] Skipping automatic startup migrations under Ensembles")
+            #endif
+            return
+        }
+
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
 
@@ -697,6 +715,22 @@ struct ContentView: View {
     
     /// Initialize default stylesheets async on main thread (moved from Write_App to avoid blocking launch)
     private func initializeStyleSheets() {
+        guard !Write_App.initialEnsemblesImportUnavailable else {
+            hasInitializedStyleSheets = true
+            #if DEBUG
+            print("⏸️ [ContentView] Skipping stylesheet initialization while initial sync import is unavailable")
+            #endif
+            return
+        }
+
+        guard Write_App.activeEnsemblesContainer == nil else {
+            hasInitializedStyleSheets = true
+            #if DEBUG
+            print("⏸️ [ContentView] Skipping automatic stylesheet maintenance under Ensembles")
+            #endif
+            return
+        }
+
         guard !hasInitializedStyleSheets else {
             #if DEBUG
             print("⏭️ [ContentView] Stylesheets already initialized in this launch — skipping")
@@ -754,6 +788,14 @@ struct ContentView: View {
                 return
             }
 
+            if isUsingEnsembles {
+                hasInitializedStyleSheets = true
+                #if DEBUG
+                print("⏸️ [ContentView] Skipping automatic stylesheet maintenance under Ensembles")
+                #endif
+                return
+            }
+
             // Run async on main thread (ModelContext must stay on its creation thread)
             StyleSheetService.initializeStyleSheetsIfNeeded(context: modelContext)
             #if DEBUG
@@ -793,12 +835,17 @@ struct ContentView: View {
                 return true
             }
 
-            if Write_App.recordFirstEnsemblesDataAvailableIfNeeded(
+            if Write_App.canProceedWithStartupMaintenanceAfterIdle(
                 modelContainer: modelContext.container,
-                reason: "\(reason) store populated"
+                reason: reason
             ) {
                 return true
             }
+
+            _ = Write_App.recordFirstEnsemblesDataAvailableIfNeeded(
+                modelContainer: modelContext.container,
+                reason: "\(reason) store populated"
+            )
 
             #if DEBUG
             if second == 0 || second % 5 == 0 {
@@ -829,6 +876,13 @@ struct ContentView: View {
     /// One-time migration: Convert Writing Shed Pro Guide files to markdown mode
     /// These files were imported as markdown but contentType was not set correctly
     private func migrateUserGuideToMarkdown() {
+        guard Write_App.activeEnsemblesContainer == nil else {
+            #if DEBUG
+            print("⏸️ [ContentView] Skipping user guide markdown migration under Ensembles")
+            #endif
+            return
+        }
+
         // v2: Also clears stale formattedContent from markdown files and recurses into subfolders
         let migrationKey = "userGuideMarkdownMigrationComplete_v2"
         guard !UserDefaults.standard.bool(forKey: migrationKey) else {
@@ -1027,6 +1081,15 @@ struct ContentView: View {
                 return true
             }
 
+            if !ensemblesContainer.isAttached,
+               activity.lowercased() == "attaching",
+               !EnsemblesSaveGate.isInStartupAttachGracePeriod() {
+                #if DEBUG
+                print("⚠️ [ContentView] Allowing \(reason) while Ensembles is unavailable attached=\(ensemblesContainer.isAttached) activity=\(activity)")
+                #endif
+                return true
+            }
+
             #if DEBUG
             if second == 0 || second % 10 == 0 {
                 print("⏳ [ContentView] Waiting for Ensembles before \(reason)... attached=\(ensemblesContainer.isAttached) activity=\(activity)")
@@ -1042,8 +1105,8 @@ struct ContentView: View {
     }
     
     private func initializeUserOrderIfNeeded() {
-        // DISABLED: All migrations disabled - breaking CloudKit sync
-        // ProjectFolderMigrationService.migrateIfNeeded(modelContext: modelContext)
+        // Only run the safe publication-target migration here. Historical folder migrations stay disabled.
+        ProjectFolderMigrationService.migratePublicationTargetsIfNeeded(modelContext: modelContext)
 
         let descriptor = FetchDescriptor<Project>(sortBy: [SortDescriptor(\Project.creationDate)])
         guard let allProjects = try? modelContext.fetch(descriptor), !allProjects.isEmpty else {
@@ -1055,6 +1118,13 @@ struct ContentView: View {
             hasStoredSortOrder: state.hasStoredSortOrder
         ), state.selectedSortOrder != preferredSortOrder {
             state.selectedSortOrder = preferredSortOrder
+        }
+
+        guard Write_App.activeEnsemblesContainer == nil else {
+            #if DEBUG
+            print("⏸️ [ContentView] Skipping userOrder initialization under Ensembles")
+            #endif
+            return
         }
 
         let projectsNeedingOrder = allProjects.filter { $0.userOrder == nil }

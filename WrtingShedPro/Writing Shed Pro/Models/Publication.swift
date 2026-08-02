@@ -77,11 +77,16 @@ class Publication {
     }
 
     private func normalizedTypeRawValue(_ rawValue: String) -> String {
+        let normalizedRawValue = rawValue.lowercased()
+
+        if normalizedRawValue.contains("commission") {
+            return PublicationType.other.rawValue
+        }
         if PublicationType(rawValue: rawValue) != nil {
             return rawValue
         }
-        for type in [PublicationType.magazine, .competition, .commission, .publisher, .agent, .other]
-        where rawValue.contains(type.rawValue) {
+        for type in [PublicationType.magazine, .competition, .publisher, .agent, .other]
+        where normalizedRawValue.contains(type.rawValue) {
             return type.rawValue
         }
         return PublicationType.magazine.rawValue
