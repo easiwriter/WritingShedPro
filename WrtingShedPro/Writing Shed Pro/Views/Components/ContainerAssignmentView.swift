@@ -172,6 +172,11 @@ struct ContainerAssignmentView<Item: ContainerAssignable>: View {
         HStack(spacing: 16) {
             // Move button — removes from current containers then assigns to target
             Menu {
+                Button(NSLocalizedString("containerAssignment.unassigned", comment: "Unassigned")) {
+                    performAction(.move, targetContainerID: nil)
+                }
+                Divider()
+
                 ForEach(containers, id: \.id) { container in
                     Button(container.name) {
                         performAction(.move, targetContainerID: container.id)
@@ -301,14 +306,28 @@ extension ContainerAssignmentView where Item == TextFile {
         selectedFiles: [TextFile],
         modelContext: ModelContext
     ) -> ContainerAssignmentView<TextFile> {
-        let collections = (project.poetryCollections ?? [])
-            .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        let descriptor = FetchDescriptor<PoetryCollection>()
+        let collections = ((try? modelContext.fetch(descriptor)) ?? [])
+            .filter { $0.project?.id == project.id }
+            .sorted { lhs, rhs in
+                let lhsOrder = lhs.userOrder ?? Int.max
+                let rhsOrder = rhs.userOrder ?? Int.max
+                if lhsOrder != rhsOrder { return lhsOrder < rhsOrder }
+                return (lhs.name ?? "").localizedCaseInsensitiveCompare(rhs.name ?? "") == .orderedAscending
+            }
+        let collectionLinks = (try? modelContext.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
         
         let descriptors = collections.map { collection in
             ContainerDescriptor<TextFile>(
                 id: collection.id,
                 name: collection.name ?? NSLocalizedString("poetry.collection.untitled", comment: "Untitled"),
-                memberIDs: Set((collection.textFiles ?? []).map(\.id)),
+                memberIDs: Set(
+                    collectionLinks.compactMap { link in
+                        (link.poetryCollectionID == collection.id || link.poetryCollection?.id == collection.id)
+                            ? (link.textFileID ?? link.textFile?.id)
+                            : nil
+                    }
+                ),
                 addItem: { file in
                     file.addToPoetryCollection(collection)
                 },
@@ -323,7 +342,13 @@ extension ContainerAssignmentView where Item == TextFile {
             selectedItems: selectedFiles,
             containers: descriptors,
             currentContainerIDs: { file in
-                Set((file.poetryCollections ?? []).map(\.id))
+                Set(
+                    collectionLinks.compactMap { link in
+                        (link.textFileID == file.id || link.textFile?.id == file.id)
+                            ? (link.poetryCollectionID ?? link.poetryCollection?.id)
+                            : nil
+                    }
+                )
             },
             onSave: {
                 WriteCoalescer.shared?.requestSave(reason: "container-assignment-poetry-save")

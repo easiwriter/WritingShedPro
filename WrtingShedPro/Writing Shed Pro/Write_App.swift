@@ -22,10 +22,26 @@ struct Write_App: App {
     static private(set) var activeEnsemblesContainer: SwiftDataEnsembleContainer?
     static private(set) var activeEnsemblesContainerActivatedAt: Date?
     static private(set) var hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch = false
+    static private(set) var hasObservedEnsemblesDataThisLaunch = false
+    static private(set) var initialEnsemblesImportUnavailable = false
+    static private(set) var hasObservedPartialEnsemblesStoreThisLaunch = false
+    static private(set) var ensemblesMergeSaveCooldownUntil: Date?
     static let minimumEnsemblesStartupWriteDelay: TimeInterval = 15
+    static let ensemblesPostMergeSaveCooldown: TimeInterval = 10
+    static let ensemblesMergeConflictSaveCooldown: TimeInterval = 90
     private static let ensemblesAutoSyncUserDefaultsKey = "ensemblesAutoSyncEnabled"
+    static let localRecoveryModeOnNextLaunchKey = "localRecoveryModeOnNextLaunch"
     static let resetLocalEnsemblesStoreOnNextLaunchKey = "resetLocalEnsemblesStoreOnNextLaunch"
     static let detachLocalEnsemblesBeforeResetOnNextLaunchKey = "detachLocalEnsemblesBeforeResetOnNextLaunch"
+    static let ensembleIdentifier = "WritingShedProConfigurationV2"
+
+    static var isLocalRecoveryModeEnabled: Bool {
+        let environment = ProcessInfo.processInfo.environment
+        let arguments = ProcessInfo.processInfo.arguments
+        return arguments.contains("--wsp-local-recovery") ||
+            environment["WSP_LOCAL_RECOVERY"] == "1" ||
+            UserDefaults.standard.bool(forKey: localRecoveryModeOnNextLaunchKey)
+    }
 
     private static var shouldAutoSyncEnsembles: Bool {
         if UserDefaults.standard.bool(forKey: detachLocalEnsemblesBeforeResetOnNextLaunchKey) { return false }
@@ -132,15 +148,39 @@ struct Write_App: App {
             Write_App.backupAndResetLocalEnsemblesStore(storeURL: storeURL, eventDataDirectory: eventDataDirectory)
         }
 
+        if Write_App.isLocalRecoveryModeEnabled {
+            do {
+                let container = try Write_App.makeLocalModelContainer(schema: schema, storeURL: storeURL)
+                #if DEBUG
+                print("🛟 [Write_App] Local recovery mode active — opening local store without Ensembles")
+                #endif
+                Write_App.logToFile("🛟 [Ensembles] Local recovery mode active; opening local store without sync")
+                return container
+            } catch {
+                let nsError = error as NSError
+                Write_App.logErrorToFile("❌ [Ensembles] Local recovery mode failed to open local store: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
+            }
+        }
+
         #if DEBUG
         print("☁️ [Write_App] Initializing SwiftDataEnsembleContainer with CloudKit backend")
         #endif
         Write_App.logToFile("☁️ [Ensembles] Initializing SwiftDataEnsembleContainer")
 
+        do {
+            try FileManager.default.createDirectory(at: eventDataDirectory, withIntermediateDirectories: true)
+        } catch {
+            Write_App.logErrorToFile("❌ [Ensembles] Failed to create local event data directory: \(error.localizedDescription)")
+        }
+
         let cloudFileSystem = CloudKitFileSystem(
             privateDatabaseForUbiquityContainerIdentifier: "iCloud.com.appworks.writingshedpro",
             schemaVersion: .v2
         )
+        let localStoreWasMissingAtLaunch = !FileManager.default.fileExists(atPath: storeURL.path)
+        if localStoreWasMissingAtLaunch {
+            Write_App.logToFile("🛟 [Ensembles] Local store file missing; letting Ensembles create and sync the store")
+        }
         let configuration = EnsembleContainerConfiguration(
             autoSyncPolicy: Write_App.shouldAutoSyncEnsembles ? .all : .manual,
             timerInterval: 120,
@@ -149,13 +189,20 @@ struct Write_App: App {
             localDataRootDirectoryURL: eventDataDirectory
         )
 
-        if let ensemblesContainer = SwiftDataEnsembleContainer(
-            name: "WritingShedProConfiguration",
+        let ensemblesContainer = SwiftDataEnsembleContainer(
+            name: Write_App.ensembleIdentifier,
             storeURL: storeURL,
             modelTypes: Write_App.modelTypes,
             cloudFileSystem: cloudFileSystem,
             configuration: configuration
-        ) {
+        ) ?? Write_App.makePreopenedEnsemblesContainer(
+            schema: schema,
+            storeURL: storeURL,
+            cloudFileSystem: cloudFileSystem,
+            configuration: configuration
+        )
+
+        if let ensemblesContainer {
             let stableGlobalIdentifiers: @Sendable ([NSManagedObject]) -> [String] = { objects in
                 objects.map { object in
                     if let id = object.value(forKey: "id") as? NSUUID {
@@ -177,21 +224,31 @@ struct Write_App: App {
             ensemblesContainer.didEncounterError = { error in
                 Task { @MainActor in
                     Write_App.logErrorToFile("❌ [Ensembles] Encountered error: \(Write_App.detailedErrorDescription(error))")
+                    Write_App.deferLocalSavesIfMergeConflict(error)
                 }
             }
             ensemblesContainer.didForceDetach = { error in
                 Task { @MainActor in
                     Write_App.logErrorToFile("⚠️ [Ensembles] Forced detach: \(Write_App.detailedErrorDescription(error))")
+                    Write_App.handleForcedEnsemblesDetach(error, modelContainer: ensemblesContainer.modelContainer)
                 }
             }
             ensemblesContainer.didSaveMergeChanges = { _ in
                 Task { @MainActor in
                     Write_App.logToFile("✅ [Ensembles] Merge changes saved")
+                    Write_App.deferLocalSavesForEnsemblesMerge(
+                        reason: "merge changes saved",
+                        duration: Write_App.ensemblesPostMergeSaveCooldown
+                    )
+                    await Write_App.recordAutoSyncSuccessAfterIdle(ensemblesContainer, reason: "merge changes saved")
                 }
             }
             Write_App.activeEnsemblesContainer = ensemblesContainer
             Write_App.activeEnsemblesContainerActivatedAt = Date()
             Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch = false
+            Write_App.hasObservedEnsemblesDataThisLaunch = false
+            Write_App.initialEnsemblesImportUnavailable = false
+            Write_App.hasObservedPartialEnsemblesStoreThisLaunch = false
             let container = ensemblesContainer.modelContainer
             container.mainContext.autosaveEnabled = false
             #if DEBUG
@@ -207,99 +264,23 @@ struct Write_App: App {
         }
 
         Write_App.logErrorToFile("⚠️ [Ensembles] SwiftDataEnsembleContainer initialization failed; opening local store without sync")
+        if localStoreWasMissingAtLaunch {
+            Write_App.logFreshStoreEnsembleConstructionDiagnostic(
+                storeURL: storeURL,
+                cloudFileSystem: cloudFileSystem,
+                eventDataDirectory: eventDataDirectory
+            )
+            Write_App.initialEnsemblesImportUnavailable = true
+            Write_App.logErrorToFile("⚠️ [Ensembles] Initial sync import unavailable; suppressing local seed data until sync attach is fixed")
+        }
         #if DEBUG
         print("⚠️ [Write_App] Ensembles container initialization failed; opening local store without sync")
         #endif
 
         do {
-            let container = try Write_App.makeLocalModelContainer(schema: schema, storeURL: storeURL)
-            #if DEBUG
-            print("✅ [Write_App] Local ModelContainer created successfully")
-            #endif
-            return container
+            return try Write_App.makeLocalModelContainer(schema: schema, storeURL: storeURL)
         } catch {
-            let nsError = error as NSError
-            let errorMsg = "⚠️ [Write_App] ModelContainer initialization failed (domain=\(nsError.domain) code=\(nsError.code))"
-            #if DEBUG
-            print(errorMsg)
-            print("   Error description: \(nsError.localizedDescription)")
-            print("   Full error: \(nsError)")
-            if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
-                print("   Underlying: domain=\(underlying.domain) code=\(underlying.code) \(underlying.localizedDescription)")
-            }
-            #endif
-            Write_App.logErrorToFile(errorMsg)
-            Write_App.logErrorToFile("   Error: \(nsError.localizedDescription)")
-
-            #if DEBUG
-            print("🔄 [Write_App] Recovery: Backing up database and creating fresh local store...")
-            #endif
-            Write_App.logErrorToFile("🔄 Recovery: Backup + fresh local store (last resort)")
-            
-            let backupDir = storeURL.deletingLastPathComponent().appending(path: "backup_\(Int(Date().timeIntervalSince1970))")
-            let storeFiles = [
-                storeURL,
-                storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"),
-                storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm")
-            ]
-            
-            // Create backup directory
-            do {
-                try FileManager.default.createDirectory(at: backupDir, withIntermediateDirectories: true)
-                for fileURL in storeFiles where FileManager.default.fileExists(atPath: fileURL.path) {
-                    let dest = backupDir.appending(component: fileURL.lastPathComponent)
-                    try FileManager.default.copyItem(at: fileURL, to: dest)
-                    #if DEBUG
-                    print("💾 [Write_App] Backed up: \(fileURL.lastPathComponent) → backup/")
-                    #endif
-                    Write_App.logErrorToFile("💾 Backed up: \(fileURL.lastPathComponent)")
-                }
-            } catch {
-                #if DEBUG
-                print("⚠️ [Write_App] Backup failed (proceeding anyway): \(error.localizedDescription)")
-                #endif
-                Write_App.logErrorToFile("⚠️ Backup failed: \(error.localizedDescription)")
-            }
-            
-            // Delete store files
-            let filesToDelete = storeFiles + [
-                storeURL.deletingLastPathComponent().appending(path: "writingshed.sqlite-ckAssets"),
-                storeURL.deletingLastPathComponent().appending(path: ".writingshed.sqlite-ckAssets")
-            ]
-            
-            for fileURL in filesToDelete {
-                do {
-                    if FileManager.default.fileExists(atPath: fileURL.path) {
-                        try FileManager.default.removeItem(at: fileURL)
-                        #if DEBUG
-                        print("🗑️ [Write_App] Deleted: \(fileURL.lastPathComponent)")
-                        #endif
-                        Write_App.logErrorToFile("🗑️ Deleted: \(fileURL.lastPathComponent)")
-                    }
-                } catch {
-                    #if DEBUG
-                    print("⚠️ [Write_App] Could not delete \(fileURL.lastPathComponent): \(error)")
-                    #endif
-                }
-            }
-            
-            // Create fresh container
-            do {
-                let container = try Write_App.makeLocalModelContainer(schema: schema, storeURL: storeURL)
-                #if DEBUG
-                print("✅ [Write_App] Recovery succeeded — fresh local database")
-                print("   💾 Old database backed up to: \(backupDir.lastPathComponent)/")
-                #endif
-                Write_App.logErrorToFile("✅ Recovery succeeded — fresh local DB, backup at \(backupDir.lastPathComponent)/")
-                return container
-            } catch {
-                let fatalMsg = "❌ [Write_App] CRITICAL: All recovery steps failed — \(error)"
-                #if DEBUG
-                print(fatalMsg)
-                #endif
-                Write_App.logErrorToFile(fatalMsg)
-                fatalError(fatalMsg)
-            }
+            fatalError("❌ [Write_App] Unable to open local ModelContainer: \(error)")
         }
     }()
 
@@ -349,7 +330,7 @@ struct Write_App: App {
 
     private static func makeLocalModelContainer(schema: Schema, storeURL: URL) throws -> ModelContainer {
         let configuration = ModelConfiguration(
-            "WritingShedProConfiguration",
+            Write_App.ensembleIdentifier,
             schema: schema,
             url: storeURL,
             cloudKitDatabase: .none
@@ -357,6 +338,56 @@ struct Write_App: App {
         let container = try ModelContainer(for: schema, configurations: [configuration])
         container.mainContext.autosaveEnabled = true
         return container
+    }
+
+    private static func logFreshStoreEnsembleConstructionDiagnostic(
+        storeURL: URL,
+        cloudFileSystem: CloudFileSystem,
+        eventDataDirectory: URL
+    ) {
+        let storeExists = FileManager.default.fileExists(atPath: storeURL.path)
+        let eventDataExists = FileManager.default.fileExists(atPath: eventDataDirectory.path)
+        let diagnosticEnsemble = SwiftDataEnsemble(
+            ensembleIdentifier: Write_App.ensembleIdentifier,
+            persistentStoreURL: storeURL,
+            modelTypes: Write_App.modelTypes,
+            cloudFileSystem: cloudFileSystem,
+            localDataRootDirectoryURL: eventDataDirectory
+        )
+
+        if diagnosticEnsemble == nil {
+            Write_App.logErrorToFile("❌ [Ensembles] Lower-level SwiftDataEnsemble construction also failed (storeExists=\(storeExists), eventDataExists=\(eventDataExists), storeURL=\(storeURL.path), eventDataURL=\(eventDataDirectory.path))")
+        } else {
+            Write_App.logToFile("ℹ️ [Ensembles] Lower-level SwiftDataEnsemble construction succeeded; failure is in SwiftDataEnsembleContainer wrapper setup (storeExists=\(storeExists), eventDataExists=\(eventDataExists))")
+        }
+    }
+
+    private static func makePreopenedEnsemblesContainer(
+        schema: Schema,
+        storeURL: URL,
+        cloudFileSystem: CloudFileSystem,
+        configuration: EnsembleContainerConfiguration
+    ) -> SwiftDataEnsembleContainer? {
+        Write_App.logToFile("⚠️ [Ensembles] StoreURL initializer failed; trying pre-opened ModelContainer fallback")
+        do {
+            let localContainer = try Write_App.makeLocalModelContainer(schema: schema, storeURL: storeURL)
+            localContainer.mainContext.autosaveEnabled = false
+            Write_App.logToFile("✅ [Ensembles] Local ModelContainer opened before Ensembles attach")
+            return SwiftDataEnsembleContainer(
+                name: Write_App.ensembleIdentifier,
+                modelContainer: localContainer,
+                modelTypes: Write_App.modelTypes,
+                cloudFileSystem: cloudFileSystem,
+                configuration: configuration
+            )
+        } catch {
+            let nsError = error as NSError
+            Write_App.logErrorToFile("❌ [Ensembles] Local ModelContainer fallback failed: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
+            if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
+                Write_App.logErrorToFile("   underlying: domain=\(underlying.domain) code=\(underlying.code) \(underlying.localizedDescription)")
+            }
+            return nil
+        }
     }
 
     private static func backupAndResetLocalEnsemblesStore(storeURL: URL, eventDataDirectory: URL) {
@@ -372,11 +403,14 @@ struct Write_App: App {
             return
         }
 
-        let storeFiles = [
-            storeURL,
-            storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"),
-            storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm")
-        ]
+        let storeFiles = ((try? fileManager.contentsOfDirectory(
+            at: documentsDirectory,
+            includingPropertiesForKeys: nil
+        )) ?? [])
+            .filter { url in
+                let name = url.lastPathComponent
+                return name.hasPrefix("writingshed.sqlite") || name.hasPrefix(".writingshed.sqlite")
+            }
 
         for sourceURL in storeFiles where fileManager.fileExists(atPath: sourceURL.path) {
             let destinationURL = backupDirectory.appending(path: sourceURL.lastPathComponent)
@@ -418,6 +452,9 @@ struct Write_App: App {
             }
         }
 
+        DeduplicationService.clearAllTombstones()
+        Write_App.logToFile("🪦 [Ensembles] Cleared tombstones during local sync reset")
+
         Write_App.logToFile("✅ [Ensembles] Local sync reset completed; backup=\(backupDirectory.lastPathComponent)")
     }
 
@@ -438,6 +475,35 @@ struct Write_App: App {
 
     static func detailedErrorDescription(_ error: Error) -> String {
         detailedNSErrorDescription(error as NSError)
+    }
+
+    @MainActor
+    private static func handleForcedEnsemblesDetach(_ error: Error, modelContainer: ModelContainer) {
+        hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch = false
+        hasObservedEnsemblesDataThisLaunch = false
+
+        let nsError = error as NSError
+        let description = detailedErrorDescription(error)
+        guard nsError.code == 205 || description.contains("storeUnregistered") else {
+            return
+        }
+
+        let context = ModelContext(modelContainer)
+        let projectCount = (try? context.fetchCount(FetchDescriptor<Project>())) ?? 0
+        let folderCount = (try? context.fetchCount(FetchDescriptor<Folder>())) ?? 0
+        let fileCount = (try? context.fetchCount(FetchDescriptor<TextFile>())) ?? 0
+        let versionCount = (try? context.fetchCount(FetchDescriptor<Version>())) ?? 0
+        let publicationCount = (try? context.fetchCount(FetchDescriptor<Publication>())) ?? 0
+        let sceneCount = (try? context.fetchCount(FetchDescriptor<StoryScene>())) ?? 0
+        let childCount = folderCount + fileCount + versionCount + publicationCount + sceneCount
+
+        guard projectCount == 0 && childCount > 0 else {
+            Write_App.logErrorToFile("⚠️ [Ensembles] Store unregistered without partial child-only store projectCount=\(projectCount), childCount=\(childCount)")
+            return
+        }
+
+        hasObservedPartialEnsemblesStoreThisLaunch = true
+        Write_App.logErrorToFile("⚠️ [Ensembles] Store unregistered with partial local store; waiting for Ensembles self-recovery (projects=0, folders=\(folderCount), files=\(fileCount), versions=\(versionCount), publications=\(publicationCount), scenes=\(sceneCount))")
     }
 
     private static func detailedNSErrorDescription(_ error: NSError, depth: Int = 0) -> String {
@@ -486,13 +552,19 @@ struct Write_App: App {
                     try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
                     checkCloudKitStatus()
 
-                    if Write_App.isUsingEnsemblesSync {
+                    if Write_App.isUsingEnsemblesSync && !Write_App.shouldAutoSyncEnsembles {
                         await runManualEnsemblesSync(reason: "app launch")
                     }
 
                     // Configure PoetryFormService with model context for database access.
-                    // This can write, so keep it behind the Ensembles idle gate.
-                    if await waitForEnsemblesStartupWritesIfNeeded(reason: "poetry form migration") {
+                    // Under Ensembles, this must be read-only at launch. Migrations/cleanup
+                    // save in response to merged data and can abort active merge passes.
+                    if Write_App.isUsingEnsemblesSync {
+                        PoetryFormService.shared.configureWithContext(sharedModelContainer.mainContext, runMigrations: false)
+                    } else if Write_App.initialEnsemblesImportUnavailable {
+                        Write_App.logToFile("⏸️ [Ensembles] Skipping PoetryFormService migrations while initial sync import is unavailable")
+                        PoetryFormService.shared.configureWithContext(sharedModelContainer.mainContext, runMigrations: false)
+                    } else if await waitForEnsemblesStartupWritesIfNeeded(reason: "poetry form migration") {
                         PoetryFormService.shared.configureWithContext(sharedModelContainer.mainContext)
                     }
                 }
@@ -527,6 +599,11 @@ struct Write_App: App {
 
     private func runManualEnsemblesSync(reason: String) async {
         guard let container = Write_App.activeEnsemblesContainer else { return }
+
+        guard await waitForEnsemblesIdleBeforeManualSync(container, reason: reason) else {
+            return
+        }
+
         Write_App.logToFile("🔄 [Ensembles] Manual sync started (reason=\(reason), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
         let didSync = await container.sync()
         if didSync {
@@ -539,16 +616,84 @@ struct Write_App: App {
         }
     }
 
+    private func waitForEnsemblesIdleBeforeManualSync(_ container: SwiftDataEnsembleContainer, reason: String) async -> Bool {
+        guard container.isAttached else {
+            Write_App.logToFile("⚠️ [Ensembles] Skipping manual sync while detached (reason=\(reason), activity=\(String(describing: container.currentActivity)))")
+            return false
+        }
+
+        let maxWaitSeconds = 60
+        for second in 0..<maxWaitSeconds {
+            let activity = String(describing: container.currentActivity)
+            if container.isAttached && activity.lowercased() == "none" {
+                return true
+            }
+
+            #if DEBUG
+            if second == 0 || second % 5 == 0 {
+                print("⏳ [Write_App] Waiting for Ensembles to become idle before manual sync reason=\(reason) attached=\(container.isAttached) activity=\(activity)")
+            }
+            #endif
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+
+        Write_App.logToFile("⚠️ [Ensembles] Skipping manual sync because Ensembles stayed busy (reason=\(reason), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+        return false
+    }
+
     static func recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: String) {
         guard !hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch else { return }
         hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch = true
         logToFile("✅ [Ensembles] First successful sync completed this launch (reason=\(reason))")
     }
 
+    @MainActor
+    private static func canTreatAttachedIdleStoreAsStable(modelContainer: ModelContainer, reason: String) -> Bool {
+        let context = ModelContext(modelContainer)
+        let projectCount = (try? context.fetchCount(FetchDescriptor<Project>())) ?? 0
+        let folderCount = (try? context.fetchCount(FetchDescriptor<Folder>())) ?? 0
+        let fileCount = (try? context.fetchCount(FetchDescriptor<TextFile>())) ?? 0
+        let versionCount = (try? context.fetchCount(FetchDescriptor<Version>())) ?? 0
+        let publicationCount = (try? context.fetchCount(FetchDescriptor<Publication>())) ?? 0
+        let sceneCount = (try? context.fetchCount(FetchDescriptor<StoryScene>())) ?? 0
+        let childCount = folderCount + fileCount + versionCount + publicationCount + sceneCount
+
+        if projectCount == 0 && childCount > 0 {
+            hasObservedPartialEnsemblesStoreThisLaunch = true
+            logToFile("⚠️ [Ensembles] Refusing first-sync success for partial store reason=\(reason) projects=0 folders=\(folderCount) files=\(fileCount) versions=\(versionCount) publications=\(publicationCount) scenes=\(sceneCount)")
+            return false
+        }
+
+        return true
+    }
+
+    @MainActor
+    private static func recordAutoSyncSuccessAfterIdle(_ ensemblesContainer: SwiftDataEnsembleContainer, reason: String) async {
+        guard !hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch else { return }
+
+        for second in 0..<30 {
+            let activity = String(describing: ensemblesContainer.currentActivity)
+            if ensemblesContainer.isAttached && activity.lowercased() == "none" {
+                guard canTreatAttachedIdleStoreAsStable(modelContainer: ensemblesContainer.modelContainer, reason: reason) else { return }
+                recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: reason)
+                return
+            }
+
+            #if DEBUG
+            if second == 0 || second % 5 == 0 {
+                print("⏳ [Ensembles] Merge saved; waiting for idle before first-sync unlock attached=\(ensemblesContainer.isAttached) activity=\(activity)")
+            }
+            #endif
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+
+        Write_App.logToFile("⚠️ [Ensembles] Merge saved but sync did not become idle before first-sync unlock attached=\(ensemblesContainer.isAttached) activity=\(String(describing: ensemblesContainer.currentActivity))")
+    }
+
     static func recordFirstEnsemblesDataAvailableIfNeeded(modelContainer: ModelContainer, reason: String) -> Bool {
         guard activeEnsemblesContainer != nil,
-              !hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch else {
-            return hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch
+              !hasObservedEnsemblesDataThisLaunch else {
+            return hasObservedEnsemblesDataThisLaunch
         }
 
         let context = ModelContext(modelContainer)
@@ -559,12 +704,70 @@ struct Write_App: App {
         let publicationCount = (try? context.fetchCount(FetchDescriptor<Publication>())) ?? 0
         let sceneCount = (try? context.fetchCount(FetchDescriptor<StoryScene>())) ?? 0
 
-        guard projectCount > 0 || folderCount > 0 || fileCount > 0 || versionCount > 0 || publicationCount > 0 || sceneCount > 0 else {
+        let childCount = folderCount + fileCount + versionCount + publicationCount + sceneCount
+        if projectCount == 0 && childCount > 0 {
+            hasObservedPartialEnsemblesStoreThisLaunch = true
+            logToFile("⚠️ [Ensembles] Partial store observed but not accepted as synced data (reason=\(reason), projects=0, folders=\(folderCount), files=\(fileCount), versions=\(versionCount), publications=\(publicationCount), scenes=\(sceneCount))")
             return false
         }
 
-        hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch = true
-        logToFile("✅ [Ensembles] First synced data available locally (reason=\(reason), projects=\(projectCount), folders=\(folderCount), files=\(fileCount), versions=\(versionCount), publications=\(publicationCount), scenes=\(sceneCount))")
+        guard projectCount > 0 else {
+            return false
+        }
+
+        hasObservedEnsemblesDataThisLaunch = true
+        logToFile("✅ [Ensembles] Synced data observed locally (reason=\(reason), projects=\(projectCount), folders=\(folderCount), files=\(fileCount), versions=\(versionCount), publications=\(publicationCount), scenes=\(sceneCount))")
+        return true
+    }
+
+    static func isInEnsemblesMergeSaveCooldown() -> Bool {
+        guard let ensemblesMergeSaveCooldownUntil else { return false }
+        if ensemblesMergeSaveCooldownUntil > Date() {
+            return true
+        }
+        self.ensemblesMergeSaveCooldownUntil = nil
+        return false
+    }
+
+    static func deferLocalSavesForEnsemblesMerge(reason: String, duration: TimeInterval) {
+        let cooldownUntil = Date().addingTimeInterval(duration)
+        if let existingCooldown = ensemblesMergeSaveCooldownUntil,
+           existingCooldown >= cooldownUntil {
+            return
+        }
+
+        ensemblesMergeSaveCooldownUntil = cooldownUntil
+        logToFile("⏳ [EnsemblesSaveGate] Deferring local saves for \(Int(duration))s after Ensembles merge activity reason=\(reason)")
+    }
+
+    static func deferLocalSavesIfMergeConflict(_ error: Error) {
+        let nsError = error as NSError
+        let description = detailedErrorDescription(error)
+        guard nsError.code == 207 || description.contains("saveOccurredDuringMerge") else { return }
+        deferLocalSavesForEnsemblesMerge(
+            reason: "saveOccurredDuringMerge",
+            duration: ensemblesMergeConflictSaveCooldown
+        )
+    }
+
+    static func canProceedWithStartupMaintenanceAfterIdle(modelContainer: ModelContainer, reason: String) -> Bool {
+        guard let ensemblesContainer = activeEnsemblesContainer else { return true }
+        let activity = String(describing: ensemblesContainer.currentActivity)
+        guard ensemblesContainer.isAttached,
+              activity.lowercased() == "none",
+              !EnsemblesSaveGate.isInStartupAttachGracePeriod() else {
+            return false
+        }
+
+        guard recordFirstEnsemblesDataAvailableIfNeeded(
+            modelContainer: modelContainer,
+            reason: "\(reason) attached idle store populated"
+        ) else {
+            return false
+        }
+
+        recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: "\(reason) attached idle store populated")
+        logToFile("✅ [Ensembles] Attached idle store observed (reason=\(reason))")
         return true
     }
 
@@ -578,12 +781,17 @@ struct Write_App: App {
                 return true
             }
 
-            if Write_App.recordFirstEnsemblesDataAvailableIfNeeded(
+            if Write_App.canProceedWithStartupMaintenanceAfterIdle(
                 modelContainer: sharedModelContainer,
-                reason: "\(reason) store populated"
+                reason: reason
             ) {
                 return true
             }
+
+            _ = Write_App.recordFirstEnsemblesDataAvailableIfNeeded(
+                modelContainer: sharedModelContainer,
+                reason: "\(reason) store populated"
+            )
 
             #if DEBUG
             if second == 0 || second % 5 == 0 {

@@ -15,6 +15,7 @@ import UniformTypeIdentifiers
 struct FolderFilesView: View {
     @Bindable var folder: Folder
     @Environment(\.modelContext) var modelContext
+    @Query var allCollectionLinks: [TextFileCollectionLink]
     
     // State for edit mode (shared with FileListView)
     @State var editMode: EditMode = .inactive
@@ -143,6 +144,8 @@ struct FolderFilesView: View {
     
     // State for collection grouping expand/collapse (shared with FileListView)
     @State var collectionExpandedSections: Set<String> = []
+    @State var deferredSortedFiles: [TextFile]? = nil
+    @State var deferredPoetryCollectionGroups: [CollectionGroup]? = nil
     
     /// Returns the number of TrashItem objects for this folder's project
     /// Uses the project's existing relationship instead of a broad @Query
@@ -159,7 +162,7 @@ struct FolderFilesView: View {
         let isReadOnly = folder.isBackMatterFolder || folder.isFrontMatterFolder
         
         FileListView(
-            files: sortedFiles,
+            files: deferredSortedFiles ?? [],
             onFileSelected: handleFileSelected,
             onMove: (isProseProject && !isReadOnly) ? handleMove : nil,
             onDelete: isReadOnly ? { _ in } : deleteFiles,
@@ -173,7 +176,7 @@ struct FolderFilesView: View {
             onAddToCollection: (isPoetryProject && isContentFolder && !isReadOnly) ? handleAddToCollection : nil,
             onManageContainers: (isPoetryProject && isContentFolder && !isReadOnly) ? { containerAssignmentFiles = ContainerAssignmentItem(files: selectedFiles) } : nil,
             onPrint: handlePrint,
-            collectionGroups: poetryCollectionGroups,
+            collectionGroups: deferredPoetryCollectionGroups,
             hasAvailableCollectionsForAddToCollection: !(folder.project?.poetryCollections?.isEmpty ?? true),
             expandedCollections: $collectionExpandedSections
         )
@@ -250,6 +253,26 @@ struct FolderFilesView: View {
         let dialogs = applyDialogModifiers(alerts)
         return dialogs.onAppear {
             initializeHeaderFooterFields()
+            scheduleDeferredFileListLoad()
+        }
+        .onChange(of: statusFilter) { _, _ in
+            scheduleDeferredFileListLoad()
+        }
+    }
+
+    private func scheduleDeferredFileListLoad() {
+        guard !isMixedContentFolder else {
+            deferredSortedFiles = nil
+            deferredPoetryCollectionGroups = nil
+            return
+        }
+
+        deferredSortedFiles = nil
+        deferredPoetryCollectionGroups = nil
+        DispatchQueue.main.async {
+            let loadedFiles = sortedFiles
+            deferredSortedFiles = loadedFiles
+            deferredPoetryCollectionGroups = poetryCollectionGroups(for: loadedFiles)
         }
     }
     
@@ -261,15 +284,18 @@ struct FolderFilesView: View {
             EmptyView()
         } else {
             VStack(spacing: 0) {
-                if isContentFolder {
+                if isContentFolder && deferredSortedFiles != nil {
                     workflowStatusFilter
                 }
                 Group {
                     if isMixedContentFolder {
                         mixedContentBody
-                    } else if isMatterFolder && !sortedFiles.isEmpty {
+                    } else if deferredSortedFiles == nil {
+                        ProgressView()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else if isMatterFolder && !(deferredSortedFiles?.isEmpty ?? true) {
                         matterFolderBody
-                    } else if !sortedFiles.isEmpty {
+                    } else if !(deferredSortedFiles?.isEmpty ?? true) {
                         VStack(spacing: 0) {
                             fileListSection
                         }
@@ -434,7 +460,7 @@ struct FolderFilesView: View {
     @ViewBuilder
     private var matterFolderBody: some View {
         List {
-            ForEach(sortedFiles) { file in
+            ForEach(deferredSortedFiles ?? []) { file in
                 matterFileRow(file)
                     .moveDisabled(file.isCoverFile)
             }
@@ -446,23 +472,29 @@ struct FolderFilesView: View {
     
     /// Row view for matter folder files
     private func matterFileRow(_ file: TextFile) -> some View {
-        Button {
-            selectedFile = file
-            navigateToFile = true
-        } label: {
-            HStack {
-                Image(systemName: "doc.text")
-                    .foregroundColor(.secondary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(file.name)
+        HStack {
+            Button {
+                selectedFile = file
+                navigateToFile = true
+            } label: {
+                HStack {
+                    Image(systemName: "doc.text")
+                        .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(file.name)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+
+            if !isEditMode {
+                FileSubmissionsButton(file: file)
             }
         }
-        .buttonStyle(.plain)
     }
     
     /// Reorder matter folder files
@@ -626,6 +658,7 @@ struct FolderFilesView: View {
             
             // Ellipsis menu (only in normal mode)
             if !isEditMode {
+                FileSubmissionsButton(file: file)
                 mixedContentFileOptionsMenu(for: file)
             } else {
                 // Keep chevron for spacing consistency in edit mode
@@ -832,7 +865,7 @@ struct FolderFilesView: View {
     /// Move content folder files for drag-to-reorder (updates userOrder)
     /// This controls the order files appear in the TOC and manuscript assembly
     private func moveContentFiles(from source: IndexSet, to destination: Int) {
-        var files = sortedFiles
+        var files = deferredSortedFiles ?? sortedFiles
         files.move(fromOffsets: source, toOffset: destination)
         
         // Update userOrder for all files
@@ -1056,7 +1089,11 @@ struct FolderFilesView: View {
     /// Assign files to a poetry collection (or remove assignment if nil)
     func assignFilesToCollection(_ files: [TextFile], collection: PoetryCollection?) {
         for file in files {
-            file.poetryCollection = collection
+            if let collection {
+                file.poetryCollection = collection
+            } else {
+                file.removeFromAllPoetryCollections()
+            }
         }
         
         do {

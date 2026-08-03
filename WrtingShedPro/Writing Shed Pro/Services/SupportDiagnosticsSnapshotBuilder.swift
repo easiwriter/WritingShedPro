@@ -14,6 +14,9 @@ enum SupportDiagnosticsSnapshotBuilder {
         lines.append("cloudContainer: iCloud.com.appworks.writingshedpro")
         lines.append("activeEnsemblesContainer: \(Write_App.activeEnsemblesContainer != nil)")
         lines.append("firstSuccessfulSyncThisLaunch: \(Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch)")
+        lines.append("observedEnsemblesDataThisLaunch: \(Write_App.hasObservedEnsemblesDataThisLaunch)")
+        lines.append("observedPartialEnsemblesStoreThisLaunch: \(Write_App.hasObservedPartialEnsemblesStoreThisLaunch)")
+        lines.append("localSyncResetQueued: \(UserDefaults.standard.bool(forKey: Write_App.resetLocalEnsemblesStoreOnNextLaunchKey))")
         if let ensemblesContainer = Write_App.activeEnsemblesContainer {
             lines.append("ensemblesIsAttached: \(ensemblesContainer.isAttached)")
             lines.append("ensemblesSyncSuspended: \(ensemblesContainer.isSyncSuspended)")
@@ -137,6 +140,14 @@ enum SupportDiagnosticsSnapshotBuilder {
         lines.append("- hiddenActiveProjectsInStore: \(hiddenActiveProjectCount)")
         lines.append("- visibleActiveProjectsAfterFilter: \(max(0, storeProjects.filter { !$0.isTrashed }.count - hiddenActiveProjectCount))")
 
+        let presentedProjects = DeduplicationService.presentedProjects(
+            from: storeProjects.filter { !$0.isTrashed && !hiddenProjectIDs.contains($0.id) }
+        )
+        lines.append("- presentedProjectsAfterUIDedup: \(presentedProjects.count)")
+        for project in presentedProjects {
+            lines.append("  - \(project.name ?? "Untitled") | id=\(project.id.uuidString) | type=\(project.type.rawValue)")
+        }
+
         let exactIDDuplicateCount = DeduplicationService.countExactIDDuplicateRecords(context: freshContext)
         lines.append("")
         lines.append("Exact ID Duplicates:")
@@ -162,6 +173,12 @@ enum SupportDiagnosticsSnapshotBuilder {
         lines.append("Local Ensembles Event Cache")
         for cacheLine in localEnsemblesEventCacheLines() {
             lines.append(cacheLine)
+        }
+
+        lines.append("")
+        lines.append("Ensembles Event Store")
+        for eventStoreLine in ensemblesEventStoreLines() {
+            lines.append(eventStoreLine)
         }
 
         lines.append("")
@@ -279,6 +296,46 @@ enum SupportDiagnosticsSnapshotBuilder {
             "- directories=\(directoryCount) files=\(fileCount) bytes=\(totalBytes)",
             "- samples=\(samples.isEmpty ? "none" : samples.joined(separator: ", "))"
         ]
+    }
+
+    @MainActor
+    private static func ensemblesEventStoreLines() -> [String] {
+        guard let ensemblesContainer = Write_App.activeEnsemblesContainer else {
+            return ["- unavailable: no active Ensembles container"]
+        }
+
+        let eventStore = ensemblesContainer.ensemble.coreDataEnsemble.eventStore
+        var lines: [String] = []
+        lines.append("- containsEventData: \(eventStore.containsEventData)")
+        lines.append("- needsFullIntegration: \(eventStore.needsFullIntegration)")
+        lines.append("- lastMergeRevisionSaved: \(String(describing: eventStore.lastMergeRevisionSaved))")
+        lines.append("- lastSaveRevisionSaved: \(String(describing: eventStore.lastSaveRevisionSaved))")
+        lines.append("- lastRevisionSaved: \(String(describing: eventStore.lastRevisionSaved))")
+        lines.append("- currentBaselineIdentifier: \(eventStore.currentBaselineIdentifier ?? "nil")")
+        lines.append("- identifierOfBaselineUsedToConstructStore: \(eventStore.identifierOfBaselineUsedToConstructStore ?? "nil")")
+        lines.append("- persistentStoreIdentifier: \(eventStore.persistentStoreIdentifier ?? "nil")")
+        lines.append("- incompleteMandatoryEventIdentifiers: \(eventStore.incompleteMandatoryEventIdentifiers.count)")
+        lines.append("- allDataFilenames: \(eventStore.allDataFilenames.count)")
+        lines.append("- newlyImportedDataFilenames: \(eventStore.newlyImportedDataFilenames.count)")
+        lines.append("- previouslyReferencedDataFilenames: \(eventStore.previouslyReferencedDataFilenames.count)")
+        lines.append("- pathToEventStoreRootDirectory: \(eventStore.pathToEventStoreRootDirectory)")
+        do {
+            lines.append("- eventCountAll: \(try eventStore.countAllEvents())")
+            lines.append("- eventCountBaseline: \(try eventStore.countEvents(type: .baseline))")
+            lines.append("- eventCountSave: \(try eventStore.countEvents(type: .save))")
+            lines.append("- eventCountMerge: \(try eventStore.countEvents(type: .merge))")
+            lines.append("- objectChangeCountAll: \(try eventStore.countAllObjectChanges())")
+            lines.append("- objectChangeCountBaseline: \(try eventStore.countObjectChanges(eventType: .baseline))")
+            lines.append("- objectChangeCountSave: \(try eventStore.countObjectChanges(eventType: .save))")
+            lines.append("- objectChangeCountMerge: \(try eventStore.countObjectChanges(eventType: .merge))")
+            lines.append("- objectChangeCountInsert: \(try eventStore.countNonBaselineObjectChanges(changeType: .insert))")
+            lines.append("- objectChangeCountUpdate: \(try eventStore.countNonBaselineObjectChanges(changeType: .update))")
+            lines.append("- objectChangeCountDelete: \(try eventStore.countNonBaselineObjectChanges(changeType: .delete))")
+            lines.append("- persistentStoreIdentifiers: \(try eventStore.fetchPersistentStoreIdentifiers().sorted().joined(separator: ","))")
+        } catch {
+            lines.append("- eventStoreCountsError: \(error.localizedDescription)")
+        }
+        return lines
     }
 
     private static func recentZoneVerificationLines(limit: Int) -> [String] {

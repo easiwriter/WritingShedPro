@@ -1889,6 +1889,8 @@
 "projectTrash.deleteForever" = "Delete Forever";
 "projectTrash.putBackConfirm" = "Restore this project to the project list?";
 "projectTrash.deleteForeverConfirm" = "Permanently delete this project? This action cannot be undone.";
+"projectTrash.deleteDeferred.title" = "Sync Finishing";
+"projectTrash.deleteDeferred.message" = "This device is still finishing a sync pass, so the project was not deleted here. Try again in a moment, or wait for the deletion from another device to arrive.";
 
 /* FormattingToolbar */
 "formattingToolbar.comingSoon.title" = "Coming Soon";

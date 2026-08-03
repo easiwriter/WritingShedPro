@@ -11,6 +11,7 @@ struct ProjectTrashBinView: View {
     @State private var showPutBackConfirmation = false
     @State private var showPermanentDeleteConfirmation = false
     @State private var showDeleteError = false
+    @State private var deleteErrorTitle = NSLocalizedString("project.deleteForever.saveFailed.title", comment: "Delete failed")
     @State private var deleteErrorMessage = ""
     @State private var projectsToPutBack: [Project] = []
     @State private var projectsToDelete: [Project] = []
@@ -81,28 +82,57 @@ struct ProjectTrashBinView: View {
             .alert(NSLocalizedString("projectTrash.deleteForeverConfirm", comment: "Permanently delete selected projects?"), isPresented: $showPermanentDeleteConfirmation) {
                 Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
                 Button(NSLocalizedString("projectTrash.deleteForever", comment: "Delete Forever"), role: .destructive) {
+                    guard canPermanentlyDeleteFromTrash() else { return }
                     for project in projectsToDelete {
                         DeduplicationService.permanentlyDeleteProjectFamily(project, context: modelContext)
                     }
                     do {
                         try WriteCoalescer.shared.requestSaveAndFlush(reason: "project-trash-bin-delete")
                     } catch {
-                        deleteErrorMessage = String(
-                            format: NSLocalizedString("project.deleteForever.saveFailed.message", comment: "Delete failed message"),
-                            error.localizedDescription
-                        )
-                        showDeleteError = true
+                        showDeleteSaveError(error)
                         return
                     }
                     selectedProjectIDs.removeAll()
                 }
             }
-            .alert(NSLocalizedString("project.deleteForever.saveFailed.title", comment: "Delete failed"), isPresented: $showDeleteError) {
+            .alert(deleteErrorTitle, isPresented: $showDeleteError) {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(deleteErrorMessage)
             }
         }
+    }
+
+    private func canPermanentlyDeleteFromTrash() -> Bool {
+        let reason = "project-trash-bin-delete"
+        guard let ensemblesContainer = Write_App.activeEnsemblesContainer,
+              !EnsemblesSaveGate.canSaveNow(reason: reason) else {
+            return true
+        }
+
+        let error = EnsemblesSaveGateError.syncBusy(
+            reason: reason,
+            attached: ensemblesContainer.isAttached,
+            activity: String(describing: ensemblesContainer.currentActivity)
+        )
+        showDeleteSaveError(error)
+        return false
+    }
+
+    private func showDeleteSaveError(_ error: Error) {
+        if case EnsemblesSaveGateError.syncBusy = error {
+            deleteErrorTitle = NSLocalizedString("projectTrash.deleteDeferred.title", comment: "Delete deferred title")
+            deleteErrorMessage = NSLocalizedString("projectTrash.deleteDeferred.message", comment: "Delete deferred message")
+            showDeleteError = true
+            return
+        }
+
+        deleteErrorTitle = NSLocalizedString("project.deleteForever.saveFailed.title", comment: "Delete failed")
+        deleteErrorMessage = String(
+            format: NSLocalizedString("project.deleteForever.saveFailed.message", comment: "Delete failed message"),
+            error.localizedDescription
+        )
+        showDeleteError = true
     }
 }
 

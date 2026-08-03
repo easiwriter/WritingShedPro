@@ -113,12 +113,14 @@ struct SettingsSheet: View {
                         Label("Sync Now", systemImage: "arrow.clockwise.icloud")
                     }
 
+                    #if DEBUG || targetEnvironment(simulator)
                     Button {
                         dismissSheet()
                         state.showSyncDiagnostics = true
                     } label: {
                         Label("Sync Troubleshooting", systemImage: "arrow.triangle.2.circlepath")
                     }
+                    #endif
                     
                     Button {
                         dismissSheet()

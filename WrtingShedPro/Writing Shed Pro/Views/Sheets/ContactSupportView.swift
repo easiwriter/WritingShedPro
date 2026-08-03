@@ -75,6 +75,7 @@ struct ContactSupportView: View {
     @State private var showSupportResponse = false
     @State private var includeSyncDiagnostics = true
     @State private var diagnosticsSnapshot = ""
+    @State private var preparedMailBody = ""
 
     // Robot-check: simple arithmetic challenge
     @State private var challengeA: Int = Int.random(in: 2...9)
@@ -139,7 +140,7 @@ struct ContactSupportView: View {
                 MailComposeView(
                     recipients: [supportEmail],
                     subject: mailSubject,
-                    body: mailBody,
+                    body: preparedMailBody,
                     onDismiss: { dismiss() }
                 )
             }
@@ -159,7 +160,8 @@ struct ContactSupportView: View {
                    isPresented: $showMailUnavailable) {
                 Button(NSLocalizedString("support.mail.copyToClipboard", comment: "")) {
                     prepareDiagnosticsSnapshotIfNeeded()
-                    UIPasteboard.general.string = "\(mailSubject)\n\n\(mailBody)"
+                    preparedMailBody = makeMailBody(diagnosticsSnapshot: diagnosticsSnapshot)
+                    UIPasteboard.general.string = "\(mailSubject)\n\n\(preparedMailBody)"
                 }
                 Button("OK", role: .cancel) {}
             } message: {
@@ -359,6 +361,7 @@ struct ContactSupportView: View {
 
     private func openEmailFlow() {
         prepareDiagnosticsSnapshotIfNeeded()
+        preparedMailBody = makeMailBody(diagnosticsSnapshot: diagnosticsSnapshot)
 
         if MFMailComposeViewController.canSendMail() {
             showMailCompose = true
@@ -388,7 +391,7 @@ struct ContactSupportView: View {
         return "\(prefix) \(subject)"
     }
 
-    private var mailBody: String {
+    private func makeMailBody(diagnosticsSnapshot: String) -> String {
         var body = """
         \(reportType.rawValue)
         ============================

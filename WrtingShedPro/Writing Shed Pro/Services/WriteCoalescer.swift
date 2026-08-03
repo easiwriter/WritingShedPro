@@ -1,4 +1,5 @@
 import Foundation
+import EnsemblesSwiftData
 import Observation
 import SwiftData
 #if canImport(UIKit)
@@ -17,9 +18,60 @@ enum EnsemblesSaveGateError: LocalizedError {
 }
 
 enum EnsemblesSaveGate {
-    private static func canBypassFirstSyncForUserImport(reason: String, activity: String) -> Bool {
+    private static func canBypassForUserImport(reason: String, attached: Bool, activity: String) -> Bool {
         guard reason.hasPrefix("json-import-") else { return false }
-        return activity.lowercased() == "none"
+        let normalizedActivity = activity.lowercased()
+        if normalizedActivity == "none" { return true }
+        if attached && !isInStartupAttachGracePeriod() { return true }
+        return !attached && normalizedActivity == "attaching" && !isInStartupAttachGracePeriod()
+    }
+
+    private static func isEnsemblesIdle(_ ensemblesContainer: SwiftDataEnsembleContainer) -> Bool {
+        ensemblesContainer.isAttached && String(describing: ensemblesContainer.currentActivity).lowercased() == "none"
+    }
+
+    private static func canSaveUserEditBeforeFirstSuccessfulSync(reason: String) -> Bool {
+        guard Write_App.hasObservedEnsemblesDataThisLaunch,
+              !isInStartupAttachGracePeriod() else {
+            return false
+        }
+
+        let normalizedReason = reason.lowercased()
+        let blockedPrefixes = [
+            "content-",
+            "deduplication-",
+            "migration-",
+            "stylesheet-service-"
+        ]
+        let blockedKeywords = [
+            "delete",
+            "trash",
+            "remove",
+            "reset",
+            "repair",
+            "import",
+            "debug"
+        ]
+
+        if blockedPrefixes.contains(where: { normalizedReason.hasPrefix($0) }) {
+            return false
+        }
+
+        let userInitiatedProjectActions = [
+            "project-list-trash",
+            "project-detail-trash",
+            "project-editable-list-permanent-delete",
+            "project-trash-bin-delete",
+            "project-trash-restore"
+        ]
+        if userInitiatedProjectActions.contains(where: { normalizedReason.hasPrefix($0) }) {
+            return true
+        }
+
+        if blockedKeywords.contains(where: { normalizedReason.contains($0) }) {
+            return false
+        }
+        return true
     }
 
     static func isInStartupAttachGracePeriod() -> Bool {
@@ -38,8 +90,51 @@ enum EnsemblesSaveGate {
         }
 
         let activity = String(describing: ensemblesContainer.currentActivity)
+        if Write_App.isInEnsemblesMergeSaveCooldown() {
+            let message = "⏳ [EnsemblesSaveGate] Blocked save during Ensembles merge cooldown reason=\(reason) attached=\(ensemblesContainer.isAttached) activity=\(activity)"
+            #if DEBUG
+            print(message)
+            #endif
+            Task { @MainActor in Write_App.logToFile(message) }
+            return false
+        }
+
+        guard isEnsemblesIdle(ensemblesContainer) else {
+            if canBypassForUserImport(reason: reason, attached: ensemblesContainer.isAttached, activity: activity) {
+                let message = "⚠️ [EnsemblesSaveGate] Allowing user import save while Ensembles is unavailable reason=\(reason) attached=\(ensemblesContainer.isAttached) activity=\(activity)"
+                #if DEBUG
+                print(message)
+                #endif
+                Task { @MainActor in Write_App.logToFile(message) }
+                return true
+            }
+
+            let message = "⏳ [EnsemblesSaveGate] Blocked save while Ensembles is active reason=\(reason) attached=\(ensemblesContainer.isAttached) activity=\(activity)"
+            #if DEBUG
+            print(message)
+            #endif
+            Task { @MainActor in Write_App.logToFile(message) }
+            return false
+        }
+
+        if !Write_App.hasObservedEnsemblesDataThisLaunch {
+            _ = Write_App.recordFirstEnsemblesDataAvailableIfNeeded(
+                modelContainer: ensemblesContainer.modelContainer,
+                reason: "save gate attached idle check"
+            )
+        }
+
         guard Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch else {
-            if canBypassFirstSyncForUserImport(reason: reason, activity: activity) {
+            if canSaveUserEditBeforeFirstSuccessfulSync(reason: reason) {
+                let message = "⚠️ [EnsemblesSaveGate] Allowing user edit save after attached idle store observed reason=\(reason) attached=\(ensemblesContainer.isAttached) activity=\(activity)"
+                #if DEBUG
+                print(message)
+                #endif
+                Task { @MainActor in Write_App.logToFile(message) }
+                return true
+            }
+
+            if canBypassForUserImport(reason: reason, attached: ensemblesContainer.isAttached, activity: activity) {
                 let message = "⚠️ [EnsemblesSaveGate] Allowing user import save before first successful sync because Ensembles is idle reason=\(reason) attached=\(ensemblesContainer.isAttached)"
                 #if DEBUG
                 print(message)
@@ -160,8 +255,9 @@ final class WriteCoalescer {
     private let maximumSyncDeferralDelay: TimeInterval = 30.0
     @ObservationIgnored private var syncDeferralDelay: TimeInterval = 2.0
 
-    #if DEBUG
     private var lastSaveRequestSource: String?
+
+    #if DEBUG
     private var lastSaveTraceLogTime: Date = .distantPast
     private var lastDeferredForSyncLogTime: Date = .distantPast
     #endif
@@ -236,9 +332,7 @@ final class WriteCoalescer {
     func requestSave(reason: String = "requestSave", file: StaticString = #fileID, line: UInt = #line) {
         requestCount += 1
         pendingSave = true
-        #if DEBUG
         lastSaveRequestSource = "\(reason) @ \(file):\(line)"
-        #endif
         updateEditingActivity()
         resetTimer()
         resetIdleTimer()
@@ -268,7 +362,27 @@ final class WriteCoalescer {
     /// It keeps existing `do/catch` shapes valid while routing saves through
     /// the Ensembles-aware deferral logic in `executeSave()`.
     func requestSaveAndFlush(reason: String = "requestSaveAndFlush") throws {
+        if requiresImmediateSaveConfirmation(reason: reason),
+           let ensemblesContainer = Write_App.activeEnsemblesContainer,
+           !EnsemblesSaveGate.canSaveNow(reason: reason) {
+            throw EnsemblesSaveGateError.syncBusy(
+                reason: reason,
+                attached: ensemblesContainer.isAttached,
+                activity: String(describing: ensemblesContainer.currentActivity)
+            )
+        }
+
         requestSave(reason: reason)
+
+        if let ensemblesContainer = Write_App.activeEnsemblesContainer,
+           !EnsemblesSaveGate.canSaveNow(reason: reason),
+           !requiresImmediateSaveConfirmation(reason: reason) {
+            #if DEBUG
+            print("⏳ [WriteCoalescer] Deferring non-destructive save source=\(reason) attached=\(ensemblesContainer.isAttached) activity=\(String(describing: ensemblesContainer.currentActivity))")
+            #endif
+            return
+        }
+
         try flushOrThrow(reason: reason)
     }
 
@@ -363,6 +477,21 @@ final class WriteCoalescer {
 
     // MARK: - Private
 
+    private func requiresImmediateSaveConfirmation(reason: String) -> Bool {
+        let normalizedReason = reason.lowercased()
+        let immediateKeywords = [
+            "delete",
+            "trash",
+            "remove",
+            "reset",
+            "repair",
+            "deduplication",
+            "import",
+            "debug"
+        ]
+        return immediateKeywords.contains { normalizedReason.contains($0) }
+    }
+
     private func resetTimer() {
         flushTimer?.invalidate()
         flushTimer = Timer.scheduledTimer(withTimeInterval: effectiveDelay, repeats: false) { [weak self] _ in
@@ -408,7 +537,7 @@ final class WriteCoalescer {
         }
 
         let activity = String(describing: ensemblesContainer.currentActivity)
-        guard !EnsemblesSaveGate.canSaveAfterFirstSuccessfulSync() else {
+        guard !EnsemblesSaveGate.canSaveNow(reason: lastSaveRequestSource ?? "write-coalescer") else {
             return false
         }
 
