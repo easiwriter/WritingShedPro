@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D737479B2FE9129700364704 /* Writing Shed Pro.storekit in Resources */ = {isa = PBXBuildFile; fileRef = D737479A2FE9129700364704 /* Writing Shed Pro.storekit */; };
+		D77298CC300A57D900E084E3 /* Writing Shed Pro.storekit in Resources */ = {isa = PBXBuildFile; fileRef = D77298CB300A57D900E084E3 /* Writing Shed Pro.storekit */; };
 		D786773B2F9DF4F80087BC02 /* TestPlan.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = D786773A2F9DF4F80087BC02 /* TestPlan.xctestplan */; };
 		D79879872F2F4874007DE592 /* StoreKitManager in Frameworks */ = {isa = PBXBuildFile; productRef = D79879862F2F4874007DE592 /* StoreKitManager */; };
 		D7B1F4D72EACFFE400B7F3C8 /* ToolbarSUI in Frameworks */ = {isa = PBXBuildFile; productRef = D7B1F4D62EACFFE400B7F3C8 /* ToolbarSUI */; };
@@ -63,12 +63,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		D737479A2FE9129700364704 /* Writing Shed Pro.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = "Writing Shed Pro.storekit"; path = "Writing Shed Pro/Writing Shed Pro.storekit"; sourceTree = "<group>"; };
 		D741DF6C2EA76292003629E8 /* Writing Shed Pro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Writing Shed Pro.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D741DF7D2EA76295003629E8 /* Writing Shed ProTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Writing Shed ProTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D76ABF582F260E6C002D8588 /* WSP Reader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WSP Reader.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D76ABF682F260E6F002D8588 /* WSP ReaderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "WSP ReaderTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D76ABF722F260E70002D8588 /* WSP ReaderUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "WSP ReaderUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D77298CB300A57D900E084E3 /* Writing Shed Pro.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Writing Shed Pro.storekit"; sourceTree = SOURCE_ROOT; };
 		D786773A2F9DF4F80087BC02 /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
 		D7A1B2C3D4E5F6A700000001 /* Versioning.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Versioning.xcconfig; sourceTree = SOURCE_ROOT; };
 		D7B100000000000000000001 /* WSP Reader/Versioning.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "WSP Reader/Versioning.xcconfig"; sourceTree = SOURCE_ROOT; };
@@ -81,18 +81,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				Resources/Videos/FirstPoem.mov,
-				Resources/Videos/FirstScript.mov,
-				Resources/Videos/Introduction.mov,
-				Resources/Videos/LargeProseProject.mov,
-				Resources/Videos/Novel.mov,
-				Resources/Videos/PoetryChapbook.mov,
-				Resources/Videos/ProgessionalManuscript.mov,
-				Resources/Videos/QuickStart.mov,
-				Resources/Videos/ShortFiction.mov,
-				Resources/Videos/SubmittingWork.mov,
-				Resources/Videos/VerseNovel.mov,
-				"Resources/Writing Shed Pro Guide.html",
 			);
 			target = D741DF6B2EA76292003629E8 /* Writing Shed Pro */;
 		};
@@ -103,14 +91,6 @@
 				Versioning.xcconfig,
 			);
 			target = D76ABF572F260E6C002D8588 /* WSP Reader */;
-		};
-		D76ABF9C2F28C22E002D8588 /* Exceptions for "Writing Shed Pro" folder in "Writing Shed ProTests" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Resources/britdict.txt,
-				Resources/cmudict.txt,
-			);
-			target = D741DF7C2EA76295003629E8 /* Writing Shed ProTests */;
 		};
 		D7MSGAPP0000000000000002 /* Exceptions for "WSP Messages Operator" folder in "WSP Messages Operator" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
@@ -133,7 +113,6 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				D741DF8F2EA76295003629E8 /* Exceptions for "Writing Shed Pro" folder in "Writing Shed Pro" target */,
-				D76ABF9C2F28C22E002D8588 /* Exceptions for "Writing Shed Pro" folder in "Writing Shed ProTests" target */,
 			);
 			path = "Writing Shed Pro";
 			sourceTree = "<group>";
@@ -242,7 +221,7 @@
 		D741DF632EA76292003629E8 = {
 			isa = PBXGroup;
 			children = (
-				D737479A2FE9129700364704 /* Writing Shed Pro.storekit */,
+				D77298CB300A57D900E084E3 /* Writing Shed Pro.storekit */,
 				D786773A2F9DF4F80087BC02 /* TestPlan.xctestplan */,
 				D741DF6E2EA76292003629E8 /* Writing Shed Pro */,
 				D741DF802EA76295003629E8 /* WritingShedProTests */,
@@ -533,7 +512,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D786773B2F9DF4F80087BC02 /* TestPlan.xctestplan in Resources */,
-				D737479B2FE9129700364704 /* Writing Shed Pro.storekit in Resources */,
+				D77298CC300A57D900E084E3 /* Writing Shed Pro.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1392,7 +1371,7 @@
 			repositoryURL = "https://github.com/mentalfaculty/Ensembles3.git";
 			requirement = {
 				kind = exactVersion;
-				version = 3.0.5;
+				version = 3.0.6;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

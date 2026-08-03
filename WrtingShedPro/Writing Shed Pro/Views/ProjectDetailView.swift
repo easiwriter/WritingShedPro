@@ -47,10 +47,35 @@ struct ProjectDetailView: View {
     }
 
     private func deleteProject() {
-        DeduplicationService.trashProjectFamily(project, context: modelContext, deletedAt: Date())
-        WriteCoalescer.shared?.requestSave(reason: "project-detail-trash")
-        WriteCoalescer.shared?.flush()
-        dismiss()
+        let reason = "project-detail-trash"
+        guard let ensemblesContainer = Write_App.activeEnsemblesContainer,
+              !EnsemblesSaveGate.canSaveNow(reason: reason) else {
+            let deletedAt = Date()
+            DeduplicationService.trashProjectFamily(project, context: modelContext, deletedAt: deletedAt)
+            do {
+                try WriteCoalescer.shared.requestSaveAndFlush(reason: reason)
+                dismiss()
+            } catch {
+                DeduplicationService.restoreProjectFamily(project, context: modelContext)
+                errorMessage = String(
+                    format: NSLocalizedString("project.deleteForever.saveFailed.message", comment: "Delete failed message"),
+                    error.localizedDescription
+                )
+                showErrorAlert = true
+            }
+            return
+        }
+
+        let error = EnsemblesSaveGateError.syncBusy(
+            reason: reason,
+            attached: ensemblesContainer.isAttached,
+            activity: String(describing: ensemblesContainer.currentActivity)
+        )
+        errorMessage = String(
+            format: NSLocalizedString("project.deleteForever.saveFailed.message", comment: "Delete failed message"),
+            error.localizedDescription
+        )
+        showErrorAlert = true
     }
 }
 
@@ -412,13 +437,18 @@ struct ProjectInfoSheet: View {
         project.name = trimmedName
         project.modifiedDate = Date()
 
-        do {
-            try WriteCoalescer.shared.requestSaveAndFlush(reason: "project-detail-save")
-            isPresented = false
-        } catch {
-            errorMessage = error.localizedDescription
-            showErrorAlert = true
+        WriteCoalescer.shared?.requestSave(reason: "project-detail-save")
+        if EnsemblesSaveGate.canSaveNow(reason: "project-detail-save") {
+            do {
+                try WriteCoalescer.shared?.flushOrThrow(reason: "project-detail-save")
+            } catch {
+                errorMessage = error.localizedDescription
+                showErrorAlert = true
+                return
+            }
         }
+
+        isPresented = false
     }
 
     private func initializeFields() {

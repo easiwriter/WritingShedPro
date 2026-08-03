@@ -1,0 +1,152 @@
+Subject: SwiftDataEnsembleContainer fails to attach on Mac Catalyst with EnsembleError.hardwareIdentityUnknown while iOS devices sync successfully
+
+Hello,
+
+We are integrating Ensembles3 into a SwiftData app and are seeing a Mac Catalyst-only attach/sync failure. iOS devices sync successfully using the same CloudKit container, but the Mac Catalyst build cannot attach to the ensemble and repeatedly reports EnsembleError raw value 220, which appears to map to hardwareIdentityUnknown.
+
+Environment
+
+App: Writing Shed Pro
+Bundle ID: com.appworks.writingshedpro
+Platform affected: Mac Catalyst
+Platforms working: iOS devices
+Ensembles package: Ensembles3 3.0.5
+Resolved revision: 75ce3f4d2a2038cb5cf76b0ee6a0509ad35f7608
+Sync wrapper: EnsemblesSwiftData.SwiftDataEnsembleContainer
+Cloud backend: EnsemblesCloudKit.CloudKitFileSystem
+CloudKit container: iCloud.com.appworks.writingshedpro
+Database: private CloudKit database
+SwiftData store URL: app documents directory, writingshed.sqlite
+Local event data directory: app documents directory, EnsemblesEventData
+
+Configuration:
+
+let cloudFileSystem = CloudKitFileSystem(
+    privateDatabaseForUbiquityContainerIdentifier: "iCloud.com.appworks.writingshedpro",
+    schemaVersion: .v2
+)
+
+let eventDataDirectory = URL.documentsDirectory.appending(
+    path: "EnsemblesEventData",
+    directoryHint: .isDirectory
+)
+
+let configuration = EnsembleContainerConfiguration(
+    autoSyncPolicy: .all,
+    timerInterval: 120,
+    seedPolicy: .mergeAllData,
+    compatibilityMode: .ensembles3,
+    localDataRootDirectoryURL: eventDataDirectory
+)
+
+let ensemblesContainer = SwiftDataEnsembleContainer(
+    name: "WritingShedProConfiguration",
+    storeURL: storeURL,
+    modelTypes: modelTypes,
+    cloudFileSystem: cloudFileSystem,
+    configuration: configuration
+)
+
+We also call UIApplication.shared.registerForRemoteNotifications() before initializing the container.
+
+Observed Behavior
+
+On iOS, sync works between devices.
+
+On Mac Catalyst, the app can access iCloud and the private CloudKit database, and the SwiftDataEnsembleContainer object is created, but the container is not attached and sync returns false.
+
+Diagnostics from the Mac Catalyst build:
+
+syncBackend: Ensembles
+cloudContainer: iCloud.com.appworks.writingshedpro
+activeEnsemblesContainer: true
+ensemblesIsAttached: false
+ensemblesSyncSuspended: false
+ensemblesCurrentActivity: none
+
+Entity Counts (store):
+- Project: 0
+- Publication: 0
+- Folder: 0
+- TextFile: 0
+- Version: 0
+- PoetryCollection: 0
+
+Recent log excerpts:
+
+[2026-07-20 08:23:29.365] [Ensembles] Initializing SwiftDataEnsembleContainer
+[2026-07-20 08:23:29.464] [Ensembles] SwiftDataEnsembleContainer active
+[2026-07-20 08:23:29.487] [Ensembles] Encountered error: The operation couldn't be completed. (Ensembles.EnsembleError error 220.)
+[2026-07-20 08:23:33.836] iCloud account available
+[2026-07-20 08:23:33.837] CloudKit container accessible
+[2026-07-20 08:23:33.853] [Ensembles] Encountered error: The operation couldn't be completed. (Ensembles.EnsembleError error 220.)
+[2026-07-20 08:23:33.858] [Ensembles] Manual sync completed (reason=app launch, didSync=false, isAttached=false, activity=none)
+[2026-07-20 08:23:34.057] Private database accessible, zones: 3
+
+After clearing only the Mac's local store and local Ensembles event data, the same failure persisted:
+
+[2026-07-20 08:24:33.217] [Ensembles] Backed up writingshed.sqlite for local reset
+[2026-07-20 08:24:33.225] [Ensembles] Backed up EnsemblesEventData for local reset
+[2026-07-20 08:24:33.230] [Ensembles] Local sync reset completed; backup=LocalSyncResetBackup_1784532273
+[2026-07-20 08:24:33.231] [Ensembles] Initializing SwiftDataEnsembleContainer
+[2026-07-20 08:24:33.372] [Ensembles] SwiftDataEnsembleContainer active
+[2026-07-20 08:24:33.392] [Ensembles] Encountered error: The operation couldn't be completed. (Ensembles.EnsembleError error 220.)
+[2026-07-20 08:24:37.024] [Ensembles] Manual sync completed (reason=app launch, didSync=false, isAttached=false, activity=none)
+
+The error continues periodically:
+
+[2026-07-20 08:24:56.914] [Ensembles] Encountered error: The operation couldn't be completed. (Ensembles.EnsembleError error 220.)
+[2026-07-20 08:25:42.083] [Ensembles] Encountered error: The operation couldn't be completed. (Ensembles.EnsembleError error 220.)
+[2026-07-20 08:26:34.216] [Ensembles] Encountered error: The operation couldn't be completed. (Ensembles.EnsembleError error 220.)
+
+From the public Ensembles.swiftinterface, the enum order indicates raw value 220 corresponds to hardwareIdentityUnknown:
+
+public enum EnsembleError : Swift.Int, Swift.Error, Swift.Sendable {
+  case unknown
+  case cancelled
+  case multipleErrors
+  case disallowedStateChange
+  case exceptionRaised
+  case failedToWriteFile
+  case fileCoordinatorTimedOut
+  case fileAccessFailed
+  case directoryDoesNotExist
+  case cloudIdentityChanged
+  case dataCorruptionDetected
+  case unknownModelVersion
+  case storeUnregistered
+  case saveOccurredDuringAttaching
+  case saveOccurredDuringMerge
+  case missingCloudSnapshot
+  case missingStore
+  case multipleObjectChanges
+  case incompleteMultipartFile
+  case hardwareIdentityChanged
+  case hardwareIdentityUnknown
+  ...
+}
+
+What We Tried
+
+1. Verified iCloud account availability on Mac: available.
+2. Verified CloudKit container access on Mac: private database accessible, zones visible.
+3. Verified iOS devices continue to sync successfully.
+4. Forced immediate container.sync() on Mac app launch.
+5. Logged didEncounterError, didForceDetach, and didSaveMergeChanges.
+6. Cleared only the Mac local SwiftData store and local Ensembles event data after backing them up.
+7. Relaunched and allowed the Mac to recreate the local store and reattach/import.
+
+The failure remains: isAttached=false, sync() returns false, and EnsembleError 220 repeats.
+
+Question
+
+Is hardwareIdentityUnknown expected under Mac Catalyst in any known signing/sandbox/entitlement condition?
+
+Specifically:
+
+1. Does Ensembles3 require a keychain access group or other entitlement on Mac Catalyst to persist/read its hardware identity?
+2. Does SwiftDataEnsembleContainer expose any supported way to provide a stable custom device/hardware identifier for Catalyst?
+3. Is this a known issue with the Catalyst build of Ensembles3 3.0.5?
+4. Is there a recommended recovery path when a Catalyst client is stuck at hardwareIdentityUnknown and cannot attach?
+
+At the moment, this appears Mac Catalyst-specific: iOS sync works, CloudKit access works on the Mac, but Ensembles cannot determine the Mac hardware identity and therefore never attaches.

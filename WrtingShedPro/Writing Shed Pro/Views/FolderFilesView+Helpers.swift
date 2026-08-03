@@ -32,10 +32,11 @@ extension FolderFilesView {
     }
 
     func fileCount(for status: WorkflowStatus?) -> Int {
+        let files = deferredSortedFiles ?? []
         if let status = status {
-            return allFiles.filter { $0.workflowStatus == status }.count
+            return files.filter { $0.workflowStatus == status }.count
         } else {
-            return allFiles.count
+            return files.count
         }
     }
 
@@ -85,6 +86,10 @@ extension FolderFilesView {
 
     /// Collection groups for displaying poems arranged by collection (Poetry content folders only)
     var poetryCollectionGroups: [CollectionGroup]? {
+        poetryCollectionGroups(for: sortedFiles)
+    }
+
+    func poetryCollectionGroups(for visibleFiles: [TextFile]) -> [CollectionGroup]? {
         guard isPoetryProject && isContentFolder else { return nil }
         guard let collections = folder.project?.poetryCollections, !collections.isEmpty else { return nil }
 
@@ -98,21 +103,22 @@ extension FolderFilesView {
             return ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
 
-        // Drive membership from each visible file's direct join links.
-        // This avoids whole-database link scans during list scrolling.
+        // Drive membership from join rows. New collection links store scalar IDs
+        // so they may not appear in each file's relationship cache immediately.
         let validCollectionIDs = Set(sortedCollections.map(\.id))
+        let visibleFileIDs = Set(visibleFiles.map(\.id))
         var membershipByCollectionID: [UUID: [TextFile]] = [:]
         var assignedVisibleFileIDs: Set<UUID> = []
 
-        for file in sortedFiles {
-            let membershipIDs = Set((file.poetryCollectionLinks ?? []).compactMap { $0.poetryCollection?.id })
-                .intersection(validCollectionIDs)
-            if membershipIDs.isEmpty { continue }
+        for link in allCollectionLinks {
+            guard let fileID = link.textFileID ?? link.textFile?.id,
+                  visibleFileIDs.contains(fileID),
+                  let file = visibleFiles.first(where: { $0.id == fileID }),
+                  let collectionID = link.poetryCollectionID ?? link.poetryCollection?.id,
+                  validCollectionIDs.contains(collectionID) else { continue }
 
-            assignedVisibleFileIDs.insert(file.id)
-            for collectionID in membershipIDs {
-                membershipByCollectionID[collectionID, default: []].append(file)
-            }
+            assignedVisibleFileIDs.insert(fileID)
+            membershipByCollectionID[collectionID, default: []].append(file)
         }
 
         for collection in sortedCollections {
@@ -127,7 +133,7 @@ extension FolderFilesView {
         }
 
         // Add unassigned poems
-        let unassignedFiles = sortedFiles.filter { !assignedVisibleFileIDs.contains($0.id) }
+        let unassignedFiles = visibleFiles.filter { !assignedVisibleFileIDs.contains($0.id) }
         if !unassignedFiles.isEmpty {
             groups.append(CollectionGroup(
                 id: "__unassigned__",
@@ -168,7 +174,7 @@ extension FolderFilesView {
     }
 
     var selectedFiles: [TextFile] {
-        sortedFiles.filter { selectedFileIDs.contains($0.id) }
+        (deferredSortedFiles ?? []).filter { selectedFileIDs.contains($0.id) }
     }
 
     var selectedFolders: [Folder] {

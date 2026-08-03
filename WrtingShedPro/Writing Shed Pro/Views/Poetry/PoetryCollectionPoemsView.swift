@@ -20,7 +20,6 @@ struct PoetryCollectionPoemsView: View {
     // MARK: - Environment
     
     @Environment(\.modelContext) private var modelContext
-    @Query private var allCollectionLinks: [TextFileCollectionLink]
     
     // MARK: - Properties
     
@@ -35,6 +34,7 @@ struct PoetryCollectionPoemsView: View {
     @State private var showRemoveConfirmation = false
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
+    @State private var liveCollectionFiles: [TextFile] = []
     
     // Export state
     @State private var showExportMenu = false
@@ -53,20 +53,6 @@ struct PoetryCollectionPoemsView: View {
     
     // MARK: - Computed
 
-    private var liveCollectionFiles: [TextFile] {
-        let collectionID = collection.id
-        var seen = Set<UUID>()
-        let files = allCollectionLinks.compactMap { link -> TextFile? in
-            guard link.poetryCollection?.id == collectionID else { return nil }
-            guard let file = link.textFile, file.trashItem == nil else { return nil }
-            guard !seen.contains(file.id) else { return nil }
-            seen.insert(file.id)
-            return file
-        }
-
-        return files.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
-    }
-    
     private var sortedFiles: [TextFile] {
         liveCollectionFiles
     }
@@ -168,6 +154,20 @@ struct PoetryCollectionPoemsView: View {
         .sheet(isPresented: $showAddPoemsSheet) {
             addPoemsSheet
         }
+        .onAppear {
+            reloadCollectionFiles()
+        }
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: .poetryCollectionMembershipDidChange)
+                .receive(on: RunLoop.main)
+        ) { notification in
+            guard notification.object as? UUID == collection.id else { return }
+            reloadCollectionFiles()
+        }
+        .onChange(of: collection.modifiedDate) { _, _ in
+            reloadCollectionFiles()
+        }
         .alert(
             selectedFiles.count == 1
                 ? NSLocalizedString("poetry.collection.removeConfirm.title", comment: "Remove from collection?")
@@ -250,7 +250,7 @@ struct PoetryCollectionPoemsView: View {
     private var fileList: some View {
         List(selection: $selectedFileIDs) {
             ForEach(sortedFiles) { file in
-                Group {
+                HStack {
                     if isEditMode {
                         PoemRowView(file: file)
                     } else {
@@ -259,6 +259,8 @@ struct PoetryCollectionPoemsView: View {
                         } label: {
                             PoemRowView(file: file)
                         }
+
+                        FileSubmissionsButton(file: file)
                     }
                 }
             }
@@ -333,6 +335,24 @@ struct PoetryCollectionPoemsView: View {
     
     // MARK: - Actions
     
+    private func reloadCollectionFiles() {
+        let collectionID = collection.id
+        let links = (try? modelContext.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
+        let matchingLinks = links.filter { $0.resolvedPoetryCollectionID == collectionID }
+        let fileByID = Dictionary(
+            uniqueKeysWithValues: ((try? modelContext.fetch(FetchDescriptor<TextFile>())) ?? []).map { ($0.id, $0) }
+        )
+
+        var seen = Set<UUID>()
+        liveCollectionFiles = matchingLinks.compactMap { link -> TextFile? in
+            let file = link.textFile ?? link.resolvedTextFileID.flatMap { fileByID[$0] }
+            guard let file, file.trashItem == nil else { return nil }
+            guard seen.insert(file.id).inserted else { return nil }
+            return file
+        }
+        .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+    }
+
     private func addPoemToCollection(_ file: TextFile) {
         file.addToPoetryCollection(collection)
         let nextOrder = (sortedFiles.map { $0.userOrder ?? 0 }.max() ?? -1) + 1
@@ -340,6 +360,7 @@ struct PoetryCollectionPoemsView: View {
         collection.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "poetry-collection-add-poem")
         WriteCoalescer.shared?.flush()
+        reloadCollectionFiles()
         NotificationCenter.default.post(name: .poetryCollectionMembershipDidChange, object: collection.id)
     }
     
@@ -350,6 +371,7 @@ struct PoetryCollectionPoemsView: View {
         collection.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "poetry-collection-remove-poems")
         WriteCoalescer.shared?.flush()
+        reloadCollectionFiles()
         NotificationCenter.default.post(name: .poetryCollectionMembershipDidChange, object: collection.id)
         selectedFileIDs.removeAll()
         editMode = .inactive
@@ -363,6 +385,7 @@ struct PoetryCollectionPoemsView: View {
         collection.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "poetry-collection-delete-poems")
         WriteCoalescer.shared?.flush()
+        reloadCollectionFiles()
         NotificationCenter.default.post(name: .poetryCollectionMembershipDidChange, object: collection.id)
     }
     
@@ -581,6 +604,7 @@ struct PoetryCollectionPoemsView: View {
         collection.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "poetry-collection-move-poems")
         WriteCoalescer.shared?.flush()
+        reloadCollectionFiles()
         NotificationCenter.default.post(name: .poetryCollectionMembershipDidChange, object: collection.id)
     }
 }

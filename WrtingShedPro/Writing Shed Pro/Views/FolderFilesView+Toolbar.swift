@@ -27,11 +27,11 @@ extension FolderFilesView {
             // Hide all other buttons for Front/Back Matter folders (except Edit for reordering)
             if !isMatterFolder {
                 // Collection expand/collapse button (Poetry content folders with collections)
-                if isPoetryProject && isContentFolder && poetryCollectionGroups != nil {
+                if isPoetryProject && isContentFolder && deferredPoetryCollectionGroups != nil {
                     collectionExpandCollapseToolbarButton
                 }
                 
-                if !sortedFiles.isEmpty {
+                if !(deferredSortedFiles?.isEmpty ?? true) {
                     Button {
                         showSearchView = true
                     } label: {
@@ -100,7 +100,7 @@ extension FolderFilesView {
             }
             
             // Edit/Done button for reordering (for all folders with files, including matter folders)
-            if !sortedFiles.isEmpty || (isMixedContentFolder && !sortedSubfolders.isEmpty) {
+            if !(deferredSortedFiles?.isEmpty ?? true) || (isMixedContentFolder && !sortedSubfolders.isEmpty) {
                 Button {
                     withAnimation {
                         editMode = editMode == .inactive ? .active : .inactive

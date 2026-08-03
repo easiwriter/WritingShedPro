@@ -574,13 +574,25 @@ struct SceneListView: View {
         }
     }
 
+    @ViewBuilder
     private var bodyCoreWithSheets: some View {
+        #if targetEnvironment(macCatalyst)
+        bodyCoreWithSharedSheets
+            .overlay {
+                sceneDetailsOverlay
+            }
+        #else
+        bodyCoreWithSharedSheets
+            .sheet(item: $sceneForDetails) { scene in
+                sceneDetailsSheetContent(for: scene)
+            }
+        #endif
+    }
+
+    private var bodyCoreWithSharedSheets: some View {
         bodyCore
         .sheet(isPresented: $showAddScene) {
             AddSceneSheet(project: project, chapter: chapter, act: act, book: book)
-        }
-        .sheet(item: $sceneForDetails) { scene in
-            sceneDetailsSheetContent(for: scene)
         }
         .sheet(isPresented: $showSearchView) {
             searchSheetContent
@@ -606,6 +618,27 @@ struct SceneListView: View {
             onCompletion: handleImport
         )
     }
+    @ViewBuilder
+    private var sceneDetailsOverlay: some View {
+        if let scene = sceneForDetails {
+            ZStack {
+                Color.black.opacity(0.28)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        sceneForDetails = nil
+                    }
+
+                sceneDetailsSheetContent(for: scene)
+                    .frame(width: 420, height: 520)
+                    .background(Color(.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(color: .black.opacity(0.25), radius: 24, x: 0, y: 12)
+                    .padding()
+            }
+            .transition(.opacity)
+            .zIndex(1000)
+        }
+    }
 
     @ViewBuilder
     private func sceneDetailsSheetContent(for scene: StoryScene) -> some View {
@@ -615,6 +648,8 @@ struct SceneListView: View {
                 filesToExport = [file]
                 saveAsRequested = false
                 showExportMenu = true
+            }, onDismiss: {
+                sceneForDetails = nil
             })
         } else {
             SceneDetailView(scene: scene, project: project, onExport: { textFile in
@@ -622,6 +657,8 @@ struct SceneListView: View {
                 filesToExport = [textFile]
                 saveAsRequested = false
                 showExportMenu = true
+            }, onDismiss: {
+                sceneForDetails = nil
             })
         }
     }
@@ -1301,6 +1338,9 @@ struct SceneListView: View {
             
             // Options menu (only in normal mode)
             if !isEditMode {
+                if let textFile = scene.textFile {
+                    FileSubmissionsButton(file: textFile)
+                }
                 sceneOptionsMenu(for: scene)
             }
         }

@@ -33,9 +33,11 @@ struct SyncDiagnosticsView: View {
     @State private var showLocalResetConfirmation = false
     @State private var showRemoveEnsemblesCloudDataConfirmation = false
     @State private var localResetQueued = false
+    @State private var localRecoveryModeQueued = UserDefaults.standard.bool(forKey: Write_App.localRecoveryModeOnNextLaunchKey)
     @State private var ensemblesCloudDataRemovedThisSession = false
     @State private var lastSafetyBackupName: String?
     @State private var lastRefreshed: Date?
+    @State private var diagnosticsRefreshID = UUID()
 
     var body: some View {
         NavigationStack {
@@ -74,6 +76,7 @@ struct SyncDiagnosticsView: View {
             dataHealthSection
             supportSection
         }
+        .id(diagnosticsRefreshID)
     }
 
     private var syncBackendSection: some View {
@@ -105,7 +108,7 @@ struct SyncDiagnosticsView: View {
             Button(role: .destructive) {
                 showRemoveEnsemblesCloudDataConfirmation = true
             } label: {
-                Label("Remove Ensembles Cloud Data", systemImage: "icloud.slash")
+                Label(Write_App.activeEnsemblesContainer == nil ? "Remove Ensembles Cloud Data (Local Recovery)" : "Remove Ensembles Cloud Data", systemImage: "icloud.slash")
             }
             .disabled(projectCount == 0)
 
@@ -115,8 +118,27 @@ struct SyncDiagnosticsView: View {
                 Label("Reset This Device on Next Launch", systemImage: "arrow.clockwise.icloud")
             }
 
+            Button {
+                localRecoveryModeQueued.toggle()
+                UserDefaults.standard.set(localRecoveryModeQueued, forKey: Write_App.localRecoveryModeOnNextLaunchKey)
+                syncStatusMessage = localRecoveryModeQueued
+                    ? "Local Recovery Mode enabled. Quit and relaunch; sync will not start."
+                    : "Local Recovery Mode disabled for next launch."
+                Write_App.logToFile(localRecoveryModeQueued
+                    ? "🛟 [Ensembles] Local Recovery Mode enabled from diagnostics"
+                    : "🛟 [Ensembles] Local Recovery Mode disabled from diagnostics")
+            } label: {
+                Label(localRecoveryModeQueued ? "Disable Local Recovery Mode" : "Enable Local Recovery Mode", systemImage: "wrench.and.screwdriver")
+            }
+
             if localResetQueued {
                 Text("Local reset queued. Quit and relaunch this Mac app to back up the local store and re-import from sync.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+
+            if localRecoveryModeQueued || Write_App.isLocalRecoveryModeEnabled {
+                Text("Local Recovery Mode opens this Mac's local store without starting Ensembles. Use it only while repairing/restoring local data, then disable it before reseeding sync.")
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
@@ -186,6 +208,15 @@ struct SyncDiagnosticsView: View {
                 }
             }
 
+            if duplicateProjectCount > 0 {
+                Button(role: .destructive) {
+                    cleanupDuplicateProjects()
+                } label: {
+                    Label("Clean Duplicate Projects", systemImage: "rectangle.stack.badge.minus")
+                }
+                .disabled(!isEnsemblesIdle)
+            }
+
             if exactIDDuplicateCount > 0 {
                 Button(role: .destructive) {
                     cleanupExactIDDuplicates()
@@ -204,7 +235,7 @@ struct SyncDiagnosticsView: View {
                 .disabled(!isEnsemblesIdle)
             }
 
-            if !isEnsemblesIdle && (exactIDDuplicateCount > 0 || duplicateTemplateFolderCount > 0) {
+            if !isEnsemblesIdle && (duplicateProjectCount > 0 || exactIDDuplicateCount > 0 || duplicateTemplateFolderCount > 0) {
                 Text("Cleanup is available once Ensembles activity is none.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -262,11 +293,21 @@ struct SyncDiagnosticsView: View {
     }
 
     private func removeCloudDataDialogMessage() -> some View {
-        Text("Use this only on the source device that visibly has the complete project list, after all other devices have been detached or kept offline. This first detaches this device, then removes the shared Ensembles cloud history. Wait a few minutes, then sync this source device first to seed clean cloud data.")
+        if Write_App.activeEnsemblesContainer == nil {
+            Text("Use this only on the source device that visibly has the complete project list, after all other devices are closed or offline. Local Recovery Mode is active, so this will not attach or detach this device; it will make a safety backup, then remove the shared Ensembles cloud history. Wait a few minutes, then disable Local Recovery Mode and launch this source device first to seed clean cloud data.")
+        } else {
+            Text("Use this only on the source device that visibly has the complete project list, after all other devices have been detached or kept offline. This first detaches this device, then removes the shared Ensembles cloud history. Wait a few minutes, then sync this source device first to seed clean cloud data.")
+        }
     }
 
     @MainActor
     private func detachAndQueueLocalReset() async {
+        if projectCount > 0, activeEventStoreObjectChangeCount() == 0 {
+            syncStatusMessage = "Local reset blocked: this device has projects, but the active Ensembles event store has no object changes. Create/verify a cloud seed or restore from backup first."
+            Write_App.logErrorToFile("⚠️ [Ensembles] Local reset blocked because local projects exist but active event store has zero object changes")
+            return
+        }
+
         if let container = Write_App.activeEnsemblesContainer, container.isAttached {
             let activity = String(describing: container.currentActivity)
             guard activity == "none" else {
@@ -292,6 +333,12 @@ struct SyncDiagnosticsView: View {
         UserDefaults.standard.set(true, forKey: Write_App.resetLocalEnsemblesStoreOnNextLaunchKey)
         localResetQueued = true
         syncStatusMessage = "Local reset queued. Quit and relaunch this Mac app."
+    }
+
+    @MainActor
+    private func activeEventStoreObjectChangeCount() -> Int? {
+        guard let container = Write_App.activeEnsemblesContainer else { return nil }
+        return try? container.ensemble.coreDataEnsemble.eventStore.countAllObjectChanges()
     }
 
     @MainActor
@@ -339,6 +386,8 @@ struct SyncDiagnosticsView: View {
                 Write_App.logErrorToFile("❌ [Ensembles] Source detach before cloud data removal failed: \(Write_App.detailedErrorDescription(error))")
                 return
             }
+        } else if Write_App.activeEnsemblesContainer == nil {
+            Write_App.logToFile("🛟 [Ensembles] Removing cloud data from Local Recovery Mode without attach/detach")
         }
 
         syncStatusMessage = "Removing Ensembles cloud data..."
@@ -405,7 +454,7 @@ struct SyncDiagnosticsView: View {
             schemaVersion: .v2
         )
         try await CoreDataEnsemble.removeEnsemble(
-            withIdentifier: "WritingShedProConfiguration",
+            withIdentifier: Write_App.ensembleIdentifier,
             in: cloudFileSystem
         )
     }
@@ -511,14 +560,25 @@ struct SyncDiagnosticsView: View {
         guard let container = Write_App.activeEnsemblesContainer else { return }
         syncStatusMessage = "Syncing..."
         Write_App.logToFile("🔄 [Ensembles] Manual sync started from diagnostics (isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
-        let didSync = await container.sync()
-        if didSync {
-            Write_App.recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: "diagnostics manual sync")
-            syncStatusMessage = "Sync transferred changes at \(Date().formatted(date: .omitted, time: .standard))."
-            Write_App.logToFile("✅ [Ensembles] Manual sync transferred changes from diagnostics (didSync=true, isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
-        } else {
-            syncStatusMessage = "Sync stopped with no changes reported. If this device is stale, copy diagnostics."
-            Write_App.logToFile("⚠️ [Ensembles] Manual sync stopped with no changes from diagnostics (didSync=false, isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+        let storeHasDataBeforeSync = Write_App.recordFirstEnsemblesDataAvailableIfNeeded(modelContainer: modelContext.container, reason: "diagnostics manual sync preflight")
+        do {
+            if storeHasDataBeforeSync {
+                try await container.sync(options: .none)
+            } else {
+                try await container.sync(options: .suppressCloudFileDeposition)
+            }
+
+            if Write_App.recordFirstEnsemblesDataAvailableIfNeeded(modelContainer: modelContext.container, reason: "diagnostics manual sync") {
+                Write_App.recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: "diagnostics manual sync")
+                syncStatusMessage = "Sync transferred changes at \(Date().formatted(date: .omitted, time: .standard))."
+                Write_App.logToFile("✅ [Ensembles] Manual sync completed from diagnostics (hadLocalData=\(storeHasDataBeforeSync), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+            } else {
+                syncStatusMessage = "Sync transferred cloud files, but no local projects were observed yet. Relaunch or copy diagnostics."
+                Write_App.logToFile("⚠️ [Ensembles] Manual sync completed but local store is still empty (hadLocalData=\(storeHasDataBeforeSync), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+            }
+        } catch {
+            syncStatusMessage = "Sync failed. Copy diagnostics."
+            Write_App.logErrorToFile("❌ [Ensembles] Manual sync failed from diagnostics: \(Write_App.detailedErrorDescription(error))")
         }
         refreshCounts()
     }
@@ -547,6 +607,22 @@ struct SyncDiagnosticsView: View {
         detachedSceneCount = countDetachedScenes(in: freshContext)
         tombstoneCount = DeduplicationService.tombstoneCount
         lastRefreshed = Date()
+        diagnosticsRefreshID = UUID()
+    }
+
+    @MainActor
+    private func cleanupDuplicateProjects() {
+        let freshContext = ModelContext(modelContext.container)
+        let result = DeduplicationService.deduplicateProjects(context: freshContext)
+        if result.duplicatesRemoved > 0 {
+            syncStatusMessage = "Removed \(result.duplicatesRemoved) duplicate project\(result.duplicatesRemoved == 1 ? "" : "s"): \(result.projectsAffected.joined(separator: ", "))."
+            NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
+        } else if let error = result.errors.first {
+            syncStatusMessage = error
+        } else {
+            syncStatusMessage = "No duplicate project clones found."
+        }
+        refreshCounts()
     }
 
     @MainActor

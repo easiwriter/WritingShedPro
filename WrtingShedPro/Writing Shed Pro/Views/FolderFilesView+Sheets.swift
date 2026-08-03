@@ -26,7 +26,7 @@ extension FolderFilesView {
     
     @ViewBuilder
     var searchSheet: some View {
-        MultiFileSearchView(folder: folder, files: sortedFiles)
+        MultiFileSearchView(folder: folder, files: deferredSortedFiles ?? sortedFiles)
     }
     
     @ViewBuilder
@@ -56,7 +56,7 @@ extension FolderFilesView {
             NavigationStack {
                 RenameFileModal(
                     file: file,
-                    filesInFolder: sortedFiles,
+                    filesInFolder: deferredSortedFiles ?? sortedFiles,
                     onRename: { newName in
                         renameFile(newName: newName)
                     }

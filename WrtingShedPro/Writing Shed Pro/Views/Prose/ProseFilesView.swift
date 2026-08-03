@@ -273,7 +273,7 @@ struct ProseFilesView: View {
     private var fileList: some View {
         List(selection: $selectedFileIDs) {
             ForEach(sortedFiles) { file in
-                Group {
+                HStack {
                     if isEditMode {
                         FileRowView(file: file)
                     } else {
@@ -282,6 +282,8 @@ struct ProseFilesView: View {
                         } label: {
                             FileRowView(file: file)
                         }
+
+                        FileSubmissionsButton(file: file)
                     }
                 }
                 // Enable drag-to-reorder without edit mode

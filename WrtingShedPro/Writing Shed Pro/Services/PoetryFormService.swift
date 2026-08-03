@@ -37,9 +37,11 @@ final class PoetryFormService {
     
     /// Configure the service with a model context for database access
     /// Call this after ModelContainer is ready
-    func configureWithContext(_ context: ModelContext) {
+    func configureWithContext(_ context: ModelContext, runMigrations: Bool = true) {
         self.modelContext = context
         clearCache()
+
+        guard runMigrations else { return }
         
         // Ensure migration has run
         PoetryFormMigrationService.migrateIfNeeded(modelContext: context)

@@ -29,20 +29,33 @@ final class PoetryCollection {
     // Relationships
     var project: Project?
     
-    @Relationship(deleteRule: .nullify, inverse: \TextFileCollectionLink.poetryCollection)
+    @Relationship(deleteRule: .nullify)
     var textFileLinks: [TextFileCollectionLink]? = []
     
     /// Text files in this collection (derived from join table)
     var textFiles: [TextFile]? {
-        get { textFileLinks?.compactMap(\.textFile) }
+        get {
+            guard let context = modelContext else {
+                return textFileLinks?.compactMap(\.textFile)
+            }
+
+            let links = ((try? context.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? [])
+                .filter { $0.resolvedPoetryCollectionID == id }
+            let linkedFiles = links.compactMap(\.textFile)
+
+            let missingFileIDs = Set(links.compactMap(\.resolvedTextFileID)).subtracting(linkedFiles.map(\.id))
+            guard !missingFileIDs.isEmpty else { return linkedFiles }
+
+            let allFiles = (try? context.fetch(FetchDescriptor<TextFile>())) ?? []
+            return linkedFiles + allFiles.filter { missingFileIDs.contains($0.id) }
+        }
         set {
-            for link in textFileLinks ?? [] { modelContext?.delete(link) }
-            textFileLinks = []
+            guard let context = modelContext else { return }
+            let links = (try? context.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
+            for link in links where link.resolvedPoetryCollectionID == id { context.delete(link) }
             for file in newValue ?? [] {
-                let link = TextFileCollectionLink(textFile: file, poetryCollection: self)
-                modelContext?.insert(link)
-                if textFileLinks == nil { textFileLinks = [] }
-                textFileLinks?.append(link)
+                let link = TextFileCollectionLink(textFileID: file.id, poetryCollectionID: id)
+                context.insert(link)
             }
         }
     }

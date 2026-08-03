@@ -35,14 +35,30 @@ final class TextFileSectionLink {
 @Model
 final class TextFileCollectionLink {
     var id: UUID = UUID()
+    var textFileID: UUID?
+    var poetryCollectionID: UUID?
     var textFile: TextFile?
     var poetryCollection: PoetryCollection?
     var userOrder: Int?
 
     init(textFile: TextFile? = nil, poetryCollection: PoetryCollection? = nil, userOrder: Int? = nil) {
-        self.textFile = textFile
-        self.poetryCollection = poetryCollection
+        self.textFileID = textFile?.id
+        self.poetryCollectionID = poetryCollection?.id
         self.userOrder = userOrder
+    }
+
+    init(textFileID: UUID?, poetryCollectionID: UUID?, userOrder: Int? = nil) {
+        self.textFileID = textFileID
+        self.poetryCollectionID = poetryCollectionID
+        self.userOrder = userOrder
+    }
+
+    var resolvedTextFileID: UUID? {
+        textFileID ?? textFile?.id
+    }
+
+    var resolvedPoetryCollectionID: UUID? {
+        poetryCollectionID ?? poetryCollection?.id
     }
 }
 

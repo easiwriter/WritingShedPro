@@ -9,7 +9,7 @@
       }
     ]
   },
-  "identifier" : "F63D4764",
+  "identifier" : "70BE001A",
   "nonRenewingSubscriptions" : [
 
   ],
@@ -60,7 +60,7 @@
       "type" : "NonConsumable"
     },
     {
-      "displayPrice" : "9.99",
+      "displayPrice" : "19.99",
       "familyShareable" : false,
       "internalID" : "6758569451",
       "localizations" : [
@@ -98,7 +98,7 @@
     "_developerTeamID" : "SK6C3MP32D",
     "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 803803804.41566098,
+    "_lastSynchronizedDate" : 806053495.00160396,
     "_locale" : "en_US",
     "_renewalBillingIssuesEnabled" : false,
     "_storefront" : "USA",
@@ -126,8 +126,8 @@
           "billingPlans" : [
             {
               "billingPlanType" : "BILLED_UPFRONT",
-              "commitmentDisplayPrice" : "5.99",
-              "displayPrice" : "5.99",
+              "commitmentDisplayPrice" : "2.99",
+              "displayPrice" : "2.99",
               "internalID" : "6771675601_BILLED_UPFRONT",
               "isEnabled" : true
             }
@@ -135,13 +135,13 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "5.99",
+          "displayPrice" : "2.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6771675601",
           "introductoryOffer" : {
             "billingPlanType" : "BILLED_UPFRONT",
-            "internalID" : "A4D6BF76",
+            "internalID" : "EEBAAA08",
             "numberOfPeriods" : 1,
             "paymentMode" : "free",
             "subscriptionPeriod" : "P1M"
@@ -149,7 +149,7 @@
           "introductoryOffers" : [
             {
               "billingPlanType" : "BILLED_UPFRONT",
-              "internalID" : "A4D6BF76",
+              "internalID" : "EEBAAA08",
               "numberOfPeriods" : 1,
               "paymentMode" : "free",
               "subscriptionPeriod" : "P1M"

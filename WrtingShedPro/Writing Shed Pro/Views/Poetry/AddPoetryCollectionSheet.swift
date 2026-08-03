@@ -115,6 +115,12 @@ struct AddPoetryCollectionSheet: View {
             userOrder: nextOrderIndex
         )
         collection.project = project
+        if project.poetryCollections == nil {
+            project.poetryCollections = []
+        }
+        if project.poetryCollections?.contains(where: { $0.id == collection.id }) != true {
+            project.poetryCollections?.append(collection)
+        }
         
         // Auto-add to Body Matter so it appears in manuscript assembly
         collection.isInBodyMatter = true

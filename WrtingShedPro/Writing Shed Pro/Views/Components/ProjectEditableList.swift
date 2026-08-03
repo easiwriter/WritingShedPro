@@ -347,6 +347,7 @@ struct ProjectEditableList: View {
     
     private func moveProjectsToTrash() {
         guard let offsets = projectsToDelete else { return }
+        guard canPerformProjectDeletion(reason: "project-list-trash") else { return }
         let deletedAt = Date()
         let projects = offsets.compactMap { index in
             index < sortedProjects.count ? sortedProjects[index] : nil
@@ -379,6 +380,7 @@ struct ProjectEditableList: View {
     
     private func deleteProjectsPermanently() {
         guard let offsets = projectsToDelete else { return }
+        guard canPerformProjectDeletion(reason: "project-editable-list-permanent-delete") else { return }
         for index in offsets {
             guard index < sortedProjects.count else { continue }
             let project = sortedProjects[index]
@@ -397,6 +399,25 @@ struct ProjectEditableList: View {
         projectsToDelete = nil
         deleteInfo = nil
         showDeleteConfirmation = false
+    }
+
+    private func canPerformProjectDeletion(reason: String) -> Bool {
+        guard let ensemblesContainer = Write_App.activeEnsemblesContainer,
+              !EnsemblesSaveGate.canSaveNow(reason: reason) else {
+            return true
+        }
+
+        let error = EnsemblesSaveGateError.syncBusy(
+            reason: reason,
+            attached: ensemblesContainer.isAttached,
+            activity: String(describing: ensemblesContainer.currentActivity)
+        )
+        deleteErrorMessage = String(
+            format: NSLocalizedString("project.deleteForever.saveFailed.message", comment: "Delete failed message"),
+            error.localizedDescription
+        )
+        showDeleteError = true
+        return false
     }
     
     private func moveProjects(from source: IndexSet, to destination: Int) {

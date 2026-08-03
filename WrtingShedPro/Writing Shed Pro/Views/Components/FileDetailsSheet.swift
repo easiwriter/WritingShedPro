@@ -12,6 +12,7 @@ struct FileDetailsSheet: View {
     @Bindable var file: TextFile
     var onExport: ((TextFile) -> Void)? = nil
     var onSaveAs: ((TextFile) -> Void)? = nil
+    var onDismiss: (() -> Void)? = nil
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -50,32 +51,7 @@ struct FileDetailsSheet: View {
     // MARK: - Body
     
     var body: some View {
-        NavigationStack {
-            Form {
-                nameSection
-                datesSection
-                statisticsSection
-                workflowSection
-                containerInfoSection
-                exportSection
-            }
-            .navigationTitle(NSLocalizedString("fileDetail.title", comment: "File details title"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
-                    }
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(NSLocalizedString("button.done", comment: "Done")) {
-                        saveChanges()
-                    }
-                    .disabled(editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-        }
+        navigationContainer
         .presentationDetents([.medium, .large])
         .alert(NSLocalizedString("fileDetail.error", comment: "Error alert title"), isPresented: $showErrorAlert) {
             Button(NSLocalizedString("fileDetail.ok", comment: "OK button"), role: .cancel) { }
@@ -87,6 +63,47 @@ struct FileDetailsSheet: View {
         }
         .task {
             await computeStats()
+        }
+    }
+
+    @ViewBuilder
+    private var navigationContainer: some View {
+        #if targetEnvironment(macCatalyst)
+        NavigationView {
+            detailsForm
+        }
+        .navigationViewStyle(.stack)
+        #else
+        NavigationStack {
+            detailsForm
+        }
+        #endif
+    }
+
+    private var detailsForm: some View {
+        Form {
+            nameSection
+            datesSection
+            statisticsSection
+            workflowSection
+            containerInfoSection
+            exportSection
+        }
+        .navigationTitle(NSLocalizedString("fileDetail.title", comment: "File details title"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                    closeSheet()
+                }
+            }
+
+            ToolbarItem(placement: .confirmationAction) {
+                Button(NSLocalizedString("button.done", comment: "Done")) {
+                    saveChanges()
+                }
+                .disabled(editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
         }
     }
 
@@ -213,7 +230,7 @@ struct FileDetailsSheet: View {
             Section {
                 if let onExport = onExport {
                     Button {
-                        dismiss()
+                        closeSheet()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                             onExport(file)
                         }
@@ -225,7 +242,7 @@ struct FileDetailsSheet: View {
                 #if os(macOS) || targetEnvironment(macCatalyst)
                 if let onSaveAs = onSaveAs {
                     Button {
-                        dismiss()
+                        closeSheet()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                             onSaveAs(file)
                         }
@@ -239,12 +256,20 @@ struct FileDetailsSheet: View {
     }
     
     // MARK: - Actions
+
+    private func closeSheet() {
+        if let onDismiss = onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
+        }
+    }
     
     private func saveChanges() {
         let trimmed = editName.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard trimmed != file.name else {
-            dismiss()
+            closeSheet()
             return
         }
 
@@ -271,6 +296,6 @@ struct FileDetailsSheet: View {
         file.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "file-details-save")
         WriteCoalescer.shared?.flush()
-        dismiss()
+        closeSheet()
     }
 }

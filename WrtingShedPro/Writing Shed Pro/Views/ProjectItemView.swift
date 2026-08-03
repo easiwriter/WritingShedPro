@@ -93,7 +93,7 @@ struct ProjectItemView: View {
             projectOptionsMenu
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Project: \(project.name ?? NSLocalizedString("projectItem.untitledProject", comment: "Untitled project"))")
         .accessibilityValue(projectTypeDisplayName)

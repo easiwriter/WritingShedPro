@@ -827,15 +827,29 @@ final class TextFile {
     
     /// Poetry collections this file belongs to (derived from join table)
     var poetryCollections: [PoetryCollection]? {
-        get { poetryCollectionLinks?.compactMap(\.poetryCollection) }
+        get {
+            guard let context = modelContext else {
+                return poetryCollectionLinks?.compactMap(\.poetryCollection)
+            }
+
+            let links = ((try? context.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? [])
+                .filter { $0.resolvedTextFileID == id }
+            let linkedCollections = links.compactMap(\.poetryCollection)
+
+            let missingCollectionIDs = Set(links.compactMap(\.resolvedPoetryCollectionID)).subtracting(linkedCollections.map(\.id))
+            guard !missingCollectionIDs.isEmpty else { return linkedCollections }
+
+            let allCollections = (try? context.fetch(FetchDescriptor<PoetryCollection>())) ?? []
+            return linkedCollections + allCollections.filter { missingCollectionIDs.contains($0.id) }
+        }
         set {
-            for link in poetryCollectionLinks ?? [] { modelContext?.delete(link) }
+            guard let context = modelContext else { return }
+            let links = (try? context.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
+            for link in links where link.resolvedTextFileID == id { context.delete(link) }
             poetryCollectionLinks = []
             for collection in newValue ?? [] {
-                let link = TextFileCollectionLink(textFile: self, poetryCollection: collection)
-                modelContext?.insert(link)
-                if poetryCollectionLinks == nil { poetryCollectionLinks = [] }
-                poetryCollectionLinks?.append(link)
+                let link = TextFileCollectionLink(textFileID: id, poetryCollectionID: collection.id)
+                context.insert(link)
             }
         }
     }

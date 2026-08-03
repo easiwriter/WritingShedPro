@@ -512,7 +512,7 @@ struct FileListView: View {
             
             // Submissions button and ellipsis menu (only in normal mode) - separate tap targets
             if !isEditMode {
-                SubmissionsButton(file: file)
+                FileSubmissionsButton(file: file)
                 
                 // Ellipsis menu button (hidden for back matter files)
                 let isBackMatterFile = ["Endnotes", "Glossary", "References", "Index", "Contributors"].contains(file.name)
@@ -970,7 +970,7 @@ struct FileListView: View {
 
 /// Button that shows submission icon and opens submission history for a file
 /// Only displayed if the file has at least one submission
-private struct SubmissionsButton: View {
+struct FileSubmissionsButton: View {
     @State private var showSubmissions = false
     
     let file: TextFile

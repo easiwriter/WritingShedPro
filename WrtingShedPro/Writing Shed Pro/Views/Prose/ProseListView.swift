@@ -954,6 +954,7 @@ struct ProseListView: View {
             
             // Ellipsis menu (only in normal mode)
             if !isEditMode {
+                FileSubmissionsButton(file: file)
                 fileOptionsMenu(for: file)
             }
         }

@@ -132,6 +132,14 @@ final class SyncHealthMonitor {
 
         if Write_App.activeEnsemblesContainer != nil,
            !Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch {
+            if let modelContainer,
+               Write_App.canProceedWithStartupMaintenanceAfterIdle(
+                   modelContainer: modelContainer,
+                   reason: "sync health idle store check"
+               ) {
+                transition(to: .healthy)
+                return
+            }
             transition(to: .degraded)
             return
         }

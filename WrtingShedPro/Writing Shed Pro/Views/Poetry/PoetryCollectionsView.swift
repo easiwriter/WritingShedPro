@@ -287,38 +287,58 @@ struct PoetryCollectionsView: View {
     private func refreshLiveFileCounts() {
         let freshContext = ModelContext(modelContext.container)
         var counts: [UUID: Int] = [:]
+        let collectionIDs = Set(sortedCollections.map(\.id))
+        let links = (try? freshContext.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
+        let fileByID = Dictionary(
+            uniqueKeysWithValues: ((try? freshContext.fetch(FetchDescriptor<TextFile>())) ?? []).map { ($0.id, $0) }
+        )
 
-        for collection in sortedCollections {
-            let collectionID = collection.id
-            let descriptor = FetchDescriptor<TextFileCollectionLink>(
-                predicate: #Predicate { link in
-                    link.poetryCollection?.id == collectionID
-                }
-            )
+        for link in links {
+            guard let collectionID = link.resolvedPoetryCollectionID, collectionIDs.contains(collectionID) else { continue }
+            let file = link.textFile ?? link.resolvedTextFileID.flatMap { fileByID[$0] }
+            guard file?.trashItem == nil else { continue }
+            counts[collectionID, default: 0] += 1
+        }
 
-            if let links = try? freshContext.fetch(descriptor) {
-                let liveCount = links.reduce(into: 0) { total, link in
-                    guard link.textFile?.trashItem == nil else { return }
-                    total += 1
-                }
-                counts[collectionID] = liveCount
-            } else {
-                // Fallback keeps UI usable even if the fetch fails transiently.
-                let fallback = (collection.textFiles ?? []).filter { $0.trashItem == nil }.count
-                counts[collectionID] = fallback
-            }
+        for collectionID in collectionIDs where counts[collectionID] == nil {
+            counts[collectionID] = 0
         }
 
         fileCountByCollectionID = counts
     }
+
+    private func collectionFilesByID(for collectionIDs: Set<UUID>) -> [UUID: [TextFile]] {
+        guard !collectionIDs.isEmpty else { return [:] }
+
+        let links = (try? modelContext.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
+        let fileByID = Dictionary(
+            uniqueKeysWithValues: ((try? modelContext.fetch(FetchDescriptor<TextFile>())) ?? []).map { ($0.id, $0) }
+        )
+        var filesByCollectionID: [UUID: [TextFile]] = [:]
+        var seenFileIDsByCollectionID: [UUID: Set<UUID>] = [:]
+
+        for link in links {
+            guard let collectionID = link.resolvedPoetryCollectionID, collectionIDs.contains(collectionID) else { continue }
+            guard let file = link.textFile ?? link.resolvedTextFileID.flatMap({ fileByID[$0] }) else { continue }
+            guard file.trashItem == nil else { continue }
+            guard seenFileIDsByCollectionID[collectionID, default: []].insert(file.id).inserted else { continue }
+            filesByCollectionID[collectionID, default: []].append(file)
+        }
+
+        return filesByCollectionID
+    }
     
     private func deleteSelectedCollections() {
         let deletedIDs = Set(selectedCollections.map { $0.id })
+        let links = (try? modelContext.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
 
         for collection in selectedCollections {
             // Remove only this collection link from poems; do not touch folders/files.
-            for file in collection.textFiles ?? [] {
-                file.removeFromPoetryCollection(collection)
+            for link in links where link.resolvedPoetryCollectionID == collection.id {
+                if let file = link.textFile {
+                    file.modifiedDate = Date()
+                }
+                modelContext.delete(link)
             }
             // Remove from Body Matter if included
             collection.isInBodyMatter = false
@@ -383,8 +403,9 @@ struct PoetryCollectionsView: View {
         modelContext.insert(submission)
         
         // Link files from all selected poetry collections
+        let filesByCollectionID = collectionFilesByID(for: Set(selectedCollections.map(\.id)))
         for collection in selectedCollections {
-            let files = (collection.textFiles ?? []).filter { $0.trashItem == nil }
+            let files = filesByCollectionID[collection.id] ?? []
             for file in files {
                 let submittedFile = SubmittedFile(
                     submission: submission,

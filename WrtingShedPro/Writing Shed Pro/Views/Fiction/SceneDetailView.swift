@@ -21,6 +21,7 @@ struct SceneDetailView: View {
     @Bindable var scene: StoryScene
     let project: Project
     var onExport: ((TextFile) -> Void)? = nil
+    var onDismiss: (() -> Void)? = nil
     
     // MARK: - State
     
@@ -107,7 +108,7 @@ struct SceneDetailView: View {
                         }
                     } else {
                         Button(NSLocalizedString("button.done", comment: "Done")) {
-                            dismiss()
+                            closeView()
                         }
                     }
                 }
@@ -569,6 +570,15 @@ struct SceneDetailView: View {
     
     // MARK: - Actions
     
+
+    private func closeView() {
+        if let onDismiss = onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
+        }
+    }
+
     private func startEditing() {
         editTitle = scene.name ?? ""
         editSummary = scene.synopsis ?? ""

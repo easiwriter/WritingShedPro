@@ -9,6 +9,7 @@
 //
 
 import Foundation
+import SwiftData
 
 // MARK: - TextFile Container Helpers
 
@@ -18,53 +19,80 @@ extension TextFile {
     
     /// Whether this file belongs to the given poetry collection
     func isInPoetryCollection(_ collection: PoetryCollection) -> Bool {
-        poetryCollectionLinks?.contains(where: { $0.poetryCollection?.id == collection.id }) ?? false
+        if poetryCollectionLinks?.contains(where: { $0.poetryCollectionID == collection.id || $0.poetryCollection?.id == collection.id }) == true {
+            return true
+        }
+
+        guard let context = modelContext else { return false }
+        let descriptor = FetchDescriptor<TextFileCollectionLink>()
+        let links = (try? context.fetch(descriptor)) ?? []
+        return links.contains { link in
+            (link.textFileID == id || link.textFile?.id == id) &&
+            (link.poetryCollectionID == collection.id || link.poetryCollection?.id == collection.id)
+        }
     }
     
     /// Add this file to a poetry collection (no-op if already a member)
     func addToPoetryCollection(_ collection: PoetryCollection) {
         guard !isInPoetryCollection(collection) else { return }
-        let link = TextFileCollectionLink(textFile: self, poetryCollection: collection)
+        let link = TextFileCollectionLink(textFileID: id, poetryCollectionID: collection.id)
         modelContext?.insert(link)
-        if poetryCollectionLinks == nil { poetryCollectionLinks = [] }
-        poetryCollectionLinks?.append(link)
-
-        // Keep collection-side relationship current so list counts refresh immediately.
-        if collection.textFileLinks == nil { collection.textFileLinks = [] }
-        collection.textFileLinks?.append(link)
+        modifiedDate = Date()
         collection.modifiedDate = Date()
     }
     
     /// Remove this file from a specific poetry collection
     func removeFromPoetryCollection(_ collection: PoetryCollection) {
-        guard let links = poetryCollectionLinks else { return }
+        let links = poetryCollectionLinks ?? []
         let removedLinkIDs = Set(
             links
-                .filter { $0.poetryCollection?.id == collection.id }
+                .filter { $0.poetryCollectionID == collection.id || $0.poetryCollection?.id == collection.id }
+                .map { $0.id }
+        )
+        let contextLinks: [TextFileCollectionLink]
+        if let context = modelContext {
+            contextLinks = (try? context.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
+        } else {
+            contextLinks = []
+        }
+        let collectionSideRemovedLinkIDs = Set(
+            contextLinks
+                .filter { ($0.textFileID == id || $0.textFile?.id == id) && ($0.poetryCollectionID == collection.id || $0.poetryCollection?.id == collection.id) }
                 .map { $0.id }
         )
 
-        for link in links where link.poetryCollection?.id == collection.id {
+        for link in links where link.poetryCollectionID == collection.id || link.poetryCollection?.id == collection.id {
+            modelContext?.delete(link)
+        }
+        for link in contextLinks where (link.textFileID == id || link.textFile?.id == id) && (link.poetryCollectionID == collection.id || link.poetryCollection?.id == collection.id) && !removedLinkIDs.contains(link.id) {
             modelContext?.delete(link)
         }
 
-        if !removedLinkIDs.isEmpty {
-            collection.textFileLinks?.removeAll { removedLinkIDs.contains($0.id) }
+        if !removedLinkIDs.isEmpty || !collectionSideRemovedLinkIDs.isEmpty {
+            modifiedDate = Date()
+            collection.modifiedDate = Date()
         }
-        poetryCollectionLinks?.removeAll(where: { $0.poetryCollection?.id == collection.id })
-        collection.modifiedDate = Date()
     }
     
     /// Remove this file from all poetry collections
     func removeFromAllPoetryCollections() {
-        for link in poetryCollectionLinks ?? [] {
-            modelContext?.delete(link)
+        guard let context = modelContext else {
+            poetryCollectionLinks = []
+            modifiedDate = Date()
+            return
+        }
+
+        let contextLinks = (try? context.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
+        let matchingLinks = contextLinks.filter { $0.resolvedTextFileID == id }
+
+        for link in matchingLinks {
             if let collection = link.poetryCollection {
-                collection.textFileLinks?.removeAll { $0.id == link.id }
                 collection.modifiedDate = Date()
             }
+            context.delete(link)
         }
         poetryCollectionLinks = []
+        modifiedDate = Date()
     }
     
     /// The first (or only) poetry collection — backwards-compat convenience

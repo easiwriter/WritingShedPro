@@ -43,6 +43,19 @@ final class ContainerRelationshipTests: XCTestCase {
         modelContext = nil
         super.tearDown()
     }
+
+    private func poetryCollectionLinks(for file: TextFile) throws -> [TextFileCollectionLink] {
+        let links = try modelContext.fetch(FetchDescriptor<TextFileCollectionLink>())
+        return links.filter { $0.textFileID == file.id || $0.textFile?.id == file.id }
+    }
+
+    private func poetryCollectionIDs(for file: TextFile) throws -> Set<UUID> {
+        Set(try poetryCollectionLinks(for: file).compactMap { $0.poetryCollectionID ?? $0.poetryCollection?.id })
+    }
+
+    private func poetryCollectionLinkCount(for file: TextFile) throws -> Int {
+        try poetryCollectionLinks(for: file).count
+    }
     
     // MARK: - TextFile ↔ PoetryCollection
     
@@ -57,7 +70,25 @@ final class ContainerRelationshipTests: XCTestCase {
         try modelContext.save()
         
         XCTAssertTrue(file.isInPoetryCollection(collection))
-        XCTAssertEqual(file.poetryCollections?.count, 1)
+        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 1)
+        XCTAssertEqual(try poetryCollectionIDs(for: file), [collection.id])
+    }
+
+    func testAddToPoetryCollectionCreatesScalarLinkWithoutRelationships() throws {
+        let collection = PoetryCollection(name: "Sonnets")
+        modelContext.insert(collection)
+
+        let file = TextFile(name: "Poem 1", initialContent: "")
+        modelContext.insert(file)
+
+        file.addToPoetryCollection(collection)
+        try modelContext.save()
+
+        let link = try XCTUnwrap(poetryCollectionLinks(for: file).first)
+        XCTAssertEqual(link.textFileID, file.id)
+        XCTAssertEqual(link.poetryCollectionID, collection.id)
+        XCTAssertNil(link.textFile)
+        XCTAssertNil(link.poetryCollection)
     }
     
     func testAddToPoetryCollection_NoDuplicate() throws {
@@ -71,7 +102,7 @@ final class ContainerRelationshipTests: XCTestCase {
         file.addToPoetryCollection(collection) // duplicate
         try modelContext.save()
         
-        XCTAssertEqual(file.poetryCollections?.count, 1)
+        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 1)
     }
     
     func testMultiplePoetryCollections() throws {
@@ -87,7 +118,7 @@ final class ContainerRelationshipTests: XCTestCase {
         file.addToPoetryCollection(col2)
         try modelContext.save()
         
-        XCTAssertEqual(file.poetryCollections?.count, 2)
+        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 2)
         XCTAssertTrue(file.isInPoetryCollection(col1))
         XCTAssertTrue(file.isInPoetryCollection(col2))
     }
@@ -106,7 +137,7 @@ final class ContainerRelationshipTests: XCTestCase {
         file.removeFromPoetryCollection(col1)
         try modelContext.save()
         
-        XCTAssertEqual(file.poetryCollections?.count, 1)
+        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 1)
         XCTAssertFalse(file.isInPoetryCollection(col1))
         XCTAssertTrue(file.isInPoetryCollection(col2))
     }
@@ -145,7 +176,7 @@ final class ContainerRelationshipTests: XCTestCase {
         file.removeFromAllPoetryCollections()
         try modelContext.save()
         
-        XCTAssertEqual(file.poetryCollections?.count ?? 0, 0)
+        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 0)
         XCTAssertFalse(file.isInPoetryCollection(col1))
         XCTAssertFalse(file.isInPoetryCollection(col2))
     }
@@ -161,12 +192,12 @@ final class ContainerRelationshipTests: XCTestCase {
         file.poetryCollection = collection
         try modelContext.save()
         
-        XCTAssertEqual(file.poetryCollection?.id, collection.id)
-        XCTAssertEqual(file.poetryCollections?.count, 1)
+        XCTAssertEqual(try poetryCollectionIDs(for: file), [collection.id])
+        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 1)
         
         // Clear via backwards-compat property
         file.poetryCollection = nil
-        XCTAssertEqual(file.poetryCollections?.count ?? 0, 0)
+        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 0)
     }
 
     func testDeleteFilesPermanentlyPersistsWithoutWriteCoalescer() throws {
@@ -725,13 +756,13 @@ final class ContainerRelationshipTests: XCTestCase {
         file.addToPoetryCollection(col3)
         try modelContext.save()
         
-        XCTAssertEqual(file.poetryCollections?.count, 3)
+        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 3)
         
         // Remove from one — others should remain
         file.removeFromPoetryCollection(col2)
         try modelContext.save()
         
-        XCTAssertEqual(file.poetryCollections?.count, 2)
+        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 2)
         XCTAssertTrue(file.isInPoetryCollection(col1))
         XCTAssertFalse(file.isInPoetryCollection(col2))
         XCTAssertTrue(file.isInPoetryCollection(col3))
@@ -779,12 +810,12 @@ final class ContainerRelationshipTests: XCTestCase {
         
         file.addToPoetryCollection(col1)
         file.addToPoetryCollection(col2)
-        XCTAssertEqual(file.poetryCollections?.count, 2)
+        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 2)
         
         // Setting via backwards-compat property should replace with single
         file.poetryCollection = col3
-        XCTAssertEqual(file.poetryCollections?.count, 1)
-        XCTAssertEqual(file.poetryCollection?.id, col3.id)
+        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 1)
+        XCTAssertEqual(try poetryCollectionIDs(for: file), [col3.id])
     }
     
     func testBackwardsCompatSetterReplacesMultiple_Chapter() throws {
