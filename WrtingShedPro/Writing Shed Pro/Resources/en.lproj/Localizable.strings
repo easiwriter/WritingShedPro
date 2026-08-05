@@ -57,6 +57,9 @@
 "manuscript.body.emptyDescription" = "Add content to your source folder to see it assembled here.";
 "manuscript.body.sourceFolder" = "Source: %@";
 "manuscript.body.fileCount" = "%d files";
+"manuscript.warning.missingHeadings.title" = "Missing manuscript headings";
+"manuscript.warning.missingSectionHeadings" = "Section headings are enabled, but these sections are not present as styled heading paragraphs: %@.";
+"manuscript.warning.missingFileTitles" = "File titles are enabled, but these files are not present as styled heading paragraphs: %@.";
 "manuscript.error.assemblyFailed" = "Assembly Failed";
 "manuscript.section.frontMatter" = "Front Matter";
 "manuscript.section.body" = "Body";
@@ -2926,7 +2929,7 @@
 "support.section.subject" = "Subject";
 "support.subject.placeholder" = "Brief summary";
 "support.details.bugHeader" = "Describe the problem";
-"support.details.suggestionHeader" = "Your suggestion";
+"support.details.suggestionHeader" = "Your feedback";
 "support.details.questionHeader" = "Your question";
 "support.steps.header" = "Steps to reproduce (optional)";
 "support.section.systemInfo" = "System Information";
@@ -2954,7 +2957,7 @@
 "support.response.thisHelped" = "This Helped";
 "support.response.askDeveloper" = "Ask Developer";
 "support.section.syncDiagnostics" = "Sync Diagnostics";
-"support.syncDiagnostics.include" = "Include sync diagnostics in email";
+"support.syncDiagnostics.include" = "Include sync diagnostics in report";
 "support.syncDiagnostics.footer" = "Adds CloudKit sync state and inventory summary to help diagnose sync issues.";
 "support.syncDiagnostics.header" = "Sync Diagnostics Snapshot";
 

@@ -7783,21 +7783,32 @@ struct FileEditView: View {
 
     /// Apply a paragraph style to the current selection
     private func applyParagraphStyle(_ style: UIFont.TextStyle) {
+        let activeRange: NSRange
+        let sourceContent: NSAttributedString
+        if let textView = textViewCoordinator.textView {
+            activeRange = textView.selectedRange
+            sourceContent = NSAttributedString(attributedString: textView.attributedText)
+            selectedRange = activeRange
+        } else {
+            activeRange = selectedRange
+            sourceContent = attributedContent
+        }
+
         #if DEBUG
         print("📝 ========== APPLY PARAGRAPH STYLE START ==========")
         #if DEBUG
         print("📝 Style: \(style.rawValue)")
         #endif
         #if DEBUG
-        print("📝 selectedRange: {\(selectedRange.location), \(selectedRange.length)}")
+        print("📝 selectedRange: {\(activeRange.location), \(activeRange.length)}")
         #endif
         #if DEBUG
-        print("📝 Document length: \(attributedContent.length)")
+        print("📝 Document length: \(sourceContent.length)")
         #endif
         
         // Log current attributes at selection
-        if attributedContent.length > 0 && selectedRange.location < attributedContent.length {
-            let attrs = attributedContent.attributes(at: selectedRange.location, effectiveRange: nil)
+        if sourceContent.length > 0 && activeRange.location < sourceContent.length {
+            let attrs = sourceContent.attributes(at: activeRange.location, effectiveRange: nil)
             #if DEBUG
             print("📝 Current attributes at selection:")
             #endif
@@ -7820,9 +7831,10 @@ struct FileEditView: View {
         #endif
         
         // Ensure we have a valid location
-        guard selectedRange.location != NSNotFound else {
+        guard activeRange.location != NSNotFound,
+              activeRange.location <= sourceContent.length else {
             #if DEBUG
-            print("⚠️ selectedRange.location is NSNotFound")
+            print("⚠️ selectedRange.location is invalid")
             #endif
             #if DEBUG
             print("📝 ========== END ==========")
@@ -7834,7 +7846,7 @@ struct FileEditView: View {
         let newAttributedContent: NSAttributedString
         if let project = file.project {
             // Special handling for empty text (model-based)
-            if attributedContent.length == 0 {
+            if sourceContent.length == 0 {
                 #if DEBUG
                 print("📝 Text is empty - creating attributed string with style: \(style)")
                 #endif
@@ -7864,13 +7876,13 @@ struct FileEditView: View {
             }
             
             // Store before state for undo
-            let beforeContent = attributedContent
+            let beforeContent = sourceContent
             
             // Apply the style using model-based TextFormatter
             newAttributedContent = TextFormatter.applyStyle(
                 named: style.rawValue,
-                to: attributedContent,
-                range: selectedRange,
+                to: sourceContent,
+                range: activeRange,
                 project: project,
                 context: modelContext
             )
@@ -7881,8 +7893,8 @@ struct FileEditView: View {
             
             // Log what we got back
             #if DEBUG
-            if newAttributedContent.length > 0 && selectedRange.location < newAttributedContent.length {
-                let attrs = newAttributedContent.attributes(at: selectedRange.location, effectiveRange: nil)
+            if newAttributedContent.length > 0 && activeRange.location < newAttributedContent.length {
+                let attrs = newAttributedContent.attributes(at: activeRange.location, effectiveRange: nil)
                 #if DEBUG
                 print("📝 New attributes at selection after applying style:")
                 #endif
@@ -7906,7 +7918,7 @@ struct FileEditView: View {
             
             // CRITICAL: Update the text view's textStorage first for immediate visual feedback
             // Then update the binding to keep them in sync
-            let cursorPosition = selectedRange
+            let cursorPosition = activeRange
             textViewCoordinator.modifyTypingAttributes { textView in
                 textView.textStorage.setAttributedString(newAttributedContent)
                 // Restore cursor position
@@ -7934,7 +7946,7 @@ struct FileEditView: View {
             // Create formatting command for undo/redo
             let command = FormatApplyCommand(
                 description: "Paragraph Style",
-                range: selectedRange,
+                range: activeRange,
                 beforeContent: beforeContent,
                 afterContent: newAttributedContent,
                 targetFile: file
@@ -7953,7 +7965,7 @@ struct FileEditView: View {
         
         // Fallback to direct UIFont.TextStyle (for files not in a project)
         // Special handling for empty text
-        if attributedContent.length == 0 {
+        if sourceContent.length == 0 {
             #if DEBUG
             print("📝 Text is empty - creating attributed string with style: \(style)")
             #endif
@@ -7983,10 +7995,10 @@ struct FileEditView: View {
         }
         
         // Store before state for undo
-        let beforeContent = attributedContent
+        let beforeContent = sourceContent
         
         // Apply the style using TextFormatter
-        newAttributedContent = TextFormatter.applyStyle(style, to: attributedContent, range: selectedRange)
+        newAttributedContent = TextFormatter.applyStyle(style, to: sourceContent, range: activeRange)
         
         #if DEBUG
         print("📝 Paragraph style applied successfully")
@@ -7994,7 +8006,7 @@ struct FileEditView: View {
         
         // CRITICAL: Update the text view's textStorage first for immediate visual feedback
         // Then update the binding to keep them in sync
-        let cursorPosition = selectedRange
+        let cursorPosition = activeRange
         textViewCoordinator.modifyTypingAttributes { textView in
             textView.textStorage.setAttributedString(newAttributedContent)
             textView.selectedRange = cursorPosition
@@ -8019,7 +8031,7 @@ struct FileEditView: View {
         // Create formatting command for undo/redo
         let command = FormatApplyCommand(
             description: "Paragraph Style",
-            range: selectedRange,
+            range: activeRange,
             beforeContent: beforeContent,
             afterContent: newAttributedContent,
             targetFile: file

@@ -148,8 +148,24 @@ class NumberingLayoutManager: NSLayoutManager {
                 parentMap[style.name] = parentName
             }
         }
+
+        let styleNames = Set(styles.map { $0.name })
+        if parentMap[UIFont.TextStyle.title3.rawValue] == nil,
+           styleNames.contains(UIFont.TextStyle.title3.rawValue),
+           styleNames.contains(UIFont.TextStyle.title2.rawValue) {
+            parentMap[UIFont.TextStyle.title3.rawValue] = UIFont.TextStyle.title2.rawValue
+        }
+        if parentMap[UIFont.TextStyle.headline.rawValue] == nil,
+           styleNames.contains(UIFont.TextStyle.headline.rawValue),
+           styleNames.contains(UIFont.TextStyle.title3.rawValue) {
+            parentMap[UIFont.TextStyle.headline.rawValue] = UIFont.TextStyle.title3.rawValue
+        }
         
         return parentMap
+    }
+
+    private static func buildParentStyleMap(from styleSheet: StyleSheet) -> [String: String] {
+        NumberingLayoutManager().buildParentStyleMap(from: styleSheet)
     }
 
     private static func fallbackNumberFormat(for styleName: String) -> NumberFormat {
@@ -241,14 +257,7 @@ class NumberingLayoutManager: NSLayoutManager {
         }
         
         // Build parent map
-        var parentMap: [String: String] = [:]
-        if let styles = styleSheet.textStyles {
-            for style in styles {
-                if let parentName = style.parentStyleName, !parentName.isEmpty {
-                    parentMap[style.name] = parentName
-                }
-            }
-        }
+        let parentMap = buildParentStyleMap(from: styleSheet)
         
         var styleCounters: [String: Int] = [:]
         var lastNumberForStyle: [String: Int] = [:]
@@ -299,14 +308,7 @@ class NumberingLayoutManager: NSLayoutManager {
         }
         
         // Build parent map for hierarchical numbering
-        var parentMap: [String: String] = [:]
-        if let styles = styleSheet.textStyles {
-            for style in styles {
-                if let parentName = style.parentStyleName, !parentName.isEmpty {
-                    parentMap[style.name] = parentName
-                }
-            }
-        }
+        let parentMap = buildParentStyleMap(from: styleSheet)
         
         let text = textStorage.string as NSString
         let length = textStorage.length
@@ -353,7 +355,13 @@ class NumberingLayoutManager: NSLayoutManager {
             lastNumberForStyle[styleName] = counter
             
             // Build the actual number string for THIS paragraph
-            let numberString = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment)
+            let numberString = NumberingLayoutManager().buildHierarchicalNumber(
+                for: styleName,
+                counter: counter,
+                parentStyleMap: parentMap,
+                lastNumberForStyle: lastNumberForStyle,
+                styleSheet: styleSheet
+            )
             let font = attrs[.font] as? UIFont ?? style.generateFont(applyPlatformScaling: false)
             let numberWidth = ceil((numberString as NSString).size(withAttributes: [.font: font]).width)
             

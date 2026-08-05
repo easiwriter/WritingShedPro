@@ -185,20 +185,15 @@ final class TOCGenerationService {
         print("[TOCGeneration] Generated \(entries.count) TOC entries total")
         #endif
         
-        // Prepend paragraph numbers to heading text for numbered styles
+        // Prepend paragraph numbers to heading text for numbered styles. The
+        // manuscript editor draws these numbers visually, so they are not part
+        // of the paragraph string that scanForTOCEntries reads.
         if let styleSheet = project.styleSheet {
             var styleCounters: [String: Int] = [:]
             var lastNumberForStyle: [String: Int] = [:]
             
             // Build parent map
-            var parentMap: [String: String] = [:]
-            if let styles = styleSheet.textStyles {
-                for style in styles {
-                    if let parentName = style.parentStyleName, !parentName.isEmpty {
-                        parentMap[style.name] = parentName
-                    }
-                }
-            }
+            let parentMap = Self.buildParentStyleMap(from: styleSheet)
             
             entries = entries.map { entry in
                 guard let sName = entry.styleName,
@@ -221,8 +216,13 @@ final class TOCGenerationService {
                 styleCounters[sName] = counter
                 lastNumberForStyle[sName] = counter
                 
-                let level = sName.contains("level-3") ? 2 : (sName.contains("level-2") ? 1 : 0)
-                let formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment, level: level)
+                let formattedNumber = Self.buildHierarchicalNumber(
+                    for: sName,
+                    counter: counter,
+                    parentMap: parentMap,
+                    lastNumberForStyle: lastNumberForStyle,
+                    styleSheet: styleSheet
+                )
                 let numberedText = formattedNumber + " " + entry.headingText
                 
                 return TOCEntry(headingText: numberedText,
@@ -681,6 +681,97 @@ final class TOCGenerationService {
     }
     
     // MARK: - TOC Rendering
+
+    private static func buildParentStyleMap(from styleSheet: StyleSheet) -> [String: String] {
+        guard let styles = styleSheet.textStyles else { return [:] }
+
+        var parentMap: [String: String] = [:]
+        for style in styles {
+            if let parentName = style.parentStyleName, !parentName.isEmpty {
+                parentMap[style.name] = parentName
+            }
+        }
+
+        let styleNames = Set(styles.map { $0.name })
+        if parentMap[UIFont.TextStyle.title3.rawValue] == nil,
+           styleNames.contains(UIFont.TextStyle.title3.rawValue),
+           styleNames.contains(UIFont.TextStyle.title2.rawValue) {
+            parentMap[UIFont.TextStyle.title3.rawValue] = UIFont.TextStyle.title2.rawValue
+        }
+        if parentMap[UIFont.TextStyle.headline.rawValue] == nil,
+           styleNames.contains(UIFont.TextStyle.headline.rawValue),
+           styleNames.contains(UIFont.TextStyle.title3.rawValue) {
+            parentMap[UIFont.TextStyle.headline.rawValue] = UIFont.TextStyle.title3.rawValue
+        }
+
+        return parentMap
+    }
+
+    private static func bulletLevel(from styleName: String) -> Int {
+        if styleName.contains("level-3") { return 2 }
+        if styleName.contains("level-2") { return 1 }
+        return 0
+    }
+
+    private static func buildHierarchicalNumber(
+        for styleName: String,
+        counter: Int,
+        parentMap: [String: String],
+        lastNumberForStyle: [String: Int],
+        styleSheet: StyleSheet
+    ) -> String {
+        var segments: [(styleName: String, number: Int)] = []
+        var currentStyleName: String? = styleName
+        while let name = currentStyleName {
+            let number = name == styleName ? counter : (lastNumberForStyle[name] ?? 0)
+            segments.append((name, number))
+            currentStyleName = parentMap[name]
+        }
+
+        segments.reverse()
+
+        guard segments.count > 1 else {
+            let style = styleSheet.style(named: styleName)
+            let level = bulletLevel(from: styleName)
+            return (style?.numberFormat ?? .decimal).symbol(
+                for: counter - 1,
+                adornment: style?.numberAdornment ?? .period,
+                level: level
+            )
+        }
+
+        let parts = segments.map { segment in
+            let level = bulletLevel(from: segment.styleName)
+            if let style = styleSheet.style(named: segment.styleName),
+               style.numberFormat != .none {
+                return style.numberFormat.symbol(
+                    for: max(segment.number - 1, 0),
+                    adornment: .plain,
+                    level: level
+                )
+            }
+            return "\(segment.number)"
+        }
+
+        let combined = parts.joined(separator: ".")
+        let adornment = styleSheet.style(named: styleName)?.numberAdornment ?? .period
+        return adornment.apply(to: combined)
+    }
+
+    private static func sanitizedTOCEntryAttributes(_ attributes: [NSAttributedString.Key: Any]) -> [NSAttributedString.Key: Any] {
+        var sanitized = attributes
+        sanitized.removeValue(forKey: .textStyle)
+        sanitized.removeValue(forKey: .numberFormat)
+
+        let existingPara = sanitized[.paragraphStyle] as? NSParagraphStyle
+        let para = (existingPara?.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
+        para.firstLineHeadIndent = 0
+        para.headIndent = 0
+        para.tailIndent = 0
+        sanitized[.paragraphStyle] = para
+
+        return sanitized
+    }
     
     /// Generate formatted attributed string for TOC display
     /// - Parameters:
@@ -842,6 +933,7 @@ final class TOCGenerationService {
             .font: UIFont.systemFont(ofSize: 14),
             .foregroundColor: UIColor.label
         ]
+        textAttrs = Self.sanitizedTOCEntryAttributes(textAttrs)
         
         // Paragraph style (no indentation — all entries at same level)
         let para = NSMutableParagraphStyle()
