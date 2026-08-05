@@ -13,6 +13,7 @@ const RATE_LIMIT_MAX = 5;           // requests per window
 const RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
 
 const MAX_QUERY_LENGTH = 2000;
+const MAX_DIAGNOSTICS_LENGTH = 12000;
 const MAX_ANALYST_CONTENT_LENGTH = 120000;
 const ANALYST_CACHE_VERSION = "v3";
 const ANALYST_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
@@ -21,6 +22,15 @@ const MAX_MESSAGE_BODY_LENGTH = 4000;
 const TUTORIAL_VIDEO_ORDER_KEY = "tutorials/_order.json";
 const MAX_SINGLE_UPLOAD_BYTES = 95 * 1024 * 1024;
 const DEFAULT_MULTIPART_PART_SIZE_BYTES = 20 * 1024 * 1024;
+
+const PRODUCT_SALE_TYPES = new Map([
+    ["com.writingshedpro.prosewriter", "prose"],
+    ["com.writingshedpro.poetrywriter", "poetry"],
+    ["com.writingshedpro.fictionwriter", "fiction"],
+    ["com.writingshedpro.dramawriter", "drama"],
+    ["com.writingshedpro.allinbundle", "bundle"],
+    ["com.writingshedpro.manuscriptanalyst", "manuscriptAnalyst"],
+]);
 
 const ALLOWED_ANALYSIS_MODES = new Set(["file", "manuscript"]);
 const ALLOWED_PROJECT_TYPES = new Set(["fiction", "poetry", "drama", "prose"]);
@@ -149,12 +159,20 @@ export default {
             return handleGetMessages(request, env);
         }
 
+        if (pathname === "/api/sales") {
+            return handleRecordSale(request, env);
+        }
+
         if (pathname === "/api/tutorial-videos") {
             return handleListTutorialVideos(request, env);
         }
 
         if (pathname.startsWith("/api/admin/messages")) {
             return handleAdminMessages(request, env, pathname);
+        }
+
+        if (pathname === "/api/admin/sales") {
+            return handleAdminSales(request, env);
         }
 
         if (pathname.startsWith("/api/admin/tutorial-videos")) {
@@ -489,7 +507,7 @@ async function handleSupport(request, env) {
         return jsonResponse({ error: "Invalid JSON" }, 400);
     }
 
-    const { query, reportType, deviceInfo, appVersion } = body;
+    const { query, reportType, deviceInfo, appVersion, diagnosticsSnapshot } = body;
 
     if (!query || typeof query !== "string" || query.trim().length === 0) {
         return jsonResponse({ error: "Missing required field: query" }, 400);
@@ -499,8 +517,14 @@ async function handleSupport(request, env) {
     }
 
     const trimmedQuery = query.slice(0, MAX_QUERY_LENGTH);
+    const safeDiagnostics = typeof diagnosticsSnapshot === "string"
+        ? diagnosticsSnapshot.slice(0, MAX_DIAGNOSTICS_LENGTH)
+        : "";
     const safeDeviceInfo = typeof deviceInfo === "string" ? deviceInfo.slice(0, 200) : "Unknown";
     const safeAppVersion = typeof appVersion === "string" ? appVersion.slice(0, 50) : "Unknown";
+    const diagnosticsBlock = safeDiagnostics.trim().length > 0
+        ? `\n\nDiagnostics Snapshot:\n${safeDiagnostics}`
+        : "";
 
     // Call OpenAI
     const apiKey = env.LLM_API_KEY;
@@ -523,7 +547,7 @@ async function handleSupport(request, env) {
                     { role: "system", content: SYSTEM_PROMPT },
                     {
                         role: "user",
-                        content: `[${reportType}] ${trimmedQuery}\n\nDevice: ${safeDeviceInfo}\nApp Version: ${safeAppVersion}`,
+                        content: `[${reportType}] ${trimmedQuery}\n\nDevice: ${safeDeviceInfo}\nApp Version: ${safeAppVersion}${diagnosticsBlock}`,
                     },
                 ],
             }),
@@ -1418,6 +1442,177 @@ async function handleAdminDeleteArchivedMessages(env) {
         console.error("Failed to delete archived messages:", err);
         return jsonResponse({ error: "Messages service unavailable" }, 502);
     }
+}
+
+async function handleRecordSale(request, env) {
+    if (request.method !== "POST") {
+        return jsonResponse({ error: "Method not allowed" }, 405);
+    }
+
+    if (!env.MESSAGES_DB) {
+        return jsonResponse({ error: "Sales service unavailable" }, 500);
+    }
+
+    let body;
+    try {
+        body = await request.json();
+    } catch {
+        return jsonResponse({ error: "Invalid JSON" }, 400);
+    }
+
+    const productID = typeof body?.productID === "string" ? body.productID.trim() : "";
+    const transactionID = typeof body?.transactionID === "string" ? body.transactionID.trim() : "";
+    const projectType = PRODUCT_SALE_TYPES.get(productID);
+
+    if (!projectType) {
+        return jsonResponse({ error: "Invalid productID" }, 400);
+    }
+    if (!transactionID || transactionID.length > 120) {
+        return jsonResponse({ error: "Invalid transactionID" }, 400);
+    }
+
+    const purchaseDate = normalizedPurchaseDate(body?.purchaseDate);
+    const saleMonth = saleMonthFromTimestamp(purchaseDate);
+    const now = Date.now();
+
+    try {
+        await ensureSalesTables(env);
+
+        const insertResult = await env.MESSAGES_DB
+            .prepare(`
+                INSERT OR IGNORE INTO sales_events (transaction_id, product_id, project_type, sale_month, purchase_date, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `)
+            .bind(transactionID, productID, projectType, saleMonth, purchaseDate, now)
+            .run();
+
+        const inserted = (insertResult?.meta?.changes ?? 0) > 0;
+        if (inserted) {
+            await env.MESSAGES_DB
+                .prepare(`
+                    INSERT INTO monthly_sales (sale_month, project_type, sale_count, updated_at)
+                    VALUES (?, ?, 1, ?)
+                    ON CONFLICT(sale_month, project_type) DO UPDATE SET
+                        sale_count = sale_count + 1,
+                        updated_at = excluded.updated_at
+                `)
+                .bind(saleMonth, projectType, now)
+                .run();
+        }
+
+        return jsonResponse({ ok: true, inserted, month: saleMonth, projectType }, 200);
+    } catch (err) {
+        console.error("Failed to record sale:", err);
+        return jsonResponse({ error: "Sales service unavailable" }, 502);
+    }
+}
+
+async function handleAdminSales(request, env) {
+    if (!isAuthorizedAdminRequest(request, env)) {
+        return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
+    if (request.method !== "GET") {
+        return jsonResponse({ error: "Method not allowed" }, 405);
+    }
+
+    if (!env.MESSAGES_DB) {
+        return jsonResponse({ error: "Sales service unavailable" }, 500);
+    }
+
+    const url = new URL(request.url);
+    const requestedMonth = url.searchParams.get("month");
+
+    try {
+        await ensureSalesTables(env);
+
+        const { results: monthRows } = await env.MESSAGES_DB
+            .prepare("SELECT DISTINCT sale_month FROM monthly_sales ORDER BY sale_month DESC")
+            .all();
+        const months = (monthRows || []).map((row) => row.sale_month).filter(Boolean);
+        const selectedMonth = isValidSaleMonth(requestedMonth) ? requestedMonth : (months[0] || saleMonthFromTimestamp(Date.now()));
+
+        const { results } = await env.MESSAGES_DB
+            .prepare(`
+                SELECT sale_month, project_type, sale_count, updated_at
+                FROM monthly_sales
+                WHERE sale_month = ?
+                ORDER BY project_type ASC
+            `)
+            .bind(selectedMonth)
+            .all();
+
+        const sales = (results || []).map((row) => ({
+            month: row.sale_month,
+            projectType: row.project_type,
+            count: row.sale_count,
+            updatedAt: row.updated_at,
+        }));
+
+        return jsonResponse({ months, selectedMonth, sales }, 200, { "Cache-Control": "no-store" });
+    } catch (err) {
+        console.error("Failed to fetch sales:", err);
+        return jsonResponse({ error: "Sales service unavailable" }, 502);
+    }
+}
+
+function normalizedPurchaseDate(value) {
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+        return Math.trunc(value);
+    }
+    if (typeof value === "string") {
+        const parsed = Date.parse(value);
+        if (Number.isFinite(parsed) && parsed > 0) {
+            return parsed;
+        }
+    }
+    return Date.now();
+}
+
+function saleMonthFromTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    return `${year}-${month}`;
+}
+
+function isValidSaleMonth(month) {
+    return typeof month === "string" && /^\d{4}-\d{2}$/.test(month);
+}
+
+async function ensureSalesTables(env) {
+    await env.MESSAGES_DB
+        .prepare(`
+            CREATE TABLE IF NOT EXISTS sales_events (
+                transaction_id TEXT PRIMARY KEY,
+                product_id TEXT NOT NULL,
+                project_type TEXT NOT NULL,
+                sale_month TEXT NOT NULL,
+                purchase_date INTEGER NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+        `)
+        .run();
+
+    await env.MESSAGES_DB
+        .prepare("CREATE INDEX IF NOT EXISTS idx_sales_events_month ON sales_events(sale_month DESC, project_type)")
+        .run();
+
+    await env.MESSAGES_DB
+        .prepare(`
+            CREATE TABLE IF NOT EXISTS monthly_sales (
+                sale_month TEXT NOT NULL,
+                project_type TEXT NOT NULL,
+                sale_count INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY (sale_month, project_type)
+            )
+        `)
+        .run();
+
+    await env.MESSAGES_DB
+        .prepare("CREATE INDEX IF NOT EXISTS idx_monthly_sales_month ON monthly_sales(sale_month DESC)")
+        .run();
 }
 
 function validateMessageInput(body, { allowPartial }) {

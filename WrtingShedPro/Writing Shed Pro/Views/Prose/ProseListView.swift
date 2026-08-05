@@ -1067,35 +1067,29 @@ struct ProseListView: View {
     }
     
     private func moveFilesToTrash(_ files: [TextFile]) {
-        for file in files {
-            guard let originalFolder = file.parentFolder else { continue }
-            
-            // Create TrashItem
-            let trashItem = TrashItem(
-                textFile: file,
-                originalFolder: originalFolder,
-                project: project
-            )
-            modelContext.insert(trashItem)
-            
-            // Remove from section if assigned
-            file.section = nil
-            file.modifiedDate = Date()
+        do {
+            try FileMoveService(modelContext: modelContext).deleteFiles(files)
+            project.modifiedDate = Date()
+            WriteCoalescer.shared?.requestSave(reason: "prose-list-trash-files")
+            try WriteCoalescer.shared?.flushOrThrow(reason: "prose-list-trash-files")
+            NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
+        } catch {
+            modelContext.rollback()
+            importErrorMessage = "Failed to move files to Trash: \(error.localizedDescription)"
+            showImportError = true
         }
-        project.modifiedDate = Date()
-        WriteCoalescer.shared?.requestSave(reason: "prose-list-trash-files")
-        WriteCoalescer.shared?.flush()
     }
     
     private func deleteFilesPermanently(_ files: [TextFile]) {
-        for file in files {
-            // Clean up index references before deleting
-            FileMoveService.cleanupIndexReferences(for: file, context: modelContext)
-            modelContext.delete(file)
+        do {
+            project.modifiedDate = Date()
+            try FileMoveService(modelContext: modelContext).deleteFilesPermanently(files)
+            NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
+        } catch {
+            modelContext.rollback()
+            importErrorMessage = "Failed to delete files permanently: \(error.localizedDescription)"
+            showImportError = true
         }
-        project.modifiedDate = Date()
-        WriteCoalescer.shared?.requestSave(reason: "prose-list-delete-files")
-        WriteCoalescer.shared?.flush()
     }
     
     private func renameFile(_ file: TextFile, to newName: String) {

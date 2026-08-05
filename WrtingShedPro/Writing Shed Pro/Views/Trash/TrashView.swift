@@ -75,6 +75,10 @@ struct TrashView: View {
     
     /// Shows scene delete confirmation
     @State private var showSceneDeleteConfirmation = false
+
+    /// Destructive action error state
+    @State private var showTrashError = false
+    @State private var trashErrorMessage = ""
     
     // MARK: - Queries
     
@@ -216,6 +220,11 @@ struct TrashView: View {
             Button("button.ok", role: .cancel) {}
         } message: {
             Text(fallbackMessage)
+        }
+        .alert("Delete Failed", isPresented: $showTrashError) {
+            Button("button.ok", role: .cancel) { }
+        } message: {
+            Text(trashErrorMessage)
         }
         // Scene restore confirmation
         .confirmationDialog(
@@ -561,21 +570,24 @@ struct TrashView: View {
     
     /// Confirms permanent deletion and removes files
     private func confirmPermanentDelete() {
-        for item in itemsToDelete {
-            // Delete the text file
-            if let textFile = item.textFile {
-                // Clean up index references before deleting
-                FileMoveService.cleanupIndexReferences(for: textFile, context: modelContext)
-                modelContext.delete(textFile)
+        do {
+            for item in itemsToDelete {
+                if let textFile = item.textFile {
+                    FileMoveService.cleanupIndexReferences(for: textFile, context: modelContext)
+                    modelContext.delete(textFile)
+                }
+                modelContext.delete(item)
             }
-            // Delete the trash item
-            modelContext.delete(item)
+
+            WriteCoalescer.shared?.requestSave(reason: "trash-delete-items")
+            try WriteCoalescer.shared?.flushOrThrow(reason: "trash-delete-items")
+            itemsToDelete = []
+            exitEditMode()
+        } catch {
+            modelContext.rollback()
+            trashErrorMessage = "Failed to delete files permanently: \(error.localizedDescription)"
+            showTrashError = true
         }
-        
-        WriteCoalescer.shared?.requestSave(reason: "trash-delete-items")
-        WriteCoalescer.shared?.flush()
-        itemsToDelete = []
-        exitEditMode()
     }
     
     // MARK: - Scene Actions
@@ -606,21 +618,28 @@ struct TrashView: View {
     
     /// Confirms permanent deletion of scenes
     private func confirmDeleteScenes() {
-        for scene in scenesToDelete {
-            // Delete associated TextFile if exists
-            if let textFile = scene.textFile {
-                // Clean up index references before deleting
-                FileMoveService.cleanupIndexReferences(for: textFile, context: modelContext)
-                modelContext.delete(textFile)
+        do {
+            let textFiles = scenesToDelete.compactMap { $0.textFile }
+            let scenesWithoutTextFiles = scenesToDelete.filter { $0.textFile == nil }
+            if !textFiles.isEmpty {
+                try FileMoveService(modelContext: modelContext).deleteFilesPermanently(textFiles)
             }
-            // Delete the scene
-            modelContext.delete(scene)
+
+            for scene in scenesWithoutTextFiles {
+                modelContext.delete(scene)
+            }
+
+            if !scenesWithoutTextFiles.isEmpty {
+                WriteCoalescer.shared?.requestSave(reason: "trash-delete-scenes")
+                try WriteCoalescer.shared?.flushOrThrow(reason: "trash-delete-scenes")
+            }
+            scenesToDelete = []
+            exitEditMode()
+        } catch {
+            modelContext.rollback()
+            trashErrorMessage = "Failed to delete scenes permanently: \(error.localizedDescription)"
+            showTrashError = true
         }
-        
-        WriteCoalescer.shared?.requestSave(reason: "trash-delete-scenes")
-        WriteCoalescer.shared?.flush()
-        scenesToDelete = []
-        exitEditMode()
     }
     
     /// Exits edit mode

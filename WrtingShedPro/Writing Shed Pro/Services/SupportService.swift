@@ -19,7 +19,8 @@ class SupportService {
     private let endpoint = URL(string: "https://wsp-support.writingshedpro.workers.dev")!
 
     func submitQuery(reportType: String, subject: String, details: String,
-                     stepsToReproduce: String, deviceInfo: String, appVersion: String) async {
+                     stepsToReproduce: String, deviceInfo: String, appVersion: String,
+                     diagnosticsSnapshot: String = "") async {
         isLoading = true
         response = nil
         errorMessage = nil
@@ -38,7 +39,8 @@ class SupportService {
             "query": queryText,
             "reportType": reportType,
             "deviceInfo": deviceInfo,
-            "appVersion": appVersion
+            "appVersion": appVersion,
+            "diagnosticsSnapshot": diagnosticsSnapshot
         ]
 
         var request = URLRequest(url: endpoint)

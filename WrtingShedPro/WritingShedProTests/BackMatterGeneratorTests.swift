@@ -20,13 +20,51 @@ final class BackMatterGeneratorTests: XCTestCase {
     override func setUp() {
         super.setUp()
         let schema = Schema([
-            Project.self, Folder.self, TextFile.self, Version.self,
-            NoteEntry.self, GlossaryEntry.self, CitationEntry.self, IndexEntry.self,
-            ContributorEntry.self, ReferenceEntry.self,
-            StyleSheet.self, TextStyleModel.self, ImageStyle.self
+            Project.self,
+            Folder.self,
+            TextFile.self,
+            Version.self,
+            TrashItem.self,
+            StyleSheet.self,
+            TextStyleModel.self,
+            PageSetup.self,
+            PrinterPaper.self,
+            Publication.self,
+            Submission.self,
+            SubmittedFile.self,
+            CommentModel.self,
+            FootnoteModel.self,
+            PoetryFormModel.self,
+            StoryScene.self,
+            Chapter.self,
+            Character.self,
+            Location.self,
+            CustomAttribute.self,
+            PlotElement.self,
+            Act.self,
+            ProseSection.self,
+            PoetryCollection.self,
+            Book.self,
+            TextFileSectionLink.self,
+            TextFileCollectionLink.self,
+            SceneChapterLink.self,
+            SceneActLink.self,
+            SceneBookLink.self,
+            ScenePlotElementLink.self,
+            SceneCharacterLink.self,
+            CharacterPlotElementLink.self,
+            LocationPlotElementLink.self,
+            SceneLocationLink.self,
+            NoteEntry.self,
+            GlossaryEntry.self,
+            ReferenceEntry.self,
+            CitationEntry.self,
+            IndexEntry.self,
+            ContributorEntry.self,
+            ImageStyle.self
         ])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        modelContainer = try! ModelContainer(for: schema, configurations: config)
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        modelContainer = try! ModelContainer(for: schema, configurations: [config])
         modelContext = ModelContext(modelContainer)
         
         testProject = Project(name: "Test Project", type: .prose)

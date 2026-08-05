@@ -378,9 +378,9 @@ final class JSONImportServiceTests: XCTestCase {
             ("competition", .competition),
             ("competitions", .competition),
             ("Competition", .competition),
-            ("commission", .commission),
-            ("commissions", .commission),
-            ("Commission", .commission),
+            ("commission", .other),
+            ("commissions", .other),
+            ("Commission", .other),
             ("other", .other),
             ("unknown", .other)
         ]
@@ -398,7 +398,7 @@ final class JSONImportServiceTests: XCTestCase {
         case "competition", "competitions":
             return .competition
         case "commission", "commissions":
-            return .commission
+            return .other
         default:
             return .other
         }

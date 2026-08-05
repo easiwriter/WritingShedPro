@@ -14,6 +14,11 @@ struct OperatorRootView: View {
                 .tabItem {
                     Label("Messages", systemImage: "text.bubble")
                 }
+
+            OperatorSalesView(settings: settings)
+                .tabItem {
+                    Label("Sales", systemImage: "chart.bar")
+                }
         }
     }
 }

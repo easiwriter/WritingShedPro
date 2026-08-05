@@ -8,6 +8,45 @@ struct TextEditorChange {
     let replacementText: String?
 }
 
+enum FormattedTextEditorAttachmentComparison {
+    static func attachmentsMatch(_ first: NSAttributedString, _ second: NSAttributedString, includeLocation: Bool = true) -> Bool {
+        attachmentSignature(in: first, includeLocation: includeLocation) == attachmentSignature(in: second, includeLocation: includeLocation)
+    }
+
+    static func attachmentSignature(in attributedString: NSAttributedString, includeLocation: Bool = true) -> [String] {
+        var signature: [String] = []
+        let fullRange = NSRange(location: 0, length: attributedString.length)
+
+        attributedString.enumerateAttribute(.attachment, in: fullRange, options: []) { value, range, _ in
+            guard let attachment = value as? NSTextAttachment else { return }
+
+            let identity: String
+            switch attachment {
+            case let footnote as FootnoteAttachment:
+                identity = "footnote:\(footnote.footnoteID.uuidString)"
+            case let comment as CommentAttachment:
+                identity = "comment:\(comment.commentID.uuidString)"
+            case let reference as ReferenceAttachment:
+                identity = "reference:\(reference.referenceType.rawValue):\(reference.entryID.uuidString)"
+            case let image as ImageAttachment:
+                identity = "image:\(image.imageID.uuidString)"
+            case is PageBreakAttachment:
+                identity = "pageBreak"
+            default:
+                identity = String(describing: type(of: attachment))
+            }
+
+            if includeLocation {
+                signature.append("\(range.location):\(range.length):\(identity)")
+            } else {
+                signature.append(identity)
+            }
+        }
+
+        return signature
+    }
+}
+
 struct FormattedTextEditor: View {
     @Binding var attributedText: NSAttributedString
     @Binding var selectedRange: NSRange
@@ -628,7 +667,9 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         let newString = attributedText.string
         let stringsMatch = textViewString == newString
         let shouldCheckAttachments = !stringsMatch || !context.coordinator.isProcessingUserTextChange
-        let attachmentsMatch = shouldCheckAttachments ? attachmentSignature(in: textViewAttrs) == attachmentSignature(in: attributedText) : true
+        let attachmentsMatch = shouldCheckAttachments
+            ? FormattedTextEditorAttachmentComparison.attachmentsMatch(textViewAttrs, attributedText, includeLocation: stringsMatch)
+            : true
         let hasAttachmentChange = !attachmentsMatch
 
         if !stringsMatch, textView.isFirstResponder, !hasAttachmentChange {
@@ -869,35 +910,6 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         if #available(iOS 17.0, *) {
             textView.inlinePredictionType = .no
         }
-    }
-
-    private func attachmentSignature(in attributedString: NSAttributedString) -> [String] {
-        var signature: [String] = []
-        let fullRange = NSRange(location: 0, length: attributedString.length)
-
-        attributedString.enumerateAttribute(.attachment, in: fullRange, options: []) { value, range, _ in
-            guard let attachment = value as? NSTextAttachment else { return }
-
-            let identity: String
-            switch attachment {
-            case let footnote as FootnoteAttachment:
-                identity = "footnote:\(footnote.footnoteID.uuidString)"
-            case let comment as CommentAttachment:
-                identity = "comment:\(comment.commentID.uuidString)"
-            case let reference as ReferenceAttachment:
-                identity = "reference:\(reference.referenceType.rawValue):\(reference.entryID.uuidString)"
-            case let image as ImageAttachment:
-                identity = "image:\(image.imageID.uuidString)"
-            case is PageBreakAttachment:
-                identity = "pageBreak"
-            default:
-                identity = String(describing: type(of: attachment))
-            }
-
-            signature.append("\(range.location):\(range.length):\(identity)")
-        }
-
-        return signature
     }
 
     #if DEBUG

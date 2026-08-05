@@ -2,7 +2,7 @@
 //  ContactSupportView.swift
 //  Writing Shed Pro
 //
-//  Contact support form — bug reports & suggestions
+//  Contact support form — bug reports & feedback
 //  Feature 019: Settings Menu
 //  Feature 037: AI User Support — sends query to support service first
 //
@@ -14,9 +14,16 @@ import SwiftData
 // MARK: - Mail Compose Representable
 
 struct MailComposeView: UIViewControllerRepresentable {
+    struct Attachment {
+        let data: Data
+        let mimeType: String
+        let fileName: String
+    }
+
     let recipients: [String]
     let subject: String
     let body: String
+    var attachments: [Attachment] = []
     var onDismiss: () -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(onDismiss: onDismiss) }
@@ -27,6 +34,9 @@ struct MailComposeView: UIViewControllerRepresentable {
         vc.setToRecipients(recipients)
         vc.setSubject(subject)
         vc.setMessageBody(body, isHTML: false)
+        for attachment in attachments {
+            vc.addAttachmentData(attachment.data, mimeType: attachment.mimeType, fileName: attachment.fileName)
+        }
         return vc
     }
 
@@ -49,6 +59,13 @@ struct ContactSupportView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
+    private struct MailDraft: Identifiable {
+        let id = UUID()
+        let subject: String
+        let body: String
+        let attachments: [MailComposeView.Attachment]
+    }
+
     enum PresentationMode {
         case full
         case questionOnly
@@ -56,7 +73,7 @@ struct ContactSupportView: View {
 
     enum ReportType: String, CaseIterable, Identifiable {
         case bug = "Bug Report"
-        case suggestion = "Suggestion"
+        case suggestion = "Feedback"
         case question = "Question"
         var id: String { rawValue }
     }
@@ -67,15 +84,14 @@ struct ContactSupportView: View {
     @State private var stepsToReproduce: String = ""
     @State private var notARobot: Bool = false
 
-    @State private var showMailCompose = false
+    @State private var mailComposeDraft: MailDraft?
+    @State private var fallbackMailDraft: MailDraft?
     @State private var showMailUnavailable = false
     @State private var showRobotAlert = false
     @State private var showValidationAlert = false
     @State private var validationMessage = ""
     @State private var showSupportResponse = false
     @State private var includeSyncDiagnostics = true
-    @State private var diagnosticsSnapshot = ""
-    @State private var preparedMailBody = ""
 
     // Robot-check: simple arithmetic challenge
     @State private var challengeA: Int = Int.random(in: 2...9)
@@ -136,11 +152,12 @@ struct ContactSupportView: View {
                               supportService.isLoading)
                 }
             }
-            .sheet(isPresented: $showMailCompose) {
+            .sheet(item: $mailComposeDraft) { draft in
                 MailComposeView(
                     recipients: [supportEmail],
-                    subject: mailSubject,
-                    body: preparedMailBody,
+                    subject: draft.subject,
+                    body: draft.body,
+                    attachments: draft.attachments,
                     onDismiss: { dismiss() }
                 )
             }
@@ -159,9 +176,8 @@ struct ContactSupportView: View {
             .alert(NSLocalizedString("support.mail.unavailableTitle", comment: ""),
                    isPresented: $showMailUnavailable) {
                 Button(NSLocalizedString("support.mail.copyToClipboard", comment: "")) {
-                    prepareDiagnosticsSnapshotIfNeeded()
-                    preparedMailBody = makeMailBody(diagnosticsSnapshot: diagnosticsSnapshot)
-                    UIPasteboard.general.string = "\(mailSubject)\n\n\(preparedMailBody)"
+                    let draft = fallbackMailDraft ?? makeMailDraft()
+                    UIPasteboard.general.string = "\(draft.subject)\n\n\(draft.body)"
                 }
                 Button("OK", role: .cancel) {}
             } message: {
@@ -335,7 +351,7 @@ struct ContactSupportView: View {
         }
 
         // Only questions go through the AI support flow.
-        // Bug reports and suggestions should go directly to developer contact.
+        // Bug reports and feedback should go directly to developer contact.
         guard reportType == .question else {
             openEmailFlow()
             return
@@ -343,13 +359,16 @@ struct ContactSupportView: View {
 
         // Submit to support service
         Task {
+            let diagnosticsSnapshot = currentDiagnosticsSnapshot()
+
             await supportService.submitQuery(
                 reportType: reportType.rawValue,
                 subject: trimmedSubject,
                 details: trimmedDetails,
                 stepsToReproduce: stepsToReproduce,
                 deviceInfo: deviceInfo,
-                appVersion: appVersion
+                appVersion: appVersion,
+                diagnosticsSnapshot: diagnosticsSnapshot
             )
 
             if supportService.response != nil {
@@ -360,23 +379,19 @@ struct ContactSupportView: View {
     }
 
     private func openEmailFlow() {
-        prepareDiagnosticsSnapshotIfNeeded()
-        preparedMailBody = makeMailBody(diagnosticsSnapshot: diagnosticsSnapshot)
+        let draft = makeMailDraft()
+        fallbackMailDraft = draft
 
         if MFMailComposeViewController.canSendMail() {
-            showMailCompose = true
+            mailComposeDraft = draft
         } else {
             showMailUnavailable = true
         }
     }
 
-    private func prepareDiagnosticsSnapshotIfNeeded() {
-        guard includeSyncDiagnostics else {
-            diagnosticsSnapshot = ""
-            return
-        }
-
-        diagnosticsSnapshot = SupportDiagnosticsSnapshotBuilder.buildSnapshot(modelContext: modelContext)
+    private func currentDiagnosticsSnapshot() -> String {
+        guard includeSyncDiagnostics else { return "" }
+        return SupportDiagnosticsSnapshotBuilder.buildSnapshot(modelContext: modelContext)
     }
 
     // MARK: - Mail Content
@@ -385,10 +400,19 @@ struct ContactSupportView: View {
         let prefix: String
         switch reportType {
         case .bug: prefix = "[Bug]"
-        case .suggestion: prefix = "[Suggestion]"
+        case .suggestion: prefix = "[Feedback]"
         case .question: prefix = "[Question]"
         }
         return "\(prefix) \(subject)"
+    }
+
+    private func makeMailDraft() -> MailDraft {
+        let diagnosticsSnapshot = currentDiagnosticsSnapshot()
+        return MailDraft(
+            subject: mailSubject,
+            body: makeMailBody(diagnosticsSnapshot: diagnosticsSnapshot),
+            attachments: makeMailAttachments(diagnosticsSnapshot: diagnosticsSnapshot)
+        )
     }
 
     private func makeMailBody(diagnosticsSnapshot: String) -> String {
@@ -429,6 +453,20 @@ struct ContactSupportView: View {
         }
 
         return body
+    }
+
+    private func makeMailAttachments(diagnosticsSnapshot: String) -> [MailComposeView.Attachment] {
+        guard includeSyncDiagnostics,
+              !diagnosticsSnapshot.isEmpty,
+              let data = diagnosticsSnapshot.data(using: .utf8) else {
+            return []
+        }
+
+        return [MailComposeView.Attachment(
+            data: data,
+            mimeType: "text/plain",
+            fileName: "WritingShedPro-Diagnostics.txt"
+        )]
     }
 
     // MARK: - Helpers

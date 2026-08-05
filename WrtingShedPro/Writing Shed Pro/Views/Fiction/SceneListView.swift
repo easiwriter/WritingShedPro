@@ -56,6 +56,10 @@ struct SceneListView: View {
     /// Delete confirmation dialog
     @State private var showDeleteConfirmation = false
     @State private var scenesToDelete: [StoryScene] = []
+
+    /// Destructive action error state
+    @State private var showDeleteError = false
+    @State private var deleteErrorMessage = ""
     
     /// Show multi-file search view
     @State private var showSearchView = false
@@ -837,6 +841,11 @@ struct SceneListView: View {
             Button(NSLocalizedString("button.ok", comment: "OK")) { }
         } message: {
             Text(copyResultMessage)
+        }
+        .alert("Delete Failed", isPresented: $showDeleteError) {
+            Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) { }
+        } message: {
+            Text(deleteErrorMessage)
         }
         .sheet(item: $containerAssignmentItem) { item in
             containerAssignmentContent(for: item.scenes)
@@ -1861,33 +1870,45 @@ struct SceneListView: View {
     }
     
     private func moveScenesToTrash(_ scenes: [StoryScene]) {
-        for scene in scenes {
-            // Soft delete the scene (marks as trashed)
-            scene.moveToTrash()
+        do {
+            for scene in scenes {
+                scene.moveToTrash()
+            }
+
+            project.modifiedDate = Date()
+            WriteCoalescer.shared?.requestSave(reason: "scene-list-trash")
+            try WriteCoalescer.shared?.flushOrThrow(reason: "scene-list-trash")
+            renumberScenes()
+        } catch {
+            modelContext.rollback()
+            deleteErrorMessage = "Failed to move scenes to Trash: \(error.localizedDescription)"
+            showDeleteError = true
         }
-        
-        project.modifiedDate = Date()
-        WriteCoalescer.shared?.requestSave(reason: "scene-list-trash")
-        WriteCoalescer.shared?.flush()
-        renumberScenes()
     }
     
     private func deleteScenesPermanently(_ scenes: [StoryScene]) {
-        for scene in scenes {
-            // Delete associated TextFile if exists
-            if let textFile = scene.textFile {
-                // Clean up index references before deleting
-                FileMoveService.cleanupIndexReferences(for: textFile, context: modelContext)
-                modelContext.delete(textFile)
+        do {
+            let textFiles = scenes.compactMap { $0.textFile }
+            let scenesWithoutTextFiles = scenes.filter { $0.textFile == nil }
+            if !textFiles.isEmpty {
+                try FileMoveService(modelContext: modelContext).deleteFilesPermanently(textFiles)
             }
-            // Delete the scene
-            modelContext.delete(scene)
+
+            for scene in scenesWithoutTextFiles {
+                modelContext.delete(scene)
+            }
+
+            project.modifiedDate = Date()
+            if !scenesWithoutTextFiles.isEmpty {
+                WriteCoalescer.shared?.requestSave(reason: "scene-list-delete-permanent")
+                try WriteCoalescer.shared?.flushOrThrow(reason: "scene-list-delete-permanent")
+            }
+            renumberScenes()
+        } catch {
+            modelContext.rollback()
+            deleteErrorMessage = "Failed to delete scenes permanently: \(error.localizedDescription)"
+            showDeleteError = true
         }
-        
-        project.modifiedDate = Date()
-        WriteCoalescer.shared?.requestSave(reason: "scene-list-delete-permanent")
-        WriteCoalescer.shared?.flush()
-        renumberScenes()
     }
     
     private func moveScenes(from source: IndexSet, to destination: Int) {

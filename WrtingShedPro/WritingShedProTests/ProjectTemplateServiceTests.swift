@@ -219,7 +219,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
         // Then verify subfolder-only folders from spec
-        let subfolderOnlyNames = ["Magazines", "Competitions", "Commissions", "Other"]
+        let subfolderOnlyNames = ["Magazines", "Competitions", "Other"]
         
         let folders = project.folders ?? []
         for name in subfolderOnlyNames {
@@ -361,7 +361,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         let folders = project.folders ?? []
         
         // Verify subfolder-only (📁)
-        let subfolderOnly = ["Competitions", "Commissions", "Other"]
+        let subfolderOnly = ["Competitions", "Other"]
         for name in subfolderOnly {
             if let folder = folders.first(where: { $0.name == name }) {
                 XCTAssertTrue(FolderCapabilityService.canAddSubfolder(to: folder))

@@ -1,139 +1,117 @@
 # Contact Support
 
-Need help with Writing Shed Pro? Here's how to reach us.
+Use the in-app Contact Support form when you need help, want to report a problem, or want to send feedback about Writing Shed Pro.
 
 ## Before You Contact Us
 
 ### Check the Documentation
 Many questions are answered in this guide:
+
 - [FAQ](114-faq.md) - Common questions
 - [Troubleshooting](113-troubleshooting.md) - Solutions to known issues
 
 ### Gather Information
-Having this information ready helps us help you faster:
+The support form automatically includes your device and app version. For faster help, include any details that explain what happened:
 
-1. **Device**: iPhone, iPad, or Mac model
-2. **OS Version**: iOS/iPadOS/macOS version number
-3. **App Version**: Found in Settings → About
-4. **Description**: What happened? What did you expect?
-5. **Steps**: How can we reproduce the issue?
-6. **Screenshots**: If helpful, include images
+1. **Description**: What happened, what you expected, or what you want to know
+2. **Steps**: How to reproduce the problem, if there is one
+3. **Frequency**: Whether it happens every time, sometimes, or only once
+4. **Context**: The project type, file, export, sync, or purchase screen involved
+5. **Screenshots**: If helpful, mention that you can provide screenshots
 
 ## How to Contact Us
 
-### In-App Support
 1. Open Writing Shed Pro
 2. Go to **Settings**
-3. Tap **Support** or **Contact Us**
-4. Fill out the form
-5. Submit
+3. Tap **Contact Support**
+4. Choose the type of report
+5. Fill in the subject and details
+6. Answer the simple verification question
+7. Tap **Send**
 
-This method automatically includes your device and app information.
+## Support Form Options
 
-### Email
-Send an email to:
-**support@writingshedpro.com**
+### Bug Report
+Use **Bug Report** when something appears broken, missing, or inconsistent.
 
-Include:
-- Subject: Brief description of issue
-- Body: Details, steps to reproduce
-- Attachments: Screenshots if helpful
+Good bug reports include:
 
-### Website
-Visit our support page:
-**www.writingshedpro.com/support**
+1. **What happened**: The exact behavior you saw
+2. **What you expected**: What should have happened instead
+3. **Steps to reproduce**: How to make the issue happen again
+4. **Frequency**: Every time, sometimes, or once
+5. **Workaround**: Whether you found a temporary way around it
 
-You'll find:
-- FAQ and documentation
-- Known issues
-- Contact form
-- Status updates
+Example:
+
+> **Subject**: Footnote numbering wrong after delete
+>
+> **What happened**: After deleting the second footnote, the third footnote is still labelled "3" instead of "2".
+>
+> **Steps**:
+> 1. Create a document with three footnotes
+> 2. Delete the second footnote
+> 3. Check the remaining footnote numbers
+>
+> **Expected**: Remaining footnotes should be numbered 1 and 2.
+
+### Feedback
+Use **Feedback** for feature ideas, workflow suggestions, usability comments, or anything that would make Writing Shed Pro better for the way you write.
+
+Helpful feedback includes:
+
+1. What you would like to change or add
+2. How you would use it
+3. Why it would help your writing workflow
+4. Whether it affects a specific project type, such as Poetry, Prose, Fiction, or Drama
+
+Every piece of feedback is read. Not every idea can be implemented, but feedback helps shape priorities.
+
+### Question
+Use **Question** when you want help understanding how something works.
+
+Questions are best for:
+
+- Finding the right feature or setting
+- Understanding export, manuscript, sync, or purchase behavior
+- Asking how to structure a particular workflow
+- Clarifying something in the user guide
+
+Questions may receive an immediate support response. If that response does not resolve the issue, you can choose **Ask Developer** to send the details on for follow-up.
+
+## Diagnostics
+
+The form includes system information automatically. For sync or data issues, leave **Include sync diagnostics in report** enabled. Diagnostics help identify problems with sync state, project inventory, and recent sync events.
+
+Diagnostic information does not include your document text.
 
 ## What Happens Next
 
-### Response Time
-We aim to respond within 24-48 hours on business days.
-
-### Our Process
-1. We receive your message
-2. We investigate the issue
-3. We respond with help or follow-up questions
-4. We work with you until resolved
-
-### Complex Issues
-Some issues require additional investigation. We'll keep you updated on progress.
-
-## Feature Requests
-
-Have an idea to improve Writing Shed Pro?
-
-### Submitting Ideas
-Use the same contact methods above with "Feature Request" in the subject.
-
-Tell us:
-- What feature you'd like
-- How you'd use it
-- Why it would help your writing
-
-### What Happens to Requests
-- We read every request
-- Popular requests influence development priorities
-- We can't implement everything, but we appreciate all feedback
-
-## Bug Reports
-
-Found something broken?
-
-### Good Bug Reports Include
-1. **What happened**: Exact behavior you saw
-2. **What you expected**: What should have happened
-3. **Steps to reproduce**: How to make it happen again
-4. **Frequency**: Every time? Sometimes? Once?
-5. **Workaround**: Did you find a way around it?
-
-### Example Bug Report
-> **Subject**: Footnote numbering wrong after delete
->
-> **What happened**: After deleting the second footnote, the third footnote is still labeled "3" instead of "2".
->
-> **Steps**:
-> 1. Create a document with 3 footnotes
-> 2. Delete the second footnote
-> 3. Observe remaining footnotes
->
-> **Expected**: Remaining footnotes should be numbered 1 and 2.
->
-> **Device**: iPad Pro 11", iPadOS 17.4
-> **App version**: 1.2.3
+1. Your report is reviewed
+2. We investigate the issue or question
+3. We respond with help or follow-up questions when needed
+4. For complex issues, we may ask for more details
 
 ## Privacy Note
 
 When you contact support:
-- We use your information only to help you
+
+- We use the information only to help you
 - We may ask for additional details
 - We don't share your information with third parties
 - Diagnostic logs never contain your document content
 
-## Emergency Data Issues
+## Urgent Data Issues
 
-### Lost Important Work?
+If important work appears to be missing:
 
-1. Don't panic
-2. Check the Trash in-app
-3. Check other devices
-4. Check iCloud Drive in Files app
-5. Contact us immediately—we may be able to help
+1. Check the Trash in Writing Shed Pro
+2. Check your other devices
+3. Check whether iCloud sync is still catching up
+4. Send a **Bug Report** with sync diagnostics enabled
+5. Mention if you have a deadline or if the issue is time-sensitive
 
-### Time-Sensitive Issues
-
-If you have a deadline:
-- Mark your email "URGENT" in the subject
-- Explain the time constraint
-- We'll prioritize accordingly
-
-## Thank You
-
-Your feedback makes Writing Shed Pro better. Whether it's a bug report, feature request, or question, we appreciate you taking the time to reach out.
+Your feedback, bug reports, and questions all help improve Writing Shed Pro.
 
 ## See Also
 - [Troubleshooting](113-troubleshooting.md)

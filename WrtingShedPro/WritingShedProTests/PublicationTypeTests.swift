@@ -11,7 +11,7 @@ import XCTest
 final class PublicationTypeTests: XCTestCase {
     
     // All publication types (PublicationType doesn't conform to CaseIterable)
-    private let allTypes: [PublicationType] = [.magazine, .competition, .commission, .publisher, .agent, .other]
+    private let allTypes: [PublicationType] = [.magazine, .competition, .publisher, .agent, .other]
     
     // MARK: - Display Names
     
@@ -33,7 +33,6 @@ final class PublicationTypeTests: XCTestCase {
         // Verify specific icons
         XCTAssertEqual(PublicationType.magazine.icon, "📰")
         XCTAssertEqual(PublicationType.competition.icon, "🏆")
-        XCTAssertEqual(PublicationType.commission.icon, "📝")
         XCTAssertEqual(PublicationType.publisher.icon, "📚")
         XCTAssertEqual(PublicationType.agent.icon, "🤝")
         XCTAssertEqual(PublicationType.other.icon, "📄")
@@ -53,7 +52,6 @@ final class PublicationTypeTests: XCTestCase {
         // Should NOT have publisher/agent (those are for long-form works)
         XCTAssertFalse(types.contains(.publisher))
         XCTAssertFalse(types.contains(.agent))
-        XCTAssertFalse(types.contains(.commission))
     }
     
     func testAvailableTypesForProse() {
@@ -95,7 +93,6 @@ final class PublicationTypeTests: XCTestCase {
     func testRawValues() {
         XCTAssertEqual(PublicationType.magazine.rawValue, "magazine")
         XCTAssertEqual(PublicationType.competition.rawValue, "competition")
-        XCTAssertEqual(PublicationType.commission.rawValue, "commission")
         XCTAssertEqual(PublicationType.publisher.rawValue, "publisher")
         XCTAssertEqual(PublicationType.agent.rawValue, "agent")
         XCTAssertEqual(PublicationType.other.rawValue, "other")
@@ -104,7 +101,7 @@ final class PublicationTypeTests: XCTestCase {
     func testInitFromRawValue() {
         XCTAssertEqual(PublicationType(rawValue: "magazine"), .magazine)
         XCTAssertEqual(PublicationType(rawValue: "competition"), .competition)
-        XCTAssertEqual(PublicationType(rawValue: "commission"), .commission)
+        XCTAssertNil(PublicationType(rawValue: "commission"))
         XCTAssertEqual(PublicationType(rawValue: "publisher"), .publisher)
         XCTAssertEqual(PublicationType(rawValue: "agent"), .agent)
         XCTAssertEqual(PublicationType(rawValue: "other"), .other)

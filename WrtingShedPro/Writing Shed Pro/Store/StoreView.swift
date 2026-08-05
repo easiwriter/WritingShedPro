@@ -100,6 +100,7 @@ struct StoreView: View {
                     if case .verified(let transaction) = result {
                         await transaction.finish()
                         EntitlementManager.shared.recordVerifiedPurchase(transaction.productID)
+                        await SalesReporter.recordSale(for: transaction)
                         await EntitlementManager.shared.refreshEntitlements()
                     }
                 }
@@ -428,6 +429,7 @@ struct StoreView: View {
                     // Record immediately so the entitlement is available even if
                     // Transaction.currentEntitlements hasn't updated yet (iOS timing issue).
                     EntitlementManager.shared.recordVerifiedPurchase(transaction.productID)
+                    await SalesReporter.recordSale(for: transaction)
                     await EntitlementManager.shared.refreshEntitlements()
                     // Dismiss the store after successful purchase
                     await MainActor.run {
