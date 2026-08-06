@@ -73,9 +73,17 @@ struct StyleSheetDetailView: View {
                 .accessibilityLabel(NSLocalizedString("styleSheetDetail.newStyle.accessibility", comment: "New style accessibility"))
             }
         }
-        .sheet(item: $newStyle) { style in
+        .sheet(item: $newStyle, onDismiss: {
+            newStyle = nil
+        }) { style in
             NavigationStack {
-                TextStyleEditorView(style: style, isNewStyle: true)
+                TextStyleEditorView(
+                    style: style,
+                    isNewStyle: true,
+                    onSave: {
+                        newStyle = nil
+                    }
+                )
             }
         }
     }

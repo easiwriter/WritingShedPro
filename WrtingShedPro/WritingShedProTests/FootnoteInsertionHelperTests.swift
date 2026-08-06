@@ -204,15 +204,15 @@ final class FootnoteInsertionHelperTests: XCTestCase {
         XCTAssertEqual(secondAttachment?.number, 2)
     }
 
-    func testInsertFootnotePrunesOrphanedModelBeforeNumbering() throws {
-        let orphan = FootnoteModel(
+    func testInsertFootnoteDoesNotDeleteExistingModelWhenMarkerIsMissing() throws {
+        let existingFootnote = FootnoteModel(
             version: testVersion,
             characterPosition: 0,
             attachmentID: UUID(),
-            text: "Orphaned footnote",
+            text: "Existing footnote",
             number: 1
         )
-        modelContext.insert(orphan)
+        modelContext.insert(existingFootnote)
 
         let originalText = NSAttributedString(string: "Hello World")
         let (_, footnote) = FootnoteInsertionHelper.insertFootnote(
@@ -224,7 +224,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
         )
 
         XCTAssertEqual(footnote.number, 1)
-        XCTAssertNil(FootnoteManager.shared.getFootnote(id: orphan.id, context: modelContext))
+        XCTAssertNotNil(FootnoteManager.shared.getFootnote(id: existingFootnote.id, context: modelContext))
     }
     
     func testInsertFootnotesOutOfOrder() throws {

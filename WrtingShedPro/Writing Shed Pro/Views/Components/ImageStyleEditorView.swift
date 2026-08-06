@@ -221,9 +221,17 @@ struct ImageStyleEditorView: View {
             }
             .navigationTitle(NSLocalizedString("imageStyleEditor.title", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(item: $styleToEdit) { style in
+            .sheet(item: $styleToEdit, onDismiss: {
+                styleToEdit = nil
+            }) { style in
                 NavigationStack {
-                    TextStyleEditorView(style: style, hideDeleteButton: true)
+                    TextStyleEditorView(
+                        style: style,
+                        onSave: {
+                            styleToEdit = nil
+                        },
+                        hideDeleteButton: true
+                    )
                 }
             }
             .toolbar {

@@ -66,7 +66,13 @@ final class FormatApplyCommand: UndoableCommand {
         print("✅ ======== STYLE DIAG: FORMAT CMD END ========")
         #endif
 
-        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+        Task { @MainActor in
+            if description == "Paragraph Style" {
+                try? WriteCoalescer.shared?.requestSaveAndFlush(reason: "paragraph-style-apply")
+            } else {
+                WriteCoalescer.shared?.requestSave()
+            }
+        }
     }
     
     func undo() {
@@ -81,7 +87,13 @@ final class FormatApplyCommand: UndoableCommand {
         file.currentVersion?.attributedContent = beforeContent
         file.modifiedDate = Date()
 
-        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+        Task { @MainActor in
+            if description == "Paragraph Style" {
+                try? WriteCoalescer.shared?.requestSaveAndFlush(reason: "paragraph-style-undo")
+            } else {
+                WriteCoalescer.shared?.requestSave()
+            }
+        }
 
         #if DEBUG
         print("↩️ FormatApplyCommand.undo() - Reverted formatting: \(description)")

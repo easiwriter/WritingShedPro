@@ -228,16 +228,33 @@ struct FootnoteDetailView: View {
     
     private func deleteFootnote() {
         FootnoteManager.shared.deleteFootnote(footnote, context: modelContext)
-        dismiss()
+        closePresentedView()
         DispatchQueue.main.async {
             onDelete?()
         }
     }
 
     private func closeView() {
-        dismiss()
+        closePresentedView()
         DispatchQueue.main.async {
             onClose?()
         }
+    }
+
+    private func closePresentedView() {
+        dismiss()
+
+        #if targetEnvironment(macCatalyst)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            var topViewController = rootViewController
+            while let presented = topViewController.presentedViewController {
+                topViewController = presented
+            }
+            if topViewController !== rootViewController {
+                topViewController.dismiss(animated: true)
+            }
+        }
+        #endif
     }
 }

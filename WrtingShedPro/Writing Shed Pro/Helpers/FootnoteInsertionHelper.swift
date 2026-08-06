@@ -48,8 +48,6 @@ struct FootnoteInsertionHelper {
         let safePosition = min(max(0, position), mutableText.length)
         mutableText.insert(attachmentString, at: safePosition)
 
-        deleteFootnotesMissingMarkers(in: mutableText, forVersion: version, context: effectiveContext)
-        
         // Create the footnote model in the database (calculates and renumbers)
         let footnote = FootnoteManager.shared.createFootnote(
             version: version,
@@ -100,8 +98,6 @@ struct FootnoteInsertionHelper {
         // Place cursor after the footnote marker
         textView.selectedRange = NSRange(location: insertPosition + 1, length: 0)
 
-        deleteFootnotesMissingMarkers(in: textStorage, forVersion: version, context: effectiveContext)
-        
         // Create the footnote model in the database (calculates and renumbers)
         let footnote = FootnoteManager.shared.createFootnote(
             version: version,
@@ -201,22 +197,6 @@ struct FootnoteInsertionHelper {
 
         return changed
     }
-
-    @MainActor
-    private static func deleteFootnotesMissingMarkers(
-        in attributedText: NSAttributedString,
-        forVersion version: Version,
-        context: ModelContext
-    ) {
-        let anchoredAttachmentIDs = Set(attributedText.footnoteAttachments().map { $0.0.footnoteID })
-        let effectiveContext = version.modelContext ?? context
-        let footnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: effectiveContext)
-
-        for footnote in footnotes where !anchoredAttachmentIDs.contains(footnote.attachmentID) {
-            FootnoteManager.shared.deleteFootnote(footnote, context: context)
-        }
-    }
-    
     // MARK: - Updating
     
     /// Update a footnote attachment's number

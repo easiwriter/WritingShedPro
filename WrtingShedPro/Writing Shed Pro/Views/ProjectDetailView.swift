@@ -124,16 +124,14 @@ struct ProjectInfoSheet: View {
     }
 
     private func handleStyleSheetListChange() {
-        // If the selected stylesheet was deleted, fall back to default.
+        // If the selected stylesheet disappears from the local list, keep the
+        // project relationship untouched. It may still be syncing.
         guard let selected = selectedStyleSheet,
               !allStyleSheets.contains(where: { $0.id == selected.id }) else {
             return
         }
 
-        if let defaultSheet = StyleSheetService.getDefaultStyleSheet(context: modelContext) {
-            selectedStyleSheet = defaultSheet
-            project.styleSheet = defaultSheet
-        }
+        selectedStyleSheet = nil
     }
 
     // MARK: - Extracted Subviews
@@ -358,6 +356,7 @@ struct ProjectInfoSheet: View {
             }
             .pickerStyle(.menu)
             .onChange(of: selectedStyleSheet) { oldValue, newValue in
+                guard let newValue else { return }
                 project.styleSheet = newValue
                 project.modifiedDate = Date()
                 WriteCoalescer.shared?.requestSave()
@@ -465,11 +464,8 @@ struct ProjectInfoSheet: View {
             selectedStyleSheet = currentStyleSheet
             originalStyleSheet = currentStyleSheet
         } else {
-            if let defaultSheet = StyleSheetService.getDefaultStyleSheet(context: modelContext) {
-                selectedStyleSheet = defaultSheet
-                originalStyleSheet = defaultSheet
-                project.styleSheet = defaultSheet
-            }
+            selectedStyleSheet = nil
+            originalStyleSheet = nil
         }
     }
 

@@ -602,7 +602,11 @@ struct ContentView: View {
             print("✅ [ContentView] Running startup migrations")
             #endif
             
-            MigrationService.runMigrations(context: modelContext, importConfirmed: true)
+            MigrationService.runMigrations(
+                context: modelContext,
+                importConfirmed: true,
+                allowStyleSheetDeduplication: !disableRiskySyncMutationPaths
+            )
 
             // Auto-cleanup strict clone rows after migration.
             // This uses DeduplicationService's strict clone checks (same name/type/creation date)

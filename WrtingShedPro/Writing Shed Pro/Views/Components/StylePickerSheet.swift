@@ -18,6 +18,9 @@ struct StylePickerSheet: View {
     
     /// Callback when user selects a style
     let onStyleSelected: (UIFont.TextStyle) -> Void
+
+    /// Callback to close the presenting sheet
+    var onClose: (() -> Void)?
     
     /// The project to get stylesheet from (optional)
     var project: Project?
@@ -90,6 +93,7 @@ struct StylePickerSheet: View {
                         Button(action: {
                             // Convert style name to UIFont.TextStyle
                             let textStyle = UIFont.TextStyle(rawValue: style.name)
+                            onClose?()
                             onStyleSelected(textStyle)
                             dismiss()
                         }) {
@@ -118,6 +122,7 @@ struct StylePickerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.done", comment: "")) {
+                        onClose?()
                         dismiss()
                     }
                 }
@@ -139,7 +144,9 @@ struct StylePickerSheet: View {
                     .disabled(currentStyle == nil || project == nil)
                 }
             }
-            .sheet(item: $styleToEdit) { style in
+            .sheet(item: $styleToEdit, onDismiss: {
+                styleToEdit = nil
+            }) { style in
                 NavigationView {
                     TextStyleEditorView(
                         style: style,
@@ -147,6 +154,7 @@ struct StylePickerSheet: View {
                         onSave: {
                             // Reapply all styles to update existing text with the new style settings
                             onReapplyStyles?()
+                            styleToEdit = nil
                         }
                     )
                 }

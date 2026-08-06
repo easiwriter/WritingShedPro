@@ -1826,6 +1826,9 @@ struct FileEditView: View {
                 onStyleSelected: { style in
                     applyParagraphStyle(style)
                 },
+                onClose: {
+                    showStylePicker = false
+                },
                 project: file.project,
                 onReapplyStyles: {
                     // Style definition updates should not create document undo steps.
@@ -2359,7 +2362,9 @@ struct FileEditView: View {
                     )
                 }
             }
-            .sheet(item: $selectedCommentForDetail) { comment in
+            .sheet(item: $selectedCommentForDetail, onDismiss: {
+                selectedCommentForDetail = nil
+            }) { comment in
                 NavigationView {
                     CommentDetailView(
                         comment: comment,
@@ -2408,7 +2413,9 @@ struct FileEditView: View {
                     )
                 }
             }
-            .sheet(item: $selectedFootnoteForDetail) { footnote in
+            .sheet(item: $selectedFootnoteForDetail, onDismiss: {
+                selectedFootnoteForDetail = nil
+            }) { footnote in
                 NavigationView {
                     FootnoteDetailView(
                         footnote: footnote,
@@ -2660,19 +2667,25 @@ struct FileEditView: View {
         
         // Load content from database - ALWAYS normalize for iPhone
         if let savedContent = file.currentVersion?.attributedContent {
-            if file.currentVersion?.formattedContentSyncData == nil,
+            hasMismatchedFormattedContent = file.currentVersion?.hasFormattedContentSyncMismatch == true
+            hasMissingAttachments = Self.hasUnrecognizedAttachmentPlaceholders(in: savedContent)
+            let isFormattedPayloadComplete = !hasMismatchedFormattedContent && !hasMissingAttachments
+            #if DEBUG
+            if hasMismatchedFormattedContent {
+                print("⚠️ [FileEditView] formattedContent fingerprint mismatches plain text — suppressing automatic saves until sync completes or user edits")
+            }
+            if hasMissingAttachments {
+                print("⚠️ [FileEditView] Detected unrecognized U+FFFC placeholder(s) — suppressing saves until sync completes")
+            }
+            #endif
+
+            if isFormattedPayloadComplete,
+               file.currentVersion?.formattedContentSyncData == nil,
                let existingFormattedContent = file.currentVersion?.formattedContent {
                 file.currentVersion?.setFormattedContentData(existingFormattedContent, sourceText: file.currentVersion?.content)
                 file.modifiedDate = Date()
                 WriteCoalescer.shared?.requestSave(reason: "backfill-formatted-content-sync-data")
             }
-
-            hasMismatchedFormattedContent = file.currentVersion?.hasFormattedContentSyncMismatch == true
-            #if DEBUG
-            if hasMismatchedFormattedContent {
-                print("⚠️ [FileEditView] formattedContent fingerprint mismatches plain text — suppressing automatic saves until sync completes or user edits")
-            }
-            #endif
 
             let shouldPersistInlineHeadingRepair: Bool = {
                 guard let raw = file.currentVersion?.effectiveFormattedContent else { return false }
@@ -2688,7 +2701,8 @@ struct FileEditView: View {
             // left behind when an attachment was deleted but the character remained.
             // Only do this when formattedContent IS present — if formattedContent is nil,
             // the U+FFFC might belong to a real attachment waiting for CloudKit sync.
-            if file.currentVersion?.effectiveFormattedContent != nil {
+            if isFormattedPayloadComplete,
+               file.currentVersion?.effectiveFormattedContent != nil {
                 let cleanedContent = Self.stripOrphanedAttachmentPlaceholders(from: processedContent)
                 if cleanedContent.length != processedContent.length {
                     #if DEBUG
@@ -2708,12 +2722,18 @@ struct FileEditView: View {
             // If decode repaired malformed inline heading runs (oversized "bold" fragments),
             // persist immediately so CloudKit exports the cleaned content to other devices.
             if shouldPersistInlineHeadingRepair {
-                file.currentVersion?.attributedContent = processedContent
-                file.modifiedDate = Date()
-                WriteCoalescer.shared?.requestSave(reason: "open-inline-heading-repair")
-                #if DEBUG
-                print("🩹 Persisted inline-heading repair for CloudKit sync")
-                #endif
+                if isFormattedPayloadComplete {
+                    file.currentVersion?.attributedContent = processedContent
+                    file.modifiedDate = Date()
+                    WriteCoalescer.shared?.requestSave(reason: "open-inline-heading-repair")
+                    #if DEBUG
+                    print("🩹 Persisted inline-heading repair for CloudKit sync")
+                    #endif
+                } else {
+                    #if DEBUG
+                    print("⚠️ [FileEditView] Skipping inline-heading repair persistence — formatted content is still syncing")
+                    #endif
+                }
             }
             
             // Detect incomplete CloudKit sync: plain text has U+FFFC attachment
@@ -2724,20 +2744,21 @@ struct FileEditView: View {
             // CRITICAL: Count ALL recognized attachment types, not just images.
             // U+FFFC is used by ImageAttachment, CommentAttachment, FootnoteAttachment,
             // and ReferenceAttachment. Only unrecognized placeholders indicate sync issues.
-            if Self.hasUnrecognizedAttachmentPlaceholders(in: processedContent) {
-                hasMissingAttachments = true
+            hasMissingAttachments = Self.hasUnrecognizedAttachmentPlaceholders(in: processedContent)
+            
+            if !isFormattedContentSyncIncomplete {
+                // CRITICAL: Restore orphaned comment markers from database
+                // Comments created before we added serialization support need to be re-inserted
+                restoreOrphanedCommentMarkers()
+                
+                // Reconcile footnote attachment numbers with database
+                // Ensures text attachment numbers match the authoritative model numbers
+                reconcileFootnoteNumbers()
+            } else {
                 #if DEBUG
-                print("⚠️ [FileEditView] Detected unrecognized U+FFFC placeholder(s) — suppressing saves until sync completes")
+                print("⚠️ [FileEditView] Skipping marker restoration/reconciliation — formatted content is still syncing")
                 #endif
             }
-            
-            // CRITICAL: Restore orphaned comment markers from database
-            // Comments created before we added serialization support need to be re-inserted
-            restoreOrphanedCommentMarkers()
-            
-            // Reconcile footnote attachment numbers with database
-            // Ensures text attachment numbers match the authoritative model numbers
-            reconcileFootnoteNumbers()
             
             // FEATURE 029: Restore ReferenceAttachment instances from metadata
             // Since RTF format doesn't preserve custom attachment subclasses,
@@ -3143,7 +3164,8 @@ struct FileEditView: View {
             in: mutableContent,
             forVersion: currentVersion,
             context: modelContext,
-            markerStyle: markerStyle
+            markerStyle: markerStyle,
+            deleteMissingModels: false
         ) {
             // Update the attributed content
             attributedContent = mutableContent
@@ -6348,7 +6370,7 @@ struct FileEditView: View {
     
     /// Reconcile footnote attachment numbers and marker style in the text with the authoritative
     /// database models and the project's stylesheet.
-    /// Also removes orphaned FootnoteModel records whose markers no longer exist in the text.
+    /// Does not delete models; explicit marker deletion is the only destructive path.
     private func reconcileFootnoteNumbers() {
         guard let currentVersion = file.currentVersion else { return }
         
@@ -6360,7 +6382,8 @@ struct FileEditView: View {
             in: mutableContent,
             forVersion: currentVersion,
             context: modelContext,
-            markerStyle: markerStyle
+            markerStyle: markerStyle,
+            deleteMissingModels: false
         )
         
         if needsUpdate {
@@ -8731,16 +8754,27 @@ struct FileEditView: View {
         return recognizedAttachmentCount < placeholderCount
     }
 
-    private func footnoteAttachmentIDs(in content: NSAttributedString) -> Set<UUID> {
-        var ids = Set<UUID>()
-        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length), options: []) { value, _, _ in
-            guard let attachment = value as? FootnoteAttachment else { return }
-            ids.insert(attachment.footnoteID)
+    private func attachmentSignature(in content: NSAttributedString) -> Set<String> {
+        var signature = Set<String>()
+        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length), options: []) { value, range, _ in
+            if let attachment = value as? FootnoteAttachment {
+                signature.insert("footnote:\(attachment.footnoteID.uuidString)")
+            } else if let attachment = value as? CommentAttachment {
+                signature.insert("comment:\(attachment.commentID.uuidString)")
+            } else if let attachment = value as? ReferenceAttachment {
+                signature.insert("reference:\(attachment.entryID.uuidString):\(attachment.referenceType.rawValue)")
+            } else if value is ImageAttachment {
+                signature.insert("image:\(range.location)")
+            }
         }
-        return ids
+        return signature
     }
 
     #if DEBUG
+    private func attachmentDebugSummary(_ content: NSAttributedString) -> String {
+        attachmentSignature(in: content).sorted().joined(separator: ",")
+    }
+
     private func footnoteDebugSummary(_ content: NSAttributedString?) -> String {
         guard let content else { return "nil" }
 
@@ -8912,15 +8946,23 @@ struct FileEditView: View {
         }
 
         guard let freshContent = freshVersion.attributedContent else { return }
+        let freshHasMissingAttachments = Self.hasUnrecognizedAttachmentPlaceholders(in: freshContent)
+        if freshHasMissingAttachments {
+            hasMissingAttachments = true
+            #if DEBUG
+            print("⬇️ [Remote Refresh] Fresh content has unrecognized attachment placeholders — keeping editor read-only")
+            #endif
+            return
+        }
 
         let localContent = textViewCoordinator.textView?.attributedText ?? attributedContent
-        let localFootnoteIDs = footnoteAttachmentIDs(in: localContent)
-        let freshFootnoteIDs = footnoteAttachmentIDs(in: freshContent)
-        let missingLocalFootnotes = localFootnoteIDs.subtracting(freshFootnoteIDs)
-        guard missingLocalFootnotes.isEmpty else {
+        let localAttachmentSignature = attachmentSignature(in: localContent)
+        let freshAttachmentSignature = attachmentSignature(in: freshContent)
+        let droppedAttachments = localAttachmentSignature.subtracting(freshAttachmentSignature)
+        guard droppedAttachments.isEmpty else {
             #if DEBUG
-            let missing = missingLocalFootnotes.map { $0.uuidString.prefix(8) }.joined(separator: ",")
-            print("⬇️ [Remote Refresh] Skipping reload — remote content would drop local footnote marker(s): [\(missing)] local=\(footnoteDebugSummary(localContent)) remote=\(footnoteDebugSummary(freshContent))")
+            let missing = droppedAttachments.sorted().joined(separator: ",")
+            print("⬇️ [Remote Refresh] Skipping reload — remote content would drop local attachment marker(s): [\(missing)] local=\(attachmentDebugSummary(localContent)) remote=\(attachmentDebugSummary(freshContent))")
             #endif
             return
         }

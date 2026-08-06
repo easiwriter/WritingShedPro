@@ -19,8 +19,18 @@ class MigrationService {
     ///   - importConfirmed: Whether CloudKit import completed successfully.
     ///     When false, destructive operations (deleting old folders) are skipped
     ///     to avoid orphaning files that may still be syncing.
-    static func runMigrations(context: ModelContext, importConfirmed: Bool = true) {
-        deduplicateStyleSheets(context: context)
+    static func runMigrations(
+        context: ModelContext,
+        importConfirmed: Bool = true,
+        allowStyleSheetDeduplication: Bool = false
+    ) {
+        if allowStyleSheetDeduplication {
+            deduplicateStyleSheets(context: context)
+        } else {
+            #if DEBUG
+            print("⏸️ [MigrationService] Skipping automatic stylesheet deduplication")
+            #endif
+        }
         cleanupOrphanedFolders(context: context)
         if importConfirmed {
             deduplicateManuscriptSubfolders(context: context)

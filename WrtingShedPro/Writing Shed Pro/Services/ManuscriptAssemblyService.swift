@@ -684,6 +684,10 @@ final class ManuscriptAssemblyService {
         
         // Collect footnotes from all files with positions remapped to the assembled string
         var assembledFootnotes: [ManuscriptFootnote] = []
+        let includedFileIDs = sections.flatMap { $0.files }
+            .filter { !$0.isCoverFile && !(skipPrintOnlyContent && ($0.isTOCFile || $0.isTableOfFiguresFile)) }
+            .map(\.id)
+        var processedFileCount = 0
         
         for section in sections {
             // Once we've passed front matter sections, mark it done
@@ -703,6 +707,7 @@ final class ManuscriptAssemblyService {
                     if file.isTOCFile { continue }
                     if file.isTableOfFiguresFile { continue }
                 }
+                processedFileCount += 1
                 
                 if section.sectionType == .frontMatter {
                     frontMatterFileCount += 1
@@ -867,7 +872,7 @@ final class ManuscriptAssemblyService {
                 // Guarantee each file ends with one blank line (two newlines).
                 // This preserves paragraph boundaries so the next file's first-line
                 // style (e.g. Title2) is rendered from its own paragraph attributes.
-                if assembled.length > fileStartOffset {
+                if assembled.length > fileStartOffset && processedFileCount < includedFileIDs.count {
                     ensureTrailingBlankLine(on: assembled)
                 }
             }

@@ -68,6 +68,18 @@ struct StyleSheetService {
 
     private static func canonicalSystemStyleSheet(from sheets: [StyleSheet]) -> StyleSheet? {
         sheets.sorted { lhs, rhs in
+            let lhsStyleCount = lhs.textStyles?.count ?? 0
+            let rhsStyleCount = rhs.textStyles?.count ?? 0
+            if lhsStyleCount != rhsStyleCount {
+                return lhsStyleCount > rhsStyleCount
+            }
+
+            let lhsHeadingCount = lhs.textStyles?.filter { $0.styleCategory == .heading }.count ?? 0
+            let rhsHeadingCount = rhs.textStyles?.filter { $0.styleCategory == .heading }.count ?? 0
+            if lhsHeadingCount != rhsHeadingCount {
+                return lhsHeadingCount > rhsHeadingCount
+            }
+
             let lhsProjects = lhs.projects?.count ?? 0
             let rhsProjects = rhs.projects?.count ?? 0
             if lhsProjects != rhsProjects {
@@ -250,20 +262,6 @@ struct StyleSheetService {
         
         var fixedCount = 0
         var deletedCount = 0
-        
-        // Deduplicate styles with the same name (can happen during CloudKit sync)
-        var seenNames = Set<String>()
-        for style in styles {
-            if seenNames.contains(style.name) {
-                #if DEBUG
-                print("🗑️ Removing duplicate style: \(style.displayName) (\(style.name))")
-                #endif
-                context.delete(style)
-                deletedCount += 1
-                continue
-            }
-            seenNames.insert(style.name)
-        }
         
         for style in styles {
             // Check if this is an obsolete style that should be deleted
@@ -545,25 +543,14 @@ struct StyleSheetService {
             }
         }
         
-        // Remove duplicates if they exist
+        // Do not delete duplicate system stylesheet rows automatically. During sync,
+        // stylesheet records and their style/project relationships can arrive in
+        // separate batches; deleting a duplicate sheet here can cascade-delete valid
+        // text styles that are still waiting for relationships to settle.
         if existingSystemSheets.count > 1 {
             #if DEBUG
-            print("⚠️ Found \(existingSystemSheets.count) system stylesheets - removing duplicates")
+            print("⚠️ Found \(existingSystemSheets.count) system stylesheets - leaving duplicates untouched during automatic maintenance")
             #endif
-
-            guard let keeper = canonicalSystemStyleSheet(from: existingSystemSheets) else {
-                return
-            }
-
-            for duplicate in existingSystemSheets where duplicate.id != keeper.id {
-                // Preserve project links before deleting duplicate rows.
-                for project in duplicate.projects ?? [] {
-                    project.styleSheet = keeper
-                }
-                context.delete(duplicate)
-            }
-
-            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
         }
         
         // If we have an existing system stylesheet, check if it has image styles
@@ -829,24 +816,18 @@ struct StyleSheetService {
             return nil
         }
 
-        // Self-heal duplicate default stylesheets and ensure deterministic selection.
+        // Ensure deterministic selection without deleting duplicates. Relationship
+        // sync can be incomplete here, so cascade-deleting a stylesheet is unsafe.
         if systemSheets.count > 1,
            let keeper = canonicalSystemStyleSheet(from: systemSheets) {
-            for duplicate in systemSheets where duplicate.id != keeper.id {
-                for project in duplicate.projects ?? [] {
-                    project.styleSheet = keeper
-                }
-                context.delete(duplicate)
-            }
-            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
             return keeper
         }
 
         return systemSheets.first
     }
     
-    /// Get or create a stylesheet for a project
-    /// If project has no stylesheet, assign the default one
+    /// Get the stylesheet currently assigned to a project, falling back to the
+    /// default sheet for read-only rendering when the relationship is absent.
     static func getStyleSheet(for project: Project, context: ModelContext) -> StyleSheet? {
         // Return project's stylesheet if it has one
         if let sheet = project.styleSheet {
@@ -857,9 +838,6 @@ struct StyleSheetService {
         guard let defaultSheet = getDefaultStyleSheet(context: context) else {
             return nil
         }
-        
-        // Assign default to project (will be persisted on next natural save)
-        project.styleSheet = defaultSheet
         
         return defaultSheet
     }
