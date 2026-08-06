@@ -1190,7 +1190,7 @@ struct FolderFilesView: View {
                     firstVersion.attributedContent = importedContent
                 } else {
                     firstVersion.content = plainText
-                    firstVersion.formattedContent = rtfData
+                        firstVersion.setFormattedContentData(rtfData, sourceText: plainText)
                 }
             }
             

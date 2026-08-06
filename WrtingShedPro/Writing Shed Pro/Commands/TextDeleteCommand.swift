@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// Command for deleting text in a specific range
 final class TextDeleteCommand: UndoableCommand {
@@ -40,34 +41,48 @@ final class TextDeleteCommand: UndoableCommand {
     
     func execute() {
         guard let file = targetFile,
-              let content = file.currentVersion?.content,
+              let currentVersion = file.currentVersion,
+              let content = currentVersion.attributedContent,
               startPosition >= 0,
-              endPosition <= content.count,
+              endPosition <= content.length,
               startPosition < endPosition else {
             return
         }
-        
-        let startIndex = content.index(content.startIndex, offsetBy: startPosition)
-        let endIndex = content.index(content.startIndex, offsetBy: endPosition)
-        var newContent = content
-        newContent.removeSubrange(startIndex..<endIndex)
-        file.currentVersion?.updateContent(newContent)
+
+        let updatedContent = NSMutableAttributedString(attributedString: content)
+        updatedContent.deleteCharacters(in: NSRange(location: startPosition, length: endPosition - startPosition))
+        currentVersion.attributedContent = updatedContent
         file.modifiedDate = Date()
+
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
     }
     
     func undo() {
         guard let file = targetFile,
-              let content = file.currentVersion?.content,
+              let currentVersion = file.currentVersion,
+              let content = currentVersion.attributedContent,
               startPosition >= 0,
-              startPosition <= content.count else {
+              startPosition <= content.length else {
             return
         }
-        
-        let index = content.index(content.startIndex, offsetBy: startPosition)
-        var newContent = content
-        newContent.insert(contentsOf: deletedText, at: index)
-        file.currentVersion?.updateContent(newContent)
+
+        let updatedContent = NSMutableAttributedString(attributedString: content)
+        let insertionAttributes: [NSAttributedString.Key: Any]
+        if startPosition > 0, startPosition <= updatedContent.length {
+            insertionAttributes = updatedContent.attributes(at: startPosition - 1, effectiveRange: nil)
+        } else if updatedContent.length > 0 {
+            insertionAttributes = updatedContent.attributes(at: 0, effectiveRange: nil)
+        } else {
+            insertionAttributes = [
+                .font: UIFont.preferredFont(forTextStyle: .body),
+                .textStyle: UIFont.TextStyle.body.attributeValue
+            ]
+        }
+        updatedContent.insert(NSAttributedString(string: deletedText, attributes: insertionAttributes), at: startPosition)
+        currentVersion.attributedContent = updatedContent
         file.modifiedDate = Date()
+
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
     }
     
     // MARK: - Codable

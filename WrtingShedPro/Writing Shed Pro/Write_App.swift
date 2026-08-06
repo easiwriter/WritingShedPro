@@ -26,6 +26,8 @@ struct Write_App: App {
     static private(set) var initialEnsemblesImportUnavailable = false
     static private(set) var hasObservedPartialEnsemblesStoreThisLaunch = false
     static private(set) var ensemblesMergeSaveCooldownUntil: Date?
+    private static var pendingLocalChangeSyncTask: Task<Void, Never>?
+    private static var localChangeSyncInProgress = false
     static let minimumEnsemblesStartupWriteDelay: TimeInterval = 15
     static let ensemblesPostMergeSaveCooldown: TimeInterval = 10
     static let ensemblesMergeConflictSaveCooldown: TimeInterval = 90
@@ -236,6 +238,7 @@ struct Write_App: App {
             ensemblesContainer.didSaveMergeChanges = { _ in
                 Task { @MainActor in
                     Write_App.logToFile("✅ [Ensembles] Merge changes saved")
+                    NotificationCenter.default.post(name: .writingShedProSyncDidUpdateLocalData, object: nil)
                     Write_App.deferLocalSavesForEnsemblesMerge(
                         reason: "merge changes saved",
                         duration: Write_App.ensemblesPostMergeSaveCooldown
@@ -609,6 +612,7 @@ struct Write_App: App {
         if didSync {
             Write_App.recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: reason)
             syncHealthMonitor.recordExportSuccess()
+            NotificationCenter.default.post(name: .writingShedProSyncDidUpdateLocalData, object: nil)
             Write_App.logToFile("✅ [Ensembles] Manual sync completed (reason=\(reason), didSync=true, isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
         } else {
             syncHealthMonitor.recordExportFailure(isBlocking: false)
@@ -645,6 +649,7 @@ struct Write_App: App {
         guard !hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch else { return }
         hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch = true
         logToFile("✅ [Ensembles] First successful sync completed this launch (reason=\(reason))")
+        NotificationCenter.default.post(name: .writingShedProSyncDidUpdateLocalData, object: nil)
     }
 
     @MainActor
@@ -748,6 +753,49 @@ struct Write_App: App {
             reason: "saveOccurredDuringMerge",
             duration: ensemblesMergeConflictSaveCooldown
         )
+    }
+
+    @MainActor
+    static func scheduleEnsemblesSyncAfterLocalSave(reason: String) {
+        guard shouldAutoSyncEnsembles,
+              let ensemblesContainer = activeEnsemblesContainer else {
+            return
+        }
+
+        pendingLocalChangeSyncTask?.cancel()
+        pendingLocalChangeSyncTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            await runDebouncedEnsemblesSyncAfterLocalSave(ensemblesContainer, reason: reason)
+        }
+    }
+
+    @MainActor
+    private static func runDebouncedEnsemblesSyncAfterLocalSave(_ ensemblesContainer: SwiftDataEnsembleContainer, reason: String) async {
+        guard !localChangeSyncInProgress else { return }
+        guard ensemblesContainer.isAttached else { return }
+
+        localChangeSyncInProgress = true
+        defer { localChangeSyncInProgress = false }
+
+        for _ in 0..<15 {
+            guard !Task.isCancelled else { return }
+            let activity = String(describing: ensemblesContainer.currentActivity)
+            if activity.lowercased() == "none" {
+                logToFile("🔄 [Ensembles] Local-change sync started (reason=\(reason), attached=\(ensemblesContainer.isAttached))")
+                let didSync = await ensemblesContainer.sync()
+                if didSync {
+                    recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: "local save: \(reason)")
+                    logToFile("✅ [Ensembles] Local-change sync completed (reason=\(reason))")
+                } else {
+                    logToFile("⚠️ [Ensembles] Local-change sync completed without transfer (reason=\(reason), attached=\(ensemblesContainer.isAttached), activity=\(String(describing: ensemblesContainer.currentActivity)))")
+                }
+                return
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+
+        logToFile("⚠️ [Ensembles] Local-change sync skipped because Ensembles stayed busy (reason=\(reason), attached=\(ensemblesContainer.isAttached), activity=\(String(describing: ensemblesContainer.currentActivity)))")
     }
 
     static func canProceedWithStartupMaintenanceAfterIdle(modelContainer: ModelContainer, reason: String) -> Bool {

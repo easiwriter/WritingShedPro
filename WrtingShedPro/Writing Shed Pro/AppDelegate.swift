@@ -14,6 +14,8 @@ extension NSNotification.Name {
     static let writingShedProOpenFile = NSNotification.Name("WritingShedProOpenFile")
     /// Posted to tell the main ContentView to present its file-importer picker.
     static let writingShedProShowImportPicker = NSNotification.Name("WritingShedProShowImportPicker")
+    /// Posted after the sync layer reports newly available remote data locally.
+    static let writingShedProSyncDidUpdateLocalData = NSNotification.Name("WritingShedProSyncDidUpdateLocalData")
 }
 
 class AppDelegate: UIResponder, UIApplicationDelegate {

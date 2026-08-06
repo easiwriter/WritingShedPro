@@ -58,7 +58,7 @@ final class FormatApplyCommand: UndoableCommand {
         print("✅ ======== STYLE DIAG: FORMAT CMD ========")
         print("✅ FormatApplyCommand.execute() - \(description)")
         print("✅ afterContent bold=\(boldCount) italic=\(italicCount) length=\(afterContent.length)")
-        if let storedData = targetFile?.currentVersion?.formattedContent {
+        if let storedData = targetFile?.currentVersion?.effectiveFormattedContent {
             let prefix = String(data: storedData.prefix(20), encoding: .utf8) ?? "<binary>"
             let isJSON = prefix.trimmingCharacters(in: .whitespaces).hasPrefix("[")
             print("✅ Stored format: \(isJSON ? "JSON" : "OTHER") (\(storedData.count) bytes)")

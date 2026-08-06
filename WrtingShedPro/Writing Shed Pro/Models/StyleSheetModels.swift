@@ -454,7 +454,7 @@ final class TextStyleModel {
                 }
             }
             let numberWidth = numberFormat.estimatedWidth(for: font, adornment: numberAdornment, ancestorDepth: ancestorDepth)
-            effectiveFirstLineIndent += numberWidth
+            effectiveFirstLineIndent += numberWidth + 4
         }
         paragraphStyle.firstLineHeadIndent = effectiveFirstLineIndent
         

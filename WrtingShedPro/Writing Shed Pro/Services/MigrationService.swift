@@ -1052,7 +1052,7 @@ class MigrationService {
 
         let orphanedVersions = allVersions.filter { version in
             guard version.textFile == nil else { return false }
-            guard version.formattedContent == nil else { return false }
+            guard version.effectiveFormattedContent == nil else { return false }
             guard version.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
             guard (version.comments?.isEmpty ?? true) else { return false }
             guard (version.footnotes?.isEmpty ?? true) else { return false }

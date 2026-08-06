@@ -123,7 +123,7 @@ struct PaginatedDocumentView: View {
             #endif
             recalculateLayout()
         }
-        .onChange(of: textFile.currentVersion?.formattedContent) { oldValue, newValue in
+        .onChange(of: textFile.currentVersion?.effectiveFormattedContent) { oldValue, newValue in
             #if DEBUG
             print("📝 Version formattedContent changed: \(oldValue?.count ?? 0) → \(newValue?.count ?? 0)")
             #endif

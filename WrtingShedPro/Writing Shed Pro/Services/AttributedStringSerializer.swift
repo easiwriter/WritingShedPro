@@ -1,8 +1,11 @@
 import Foundation
+import CryptoKit
 import UIKit
 
 /// Struct to hold attribute values for a range of text
 struct AttributeValues: Codable {
+    var sourceTextHash: String?
+    var sourceTextLength: Int?
     var location: Int?
     var length: Int?
     var fontName: String?
@@ -61,6 +64,33 @@ struct AttributeValues: Codable {
 
 /// Service for converting between NSAttributedString and storable formats
 struct AttributedStringSerializer {
+
+    static func sourceTextHash(for text: String) -> String {
+        let digest = SHA256.hash(data: Data(text.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func sourceTextLength(for text: String) -> Int {
+        (text as NSString).length
+    }
+
+    static func hasContentFingerprintMismatch(in data: Data?, text: String) -> Bool {
+        guard let data, !data.isEmpty,
+              let runs = try? PropertyListDecoder().decode([AttributeValues].self, from: data),
+              let fingerprintedRun = runs.first(where: { $0.sourceTextHash != nil || $0.sourceTextLength != nil }) else {
+            return false
+        }
+
+        if let length = fingerprintedRun.sourceTextLength, length != (text as NSString).length {
+            return true
+        }
+
+        if let hash = fingerprintedRun.sourceTextHash, hash != sourceTextHash(for: text) {
+            return true
+        }
+
+        return false
+    }
 
     /// Returns true when encoded runs contain heading text styles applied to
     /// short inline fragments inside a paragraph (known legacy corruption pattern).
@@ -326,6 +356,9 @@ struct AttributedStringSerializer {
     static func encode(_ attributedString: NSAttributedString) -> Data {
         var allAttributes = [AttributeValues]()
         let range = NSRange(location: 0, length: attributedString.length)
+        let sourceText = attributedString.string
+        let sourceHash = sourceTextHash(for: sourceText)
+        let sourceLength = (sourceText as NSString).length
         
         if attributedString.length > 0 {
             attributedString.enumerateAttributes(in: range, options: []) { (attr, range, _) in
@@ -501,6 +534,11 @@ struct AttributedStringSerializer {
                 allAttributes.append(attributes)
             }
         }
+
+        if !allAttributes.isEmpty {
+            allAttributes[0].sourceTextHash = sourceHash
+            allAttributes[0].sourceTextLength = sourceLength
+        }
         
         do {
             return try PropertyListEncoder().encode(allAttributes)
@@ -568,6 +606,12 @@ struct AttributedStringSerializer {
         
         do {
             let jsonAttributesArray = try PropertyListDecoder().decode([AttributeValues].self, from: data)
+            if hasContentFingerprintMismatch(in: data, text: text) {
+                #if DEBUG
+                print("⚠️ [AttributedStringSerializer] formattedContent fingerprint does not match plain text; skipping stale attributes")
+                #endif
+                return result
+            }
             
             let _ = jsonAttributesArray.filter { $0.isCommentAttachment == true }.count
             let _ = jsonAttributesArray.filter { $0.isFootnoteAttachment == true }.count

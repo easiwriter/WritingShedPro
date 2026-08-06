@@ -600,9 +600,9 @@ struct SubmissionDetailView: View {
             newFile.workflowStatusRaw = file.workflowStatusRaw
             newFile.contentTypeRaw = file.contentTypeRaw
             
-            if let formattedData = currentVersion.formattedContent,
+            if let formattedData = currentVersion.effectiveFormattedContent,
                let newVersion = newFile.currentVersion {
-                newVersion.formattedContent = formattedData
+                newVersion.setFormattedContentData(formattedData, sourceText: currentVersion.content)
             }
 
             if let newVersion = newFile.currentVersion {

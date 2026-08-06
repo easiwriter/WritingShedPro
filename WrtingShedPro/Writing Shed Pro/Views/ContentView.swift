@@ -915,13 +915,13 @@ struct ContentView: View {
                         file.contentTypeRaw = "markdown"
                         // Clear stale formattedContent — markdown files use plain text
                         if let version = file.currentVersion {
-                            version.formattedContent = nil
+                            version.setFormattedContentData(nil)
                         }
                         migratedCount += 1
                     } else if file.contentTypeRaw == "markdown" {
                         // Already markdown but clear any stale formattedContent
-                        if let version = file.currentVersion, version.formattedContent != nil {
-                            version.formattedContent = nil
+                        if let version = file.currentVersion, version.effectiveFormattedContent != nil {
+                            version.setFormattedContentData(nil)
                             migratedCount += 1
                         }
                     }

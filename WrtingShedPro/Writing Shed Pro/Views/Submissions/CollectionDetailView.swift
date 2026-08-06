@@ -739,7 +739,8 @@ struct CollectionDetailView: View {
         newFile.contentTypeRaw = source.contentTypeRaw
 
         if let newVersion = newFile.currentVersion {
-            newVersion.formattedContent = version.formattedContent
+            let formattedData = version.effectiveFormattedContent
+            newVersion.setFormattedContentData(formattedData, sourceText: version.content)
             newVersion.referenceMetadataData = version.referenceMetadataData
             newVersion.comment = version.comment
             newVersion.notes = version.notes

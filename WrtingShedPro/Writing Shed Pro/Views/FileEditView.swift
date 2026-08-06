@@ -37,6 +37,7 @@ struct FileEditView: View {
     /// ImageAttachments are missing from formattedContent (CloudKit sync incomplete).
     /// While set, saves are suppressed to avoid overwriting the phone's full content.
     @State private var hasMissingAttachments = false
+    @State private var hasMismatchedFormattedContent = false
     @State private var presentDeleteAlert = false
     @State private var presentClearTextAlert = false
     @State private var showClearTextToast = false
@@ -1859,6 +1860,10 @@ struct FileEditView: View {
     /// Back matter files and TOC files are read-only
     /// Also read-only when previewing in alternate format (to prevent accidental edits to preview content)
     private var isFileEditable: Bool {
+        if isFormattedContentSyncIncomplete {
+            return false
+        }
+
         // Don't allow editing while previewing in alternate format
         if isPreviewingAsAlternateFormat {
             return false
@@ -1914,6 +1919,12 @@ struct FileEditView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
                 flushPendingEditorChanges(reason: "editor-will-terminate-flush")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                reloadFromRemoteChangeIfSafe()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .writingShedProSyncDidUpdateLocalData)) { _ in
+                reloadFromRemoteChangeIfSafe()
             }
             .onAppear {
                 setupOnAppear()
@@ -2649,8 +2660,22 @@ struct FileEditView: View {
         
         // Load content from database - ALWAYS normalize for iPhone
         if let savedContent = file.currentVersion?.attributedContent {
+            if file.currentVersion?.formattedContentSyncData == nil,
+               let existingFormattedContent = file.currentVersion?.formattedContent {
+                file.currentVersion?.setFormattedContentData(existingFormattedContent, sourceText: file.currentVersion?.content)
+                file.modifiedDate = Date()
+                WriteCoalescer.shared?.requestSave(reason: "backfill-formatted-content-sync-data")
+            }
+
+            hasMismatchedFormattedContent = file.currentVersion?.hasFormattedContentSyncMismatch == true
+            #if DEBUG
+            if hasMismatchedFormattedContent {
+                print("⚠️ [FileEditView] formattedContent fingerprint mismatches plain text — suppressing automatic saves until sync completes or user edits")
+            }
+            #endif
+
             let shouldPersistInlineHeadingRepair: Bool = {
-                guard let raw = file.currentVersion?.formattedContent else { return false }
+                guard let raw = file.currentVersion?.effectiveFormattedContent else { return false }
                 return AttributedStringSerializer.containsInlineHeadingStyleArtifacts(in: raw, text: file.currentVersion?.content ?? "")
             }()
 
@@ -2663,7 +2688,7 @@ struct FileEditView: View {
             // left behind when an attachment was deleted but the character remained.
             // Only do this when formattedContent IS present — if formattedContent is nil,
             // the U+FFFC might belong to a real attachment waiting for CloudKit sync.
-            if file.currentVersion?.formattedContent != nil {
+            if file.currentVersion?.effectiveFormattedContent != nil {
                 let cleanedContent = Self.stripOrphanedAttachmentPlaceholders(from: processedContent)
                 if cleanedContent.length != processedContent.length {
                     #if DEBUG
@@ -2699,20 +2724,11 @@ struct FileEditView: View {
             // CRITICAL: Count ALL recognized attachment types, not just images.
             // U+FFFC is used by ImageAttachment, CommentAttachment, FootnoteAttachment,
             // and ReferenceAttachment. Only unrecognized placeholders indicate sync issues.
-            let placeholderCount = processedContent.string.filter { $0 == "\u{FFFC}" }.count
-            if placeholderCount > 0 {
-                var recognizedAttachmentCount = 0
-                processedContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: processedContent.length), options: []) { value, _, _ in
-                    if value is ImageAttachment || value is CommentAttachment || value is FootnoteAttachment || value is ReferenceAttachment {
-                        recognizedAttachmentCount += 1
-                    }
-                }
-                if recognizedAttachmentCount < placeholderCount {
-                    hasMissingAttachments = true
-                    #if DEBUG
-                    print("⚠️ [FileEditView] Detected \(placeholderCount) U+FFFC placeholder(s) but only \(recognizedAttachmentCount) recognized attachment(s) — suppressing saves until sync completes or user edits")
-                    #endif
-                }
+            if Self.hasUnrecognizedAttachmentPlaceholders(in: processedContent) {
+                hasMissingAttachments = true
+                #if DEBUG
+                print("⚠️ [FileEditView] Detected unrecognized U+FFFC placeholder(s) — suppressing saves until sync completes")
+                #endif
             }
             
             // CRITICAL: Restore orphaned comment markers from database
@@ -2836,9 +2852,9 @@ struct FileEditView: View {
                 // Legacy imports have direct formatting (bold/italic) baked in, not stylesheet styles
                 // Reapplying styles would destroy all the bold/italic formatting
                 // Modern JSON format documents SHOULD have styles reapplied
-                let isLegacyRTF = AttributedStringSerializer.isLegacyRTFFormat(file.currentVersion?.formattedContent)
+                let isLegacyRTF = AttributedStringSerializer.isLegacyRTFFormat(file.currentVersion?.effectiveFormattedContent)
                 
-                if !isLegacyRTF && !hasMissingAttachments && shouldReapplyStylesOnOpen(for: project) {
+                if !isLegacyRTF && !hasMissingAttachments && !hasMismatchedFormattedContent && shouldReapplyStylesOnOpen(for: project) {
                     #if DEBUG
                     print("📝 onAppear: Reapplying styles to pick up any changes")
                     #endif
@@ -2848,6 +2864,8 @@ struct FileEditView: View {
                     #if DEBUG
                     if hasMissingAttachments {
                         print("📝 onAppear: Skipping style reapply — content has missing attachments (CloudKit sync incomplete)")
+                    } else if hasMismatchedFormattedContent {
+                        print("📝 onAppear: Skipping style reapply — formattedContent does not match plain text (CloudKit sync incomplete)")
                     } else {
                         print("📝 onAppear: Skipping style reapply for legacy RTF document (preserves direct formatting)")
                     }
@@ -3142,7 +3160,6 @@ struct FileEditView: View {
             }
 
             cancelPendingEditorSave()
-            hasMissingAttachments = false
             saveChanges()
             refreshTrigger = UUID()
             #if DEBUG
@@ -3241,8 +3258,29 @@ struct FileEditView: View {
         guard !insertedText.isEmpty else { return nil }
         return (position, insertedText)
     }
+
+    private var isFormattedContentSyncIncomplete: Bool {
+        hasMissingAttachments || hasMismatchedFormattedContent
+    }
+
+    private func suppressEditorWriteForIncompleteSync(reason: String) -> Bool {
+        guard isFormattedContentSyncIncomplete else { return false }
+        cancelPendingEditorSave()
+        #if DEBUG
+        print("⚠️ [FileEditView] Suppressing editor write (\(reason)) — formatted content is still syncing")
+        #endif
+        reloadFromRemoteChangeIfSafe()
+        return true
+    }
     
     private func scheduleEditorSave(_ attributedTextToSave: NSAttributedString) {
+        guard !isFormattedContentSyncIncomplete else {
+            #if DEBUG
+            print("⚠️ [FileEditView] Skipping scheduled editor save — formatted content is still syncing")
+            #endif
+            return
+        }
+
         saveDebounceTimer?.invalidate()
         pendingDebouncedAttributedContent = attributedTextToSave
         pendingDebouncedSaveNeedsTextViewSnapshot = false
@@ -3251,6 +3289,13 @@ struct FileEditView: View {
     }
 
     private func scheduleEditorSaveFromTextView(delay: TimeInterval = 15.0, waitsForRecentEditingToSettle: Bool = true) {
+        guard !isFormattedContentSyncIncomplete else {
+            #if DEBUG
+            print("⚠️ [FileEditView] Skipping scheduled text-view save — formatted content is still syncing")
+            #endif
+            return
+        }
+
         saveDebounceTimer?.invalidate()
         pendingDebouncedAttributedContent = nil
         pendingDebouncedSaveNeedsTextViewSnapshot = true
@@ -3274,6 +3319,14 @@ struct FileEditView: View {
 
     @discardableResult
     private func commitPendingEditorSave(reason: String, coalescer: WriteCoalescer? = nil) -> Bool {
+        guard !isFormattedContentSyncIncomplete else {
+            cancelPendingEditorSave()
+            #if DEBUG
+            print("⚠️ [FileEditView] Commit skipped (\(reason)) — formatted content is still syncing")
+            #endif
+            return false
+        }
+
         let attributedTextToSave: NSAttributedString
         if let pendingDebouncedAttributedContent {
             attributedTextToSave = pendingDebouncedAttributedContent
@@ -3310,9 +3363,7 @@ struct FileEditView: View {
         guard !isPerformingUndoRedo else { return }
         WriteCoalescer.shared?.noteEditingActivity()
 
-        if hasMissingAttachments {
-            hasMissingAttachments = false
-        }
+        guard !suppressEditorWriteForIncompleteSync(reason: "simple typing") else { return }
 
         guard !searchManager.isPerformingBatchReplace else { return }
 
@@ -3343,16 +3394,8 @@ struct FileEditView: View {
             return
         }
         WriteCoalescer.shared?.noteEditingActivity()
-        
-        // If the user is intentionally editing, clear the missing-attachment guard.
-        // An actual text change (not just style reapply) means the user is actively
-        // working in this file, so saving their edits is correct.
-        if hasMissingAttachments {
-            hasMissingAttachments = false
-            #if DEBUG
-            print("✅ [FileEditView] User edited content — clearing hasMissingAttachments, saves re-enabled")
-            #endif
-        }
+
+        guard !suppressEditorWriteForIncompleteSync(reason: "attributed text change") else { return }
         
         // Skip during batch replace - undo will be handled manually
         guard !searchManager.isPerformingBatchReplace else {
@@ -3618,6 +3661,7 @@ struct FileEditView: View {
     
     private func insertNewComment() {
         guard !newCommentText.isEmpty else { return }
+        guard !suppressEditorWriteForIncompleteSync(reason: "insert comment") else { return }
         guard let currentVersion = file.currentVersion else {
             #if DEBUG
             print("❌ Cannot insert comment: no current version")
@@ -3648,8 +3692,6 @@ struct FileEditView: View {
                 attributedContent = updatedContent
                 previousContent = updatedContent.string
                 previousAttributedContent = updatedContent
-                // Explicit user action — always allow save
-                hasMissingAttachments = false
                 saveChanges()
             }
         }
@@ -3661,6 +3703,7 @@ struct FileEditView: View {
     
     private func insertNewFootnote() {
         guard !newFootnoteText.isEmpty else { return }
+        guard !suppressEditorWriteForIncompleteSync(reason: "insert footnote") else { return }
         guard !isInsertingFootnote else { return }
         guard let currentVersion = file.currentVersion else {
             #if DEBUG
@@ -3722,10 +3765,6 @@ struct FileEditView: View {
                 #if DEBUG
                 print("🧪 [FootnoteDiag] insertNewFootnote AFTER binding textView=\(footnoteDebugSummary(textView.attributedText)) binding=\(footnoteDebugSummary(attributedContent))")
                 #endif
-                // Explicit user action — always allow save even if orphaned U+FFFC
-                // set hasMissingAttachments on load (programmatic textStorage edits
-                // may not trigger textViewDidChange to clear the flag).
-                hasMissingAttachments = false
                 saveChanges()
                 WriteCoalescer.shared?.flush()
                 #if DEBUG
@@ -3899,6 +3938,7 @@ struct FileEditView: View {
     
     /// Insert a note marker at the current cursor position
     private func insertNoteMarker(for note: NoteEntry) {
+        guard !suppressEditorWriteForIncompleteSync(reason: "insert note marker") else { return }
         guard let textView = textViewCoordinator.textView else {
             #if DEBUG
             print("❌ Cannot insert note marker: no text view")
@@ -3959,8 +3999,6 @@ struct FileEditView: View {
         // Update the attributed content binding
         attributedContent = textView.attributedText ?? NSAttributedString()
         
-        // Explicit user action — always allow save
-        hasMissingAttachments = false
         // Save changes
         saveChanges()
         
@@ -8679,6 +8717,20 @@ struct FileEditView: View {
         return mutable
     }
 
+    private static func hasUnrecognizedAttachmentPlaceholders(in attributedString: NSAttributedString) -> Bool {
+        let placeholderCount = attributedString.string.filter { $0 == "\u{FFFC}" }.count
+        guard placeholderCount > 0 else { return false }
+
+        var recognizedAttachmentCount = 0
+        attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length), options: []) { value, _, _ in
+            if value is ImageAttachment || value is CommentAttachment || value is FootnoteAttachment || value is ReferenceAttachment {
+                recognizedAttachmentCount += 1
+            }
+        }
+
+        return recognizedAttachmentCount < placeholderCount
+    }
+
     private func footnoteAttachmentIDs(in content: NSAttributedString) -> Set<UUID> {
         var ids = Set<UUID>()
         content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length), options: []) { value, _, _ in
@@ -8709,6 +8761,12 @@ struct FileEditView: View {
         if hasMissingAttachments {
             #if DEBUG
             print("⚠️ [FileEditView] saveChanges skipped — hasMissingAttachments is true (CloudKit sync incomplete)")
+            #endif
+            return
+        }
+        if hasMismatchedFormattedContent {
+            #if DEBUG
+            print("⚠️ [FileEditView] saveChanges skipped — formattedContent does not match plain text (CloudKit sync incomplete)")
             #endif
             return
         }
@@ -8844,6 +8902,15 @@ struct FileEditView: View {
             FetchDescriptor<Version>(predicate: #Predicate { $0.id == targetId })
         ))?.first else { return }
 
+        let freshHasMismatchedFormattedContent = freshVersion.hasFormattedContentSyncMismatch
+        if freshHasMismatchedFormattedContent {
+            hasMismatchedFormattedContent = true
+            #if DEBUG
+            print("⬇️ [Remote Refresh] Fresh formattedContent still mismatches plain text — keeping editor read-only")
+            #endif
+            return
+        }
+
         guard let freshContent = freshVersion.attributedContent else { return }
 
         let localContent = textViewCoordinator.textView?.attributedText ?? attributedContent
@@ -8875,6 +8942,8 @@ struct FileEditView: View {
 
         // Strip adaptive colors for dark-mode safety (same as setupOnAppear)
         let processedContent = AttributedStringSerializer.stripAdaptiveColors(from: freshContent)
+        hasMismatchedFormattedContent = false
+        hasMissingAttachments = Self.hasUnrecognizedAttachmentPlaceholders(in: processedContent)
         attributedContent = processedContent
         previousContent = processedContent.string
         previousAttributedContent = processedContent

@@ -271,9 +271,9 @@ extension FolderFilesView {
             newFile.contentTypeRaw = file.contentTypeRaw
             
             // Copy formatted content (rich text data) to the new version
-            if let formattedData = currentVersion.formattedContent,
+            if let formattedData = currentVersion.effectiveFormattedContent,
                let newVersion = newFile.currentVersion {
-                newVersion.formattedContent = formattedData
+                newVersion.setFormattedContentData(formattedData, sourceText: currentVersion.content)
             }
 
             if let newVersion = newFile.currentVersion {

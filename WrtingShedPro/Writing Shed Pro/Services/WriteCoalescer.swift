@@ -411,6 +411,7 @@ final class WriteCoalescer {
         saveCount += 1
         lastFlushTime = Date()
         syncHealthMonitor?.recordLocalChange()
+        Write_App.scheduleEnsemblesSyncAfterLocalSave(reason: reason)
         #if DEBUG
         let now = Date()
         if now.timeIntervalSince(lastSaveTraceLogTime) >= 2 {
@@ -516,6 +517,7 @@ final class WriteCoalescer {
             saveCount += 1
             lastFlushTime = Date()
             syncHealthMonitor?.recordLocalChange()
+            Write_App.scheduleEnsemblesSyncAfterLocalSave(reason: lastSaveRequestSource ?? "write-coalescer")
             #if DEBUG
             let now = Date()
             if now.timeIntervalSince(lastSaveTraceLogTime) >= 2 {

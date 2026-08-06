@@ -496,6 +496,52 @@ final class Version {
     // MARK: - Text Formatting (Phase 005)
     /// Formatted content stored as RTF data
     @Attribute(.externalStorage) var formattedContent: Data?
+    /// Inline mirror of formattedContent for sync engines that do not reliably
+    /// transport external-storage blobs. Prefer this when reading if present.
+    var formattedContentSyncData: Data?
+    /// Inline fingerprint of the plain text that formattedContentSyncData was encoded from.
+    /// Lets the editor block writes when plain text arrives before the rich payload.
+    var formattedContentSourceTextHash: String?
+    var formattedContentSourceTextLength: Int?
+
+    var effectiveFormattedContent: Data? {
+        formattedContentSyncData ?? formattedContent
+    }
+
+    var hasFormattedContentSyncMismatch: Bool {
+        let expectsFormattedContent = formattedContentSourceTextHash != nil || formattedContentSourceTextLength != nil
+        if expectsFormattedContent {
+            guard let data = effectiveFormattedContent, !data.isEmpty else { return true }
+
+            if let expectedLength = formattedContentSourceTextLength,
+               expectedLength != AttributedStringSerializer.sourceTextLength(for: content) {
+                return true
+            }
+
+            if let expectedHash = formattedContentSourceTextHash,
+               expectedHash != AttributedStringSerializer.sourceTextHash(for: content) {
+                return true
+            }
+
+            return AttributedStringSerializer.hasContentFingerprintMismatch(in: data, text: content)
+        }
+
+        return AttributedStringSerializer.hasContentFingerprintMismatch(in: effectiveFormattedContent, text: content)
+    }
+
+    func setFormattedContentData(_ data: Data?, sourceText: String? = nil) {
+        formattedContent = data
+        formattedContentSyncData = data
+
+        if data != nil {
+            let text = sourceText ?? content
+            formattedContentSourceTextHash = AttributedStringSerializer.sourceTextHash(for: text)
+            formattedContentSourceTextLength = AttributedStringSerializer.sourceTextLength(for: text)
+        } else {
+            formattedContentSourceTextHash = nil
+            formattedContentSourceTextLength = nil
+        }
+    }
     
     // MARK: - Feature 029: Reference Metadata
     /// Reference metadata for back matter entries (notes, glossary, citations, index)
@@ -507,6 +553,7 @@ final class Version {
     // Transient - not persisted, cleared when formattedContent changes
     @Transient private var _cachedAttributedContent: NSAttributedString?
     @Transient private var _cachedFormattedContentHash: Data?
+    @Transient private var _cachedPlainContentHash: String?
     
     // SwiftData Relationships
     var textFile: TextFile?
@@ -549,13 +596,16 @@ final class Version {
     var attributedContent: NSAttributedString? {
         get {
             // If we have cached content and formattedContent hasn't changed, return cache
-            if let cached = _cachedAttributedContent,
-               _cachedFormattedContentHash == formattedContent {
+                let storedFormattedContent = effectiveFormattedContent
+                let currentPlainContentHash = AttributedStringSerializer.sourceTextHash(for: content)
+                if let cached = _cachedAttributedContent,
+                    _cachedFormattedContentHash == storedFormattedContent,
+                    _cachedPlainContentHash == currentPlainContentHash {
                 return cached
             }
             
             // No formatted content - return plain text
-            guard let data = formattedContent, !data.isEmpty else {
+                guard let data = storedFormattedContent, !data.isEmpty else {
                 #if DEBUG
                 print("[Version] ⚠️ No formattedContent, returning plain text")
                 #endif
@@ -570,6 +620,7 @@ final class Version {
                 // Cache plain text result too
                 _cachedAttributedContent = plainText
                 _cachedFormattedContentHash = nil
+                _cachedPlainContentHash = currentPlainContentHash
                 return plainText
             }
             
@@ -595,6 +646,7 @@ final class Version {
                 // Cache the result
                 _cachedAttributedContent = rtfDecoded
                 _cachedFormattedContentHash = data
+                _cachedPlainContentHash = currentPlainContentHash
                 return rtfDecoded
             }
             
@@ -615,18 +667,21 @@ final class Version {
                 )
                 _cachedAttributedContent = plainText
                 _cachedFormattedContentHash = nil
+                _cachedPlainContentHash = currentPlainContentHash
                 return plainText
             }
             
             // Cache the result
             _cachedAttributedContent = decoded
             _cachedFormattedContentHash = data
+            _cachedPlainContentHash = currentPlainContentHash
             return decoded
         }
         set {
             if let attributed = newValue {
                 // Encode using AttributedStringSerializer (extracts font traits)
-                formattedContent = AttributedStringSerializer.encode(attributed)
+                let encoded = AttributedStringSerializer.encode(attributed)
+                setFormattedContentData(encoded, sourceText: attributed.string)
                 
                 // CRITICAL: Update plain text for search/compatibility
                 // MUST preserve attachment characters (U+FFFC) for proper reconstruction
@@ -646,10 +701,12 @@ final class Version {
                 // Clear cache when content changes
                 _cachedAttributedContent = nil
                 _cachedFormattedContentHash = nil
+                _cachedPlainContentHash = nil
             } else {
-                formattedContent = nil
+                setFormattedContentData(nil)
                 _cachedAttributedContent = nil
                 _cachedFormattedContentHash = nil
+                _cachedPlainContentHash = nil
             }
         }
     }

@@ -1013,7 +1013,7 @@ class JSONImportService {
         // Decode formatted content from base64
         if let base64 = data.formattedContentBase64,
            let rtfData = Data(base64Encoded: base64) {
-            version.formattedContent = rtfData
+            version.setFormattedContentData(rtfData, sourceText: data.content)
         }
 
         if let base64 = data.notesFormattedContentBase64,

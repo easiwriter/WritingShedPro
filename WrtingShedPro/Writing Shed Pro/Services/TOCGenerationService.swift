@@ -579,12 +579,12 @@ final class TOCGenerationService {
         let version = versions.sorted { $0.versionNumber < $1.versionNumber }[file.currentVersionIndex]
         
         #if DEBUG
-        print("[TOCGeneration]   Version \(version.versionNumber), hasFormattedContent: \(version.formattedContent != nil)")
+        print("[TOCGeneration]   Version \(version.versionNumber), hasFormattedContent: \(version.effectiveFormattedContent != nil)")
         #endif
         
         // Use AttributedStringSerializer to properly decode the content (preserves .textStyle attributes)
         let attributedString: NSAttributedString
-        if let formattedData = version.formattedContent {
+        if let formattedData = version.effectiveFormattedContent {
             // Check if it's JSON format (which is what we use now)
             if AttributedStringSerializer.isJSONFormat(formattedData) {
                 attributedString = AttributedStringSerializer.decode(formattedData, text: version.content)
@@ -690,18 +690,6 @@ final class TOCGenerationService {
             if let parentName = style.parentStyleName, !parentName.isEmpty {
                 parentMap[style.name] = parentName
             }
-        }
-
-        let styleNames = Set(styles.map { $0.name })
-        if parentMap[UIFont.TextStyle.title3.rawValue] == nil,
-           styleNames.contains(UIFont.TextStyle.title3.rawValue),
-           styleNames.contains(UIFont.TextStyle.title2.rawValue) {
-            parentMap[UIFont.TextStyle.title3.rawValue] = UIFont.TextStyle.title2.rawValue
-        }
-        if parentMap[UIFont.TextStyle.headline.rawValue] == nil,
-           styleNames.contains(UIFont.TextStyle.headline.rawValue),
-           styleNames.contains(UIFont.TextStyle.title3.rawValue) {
-            parentMap[UIFont.TextStyle.headline.rawValue] = UIFont.TextStyle.title3.rawValue
         }
 
         return parentMap

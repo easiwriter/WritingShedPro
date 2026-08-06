@@ -149,18 +149,6 @@ class NumberingLayoutManager: NSLayoutManager {
             }
         }
 
-        let styleNames = Set(styles.map { $0.name })
-        if parentMap[UIFont.TextStyle.title3.rawValue] == nil,
-           styleNames.contains(UIFont.TextStyle.title3.rawValue),
-           styleNames.contains(UIFont.TextStyle.title2.rawValue) {
-            parentMap[UIFont.TextStyle.title3.rawValue] = UIFont.TextStyle.title2.rawValue
-        }
-        if parentMap[UIFont.TextStyle.headline.rawValue] == nil,
-           styleNames.contains(UIFont.TextStyle.headline.rawValue),
-           styleNames.contains(UIFont.TextStyle.title3.rawValue) {
-            parentMap[UIFont.TextStyle.headline.rawValue] = UIFont.TextStyle.title3.rawValue
-        }
-        
         return parentMap
     }
 

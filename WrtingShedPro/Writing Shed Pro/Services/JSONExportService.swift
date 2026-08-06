@@ -295,7 +295,7 @@ class JSONExportService {
     private func buildVersionData(from version: Version) -> WSPVersionData {
         // Export formatted content as base64-encoded RTF
         var formattedContentBase64: String? = nil
-        if let data = version.formattedContent {
+        if let data = version.effectiveFormattedContent {
             formattedContentBase64 = data.base64EncodedString()
         }
 

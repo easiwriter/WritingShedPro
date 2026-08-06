@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// Command for replacing text in a specific range with new text
 final class TextReplaceCommand: UndoableCommand {
@@ -45,35 +46,61 @@ final class TextReplaceCommand: UndoableCommand {
     
     func execute() {
         guard let file = targetFile,
-              let content = file.currentVersion?.content,
+              let currentVersion = file.currentVersion,
+              let content = currentVersion.attributedContent,
               startPosition >= 0,
-              endPosition <= content.count,
+              endPosition <= content.length,
               startPosition < endPosition else {
             return
         }
-        
-        let startIndex = content.index(content.startIndex, offsetBy: startPosition)
-        let endIndex = content.index(content.startIndex, offsetBy: endPosition)
-        var newContent = content
-        newContent.replaceSubrange(startIndex..<endIndex, with: newText)
-        file.currentVersion?.updateContent(newContent)
+
+        let updatedContent = NSMutableAttributedString(attributedString: content)
+        let replacementRange = NSRange(location: startPosition, length: endPosition - startPosition)
+        let replacementAttributes: [NSAttributedString.Key: Any]
+        if startPosition < updatedContent.length {
+            replacementAttributes = updatedContent.attributes(at: startPosition, effectiveRange: nil)
+        } else if startPosition > 0 {
+            replacementAttributes = updatedContent.attributes(at: startPosition - 1, effectiveRange: nil)
+        } else {
+            replacementAttributes = [
+                .font: UIFont.preferredFont(forTextStyle: .body),
+                .textStyle: UIFont.TextStyle.body.attributeValue
+            ]
+        }
+        updatedContent.replaceCharacters(in: replacementRange, with: NSAttributedString(string: newText, attributes: replacementAttributes))
+        currentVersion.attributedContent = updatedContent
         file.modifiedDate = Date()
+
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
     }
     
     func undo() {
         guard let file = targetFile,
-              let content = file.currentVersion?.content,
+              let currentVersion = file.currentVersion,
+              let content = currentVersion.attributedContent,
               startPosition >= 0,
-              startPosition + newText.count <= content.count else {
+              startPosition + (newText as NSString).length <= content.length else {
             return
         }
-        
-        let startIndex = content.index(content.startIndex, offsetBy: startPosition)
-        let endIndex = content.index(startIndex, offsetBy: newText.count)
-        var newContent = content
-        newContent.replaceSubrange(startIndex..<endIndex, with: oldText)
-        file.currentVersion?.updateContent(newContent)
+
+        let updatedContent = NSMutableAttributedString(attributedString: content)
+        let replacementRange = NSRange(location: startPosition, length: (newText as NSString).length)
+        let replacementAttributes: [NSAttributedString.Key: Any]
+        if startPosition < updatedContent.length {
+            replacementAttributes = updatedContent.attributes(at: startPosition, effectiveRange: nil)
+        } else if startPosition > 0 {
+            replacementAttributes = updatedContent.attributes(at: startPosition - 1, effectiveRange: nil)
+        } else {
+            replacementAttributes = [
+                .font: UIFont.preferredFont(forTextStyle: .body),
+                .textStyle: UIFont.TextStyle.body.attributeValue
+            ]
+        }
+        updatedContent.replaceCharacters(in: replacementRange, with: NSAttributedString(string: oldText, attributes: replacementAttributes))
+        currentVersion.attributedContent = updatedContent
         file.modifiedDate = Date()
+
+        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
     }
     
     // MARK: - Codable
