@@ -144,20 +144,7 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         // Maximum footnote height - must match PaginatedTextLayoutManager
         let maxFootnoteHeight = contentRect.height * 0.5
         
-        // Use the actual character range from the final layout manager container when
-        // available. After the final container rebuild (with footnote height reserved),
-        // the container may fit fewer characters than the iteration-phase pageInfo estimated.
-        // Using the stale range would include text that overflows the draw rect, clipping
-        // footnote markers near the bottom of the page.
-        let pageCharRange: NSRange
-        if pageIndex < layoutManager.layoutManager.textContainers.count {
-            let container = layoutManager.layoutManager.textContainers[pageIndex]
-            layoutManager.layoutManager.ensureLayout(for: container)
-            let glyphRange = layoutManager.layoutManager.glyphRange(for: container)
-            pageCharRange = layoutManager.layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
-        } else {
-            pageCharRange = pageInfo.characterRange
-        }
+        let pageCharRange = pageInfo.characterRange
         
         if let version = version, let modelContext = modelContext {
             versionFootnotes = layoutManager.getFootnotes(in: pageCharRange, version: version, context: modelContext)
@@ -285,6 +272,7 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             )
         } else {
             drawTextContent(
+                pageIndex: pageIndex,
                 characterRange: pageCharRange,
                 containerHeight: containerHeight,
                 topInset: topInset,
@@ -433,40 +421,48 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         let rightText = resolvePlaceholders(right, pageNumberString: pageNumberString, totalPages: totalPages, pageCharOffset: pageCharOffset)
         
         // Text attributes for header/footer
-        let font = UIFont.systemFont(ofSize: 12)
+        let baseFont = UIFont.systemFont(ofSize: 12)
         let textColor = UIColor.darkGray
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: textColor
-        ]
         
-        let paragraphStyle = NSMutableParagraphStyle()
         let labelHeight: CGFloat = min(rect.height, 20)
         let verticalCenter = rect.origin.y + (rect.height - labelHeight) / 2
-        
-        // Draw left text
-        if !leftText.isEmpty {
-            paragraphStyle.alignment = .left
-            let leftAttributes = attributes.merging([.paragraphStyle: paragraphStyle]) { _, new in new }
-            let leftRect = CGRect(x: rect.origin.x, y: verticalCenter, width: rect.width / 3, height: labelHeight)
-            leftText.draw(in: leftRect, withAttributes: leftAttributes)
+        let headerItems: [(text: String, alignment: NSTextAlignment, rect: CGRect)]
+        let populatedCount = [leftText, centerText, rightText].filter { !$0.isEmpty }.count
+        if populatedCount == 1 {
+            let text = !leftText.isEmpty ? leftText : (!centerText.isEmpty ? centerText : rightText)
+            let alignment: NSTextAlignment = !leftText.isEmpty ? .left : (!centerText.isEmpty ? .center : .right)
+            headerItems = [(text, alignment, CGRect(x: rect.origin.x, y: verticalCenter, width: rect.width, height: labelHeight))]
+        } else {
+            headerItems = [
+                (leftText, .left, CGRect(x: rect.origin.x, y: verticalCenter, width: rect.width / 3, height: labelHeight)),
+                (centerText, .center, CGRect(x: rect.origin.x + rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight)),
+                (rightText, .right, CGRect(x: rect.origin.x + 2 * rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight))
+            ]
         }
         
-        // Draw center text
-        if !centerText.isEmpty {
-            paragraphStyle.alignment = .center
-            let centerAttributes = attributes.merging([.paragraphStyle: paragraphStyle]) { _, new in new }
-            let centerRect = CGRect(x: rect.origin.x + rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight)
-            centerText.draw(in: centerRect, withAttributes: centerAttributes)
+        for item in headerItems where !item.text.isEmpty {
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.alignment = item.alignment
+            let font = Self.fittingHeaderFooterFont(for: item.text, baseFont: baseFont, maxWidth: item.rect.width)
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: textColor,
+                .paragraphStyle: paragraphStyle
+            ]
+            item.text.draw(in: item.rect, withAttributes: attributes)
         }
-        
-        // Draw right text
-        if !rightText.isEmpty {
-            paragraphStyle.alignment = .right
-            let rightAttributes = attributes.merging([.paragraphStyle: paragraphStyle]) { _, new in new }
-            let rightRect = CGRect(x: rect.origin.x + 2 * rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight)
-            rightText.draw(in: rightRect, withAttributes: rightAttributes)
+    }
+
+    private static func fittingHeaderFooterFont(for text: String, baseFont: UIFont, maxWidth: CGFloat) -> UIFont {
+        guard !text.isEmpty, maxWidth > 0 else { return baseFont }
+        var fontSize = baseFont.pointSize
+        while fontSize > 7 {
+            let font = baseFont.withSize(fontSize)
+            let width = (text as NSString).size(withAttributes: [.font: font]).width
+            if width <= maxWidth { return font }
+            fontSize -= 0.5
         }
+        return baseFont.withSize(7)
     }
     
     /// Draw a cover image directly into the full page area.
@@ -511,7 +507,8 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         #endif
     }
     
-    private func drawTextContent(characterRange: NSRange,
+    private func drawTextContent(pageIndex: Int,
+                                 characterRange: NSRange,
                                  containerHeight: CGFloat,
                                  topInset: CGFloat,
                                  leftInset: CGFloat,
@@ -581,6 +578,16 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             height: containerHeight
         )
         
+        if drawLaidOutTextContent(
+            pageIndex: pageIndex,
+            attributedString: mutableString,
+            drawRect: drawRect,
+            context: context
+        ) {
+            drawParagraphNumbers(in: mutableString, drawRect: drawRect)
+            return
+        }
+        
         // Save context state
         context.saveGState()
         
@@ -595,6 +602,32 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         
         // Restore context state
         context.restoreGState()
+    }
+    
+    private func drawLaidOutTextContent(pageIndex: Int,
+                                        attributedString: NSAttributedString,
+                                        drawRect: CGRect,
+                                        context: CGContext) -> Bool {
+        guard pageIndex < layoutManager.layoutManager.textContainers.count else { return false }
+        let calculatedContainer = layoutManager.layoutManager.textContainers[pageIndex]
+        let textStorage = NSTextStorage(attributedString: attributedString)
+        let nsLayoutManager = NSLayoutManager()
+        let textContainer = NSTextContainer(size: calculatedContainer.size)
+        textContainer.lineFragmentPadding = 0
+        textStorage.addLayoutManager(nsLayoutManager)
+        nsLayoutManager.addTextContainer(textContainer)
+        nsLayoutManager.ensureLayout(for: textContainer)
+        let glyphRange = nsLayoutManager.glyphRange(for: textContainer)
+        guard glyphRange.length > 0 else { return false }
+        
+        context.saveGState()
+        context.clip(to: drawRect)
+        context.translateBy(x: drawRect.origin.x, y: drawRect.origin.y)
+        nsLayoutManager.drawBackground(forGlyphRange: glyphRange, at: .zero)
+        nsLayoutManager.drawGlyphs(forGlyphRange: glyphRange, at: .zero)
+        context.restoreGState()
+        
+        return true
     }
     
     /// Draw paragraph numbers for styles that have numbering enabled.

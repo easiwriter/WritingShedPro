@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 // MARK: - Front Matter Settings Dialog
 
@@ -14,6 +15,7 @@ import SwiftData
 /// Automatically shows Drama-specific items for Drama projects
 struct FrontMatterSettingsDialog: View {
     @Bindable var folder: Folder
+    @Binding var isPresented: Bool
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
@@ -22,6 +24,7 @@ struct FrontMatterSettingsDialog: View {
     // Drama project items
     @State private var dramaEnabledItems: Set<DramaFrontMatterItem> = []
     @State private var isProcessing = false
+    @State private var showMatterStylePicker = false
     
     private var isDrama: Bool {
         folder.isDramaProject
@@ -45,6 +48,8 @@ struct FrontMatterSettingsDialog: View {
                 } footer: {
                     Text(NSLocalizedString("frontMatter.settings.footer", comment: "Enabled items will appear as files in your Front Matter folder."))
                 }
+
+                matterStylesSection
             }
             .formStyle(.grouped)
             .navigationTitle(NSLocalizedString("frontMatter.settings.title", comment: "Front Matter"))
@@ -54,7 +59,7 @@ struct FrontMatterSettingsDialog: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        dismissSheet()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -69,6 +74,11 @@ struct FrontMatterSettingsDialog: View {
                     dramaEnabledItems = folder.dramaFrontMatterSettings.enabledItems
                 } else {
                     enabledItems = folder.frontMatterSettings.enabledItems
+                }
+            }
+            .sheet(isPresented: $showMatterStylePicker) {
+                if let project = folder.resolvedProject {
+                    MatterStylePickerSheet(project: project, isPresented: $showMatterStylePicker)
                 }
             }
         }
@@ -102,6 +112,20 @@ struct FrontMatterSettingsDialog: View {
             }
         )
     }
+
+    private var matterStylesSection: some View {
+        Section {
+            Button {
+                showMatterStylePicker = true
+            } label: {
+                Label(NSLocalizedString("manuscript.matterStyles", comment: "Matter Styles"), systemImage: "textformat.size")
+            }
+        } header: {
+            Text(NSLocalizedString("matterStyle.title", comment: "Matter Styles"))
+        } footer: {
+            Text(NSLocalizedString("matterStyle.headingFooter", comment: "Style used for headings in generated sections like Notes, Glossary, References, Index, and List of Figures."))
+        }
+    }
     
     private func saveSettings() {
         isProcessing = true
@@ -115,22 +139,36 @@ struct FrontMatterSettingsDialog: View {
         WriteCoalescer.shared?.requestSave(reason: "front-matter-settings-save")
         WriteCoalescer.shared?.flush()
         isProcessing = false
+        dismissSheet()
+    }
+
+    private func dismissSheet() {
+        isPresented = false
         dismiss()
+        #if targetEnvironment(macCatalyst)
+        DispatchQueue.main.async {
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootVC = windowScene.windows.first?.rootViewController {
+                var topVC = rootVC
+                while let presented = topVC.presentedViewController {
+                    topVC = presented
+                }
+                if topVC !== rootVC {
+                    topVC.dismiss(animated: true)
+                }
+            }
+        }
+        #endif
     }
     
     private func saveFictionSettings() {
-        let previousSettings = folder.frontMatterSettings
         let newSettings = FrontMatterSettings(enabledItems: enabledItems)
         
-        // Create files for newly enabled items
-        let newlyEnabled = enabledItems.subtracting(previousSettings.enabledItems)
-        for item in newlyEnabled.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+        for item in enabledItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
             createFileForItem(item)
         }
         
-        // Remove files for newly disabled items
-        let newlyDisabled = previousSettings.enabledItems.subtracting(enabledItems)
-        for item in newlyDisabled {
+        for item in FrontMatterItem.allCases where !enabledItems.contains(item) {
             removeFileForItem(item)
         }
         
@@ -138,18 +176,13 @@ struct FrontMatterSettingsDialog: View {
     }
     
     private func saveDramaSettings() {
-        let previousSettings = folder.dramaFrontMatterSettings
         let newSettings = DramaFrontMatterSettings(enabledItems: dramaEnabledItems)
         
-        // Create files for newly enabled items
-        let newlyEnabled = dramaEnabledItems.subtracting(previousSettings.enabledItems)
-        for item in newlyEnabled.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+        for item in dramaEnabledItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
             createFileForDramaItem(item)
         }
         
-        // Remove files for newly disabled items
-        let newlyDisabled = previousSettings.enabledItems.subtracting(dramaEnabledItems)
-        for item in newlyDisabled {
+        for item in DramaFrontMatterItem.allCases where !dramaEnabledItems.contains(item) {
             removeFileForDramaItem(item)
         }
         
@@ -157,8 +190,7 @@ struct FrontMatterSettingsDialog: View {
     }
     
     private func createFileForItem(_ item: FrontMatterItem) {
-        let existingFiles = folder.textFiles ?? []
-        if existingFiles.contains(where: { $0.name == item.fileName }) {
+        if fetchFile(named: item.fileName) != nil {
             return
         }
         
@@ -184,8 +216,7 @@ struct FrontMatterSettingsDialog: View {
     }
     
     private func createFileForDramaItem(_ item: DramaFrontMatterItem) {
-        let existingFiles = folder.textFiles ?? []
-        if existingFiles.contains(where: { $0.name == item.fileName }) {
+        if fetchFile(named: item.fileName) != nil {
             return
         }
         
@@ -200,47 +231,27 @@ struct FrontMatterSettingsDialog: View {
     }
     
     private func removeFileForItem(_ item: FrontMatterItem) {
-        // Prefer relationship lookup first, but also fall back to direct fetch.
-        // The in-memory relationship can be stale in some sync/load states.
-        if let index = folder.textFiles?.firstIndex(where: { $0.name == item.fileName }),
-           let file = folder.textFiles?[index] {
-            folder.textFiles?.remove(at: index)
-            modelContext.delete(file)
-            return
-        }
-
-        let folderID = folder.id
-        let fileName = item.fileName
-        let descriptor = FetchDescriptor<TextFile>(
-            predicate: #Predicate<TextFile> { file in
-                file.parentFolder?.id == folderID && file.name == fileName
-            }
-        )
-
-        if let file = try? modelContext.fetch(descriptor).first {
+        if let file = fetchFile(named: item.fileName) {
+            folder.textFiles?.removeAll { $0.id == file.id }
             modelContext.delete(file)
         }
     }
     
     private func removeFileForDramaItem(_ item: DramaFrontMatterItem) {
-        if let index = folder.textFiles?.firstIndex(where: { $0.name == item.fileName }),
-           let file = folder.textFiles?[index] {
-            folder.textFiles?.remove(at: index)
+        if let file = fetchFile(named: item.fileName) {
+            folder.textFiles?.removeAll { $0.id == file.id }
             modelContext.delete(file)
-            return
         }
+    }
 
+    private func fetchFile(named fileName: String) -> TextFile? {
         let folderID = folder.id
-        let fileName = item.fileName
         let descriptor = FetchDescriptor<TextFile>(
             predicate: #Predicate<TextFile> { file in
                 file.parentFolder?.id == folderID && file.name == fileName
             }
         )
-
-        if let file = try? modelContext.fetch(descriptor).first {
-            modelContext.delete(file)
-        }
+        return try? modelContext.fetch(descriptor).first
     }
 }
 
@@ -250,6 +261,7 @@ struct FrontMatterSettingsDialog: View {
 /// Automatically shows Drama-specific items for Drama projects
 struct BackMatterSettingsDialog: View {
     @Bindable var folder: Folder
+    @Binding var isPresented: Bool
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
@@ -263,6 +275,7 @@ struct BackMatterSettingsDialog: View {
     // Confirmation alert for items with entries
     @State private var showRemoveEntriesConfirmation = false
     @State private var pendingItemToDisable: BackMatterItem?
+    @State private var showMatterStylePicker = false
     
     private var isDrama: Bool {
         folder.isDramaProject
@@ -356,6 +369,8 @@ struct BackMatterSettingsDialog: View {
                         Text(NSLocalizedString("backMatter.index.columns.footer", comment: "Number of columns to display the index in when exported."))
                     }
                 }
+
+                matterStylesSection
             }
             .formStyle(.grouped)
             .navigationTitle(NSLocalizedString("backMatter.settings.title", comment: "Back Matter"))
@@ -365,7 +380,7 @@ struct BackMatterSettingsDialog: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        dismissSheet()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -382,6 +397,11 @@ struct BackMatterSettingsDialog: View {
                     let settings = folder.backMatterSettings
                     enabledItems = settings.enabledItems
                     indexColumnCount = settings.indexColumnCount
+                }
+            }
+            .sheet(isPresented: $showMatterStylePicker) {
+                if let project = folder.resolvedProject {
+                    MatterStylePickerSheet(project: project, isPresented: $showMatterStylePicker)
                 }
             }
         }
@@ -442,6 +462,20 @@ struct BackMatterSettingsDialog: View {
             }
         )
     }
+
+    private var matterStylesSection: some View {
+        Section {
+            Button {
+                showMatterStylePicker = true
+            } label: {
+                Label(NSLocalizedString("manuscript.matterStyles", comment: "Matter Styles"), systemImage: "textformat.size")
+            }
+        } header: {
+            Text(NSLocalizedString("matterStyle.title", comment: "Matter Styles"))
+        } footer: {
+            Text(NSLocalizedString("matterStyle.headingFooter", comment: "Style used for headings in generated sections like Notes, Glossary, References, Index, and List of Figures."))
+        }
+    }
     
     private func saveSettings() {
         isProcessing = true
@@ -455,22 +489,41 @@ struct BackMatterSettingsDialog: View {
         WriteCoalescer.shared?.requestSave(reason: "back-matter-settings-save")
         WriteCoalescer.shared?.flush()
         isProcessing = false
+        dismissSheet()
+    }
+
+    private func dismissSheet() {
+        isPresented = false
         dismiss()
+        #if targetEnvironment(macCatalyst)
+        DispatchQueue.main.async {
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootVC = windowScene.windows.first?.rootViewController {
+                var topVC = rootVC
+                while let presented = topVC.presentedViewController {
+                    topVC = presented
+                }
+                if topVC !== rootVC {
+                    topVC.dismiss(animated: true)
+                }
+            }
+        }
+        #endif
     }
     
     private func saveFictionSettings() {
         let previousSettings = folder.backMatterSettings
-        let newSettings = BackMatterSettings(enabledItems: enabledItems, indexColumnCount: indexColumnCount)
+        let newSettings = BackMatterSettings(
+            enabledItems: enabledItems,
+            indexColumnCount: indexColumnCount,
+            itemTitles: previousSettings.itemTitles
+        )
         
-        // Create files for newly enabled items
-        let newlyEnabled = enabledItems.subtracting(previousSettings.enabledItems)
-        for item in newlyEnabled.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+        for item in enabledItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
             createFileForItem(item)
         }
         
-        // Remove files for newly disabled items
-        let newlyDisabled = previousSettings.enabledItems.subtracting(enabledItems)
-        for item in newlyDisabled {
+        for item in BackMatterItem.allCases where !enabledItems.contains(item) {
             removeFileForItem(item)
         }
         
@@ -478,18 +531,13 @@ struct BackMatterSettingsDialog: View {
     }
     
     private func saveDramaSettings() {
-        let previousSettings = folder.dramaBackMatterSettings
         let newSettings = DramaBackMatterSettings(enabledItems: dramaEnabledItems)
         
-        // Create files for newly enabled items
-        let newlyEnabled = dramaEnabledItems.subtracting(previousSettings.enabledItems)
-        for item in newlyEnabled.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+        for item in dramaEnabledItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
             createFileForDramaItem(item)
         }
         
-        // Remove files for newly disabled items
-        let newlyDisabled = previousSettings.enabledItems.subtracting(dramaEnabledItems)
-        for item in newlyDisabled {
+        for item in DramaBackMatterItem.allCases where !dramaEnabledItems.contains(item) {
             removeFileForDramaItem(item)
         }
         
@@ -497,8 +545,7 @@ struct BackMatterSettingsDialog: View {
     }
     
     private func createFileForItem(_ item: BackMatterItem) {
-        let existingFiles = folder.textFiles ?? []
-        if existingFiles.contains(where: { $0.name == item.fileName }) {
+        if fetchFile(named: item.fileName) != nil {
             return
         }
         
@@ -524,8 +571,7 @@ struct BackMatterSettingsDialog: View {
     }
     
     private func createFileForDramaItem(_ item: DramaBackMatterItem) {
-        let existingFiles = folder.textFiles ?? []
-        if existingFiles.contains(where: { $0.name == item.fileName }) {
+        if fetchFile(named: item.fileName) != nil {
             return
         }
         
@@ -540,57 +586,32 @@ struct BackMatterSettingsDialog: View {
     }
     
     private func removeFileForItem(_ item: BackMatterItem) {
-        // Prefer relationship lookup first, but also fall back to direct fetch.
-        // The in-memory relationship can be stale in some sync/load states.
-        if let index = folder.textFiles?.firstIndex(where: { $0.name == item.fileName }),
-           let file = folder.textFiles?[index] {
-            folder.textFiles?.remove(at: index)
-            modelContext.delete(file)
-            return
-        }
-
-        let folderID = folder.id
-        let fileName = item.fileName
-        let descriptor = FetchDescriptor<TextFile>(
-            predicate: #Predicate<TextFile> { file in
-                file.parentFolder?.id == folderID && file.name == fileName
-            }
-        )
-
-        if let file = try? modelContext.fetch(descriptor).first {
+        if let file = fetchFile(named: item.fileName) {
+            folder.textFiles?.removeAll { $0.id == file.id }
             modelContext.delete(file)
         }
     }
     
     private func removeFileForDramaItem(_ item: DramaBackMatterItem) {
-        if let index = folder.textFiles?.firstIndex(where: { $0.name == item.fileName }),
-           let file = folder.textFiles?[index] {
+        if let file = fetchFile(named: item.fileName) {
             if let version = file.currentVersion,
                let content = version.attributedContent,
                !content.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 return
             }
-            folder.textFiles?.remove(at: index)
+            folder.textFiles?.removeAll { $0.id == file.id }
             modelContext.delete(file)
-            return
         }
+    }
 
+    private func fetchFile(named fileName: String) -> TextFile? {
         let folderID = folder.id
-        let fileName = item.fileName
         let descriptor = FetchDescriptor<TextFile>(
             predicate: #Predicate<TextFile> { file in
                 file.parentFolder?.id == folderID && file.name == fileName
             }
         )
-
-        if let file = try? modelContext.fetch(descriptor).first {
-            if let version = file.currentVersion,
-               let content = version.attributedContent,
-               !content.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return
-            }
-            modelContext.delete(file)
-        }
+        return try? modelContext.fetch(descriptor).first
     }
     
     /// Remove all entries and inline references for a back matter type

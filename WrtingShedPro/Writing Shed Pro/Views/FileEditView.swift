@@ -1852,6 +1852,9 @@ struct FileEditView: View {
                         captionStyle: captionStyle
                     )
                     imageToEdit = nil
+                },
+                onCancel: {
+                    imageToEdit = nil
                 }
             )
         }
@@ -8673,7 +8676,11 @@ struct FileEditView: View {
                 // Rich Text file → show as Markdown preview
                 do {
                     let filename = file.name
-                    let markdownString = try MarkdownExportService.exportToMarkdown(currentContent, filename: filename)
+                    let markdownString = try MarkdownExportService.exportToMarkdown(
+                        currentContent,
+                        filename: filename,
+                        footnotes: file.currentVersion?.footnotes
+                    )
                     
                     let markdownContent = NSAttributedString(
                         string: markdownString,
@@ -9345,6 +9352,7 @@ private struct ImageStyleEditorSheetContent: View {
     let imageAttachment: ImageAttachment
     let file: TextFile
     let onApply: (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String, String) -> Void
+    let onCancel: () -> Void
     
     private var imageData: Data? {
         imageAttachment.imageData ?? imageAttachment.image?.pngData()
@@ -9384,7 +9392,8 @@ private struct ImageStyleEditorSheetContent: View {
             captionStyle: imageAttachment.captionStyle ?? "UICTFontTextStyleCaption1",
             availableCaptionStyles: captionStyles,
             styleSheet: styleSheet,
-            onApply: onApply
+            onApply: onApply,
+            onCancel: onCancel
         )
     }
 }

@@ -36,7 +36,8 @@ class MarkdownExportService {
     /// - Throws: Error if export fails
     static func exportToMarkdown(
         _ attributedString: NSAttributedString,
-        filename: String
+        filename: String,
+        footnotes: [FootnoteModel]? = nil
     ) throws -> String {
         
         guard attributedString.length > 0 else {
@@ -44,6 +45,9 @@ class MarkdownExportService {
         }
         
         var markdown = ""
+        let footnotesByAttachmentID = footnotes.map { footnotes in
+            Dictionary(footnotes.map { ($0.attachmentID, $0) }, uniquingKeysWith: { first, _ in first })
+        } ?? [:]
         
         // Process the attributed string paragraph by paragraph
         let string = attributedString.string
@@ -58,7 +62,7 @@ class MarkdownExportService {
             let paragraphAttrString = attributedString.attributedSubstring(from: nsRange)
             
             // Convert the paragraph to Markdown
-            let paragraphMarkdown = convertParagraphToMarkdown(paragraphAttrString)
+            let paragraphMarkdown = convertParagraphToMarkdown(paragraphAttrString, footnotesByAttachmentID: footnotesByAttachmentID)
             markdown += paragraphMarkdown
             
             // Move to next paragraph
@@ -81,9 +85,10 @@ class MarkdownExportService {
     /// - Throws: Error if export fails
     static func exportToMarkdownData(
         _ attributedString: NSAttributedString,
-        filename: String
+        filename: String,
+        footnotes: [FootnoteModel]? = nil
     ) throws -> Data {
-        let markdownString = try exportToMarkdown(attributedString, filename: filename)
+        let markdownString = try exportToMarkdown(attributedString, filename: filename, footnotes: footnotes)
         
         guard let data = markdownString.data(using: .utf8) else {
             throw MarkdownExportError.conversionFailed("Failed to encode Markdown as UTF-8")
@@ -166,7 +171,10 @@ class MarkdownExportService {
     }
     
     /// Convert a paragraph's attributed string to Markdown
-    private static func convertParagraphToMarkdown(_ attributedString: NSAttributedString) -> String {
+    private static func convertParagraphToMarkdown(
+        _ attributedString: NSAttributedString,
+        footnotesByAttachmentID: [UUID: FootnoteModel]
+    ) -> String {
         let string = attributedString.string
         
         // If empty or just whitespace, return as-is
@@ -196,6 +204,14 @@ class MarkdownExportService {
         // Process inline formatting
         attributedString.enumerateAttributes(in: fullRange, options: []) { attributes, range, _ in
             let text = (string as NSString).substring(with: range)
+            
+            if let attachment = attributes[.attachment] as? NSTextAttachment {
+                if let attachmentMarkdown = markdownForAttachment(attachment, footnotesByAttachmentID: footnotesByAttachmentID) {
+                    result += attachmentMarkdown
+                }
+                return
+            }
+            
             var formattedText = text
             
             // Check for bold
@@ -246,6 +262,20 @@ class MarkdownExportService {
         }
         
         return result
+    }
+    
+    private static func markdownForAttachment(
+        _ attachment: NSTextAttachment,
+        footnotesByAttachmentID: [UUID: FootnoteModel]
+    ) -> String? {
+        if let footnoteAttachment = attachment as? FootnoteAttachment {
+            guard let footnote = footnotesByAttachmentID[footnoteAttachment.footnoteID] else { return nil }
+            let text = footnote.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return nil }
+            return " [Footnote \(footnoteAttachment.displayString): \(text)]"
+        }
+        
+        return nil
     }
     
     // MARK: - Image Handling

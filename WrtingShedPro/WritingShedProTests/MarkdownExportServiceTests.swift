@@ -130,6 +130,49 @@ final class MarkdownExportServiceTests: XCTestCase {
         XCTAssertTrue(markdown.contains("](https://example.com)"))
     }
     
+    // MARK: - Attachment Tests
+    
+    func testExportFootnoteAttachmentAsInlineNoteWhenFootnoteTextIsAvailable() throws {
+        let version = Version(content: "Text continues\n")
+        let attachmentID = UUID()
+        let footnote = FootnoteModel(
+            version: version,
+            attachmentID: attachmentID,
+            text: "This is the note.",
+            number: 1
+        )
+        let content = NSMutableAttributedString(string: "Text")
+        content.append(NSAttributedString(attachment: FootnoteAttachment(footnoteID: attachmentID, number: 1)))
+        content.append(NSAttributedString(string: " continues\n"))
+        
+        let markdown = try MarkdownExportService.exportToMarkdown(content, filename: "test", footnotes: [footnote])
+        
+        XCTAssertEqual(markdown, "Text [Footnote 1: This is the note.] continues\n")
+        XCTAssertFalse(markdown.contains("\u{FFFC}"))
+    }
+    
+    func testExportFootnoteAttachmentIsOmittedWhenFootnoteTextIsUnavailable() throws {
+        let content = NSMutableAttributedString(string: "Text")
+        content.append(NSAttributedString(attachment: FootnoteAttachment(footnoteID: UUID(), number: 1)))
+        content.append(NSAttributedString(string: " continues\n"))
+        
+        let markdown = try MarkdownExportService.exportToMarkdown(content, filename: "test")
+        
+        XCTAssertEqual(markdown, "Text continues\n")
+        XCTAssertFalse(markdown.contains("\u{FFFC}"))
+    }
+    
+    func testExportReferenceAttachmentIsOmitted() throws {
+        let content = NSMutableAttributedString(string: "See ")
+        content.append(NSAttributedString(attachment: ReferenceAttachment(referenceType: .reference, entryID: UUID(), displayText: "[Smith, 2024]")))
+        content.append(NSAttributedString(string: "\n"))
+        
+        let markdown = try MarkdownExportService.exportToMarkdown(content, filename: "test")
+        
+        XCTAssertEqual(markdown, "See \n")
+        XCTAssertFalse(markdown.contains("\u{FFFC}"))
+    }
+    
     // MARK: - Horizontal Rule Tests
     
     func testExportVisualHorizontalRule_BoxDrawing() throws {

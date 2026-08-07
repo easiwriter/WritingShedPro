@@ -290,7 +290,7 @@ final class Project {
             manuscriptSettingsData = try? JSONEncoder().encode(newValue)
         }
     }
-    
+
     // MARK: - Folder Finding Helpers
     
     /// Safely check if a folder is valid (not invalidated/deleted)
@@ -921,13 +921,19 @@ final class TextFile {
     var tocSettings: TOCSettings {
         get {
             guard let data = tocSettingsData,
-                  let settings = try? JSONDecoder().decode(TOCSettings.self, from: data) else {
+                  let settings = TOCSettings.decode(from: data) else {
                 return .default
             }
             return settings
         }
         set {
-            tocSettingsData = try? JSONEncoder().encode(newValue)
+            do {
+                tocSettingsData = try JSONEncoder().encode(newValue)
+            } catch {
+                #if DEBUG
+                print("❌ Failed to encode TOC settings: \(error)")
+                #endif
+            }
             modifiedDate = Date()
         }
     }

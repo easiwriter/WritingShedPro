@@ -617,6 +617,7 @@ struct ProseListView: View {
             footerInsertTarget: $footerInsertTarget,
             showHeaderElementPicker: $showHeaderElementPicker,
             showFooterElementPicker: $showFooterElementPicker,
+            isPresented: $showHeaderFooterEditor,
             headerFooterElements: headerFooterElements,
             onCancel: { showHeaderFooterEditor = false },
             onSave: {
@@ -1148,7 +1149,7 @@ struct ProseListView: View {
         
         // Single file: direct export
         if attributedStrings.count == 1, let firstFile = files.first {
-            performSingleFileExport(format: format, content: attributedStrings[0], filename: firstFile.name)
+            performSingleFileExport(format: format, content: attributedStrings[0], filename: firstFile.name, footnotes: firstFile.currentVersion?.footnotes)
             filesToExport = []
             return
         }
@@ -1238,7 +1239,7 @@ struct ProseListView: View {
         filesToExport = []
     }
     
-    private func performSingleFileExport(format: ExportFormat, content: NSAttributedString, filename: String) {
+    private func performSingleFileExport(format: ExportFormat, content: NSAttributedString, filename: String, footnotes: [FootnoteModel]? = nil) {
         do {
             switch format {
             case .pdf:
@@ -1267,7 +1268,7 @@ struct ProseListView: View {
                 let exportService = DOCXExportService(modelContext: modelContext)
                 exportData = try exportService.exportToDOCX(content, filename: filename)
             case .markdown:
-                exportData = try MarkdownExportService.exportToMarkdownData(content, filename: filename)
+                exportData = try MarkdownExportService.exportToMarkdownData(content, filename: filename, footnotes: footnotes)
             default:
                 return
             }

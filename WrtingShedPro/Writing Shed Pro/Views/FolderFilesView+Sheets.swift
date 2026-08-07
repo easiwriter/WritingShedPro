@@ -377,6 +377,7 @@ extension FolderFilesView {
             footerInsertTarget: $footerInsertTarget,
             showHeaderElementPicker: $showHeaderElementPicker,
             showFooterElementPicker: $showFooterElementPicker,
+            isPresented: $showHeaderFooterEditor,
             headerFooterElements: headerFooterElements,
             onCancel: { showHeaderFooterEditor = false },
             onSave: {

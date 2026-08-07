@@ -177,8 +177,12 @@ struct IndexListView: View {
             IndexEditorSheet(
                 project: project,
                 onSave: { _, _ in
+                    showAddEntrySheet = false
                     loadEntries()
                     onEntryChanged?()
+                },
+                onCancel: {
+                    showAddEntrySheet = false
                 }
             )
         }
@@ -187,8 +191,12 @@ struct IndexListView: View {
                 project: project,
                 existingEntry: entry,
                 onSave: { _, _ in
+                    editingEntry = nil
                     loadEntries()
                     onEntryChanged?()
+                },
+                onCancel: {
+                    editingEntry = nil
                 }
             )
         }

@@ -64,9 +64,32 @@ final class BackMatterGenerator {
     }
     
     /// Get heading attributes for a specific back matter item.
-    /// Always uses the project-level matter heading style set in Matter Styles.
+    /// Section Settings can override the project-level matter heading style.
     private func headingAttributes(for item: BackMatterItem) -> [NSAttributedString.Key: Any] {
-        return headingAttributes
+        guard let config = backMatterSettings.itemTitles[item.rawValue] else {
+            return headingAttributes
+        }
+        var attrs: [NSAttributedString.Key: Any]
+
+        if let style = resolveStyle(config.headingStyle.textStyle) {
+            attrs = style.generateAttributes()
+        } else {
+            attrs = headingAttributes
+        }
+
+        if let existingPara = attrs[.paragraphStyle] as? NSParagraphStyle {
+            if existingPara.paragraphSpacing < 12 {
+                let mutablePara = existingPara.mutableCopy() as! NSMutableParagraphStyle
+                mutablePara.paragraphSpacing = 12
+                attrs[.paragraphStyle] = mutablePara
+            }
+        } else {
+            let para = NSMutableParagraphStyle()
+            para.paragraphSpacing = 12
+            attrs[.paragraphStyle] = para
+        }
+
+        return attrs
     }
     
     /// Get the display title for a back matter item (custom or default localized name)
@@ -130,6 +153,27 @@ final class BackMatterGenerator {
             .font: UIFont.preferredFont(forTextStyle: .caption1),
             .foregroundColor: UIColor.secondaryLabel
         ]
+    }
+
+    /// Letter heading attributes for generated index sections.
+    private var indexLetterAttributes: [NSAttributedString.Key: Any] {
+        var attrs: [NSAttributedString.Key: Any]
+        if let style = resolveStyle(.title3) {
+            attrs = style.generateAttributes()
+            attrs.removeValue(forKey: .textStyle)
+        } else {
+            attrs = [
+                .font: UIFont.preferredFont(forTextStyle: .title3),
+                .foregroundColor: UIColor.systemBlue
+            ]
+        }
+
+        attrs[.foregroundColor] = UIColor.systemBlue
+        if let font = attrs[.font] as? UIFont {
+            let descriptor = font.fontDescriptor.withSymbolicTraits(.traitBold) ?? font.fontDescriptor
+            attrs[.font] = UIFont(descriptor: descriptor, size: font.pointSize)
+        }
+        return attrs
     }
     
     /// Get contributor text attributes using the project's chosen body style
@@ -370,11 +414,9 @@ final class BackMatterGenerator {
         
         for letter in grouped.keys.sorted() {
             // Letter heading
-            var letterAttrs = entryHeadingAttributes
-            letterAttrs[.foregroundColor] = UIColor.secondaryLabel
             let letterHeading = NSAttributedString(
                 string: letter + "\n",
-                attributes: letterAttrs
+                attributes: indexLetterAttributes
             )
             result.append(letterHeading)
             
@@ -708,18 +750,19 @@ final class BackMatterGenerator {
         style.paragraphSpacing = 2
         
         // Keyword
-        var keywordAttrs = indentLevel == 0 ? entryHeadingAttributes : bodyAttributes
-        keywordAttrs[.paragraphStyle] = style
+        var entryAttrs = bodyAttributes
+        entryAttrs[.paragraphStyle] = style
+
         let keywordAttr = NSAttributedString(
             string: entry.keyword,
-            attributes: keywordAttrs
+            attributes: entryAttrs
         )
         result.append(keywordAttr)
         
         // Page numbers with primary references in bold
         if let pages = pageMap[entry.id], !pages.isEmpty {
-            result.append(NSAttributedString(string: ", ", attributes: secondaryAttributes))
-            let formattedPages = formatPageReferencesWithPrimary(pages)
+            result.append(NSAttributedString(string: ", ", attributes: entryAttrs))
+            let formattedPages = formatPageReferencesWithPrimary(pages, attributes: entryAttrs)
             result.append(formattedPages)
         }
         
@@ -728,12 +771,17 @@ final class BackMatterGenerator {
         if let seeEntryID = entry.seeEntryID {
             let allEntries = project.indexEntries ?? []
             if let seeEntry = allEntries.first(where: { $0.id == seeEntryID }) {
-                result.append(NSAttributedString(string: ". ", attributes: secondaryAttributes))
+                result.append(NSAttributedString(string: ". ", attributes: entryAttrs))
+                var seeAttrs = entryAttrs
+                if let font = seeAttrs[.font] as? UIFont,
+                   let descriptor = font.fontDescriptor.withSymbolicTraits(.traitItalic) {
+                    seeAttrs[.font] = UIFont(descriptor: descriptor, size: font.pointSize)
+                }
                 result.append(NSAttributedString(
                     string: NSLocalizedString("index.see", comment: "See"),
-                    attributes: [.font: UIFont.italicSystemFont(ofSize: 12), .foregroundColor: UIColor.secondaryLabel]
+                    attributes: seeAttrs
                 ))
-                result.append(NSAttributedString(string: " \(seeEntry.keyword)", attributes: secondaryAttributes))
+                result.append(NSAttributedString(string: " \(seeEntry.keyword)", attributes: entryAttrs))
             }
         }
         
@@ -747,12 +795,17 @@ final class BackMatterGenerator {
             }.joined(separator: ", ")
             
             if !seeAlsoKeywords.isEmpty {
-                result.append(NSAttributedString(string: ". ", attributes: secondaryAttributes))
+                result.append(NSAttributedString(string: ". ", attributes: entryAttrs))
+                var seeAlsoAttrs = entryAttrs
+                if let font = seeAlsoAttrs[.font] as? UIFont,
+                   let descriptor = font.fontDescriptor.withSymbolicTraits(.traitItalic) {
+                    seeAlsoAttrs[.font] = UIFont(descriptor: descriptor, size: font.pointSize)
+                }
                 result.append(NSAttributedString(
                     string: NSLocalizedString("index.seeAlso", comment: "See also"),
-                    attributes: [.font: UIFont.italicSystemFont(ofSize: 12), .foregroundColor: UIColor.secondaryLabel]
+                    attributes: seeAlsoAttrs
                 ))
-                result.append(NSAttributedString(string: " \(seeAlsoKeywords)", attributes: secondaryAttributes))
+                result.append(NSAttributedString(string: " \(seeAlsoKeywords)", attributes: entryAttrs))
             }
         }
         
@@ -804,7 +857,7 @@ final class BackMatterGenerator {
     
     /// Format page references with ranges and bold for primary references
     /// Example: [1, 2, 3, 5 (primary), 7, 8] → "1-3, **5**, 7-8"
-    private func formatPageReferencesWithPrimary(_ refs: [IndexPageReference]) -> NSAttributedString {
+    private func formatPageReferencesWithPrimary(_ refs: [IndexPageReference], attributes: [NSAttributedString.Key: Any]) -> NSAttributedString {
         guard !refs.isEmpty else { return NSAttributedString() }
         
         let sorted = refs.sorted { $0.pageNumber < $1.pageNumber }
@@ -831,7 +884,7 @@ final class BackMatterGenerator {
         
         for (index, range) in ranges.enumerated() {
             if index > 0 {
-                result.append(NSAttributedString(string: ", ", attributes: secondaryAttributes))
+                result.append(NSAttributedString(string: ", ", attributes: attributes))
             }
             
             let text: String
@@ -842,10 +895,11 @@ final class BackMatterGenerator {
             }
             
             // Apply bold if this range includes a primary reference
-            var attrs = secondaryAttributes
+            var attrs = attributes
             if range.hasPrimary {
                 if let font = attrs[.font] as? UIFont {
-                    attrs[.font] = UIFont.boldSystemFont(ofSize: font.pointSize)
+                    let descriptor = font.fontDescriptor.withSymbolicTraits(.traitBold) ?? font.fontDescriptor
+                    attrs[.font] = UIFont(descriptor: descriptor, size: font.pointSize)
                 }
             }
             

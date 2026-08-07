@@ -27,6 +27,7 @@ struct ImageStyleEditorView: View {
     
     // Callback when user applies changes
     let onApply: (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String, String) -> Void
+    let onCancel: () -> Void
     
     init(
         imageData: Data? = nil,
@@ -38,7 +39,8 @@ struct ImageStyleEditorView: View {
         captionStyle: String = "UICTFontTextStyleCaption1",
         availableCaptionStyles: [String] = ["UICTFontTextStyleCaption1", "UICTFontTextStyleCaption2"],
         styleSheet: StyleSheet? = nil,
-        onApply: @escaping (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String, String) -> Void
+        onApply: @escaping (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String, String) -> Void,
+        onCancel: @escaping () -> Void = {}
     ) {
         #if DEBUG
         print("🎨 ImageStyleEditorView.init called with imageData: \(imageData?.count ?? 0) bytes")
@@ -56,6 +58,7 @@ struct ImageStyleEditorView: View {
         self.availableCaptionStyles = availableCaptionStyles
         self.styleSheet = styleSheet
         self.onApply = onApply
+        self.onCancel = onCancel
     }
     
     /// Convert technical style name to display name
@@ -237,14 +240,14 @@ struct ImageStyleEditorView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(NSLocalizedString("button.cancel", comment: "")) {
-                        dismiss()
+                        dismissSheet()
                     }
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(NSLocalizedString("imageStyleEditor.apply", comment: "")) {
                         onApply(imageData, scale, alignment, hasCaption, captionPrefix, captionText, captionStyle)
-                        dismiss()
+                        dismissSheet()
                     }
                     .disabled(imageData == nil)
                 }
@@ -264,6 +267,25 @@ struct ImageStyleEditorView: View {
     }
     
     // MARK: - Helper Methods
+    
+    private func dismissSheet() {
+        onCancel()
+        dismiss()
+        #if targetEnvironment(macCatalyst)
+        DispatchQueue.main.async {
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootVC = windowScene.windows.first?.rootViewController {
+                var topVC = rootVC
+                while let presented = topVC.presentedViewController {
+                    topVC = presented
+                }
+                if topVC !== rootVC {
+                    topVC.dismiss(animated: true)
+                }
+            }
+        }
+        #endif
+    }
     
     private func incrementScale() {
         let newScale = min(scale + 0.05, 2.0)

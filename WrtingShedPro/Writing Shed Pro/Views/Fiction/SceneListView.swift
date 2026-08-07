@@ -541,6 +541,7 @@ struct SceneListView: View {
             footerInsertTarget: $footerInsertTarget,
             showHeaderElementPicker: .constant(false),
             showFooterElementPicker: .constant(false),
+            isPresented: $showHeaderFooterEditor,
             headerFooterElements: [],
             onCancel: { showHeaderFooterEditor = false },
             onSave: {
@@ -1593,7 +1594,7 @@ struct SceneListView: View {
         
         // Single file: direct export
         if attributedStrings.count == 1, let firstFile = files.first {
-            performSingleFileExport(format: format, content: attributedStrings[0], filename: firstFile.name)
+            performSingleFileExport(format: format, content: attributedStrings[0], filename: firstFile.name, footnotes: firstFile.currentVersion?.footnotes)
             filesToExport = []
             return
         }
@@ -1658,7 +1659,7 @@ struct SceneListView: View {
         filesToExport = []
     }
     
-    private func performSingleFileExport(format: ExportFormat, content: NSAttributedString, filename: String) {
+    private func performSingleFileExport(format: ExportFormat, content: NSAttributedString, filename: String, footnotes: [FootnoteModel]? = nil) {
         do {
             let data: Data
             switch format {
@@ -1688,7 +1689,7 @@ struct SceneListView: View {
                 let exportService = DOCXExportService(modelContext: modelContext)
                 data = try exportService.exportToDOCX(content, filename: filename)
             case .markdown:
-                data = try MarkdownExportService.exportToMarkdownData(content, filename: filename)
+                data = try MarkdownExportService.exportToMarkdownData(content, filename: filename, footnotes: footnotes)
             default:
                 return
             }

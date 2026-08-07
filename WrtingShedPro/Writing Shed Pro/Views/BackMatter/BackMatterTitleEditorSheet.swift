@@ -6,11 +6,15 @@
 //
 
 import SwiftUI
+#if targetEnvironment(macCatalyst)
+import UIKit
+#endif
 
 /// Sheet for editing a back matter section's title text and heading style
 struct BackMatterTitleEditorSheet: View {
     let item: BackMatterItem
     let folder: Folder?
+    @Binding var isPresented: Bool
     var onSave: () -> Void
     
     @Environment(\.dismiss) private var dismiss
@@ -62,7 +66,7 @@ struct BackMatterTitleEditorSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        dismissSheet()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -86,7 +90,7 @@ struct BackMatterTitleEditorSheet: View {
     
     private func saveSettings() {
         guard let folder = folder else {
-            dismiss()
+            dismissSheet()
             return
         }
         var settings = folder.backMatterSettings
@@ -97,6 +101,23 @@ struct BackMatterTitleEditorSheet: View {
         settings.setTitleConfig(config, for: item)
         folder.backMatterSettings = settings
         onSave()
+        dismissSheet()
+    }
+
+    private func dismissSheet() {
+        isPresented = false
         dismiss()
+
+        #if targetEnvironment(macCatalyst)
+        DispatchQueue.main.async {
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap(\.windows)
+                .first { $0.isKeyWindow }?
+                .rootViewController?
+                .presentedViewController?
+                .dismiss(animated: true)
+        }
+        #endif
     }
 }

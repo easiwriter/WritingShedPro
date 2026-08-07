@@ -150,6 +150,9 @@ final class TOCGenerationService {
                     #endif
                     continue
                 }
+                if shouldSkipForTOC(file, in: section, project: project) {
+                    continue
+                }
                 
                 #if DEBUG
                 print("[TOCGeneration] Scanning file: \(file.name)")
@@ -251,77 +254,44 @@ final class TOCGenerationService {
         #endif
         
         let pageSetup = project.pageSetup ?? PageSetup()
-        let usePageBreaks = pageSetup.hasPageBreakBetweenFiles
         let sections = assemblyService.getSections(for: project)
-        
-        // === STEP 1: Paginate body + back matter to get raw page numbers ===
-        let bodyBackSections: [ManuscriptSection] = sections.filter { (s: ManuscriptSection) -> Bool in s.sectionType != .frontMatter }
         var updatedEntries: [TOCEntry] = entries
         let frontMatterSections: [ManuscriptSection] = sections.filter { (s: ManuscriptSection) -> Bool in s.sectionType == .frontMatter }
         let frontMatterFileIds: Set<UUID> = Set(
             frontMatterSections.flatMap { (s: ManuscriptSection) -> [UUID] in s.files.map { (f: TextFile) -> UUID in f.id } }
         )
-        var bodyTotalPages = 0
-        
-        if usePageBreaks {
-            // Paginate each file individually — no form feeds needed for counting
-            for section in bodyBackSections {
-                for file in section.files {
-                    guard let version = file.currentVersion, let content = version.attributedContent, content.length > 0 else {
-                        continue
-                    }
-                    let prepared = prepareForPageCounting(content)
-                    guard prepared.length > 0 else { continue }
-                    let storage = NSTextStorage(attributedString: prepared)
-                    let layout = PaginatedTextLayoutManager(textStorage: storage, pageSetup: pageSetup)
-                    let result = layout.calculateLayout()
-                    
-                    // Map TOC entries that belong to this file
-                    for i in 0..<updatedEntries.count {
-                        guard updatedEntries[i].sourceFile.id == file.id,
-                              !frontMatterFileIds.contains(file.id) else { continue }
-                        let page = findPageForCharacterPosition(updatedEntries[i].characterPosition, in: result)
-                        updatedEntries[i].pageNumber = bodyTotalPages + page
-                    }
-                    
-                    bodyTotalPages += result.totalPages
-                }
-            }
-        } else {
-            // Files flow together — assemble with separators and paginate as a whole
-            var bodyFileOffsets: [UUID: Int] = [:]
-            let bodyContent = NSMutableAttributedString()
-            var isFirst = true
-            
-            for section in bodyBackSections {
-                for file in section.files {
-                    if !isFirst {
-                        bodyContent.append(NSAttributedString(string: "\n\n"))
-                    }
-                    isFirst = false
-                    bodyFileOffsets[file.id] = bodyContent.length
-                    if let version = file.currentVersion, let content = version.attributedContent {
-                        bodyContent.append(content)
-                    }
-                }
-            }
-            
-            let preparedBody = PrintFormatter.removePlatformScaling(from: bodyContent)
-            let bodyStorage = NSTextStorage(attributedString: preparedBody)
-            let bodyLayout = PaginatedTextLayoutManager(textStorage: bodyStorage, pageSetup: pageSetup)
-            let bodyResult = bodyLayout.calculateLayout()
-            bodyTotalPages = bodyResult.totalPages
-            
-            for i in 0..<updatedEntries.count {
-                guard !frontMatterFileIds.contains(updatedEntries[i].sourceFile.id) else { continue }
-                let fileOffset = bodyFileOffsets[updatedEntries[i].sourceFile.id] ?? 0
-                let globalPos = fileOffset + updatedEntries[i].characterPosition
-                updatedEntries[i].pageNumber = findPageForCharacterPosition(globalPos, in: bodyResult)
+
+        let assembledContent: ManuscriptContent
+        do {
+            assembledContent = try await assemblyService.assembleContent(for: project)
+        } catch {
+            #if DEBUG
+            print("[TOCGeneration] Assembly failed during page calculation: \(error)")
+            #endif
+            return updatedEntries
+        }
+
+        let preparedManuscript = prepareForPageCounting(assembledContent.attributedString)
+        let storage = NSTextStorage(attributedString: preparedManuscript)
+        let layout = PaginatedTextLayoutManager(textStorage: storage, pageSetup: pageSetup)
+        let layoutResult = layout.calculateLayout(assembledFootnotes: assembledContent.assembledFootnotes)
+
+        for i in 0..<updatedEntries.count {
+            guard let fileOffset = assembledContent.fileOffsets[updatedEntries[i].sourceFile.id] else { continue }
+            let globalPosition = fileOffset + updatedEntries[i].characterPosition
+            guard let absolutePageIndex = pageIndexForCharacterPosition(globalPosition, in: layoutResult) else { continue }
+
+            if frontMatterFileIds.contains(updatedEntries[i].sourceFile.id) {
+                updatedEntries[i].pageNumber = frontMatterPageNumber(forPageIndex: absolutePageIndex, in: layoutResult, frontMatterCharacterLength: assembledContent.frontMatterCharacterLength)
+                updatedEntries[i].isRomanNumeral = true
+            } else {
+                updatedEntries[i].pageNumber = bodyPageNumber(forPageIndex: absolutePageIndex, in: layoutResult, frontMatterCharacterLength: assembledContent.frontMatterCharacterLength)
+                updatedEntries[i].isRomanNumeral = false
             }
         }
         
         #if DEBUG
-        print("[TOCGeneration] Body pagination: \(bodyTotalPages) pages (perFile: \(usePageBreaks))")
+        print("[TOCGeneration] Assembled manuscript pagination: \(layoutResult.totalPages) pages")
         for entry in updatedEntries where !frontMatterFileIds.contains(entry.sourceFile.id) {
             print("[TOCGeneration]   '\(entry.headingText.prefix(30))': raw page \(entry.pageNumber)")
         }
@@ -357,7 +327,7 @@ final class TOCGenerationService {
                 #if DEBUG
                 print("[TOCGeneration] FM file '\(file.name)': export-formatted TOC (\(rendered.length) chars)")
                 #endif
-            } else if let version = file.currentVersion, let content = version.attributedContent {
+            } else if let content = contentForPageCounting(file, project: project) {
                 fileContent = content
                 #if DEBUG
                 print("[TOCGeneration] FM file '\(file.name)': saved content (\(content.length) chars)")
@@ -387,9 +357,6 @@ final class TOCGenerationService {
                 }
                 
                 frontMatterPageCount += result.totalPages
-            } else {
-                // Empty front matter file still occupies 1 page
-                frontMatterPageCount += 1
             }
         }
         
@@ -419,7 +386,114 @@ final class TOCGenerationService {
         // Remove Catalyst font scaling (÷kCatalystFontScale) to get print-accurate sizes
         return PrintFormatter.removePlatformScaling(from: mutable)
     }
+
+    private func contentForPageCounting(_ file: TextFile, project: Project) -> NSAttributedString? {
+        if let generated = generatedContent(for: file, project: project) {
+            return generated
+        }
+        guard let content = file.currentVersion?.attributedContent,
+              !Self.isEffectivelyEmpty(content) else {
+            return nil
+        }
+        return content
+    }
+
+    private func generatedContent(for file: TextFile, project: Project) -> NSAttributedString? {
+        if file.isTableOfFiguresFile {
+            let tofService = TableOfFiguresGenerationService(context: context)
+            let entries = tofService.generateEntries(for: project, tofFile: file)
+            let settings = file.tableOfFiguresSettings
+            let visibleEntries = settings.showMissingCaption ? entries : entries.filter { $0.hasCaption }
+            guard !visibleEntries.isEmpty else { return nil }
+            let missingCaptionEntries = entries.filter { !$0.hasCaption }
+            return tofService.renderTableOfFigures(
+                entries: entries,
+                settings: settings,
+                project: project,
+                missingCaptionCount: missingCaptionEntries.count,
+                missingCaptionPages: missingCaptionEntries.map { $0.pageNumber }
+            )
+        }
+
+        guard let generatedType = ManuscriptAssemblyService.generatedBackMatterType(for: file) else {
+            return nil
+        }
+
+        let generator = BackMatterGenerator(context: context, project: project)
+        switch generatedType {
+        case .endnotes:
+            return generator.generateNotesSection()
+        case .glossary:
+            return generator.generateGlossarySection()
+        case .references:
+            return generator.generateReferencesSection()
+        case .index:
+            return generator.generateIndexSection(pageMap: [:])
+        case .contributors:
+            return generator.generateContributorsSection()
+        default:
+            return nil
+        }
+    }
+
+    private func shouldSkipForTOC(_ file: TextFile, in section: ManuscriptSection, project: Project) -> Bool {
+        if file.isCoverFile || file.isTOCFile { return true }
+        if file.isTableOfFiguresFile || ManuscriptAssemblyService.generatedBackMatterType(for: file) != nil {
+            return generatedContent(for: file, project: project) == nil
+        }
+        guard section.sectionType == .frontMatter || section.sectionType == .backMatter else { return false }
+        guard let content = file.currentVersion?.attributedContent else { return true }
+        return Self.isEffectivelyEmpty(content)
+    }
+
+    private static func isEffectivelyEmpty(_ content: NSAttributedString) -> Bool {
+        guard isEffectivelyEmpty(content.string) else { return false }
+
+        var hasImageAttachment = false
+        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length), options: []) { value, _, stop in
+            if value is ImageAttachment {
+                hasImageAttachment = true
+                stop.pointee = true
+            }
+        }
+        return !hasImageAttachment
+    }
+
+    private static func isEffectivelyEmpty(_ text: String) -> Bool {
+        text
+            .replacingOccurrences(of: "\u{FFFC}", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
+    }
     
+    private func pageIndexForCharacterPosition(_ position: Int, in layoutResult: PaginatedTextLayoutManager.LayoutResult) -> Int? {
+        for pageInfo in layoutResult.pageInfos {
+            if position >= pageInfo.characterRange.location &&
+               position < pageInfo.characterRange.location + pageInfo.characterRange.length {
+                return pageInfo.pageIndex
+            }
+        }
+        return layoutResult.pageInfos.last?.pageIndex
+    }
+
+    private func frontMatterPageNumber(forPageIndex pageIndex: Int, in layoutResult: PaginatedTextLayoutManager.LayoutResult, frontMatterCharacterLength: Int) -> Int {
+        var pageNumber = 0
+        for pageInfo in layoutResult.pageInfos where pageInfo.characterRange.location < frontMatterCharacterLength {
+            pageNumber += 1
+            if pageInfo.pageIndex == pageIndex { return pageNumber }
+        }
+        return max(pageNumber, 1)
+    }
+
+    private func bodyPageNumber(forPageIndex pageIndex: Int, in layoutResult: PaginatedTextLayoutManager.LayoutResult, frontMatterCharacterLength: Int) -> Int {
+        var pageNumber = 0
+        for pageInfo in layoutResult.pageInfos where pageInfo.characterRange.location >= frontMatterCharacterLength {
+            pageNumber += 1
+            if pageInfo.pageIndex == pageIndex { return pageNumber }
+        }
+        return max(pageNumber, 1)
+    }
+
     /// Find which page a character position falls on
     private func findPageForCharacterPosition(_ position: Int, in layoutResult: PaginatedTextLayoutManager.LayoutResult) -> Int {
         for pageInfo in layoutResult.pageInfos {
@@ -523,47 +597,14 @@ final class TOCGenerationService {
     /// Find TOC entries within a single file
     private func findEntriesInFile(_ file: TextFile, tocStyles: [TextStyleModel]) -> [TOCEntry] {
         
-        // For generated back matter files (Endnotes, Glossary, References, Index, Contributors),
-        // regenerate content fresh so the TOC heading is always current.
-        // The stored attributedContent may be empty/stale if the user hasn't opened the file recently.
-        if let generatedType = ManuscriptAssemblyService.generatedBackMatterType(for: file),
-           let project = file.project {
-            let generator = BackMatterGenerator(context: context, project: project)
-            let generatedContent: NSAttributedString?
-            switch generatedType {
-            case .endnotes:
-                generatedContent = generator.generateNotesSection()
-            case .glossary:
-                generatedContent = generator.generateGlossarySection()
-            case .references:
-                generatedContent = generator.generateReferencesSection()
-            case .index:
-                generatedContent = generator.generateIndexSection(pageMap: [:])
-            case .contributors:
-                generatedContent = generator.generateContributorsSection()
-            case .tableOfFigures:
-                // Generate TOF content so its heading appears in the TOC
-                let tofService = TableOfFiguresGenerationService(context: context)
-                let entries = tofService.generateEntries(for: project, tofFile: file)
-                let tofSettings = file.tableOfFiguresSettings
-                let missingCaptionEntries = entries.filter { !$0.hasCaption }
-                generatedContent = tofService.renderTableOfFigures(
-                    entries: entries,
-                    settings: tofSettings,
-                    project: project,
-                    missingCaptionCount: missingCaptionEntries.count,
-                    missingCaptionPages: missingCaptionEntries.map { $0.pageNumber }
-                )
-            default:
-                generatedContent = nil
-            }
-            if let content = generatedContent {
+        // For generated matter files, regenerate content fresh so TOC headings
+        // and page-number counting use the same content assembly will render.
+        if let project = file.project,
+           let content = generatedContent(for: file, project: project) {
                 #if DEBUG
                 print("[TOCGeneration]   Using generated content for back matter: \(file.name) (\(content.length) chars)")
                 #endif
-                return scanForTOCEntries(in: content, file: file, tocStyles: tocStyles)
-            }
-            // If generation returned nil (no data), fall through to stored content
+            return scanForTOCEntries(in: content, file: file, tocStyles: tocStyles, forcedTOCLevel: 0)
         }
         
         // Get the current version's formatted content
@@ -616,7 +657,7 @@ final class TOCGenerationService {
     }
     
     /// Scan an attributed string for paragraphs with TOC-enabled styles
-    private func scanForTOCEntries(in attributedString: NSAttributedString, file: TextFile, tocStyles: [TextStyleModel]) -> [TOCEntry] {
+    private func scanForTOCEntries(in attributedString: NSAttributedString, file: TextFile, tocStyles: [TextStyleModel], forcedTOCLevel: Int? = nil) -> [TOCEntry] {
         var entries: [TOCEntry] = []
         
         // Create a map of style names to their TOC info
@@ -667,7 +708,7 @@ final class TOCGenerationService {
                     
                     let entry = TOCEntry(
                         headingText: headingText,
-                        indentLevel: tocInfo.level,
+                        indentLevel: forcedTOCLevel ?? tocInfo.level,
                         sourceFile: file,
                         characterPosition: substringRange.location,
                         styleName: styleName

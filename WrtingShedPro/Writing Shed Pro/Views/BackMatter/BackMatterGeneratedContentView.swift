@@ -214,6 +214,7 @@ struct BackMatterGeneratedContentView: View {
                     BackMatterTitleEditorSheet(
                         item: type,
                         folder: file.parentFolder,
+                        isPresented: $showTitleEditor,
                         onSave: { regenerateFileContent() }
                     )
                 }
@@ -1285,8 +1286,16 @@ struct BackMatterGeneratedContentView: View {
         let title = settings.displayTitle(for: item)
         
         Text(title)
-            .font(matterHeadingFont)
+            .font(settings.itemTitles[item.rawValue].map { matterHeadingFont(for: $0.headingStyle) } ?? matterHeadingFont)
             .padding(.bottom, matterHeadingSpacingAfter)
+    }
+
+    private func matterHeadingFont(for headingStyle: BackMatterHeadingStyle) -> Font {
+        if let stylesheet = StyleSheetService.getStyleSheet(for: project, context: modelContext),
+           let style = stylesheet.style(named: headingStyle.textStyle.rawValue) {
+            return Font(style.generateFont())
+        }
+        return Font(UIFont.preferredFont(forTextStyle: headingStyle.textStyle))
     }
     
     /// The resolved spacing after the matter heading style (e.g. 18pt for Large Title)

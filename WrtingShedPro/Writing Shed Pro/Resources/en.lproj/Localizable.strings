@@ -1513,6 +1513,7 @@
 "toc.settings.level1" = "Level 2";
 "toc.settings.level2" = "Level 3";
 "toc.settings.level3" = "Level 4";
+"toc.settings.saveFailed.title" = "Save Failed";
 "toc.settings.previewSection" = "Preview";
 "toc.calculatingPages" = "Calculating page numbers...";
 "toc.infoBanner" = "The final manuscript preview and print/export includes formatted dot leaders and right-aligned page numbers.";

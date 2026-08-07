@@ -451,7 +451,25 @@ struct IndexEditorSheet: View {
     
     private func handleCancel() {
         onCancel?()
+        dismissSheet()
+    }
+
+    private func dismissSheet() {
         dismiss()
+        #if targetEnvironment(macCatalyst)
+        DispatchQueue.main.async {
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootVC = windowScene.windows.first?.rootViewController {
+                var topVC = rootVC
+                while let presented = topVC.presentedViewController {
+                    topVC = presented
+                }
+                if topVC !== rootVC {
+                    topVC.dismiss(animated: true)
+                }
+            }
+        }
+        #endif
     }
     
     private func saveEntry() {
@@ -553,7 +571,7 @@ struct IndexEditorSheet: View {
             }
             #endif
             
-            dismiss()
+            dismissSheet()
             let callback = onSave
             let savedEntry = entry
             let savedIsPrimaryReference = isPrimaryReference

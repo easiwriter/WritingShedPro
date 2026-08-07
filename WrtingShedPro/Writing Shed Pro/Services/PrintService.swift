@@ -1014,7 +1014,8 @@ class PrintService {
         // because it avoids the slow multi-container NSLayoutManager layout.
         let textString = content.string
         let hasFootnotes = version != nil || !assembledFootnotes.isEmpty
-        if !hasFootnotes && textString.contains("\u{000C}") {
+        let hasImages = containsImageAttachments(in: content)
+        if !hasFootnotes && !hasImages && textString.contains("\u{000C}") {
             #if DEBUG
             print("   ⚡ Using FAST PATH (form-feed split, no footnotes)")
             #endif
@@ -1441,6 +1442,17 @@ class PrintService {
         #endif
         return pdfData as Data
     }
+
+    private static func containsImageAttachments(in content: NSAttributedString) -> Bool {
+        var hasImageAttachment = false
+        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length), options: []) { value, _, stop in
+            if value is ImageAttachment {
+                hasImageAttachment = true
+                stop.pointee = true
+            }
+        }
+        return hasImageAttachment
+    }
     
     /// Prepare an attributed string for PDF rendering (shared between fast and standard paths)
     private static func prepareAttributedStringForPDF(_ mutable: NSMutableAttributedString) {
@@ -1653,12 +1665,8 @@ class PrintService {
         pageCharOffset: Int = 0,
         context: CGContext
     ) {
-        let font = UIFont.systemFont(ofSize: 12)
+        let baseFont = UIFont.systemFont(ofSize: 12)
         let textColor = UIColor.darkGray
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: textColor
-        ]
         
         let labelHeight: CGFloat = min(rect.height, 20)
         let verticalCenter = rect.origin.y + (rect.height - labelHeight) / 2
@@ -1719,28 +1727,46 @@ class PrintService {
             return result
         }
         
-        let paragraphStyle = NSMutableParagraphStyle()
-        
         let leftText = resolve(left)
-        if !leftText.isEmpty {
-            paragraphStyle.alignment = .left
-            let attrs = attributes.merging([.paragraphStyle: paragraphStyle.copy()]) { _, new in new }
-            leftText.draw(in: CGRect(x: rect.origin.x, y: verticalCenter, width: rect.width / 3, height: labelHeight), withAttributes: attrs)
-        }
-        
         let centerText = resolve(center)
-        if !centerText.isEmpty {
-            paragraphStyle.alignment = .center
-            let attrs = attributes.merging([.paragraphStyle: paragraphStyle.copy()]) { _, new in new }
-            centerText.draw(in: CGRect(x: rect.origin.x + rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight), withAttributes: attrs)
-        }
-        
         let rightText = resolve(right)
-        if !rightText.isEmpty {
-            paragraphStyle.alignment = .right
-            let attrs = attributes.merging([.paragraphStyle: paragraphStyle.copy()]) { _, new in new }
-            rightText.draw(in: CGRect(x: rect.origin.x + 2 * rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight), withAttributes: attrs)
+        let headerItems: [(text: String, alignment: NSTextAlignment, rect: CGRect)]
+        let populatedCount = [leftText, centerText, rightText].filter { !$0.isEmpty }.count
+        if populatedCount == 1 {
+            let text = !leftText.isEmpty ? leftText : (!centerText.isEmpty ? centerText : rightText)
+            let alignment: NSTextAlignment = !leftText.isEmpty ? .left : (!centerText.isEmpty ? .center : .right)
+            headerItems = [(text, alignment, CGRect(x: rect.origin.x, y: verticalCenter, width: rect.width, height: labelHeight))]
+        } else {
+            headerItems = [
+                (leftText, .left, CGRect(x: rect.origin.x, y: verticalCenter, width: rect.width / 3, height: labelHeight)),
+                (centerText, .center, CGRect(x: rect.origin.x + rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight)),
+                (rightText, .right, CGRect(x: rect.origin.x + 2 * rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight))
+            ]
         }
+
+        for item in headerItems where !item.text.isEmpty {
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.alignment = item.alignment
+            let font = fittingHeaderFooterFont(for: item.text, baseFont: baseFont, maxWidth: item.rect.width)
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: textColor,
+                .paragraphStyle: paragraphStyle
+            ]
+            item.text.draw(in: item.rect, withAttributes: attributes)
+        }
+    }
+
+    private static func fittingHeaderFooterFont(for text: String, baseFont: UIFont, maxWidth: CGFloat) -> UIFont {
+        guard !text.isEmpty, maxWidth > 0 else { return baseFont }
+        var fontSize = baseFont.pointSize
+        while fontSize > 7 {
+            let font = baseFont.withSize(fontSize)
+            let width = (text as NSString).size(withAttributes: [.font: font]).width
+            if width <= maxWidth { return font }
+            fontSize -= 0.5
+        }
+        return baseFont.withSize(7)
     }
     
     // MARK: - Font Scaling Helper

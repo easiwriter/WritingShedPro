@@ -699,7 +699,6 @@ final class ManuscriptAssemblyService {
             for file in section.files {
                 // Skip cover files — they contain only an image, not text content
                 if file.isCoverFile { continue }
-                let fileStartOffset = assembled.length
                 
                 // Skip print-only content for EPUB export (TOC with dot leaders,
                 // Table of Figures with page numbers, etc.)
@@ -707,6 +706,60 @@ final class ManuscriptAssemblyService {
                     if file.isTOCFile { continue }
                     if file.isTableOfFiguresFile { continue }
                 }
+
+                if shouldSkipEmptyMatterFile(file, in: section) { continue }
+
+                let preparedGeneratedContent: NSAttributedString?
+                if file.isTableOfFiguresFile && !skipPrintOnlyContent {
+                    print("[ManuscriptAssemblyService] Generating Table of Figures for file: \(file.name)")
+                    let tofService = TableOfFiguresGenerationService(context: context)
+                    var entries = tofService.generateEntries(for: project, tofFile: file)
+                    if !entries.isEmpty {
+                        entries = await tofService.calculatePageNumbers(for: entries, project: project, tofFile: file)
+                    }
+                    let settings = file.tableOfFiguresSettings
+                    let visibleEntries = settings.showMissingCaption ? entries : entries.filter { $0.hasCaption }
+                    guard !visibleEntries.isEmpty else { continue }
+                    let missingCaptionEntries = entries.filter { !$0.hasCaption }
+                    let renderedTOF = tofService.renderTableOfFigures(
+                        entries: entries,
+                        settings: settings,
+                        project: project,
+                        missingCaptionCount: missingCaptionEntries.count,
+                        missingCaptionPages: missingCaptionEntries.map { $0.pageNumber }
+                    )
+                    preparedGeneratedContent = TableOfFiguresGenerationService.formatTOFContentForExport(renderedTOF, project: project)
+                } else if let generatedType = Self.generatedBackMatterType(for: file) {
+                    let generator = BackMatterGenerator(context: context, project: project)
+                    let generated: NSAttributedString?
+                    switch generatedType {
+                    case .endnotes:
+                        generated = generator.generateNotesSection()
+                    case .glossary:
+                        generated = generator.generateGlossarySection()
+                    case .references:
+                        generated = generator.generateReferencesSection()
+                    case .index:
+                        let indexPageMap = Self.calculateIndexPageNumbers(
+                            from: assembled,
+                            pageSetup: project.pageSetup ?? PageSetup()
+                        )
+                        generated = generator.generateIndexSection(pageMap: indexPageMap)
+                    case .contributors:
+                        generated = generator.generateContributorsSection()
+                    default:
+                        generated = nil
+                    }
+                    guard let generated, !Self.isEffectivelyEmpty(generated.string) else {
+                        print("[ManuscriptAssemblyService] No content for back matter: \(file.name) (\(generatedType.rawValue))")
+                        continue
+                    }
+                    preparedGeneratedContent = generated
+                } else {
+                    preparedGeneratedContent = nil
+                }
+
+                let fileStartOffset = assembled.length
                 processedFileCount += 1
                 
                 if section.sectionType == .frontMatter {
@@ -766,60 +819,13 @@ final class ManuscriptAssemblyService {
                     print("[ManuscriptAssemblyService] Rendered attributed string: \(rendered.string)")
                     assembled.append(rendered)
                 } else if file.isTableOfFiguresFile && !skipPrintOnlyContent {
-                    // Generate Table of Figures content for export (Feature 112)
-                    // The TOF is generated dynamically in the editor, so we must generate it here for export
-                    print("[ManuscriptAssemblyService] Generating Table of Figures for file: \(file.name)")
-                    let tofService = TableOfFiguresGenerationService(context: context)
-                    var entries = tofService.generateEntries(for: project, tofFile: file)
-                    if !entries.isEmpty {
-                        entries = await tofService.calculatePageNumbers(for: entries, project: project, tofFile: file)
+                    if let content = preparedGeneratedContent {
+                        assembled.append(content)
                     }
-                    let settings = file.tableOfFiguresSettings
-                    let missingCaptionEntries = entries.filter { !$0.hasCaption }
-                    let renderedTOF = tofService.renderTableOfFigures(
-                        entries: entries,
-                        settings: settings,
-                        project: project,
-                        missingCaptionCount: missingCaptionEntries.count,
-                        missingCaptionPages: missingCaptionEntries.map { $0.pageNumber }
-                    )
-                    // Add dot leaders and right-aligned page numbers for export
-                    let exportTOF = TableOfFiguresGenerationService.formatTOFContentForExport(renderedTOF, project: project)
-                    assembled.append(exportTOF)
                 } else if let generatedType = Self.generatedBackMatterType(for: file) {
-                    // Regenerate back matter content fresh at export time so it's never stale.
-                    // Endnotes, Glossary, References, Contributors, and Index files store their
-                    // attributedContent only when the user views them in the editor. If the user
-                    // added references/notes without re-opening the back matter file, the stored
-                    // content would be out of date.
-                    let generator = BackMatterGenerator(context: context, project: project)
-                    let generated: NSAttributedString?
-                    switch generatedType {
-                    case .endnotes:
-                        generated = generator.generateNotesSection()
-                    case .glossary:
-                        generated = generator.generateGlossarySection()
-                    case .references:
-                        generated = generator.generateReferencesSection()
-                    case .index:
-                        // Calculate page numbers by paginating the content assembled so far
-                        // (front matter + body matter), then scanning for ReferenceAttachment
-                        // markers with referenceType == .index.
-                        let indexPageMap = Self.calculateIndexPageNumbers(
-                            from: assembled,
-                            pageSetup: project.pageSetup ?? PageSetup()
-                        )
-                        generated = generator.generateIndexSection(pageMap: indexPageMap)
-                    case .contributors:
-                        generated = generator.generateContributorsSection()
-                    default:
-                        generated = nil
-                    }
-                    if let content = generated {
+                    if let content = preparedGeneratedContent {
                         print("[ManuscriptAssemblyService] Generated back matter for: \(file.name) (\(generatedType.rawValue))")
                         assembled.append(content)
-                    } else {
-                        print("[ManuscriptAssemblyService] No content for back matter: \(file.name) (\(generatedType.rawValue))")
                     }
                 } else if let version = file.currentVersion, let content = version.attributedContent {
                     print("[ManuscriptAssemblyService] Appending attributedContent for file: \(file.name)")
@@ -979,7 +985,17 @@ final class ManuscriptAssemblyService {
     
     /// Collect files from a folder (non-recursive), respecting includedInManuscript flag
     private func collectFilesFromFolder(_ folder: Folder) -> [TextFile] {
-        return (folder.files ?? [])
+        let folderID = folder.id
+        let descriptor = FetchDescriptor<TextFile>(
+            predicate: #Predicate<TextFile> { file in
+                file.parentFolder?.id == folderID
+            }
+        )
+        let fetchedFiles = (try? context.fetch(descriptor)) ?? []
+        let relationshipFiles = folder.files ?? []
+        let files = fetchedFiles.isEmpty ? relationshipFiles : fetchedFiles
+
+        return files
             .filter { $0.includedInManuscript }
             .sorted {
                 let order0 = $0.userOrder ?? Int.max
@@ -990,6 +1006,39 @@ final class ManuscriptAssemblyService {
                 // Secondary sort by name for deterministic order when userOrder is equal
                 return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
             }
+    }
+
+    private func shouldSkipEmptyMatterFile(_ file: TextFile, in section: ManuscriptSection) -> Bool {
+        guard section.sectionType == .frontMatter || section.sectionType == .backMatter else { return false }
+        guard !file.isTOCFile,
+              !file.isTableOfFiguresFile,
+              Self.generatedBackMatterType(for: file) == nil else { return false }
+
+        if let attributedContent = file.currentVersion?.attributedContent {
+            return Self.isEffectivelyEmpty(attributedContent)
+        }
+
+        return Self.isEffectivelyEmpty(file.currentVersion?.content ?? "")
+    }
+
+    private static func isEffectivelyEmpty(_ content: NSAttributedString) -> Bool {
+        guard isEffectivelyEmpty(content.string) else { return false }
+
+        var hasVisibleAttachment = false
+        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length), options: []) { value, _, stop in
+            if value is ImageAttachment {
+                hasVisibleAttachment = true
+                stop.pointee = true
+            }
+        }
+        return !hasVisibleAttachment
+    }
+
+    private static func isEffectivelyEmpty(_ text: String) -> Bool {
+        text
+            .replacingOccurrences(of: "\u{FFFC}", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
     }
     
     /// Collect files recursively from a folder and its subfolders

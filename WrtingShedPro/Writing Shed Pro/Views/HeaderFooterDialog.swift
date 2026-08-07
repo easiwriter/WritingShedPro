@@ -1,5 +1,8 @@
 
 import SwiftUI
+#if targetEnvironment(macCatalyst)
+import UIKit
+#endif
 
 enum HeaderFooterField: String, CaseIterable, Identifiable {
     case left
@@ -36,6 +39,7 @@ struct HeaderFooterDialog: View {
     @Binding var footerInsertTarget: HeaderFooterField
     @Binding var showHeaderElementPicker: Bool
     @Binding var showFooterElementPicker: Bool
+    @Binding var isPresented: Bool
     let headerFooterElements: [String]
     let onCancel: () -> Void
     let onSave: () -> Void
@@ -80,7 +84,7 @@ struct HeaderFooterDialog: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
                         onCancel()
-                        dismiss()
+                        dismissSheet()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -95,7 +99,7 @@ struct HeaderFooterDialog: View {
                         headerInsertTarget = localHeaderInsertTarget
                         footerInsertTarget = localFooterInsertTarget
                         onSave()
-                        dismiss()
+                        dismissSheet()
                     }
                 }
             }
@@ -223,5 +227,22 @@ struct HeaderFooterDialog: View {
         case .none:
             break
         }
+    }
+
+    private func dismissSheet() {
+        isPresented = false
+        dismiss()
+
+        #if targetEnvironment(macCatalyst)
+        DispatchQueue.main.async {
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap(\.windows)
+                .first { $0.isKeyWindow }?
+                .rootViewController?
+                .presentedViewController?
+                .dismiss(animated: true)
+        }
+        #endif
     }
 }

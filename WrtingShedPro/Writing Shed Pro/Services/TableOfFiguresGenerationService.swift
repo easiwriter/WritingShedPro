@@ -70,6 +70,9 @@ final class TableOfFiguresGenerationService {
                 if let tofFile = tofFile, file.id == tofFile.id {
                     continue
                 }
+                if shouldSkipForFigurePagination(file, in: section) {
+                    continue
+                }
                 
                 // Find images in this file
                 let fileEntries = findImagesInFile(file, startingFigureNumber: figureNumber, globalOffset: globalOffset)
@@ -114,6 +117,9 @@ final class TableOfFiguresGenerationService {
             for file in section.files {
                 // Skip the TOF file
                 if let tofFile = tofFile, file.id == tofFile.id {
+                    continue
+                }
+                if shouldSkipForFigurePagination(file, in: section) {
                     continue
                 }
                 
@@ -262,6 +268,42 @@ final class TableOfFiguresGenerationService {
         }
         
         return entries
+    }
+
+    private func shouldSkipForFigurePagination(_ file: TextFile, in section: ManuscriptSection) -> Bool {
+        if file.isCoverFile || file.isTOCFile || file.isTableOfFiguresFile {
+            return true
+        }
+        if ManuscriptAssemblyService.generatedBackMatterType(for: file) != nil {
+            return true
+        }
+        guard section.sectionType == .frontMatter || section.sectionType == .backMatter else {
+            return false
+        }
+        if let attributedContent = file.currentVersion?.attributedContent {
+            return Self.isEffectivelyEmpty(attributedContent)
+        }
+        return Self.isEffectivelyEmpty(file.currentVersion?.content ?? "")
+    }
+
+    private static func isEffectivelyEmpty(_ content: NSAttributedString) -> Bool {
+        guard isEffectivelyEmpty(content.string) else { return false }
+
+        var hasImageAttachment = false
+        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length), options: []) { value, _, stop in
+            if value is ImageAttachment {
+                hasImageAttachment = true
+                stop.pointee = true
+            }
+        }
+        return !hasImageAttachment
+    }
+
+    private static func isEffectivelyEmpty(_ text: String) -> Bool {
+        text
+            .replacingOccurrences(of: "\u{FFFC}", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
     }
     
     /// Find which page a character position falls on

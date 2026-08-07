@@ -72,4 +72,42 @@ struct TOCSettings: Codable, Equatable {
     // MARK: - Default Instance
     
     static let `default` = TOCSettings()
+
+    static func decode(from data: Data) -> TOCSettings? {
+        if let settings = try? JSONDecoder().decode(TOCSettings.self, from: data) {
+            return settings
+        }
+
+        #if DEBUG
+        print("⚠️ Falling back to legacy TOC settings decoder")
+        #endif
+
+        return try? JSONDecoder().decode(LegacyTOCSettings.self, from: data).settings
+    }
+
+    private struct LegacyTOCSettings: Decodable {
+        var title: String?
+        var separator: String?
+        var indentPoints: CGFloat?
+        var titleStyleName: String?
+        var levelStyleNames: [String]?
+        var entryStyleName: String?
+        var showPageNumbers: Bool?
+        var useDotLeaders: Bool?
+        var pageNumberPosition: CGFloat?
+
+        var settings: TOCSettings {
+            var settings = TOCSettings.default
+            if let title { settings.title = title }
+            if let separator { settings.separator = separator }
+            if let indentPoints { settings.indentPoints = indentPoints }
+            if let titleStyleName { settings.titleStyleName = titleStyleName }
+            if let levelStyleNames { settings.levelStyleNames = levelStyleNames }
+            if let entryStyleName, levelStyleNames == nil { settings.entryStyleName = entryStyleName }
+            if let showPageNumbers { settings.showPageNumbers = showPageNumbers }
+            if let useDotLeaders { settings.useDotLeaders = useDotLeaders }
+            if let pageNumberPosition { settings.pageNumberPosition = pageNumberPosition }
+            return settings
+        }
+    }
 }

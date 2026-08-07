@@ -125,19 +125,20 @@ struct MatterStylePickerSheet: View {
     
     /// Dismiss the sheet reliably on all platforms including Mac Catalyst
     private func dismissSheet() {
-        // First try: SwiftUI binding
         isPresented = false
+        dismiss()
         
-        // Second try: UIKit-level dismissal (Catalyst fallback)
         #if targetEnvironment(macCatalyst)
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootVC = windowScene.windows.first?.rootViewController {
-            var topVC = rootVC
-            while let presented = topVC.presentedViewController {
-                topVC = presented
-            }
-            if topVC != rootVC {
-                topVC.dismiss(animated: true)
+        DispatchQueue.main.async {
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootVC = windowScene.windows.first?.rootViewController {
+                var topVC = rootVC
+                while let presented = topVC.presentedViewController {
+                    topVC = presented
+                }
+                if topVC !== rootVC {
+                    topVC.dismiss(animated: true)
+                }
             }
         }
         #endif

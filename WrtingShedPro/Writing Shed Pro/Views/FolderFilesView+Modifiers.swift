@@ -28,11 +28,15 @@ extension FolderFilesView {
             .sheet(isPresented: $showFolderMoveDestinationPicker) { folderMoveDestinationSheet }
             .sheet(isPresented: $showStatusPicker) { statusPickerSheet }
             .sheet(isPresented: $showCollectionPicker) { collectionPickerSheet }
-            .sheet(isPresented: $showFrontMatterSettings) {
-                FrontMatterSettingsDialog(folder: folder)
+            .sheet(isPresented: $showFrontMatterSettings, onDismiss: {
+                scheduleDeferredFileListLoad()
+            }) {
+                FrontMatterSettingsDialog(folder: folder, isPresented: $showFrontMatterSettings)
             }
-            .sheet(isPresented: $showBackMatterSettings) {
-                BackMatterSettingsDialog(folder: folder)
+            .sheet(isPresented: $showBackMatterSettings, onDismiss: {
+                scheduleDeferredFileListLoad()
+            }) {
+                BackMatterSettingsDialog(folder: folder, isPresented: $showBackMatterSettings)
             }
             .sheet(item: $containerAssignmentFiles, onDismiss: {
                 withAnimation {

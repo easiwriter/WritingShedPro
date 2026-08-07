@@ -260,7 +260,7 @@ struct FolderFilesView: View {
         }
     }
 
-    private func scheduleDeferredFileListLoad() {
+    func scheduleDeferredFileListLoad() {
         guard !isMixedContentFolder else {
             deferredSortedFiles = nil
             deferredPoetryCollectionGroups = nil
@@ -500,7 +500,7 @@ struct FolderFilesView: View {
     /// Reorder matter folder files
     /// Cover files (Front Cover / Back Cover) are pinned and cannot be moved
     private func moveMatterFiles(from source: IndexSet, to destination: Int) {
-        var files = sortedFiles
+        var files = deferredSortedFiles ?? sortedFiles
         
         // Determine pinned boundaries
         let hasFrontCover = files.first?.isCoverFile == true
@@ -515,6 +515,7 @@ struct FolderFilesView: View {
         let clampedDestination = max(firstMovable, min(destination, lastMovable))
         
         files.move(fromOffsets: source, toOffset: clampedDestination)
+        deferredSortedFiles = files
         
         // Update userOrder for all files
         for (index, file) in files.enumerated() {
@@ -1491,7 +1492,7 @@ struct FolderFilesView: View {
                 }
             }
             
-            performSingleFileExport(format: format, content: attributedString, filename: firstFile.name)
+            performSingleFileExport(format: format, content: attributedString, filename: firstFile.name, footnotes: firstFile.currentVersion?.footnotes)
             return
         }
         
@@ -1593,7 +1594,7 @@ struct FolderFilesView: View {
         }
     }
     
-    func performSingleFileExport(format: ExportFormat, content: NSAttributedString, filename: String) {
+    func performSingleFileExport(format: ExportFormat, content: NSAttributedString, filename: String, footnotes: [FootnoteModel]? = nil) {
         #if DEBUG
         print("📤 performSingleFileExport called")
         print("   format: \(format)")
@@ -1629,7 +1630,7 @@ struct FolderFilesView: View {
                 let exportService = DOCXExportService(modelContext: modelContext)
                 exportData = try exportService.exportToDOCX(content, filename: filename)
             case .markdown:
-                exportData = try MarkdownExportService.exportToMarkdownData(content, filename: filename)
+                exportData = try MarkdownExportService.exportToMarkdownData(content, filename: filename, footnotes: footnotes)
             case .pdf:
                 guard let project = folder.project else { return }
                 let manuscriptContent = ManuscriptContent(

@@ -23,18 +23,23 @@ struct TOCSettingsView: View {
     @State private var useDotLeaders: Bool = true
     @State private var pageNumberPosition: CGFloat = 480
     
-    // Per-level entry styles (Level 0-5)
-    @State private var levelStyleNames: [String] = [
-        "UICTFontTextStyleBody",
-        "UICTFontTextStyleBody",
-        "UICTFontTextStyleBody",
-        "UICTFontTextStyleBody",
-        "UICTFontTextStyleBody",
-        "UICTFontTextStyleBody"
-    ]
+    @State private var level0StyleName: String = "UICTFontTextStyleBody"
+    @State private var level1StyleName: String = "UICTFontTextStyleBody"
+    @State private var level2StyleName: String = "UICTFontTextStyleBody"
+    @State private var level3StyleName: String = "UICTFontTextStyleBody"
+    @State private var saveErrorMessage: String?
     
     // Callback to regenerate TOC after settings change
     var onSettingsChanged: (() -> Void)?
+
+    private var project: Project? {
+        var currentFolder = file.parentFolder
+        while let folder = currentFolder {
+            if let project = folder.project { return project }
+            currentFolder = folder.parentFolder
+        }
+        return file.project
+    }
     
     /// Resolve the project's matter heading style display name
     private var matterHeadingDisplayName: String {
@@ -80,13 +85,10 @@ struct TOCSettingsView: View {
                 
                 // Entry Styles Section - Per level
                 Section {
-                    ForEach(0..<4, id: \.self) { level in
-                        Picker(levelLabel(for: level), selection: $levelStyleNames[level]) {
-                            ForEach(availableStyles, id: \.name) { style in
-                                Text(style.displayName).tag(style.name)
-                            }
-                        }
-                    }
+                    levelStylePicker(level: 0, selection: $level0StyleName)
+                    levelStylePicker(level: 1, selection: $level1StyleName)
+                    levelStylePicker(level: 2, selection: $level2StyleName)
+                    levelStylePicker(level: 3, selection: $level3StyleName)
                 } header: {
                     Text(NSLocalizedString("toc.settings.entryStylesSection", comment: "Entry Styles"))
                 } footer: {
@@ -113,13 +115,24 @@ struct TOCSettingsView: View {
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("button.save", comment: "Save")) {
-                        saveSettings()
-                        dismissSheet()
+                        if saveSettings() {
+                            dismissSheet()
+                        }
                     }
                 }
             }
             .onAppear {
                 loadSettings()
+            }
+            .alert(NSLocalizedString("toc.settings.saveFailed.title", comment: "TOC settings save failed title"), isPresented: Binding(
+                get: { saveErrorMessage != nil },
+                set: { if !$0 { saveErrorMessage = nil } }
+            )) {
+                Button(NSLocalizedString("button.ok", comment: "OK")) {
+                    saveErrorMessage = nil
+                }
+            } message: {
+                Text(saveErrorMessage ?? "")
             }
         }
     }
@@ -135,6 +148,14 @@ struct TOCSettingsView: View {
         default: return "Level \(level + 1)"
         }
     }
+
+    private func levelStylePicker(level: Int, selection: Binding<String>) -> some View {
+        Picker(levelLabel(for: level), selection: selection) {
+            ForEach(availableStyles, id: \.name) { style in
+                Text(style.displayName).tag(style.name)
+            }
+        }
+    }
     
     // MARK: - Settings Management
     
@@ -146,10 +167,11 @@ struct TOCSettingsView: View {
         useDotLeaders = settings.useDotLeaders
         pageNumberPosition = settings.pageNumberPosition
         
-        // Load per-level styles
-        for i in 0..<min(levelStyleNames.count, settings.levelStyleNames.count) {
-            levelStyleNames[i] = settings.levelStyleNames[i]
-        }
+        let styleNames = normalizedLevelStyleNames(from: settings.levelStyleNames)
+        level0StyleName = styleNames[0]
+        level1StyleName = styleNames[1]
+        level2StyleName = styleNames[2]
+        level3StyleName = styleNames[3]
     }
     
     /// Dismiss the sheet reliably on all platforms including Mac Catalyst
@@ -169,18 +191,70 @@ struct TOCSettingsView: View {
         #endif
     }
     
-    private func saveSettings() {
-        var settings = TOCSettings()
+    private func saveSettings() -> Bool {
+        var settings = file.tocSettings
         settings.title = title
         settings.separator = separator
         settings.showPageNumbers = showPageNumbers
         settings.useDotLeaders = useDotLeaders
         settings.pageNumberPosition = pageNumberPosition
-        settings.levelStyleNames = levelStyleNames
+        settings.levelStyleNames = [
+            level0StyleName,
+            level1StyleName,
+            level2StyleName,
+            level3StyleName,
+            "UICTFontTextStyleBody",
+            "UICTFontTextStyleBody"
+        ]
         
-        file.tocSettings = settings
+        do {
+            let data = try JSONEncoder().encode(settings)
+            file.tocSettingsData = data
+            file.modifiedDate = Date()
+            applySettingsDataToProjectTOCFiles(data)
+        } catch {
+            #if DEBUG
+            print("❌ TOCSettingsView failed to encode settings: \(error)")
+            #endif
+            saveErrorMessage = error.localizedDescription
+            return false
+        }
+
+        do {
+            WriteCoalescer.shared.requestSave(reason: "toc-settings-save")
+            try WriteCoalescer.shared.flushOrThrow(reason: "toc-settings-save")
+        } catch {
+            #if DEBUG
+            print("❌ TOCSettingsView failed to save settings: \(error)")
+            #endif
+            saveErrorMessage = error.localizedDescription
+            return false
+        }
         
         // Trigger TOC regeneration
         onSettingsChanged?()
+        return true
+    }
+
+    private func applySettingsDataToProjectTOCFiles(_ data: Data) {
+        guard let project else { return }
+        project.modifiedDate = Date()
+
+        let projectID = project.id
+        let allTextFiles = (try? modelContext.fetch(FetchDescriptor<TextFile>())) ?? []
+        for textFile in allTextFiles {
+            guard textFile.id == file.id || textFile.project?.id == projectID else { continue }
+            guard textFile.id == file.id || textFile.isTOCFile || textFile.name == "Table of Contents" || textFile.name == "Contents" else { continue }
+            textFile.tocSettingsData = data
+            textFile.modifiedDate = Date()
+        }
+    }
+
+    private func normalizedLevelStyleNames(from styleNames: [String]) -> [String] {
+        var normalized = styleNames
+        while normalized.count < 4 {
+            normalized.append("UICTFontTextStyleBody")
+        }
+        return Array(normalized.prefix(4))
     }
 }

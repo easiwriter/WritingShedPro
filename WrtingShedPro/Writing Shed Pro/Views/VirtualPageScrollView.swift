@@ -161,27 +161,47 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         
         let labelHeight: CGFloat = min(rect.height, 24)
         let verticalCenter = (rect.height - labelHeight) / 2
+        let populatedCount = [leftText, centerText, rightText].filter { !$0.isEmpty }.count
+        let leftFrame: CGRect
+        let centerFrame: CGRect
+        let rightFrame: CGRect
+        if populatedCount == 1 {
+            let fullFrame = CGRect(x: 0, y: verticalCenter, width: rect.width, height: labelHeight)
+            leftFrame = fullFrame
+            centerFrame = fullFrame
+            rightFrame = fullFrame
+        } else {
+            leftFrame = CGRect(x: 0, y: verticalCenter, width: rect.width / 3, height: labelHeight)
+            centerFrame = CGRect(x: rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight)
+            rightFrame = CGRect(x: 2 * rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight)
+        }
         
         let leftLabel = UILabel()
         leftLabel.text = leftText
         leftLabel.font = UIFont.systemFont(ofSize: 12)
         leftLabel.textColor = .secondaryLabel
         leftLabel.textAlignment = .left
-        leftLabel.frame = CGRect(x: 0, y: verticalCenter, width: rect.width / 3, height: labelHeight)
+        leftLabel.adjustsFontSizeToFitWidth = true
+        leftLabel.minimumScaleFactor = 0.6
+        leftLabel.frame = leftFrame
         
         let centerLabel = UILabel()
         centerLabel.text = centerText
         centerLabel.font = UIFont.systemFont(ofSize: 12)
         centerLabel.textColor = .secondaryLabel
         centerLabel.textAlignment = .center
-        centerLabel.frame = CGRect(x: rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight)
+        centerLabel.adjustsFontSizeToFitWidth = true
+        centerLabel.minimumScaleFactor = 0.6
+        centerLabel.frame = centerFrame
         
         let rightLabel = UILabel()
         rightLabel.text = rightText
         rightLabel.font = UIFont.systemFont(ofSize: 12)
         rightLabel.textColor = .secondaryLabel
         rightLabel.textAlignment = .right
-        rightLabel.frame = CGRect(x: 2 * rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight)
+        rightLabel.adjustsFontSizeToFitWidth = true
+        rightLabel.minimumScaleFactor = 0.6
+        rightLabel.frame = rightFrame
         
         container.addSubview(leftLabel)
         container.addSubview(centerLabel)
