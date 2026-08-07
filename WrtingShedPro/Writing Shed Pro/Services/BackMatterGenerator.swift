@@ -459,10 +459,63 @@ final class BackMatterGenerator {
     }
     
     // MARK: - References Section
+
+    private func allProjectTextFiles() -> [TextFile] {
+        func collectFiles(from folders: [Folder]) -> [TextFile] {
+            folders.flatMap { folder in
+                (folder.files ?? []) + collectFiles(from: folder.subfolders ?? [])
+            }
+        }
+
+        return collectFiles(from: project.folders ?? [])
+    }
+
+    private func reconcileReferenceEntryCounts() {
+        let entries = project.referenceEntries ?? []
+        guard !entries.isEmpty else { return }
+
+        var countsByEntryID: [UUID: Int] = [:]
+
+        for file in allProjectTextFiles() {
+            guard let version = file.currentVersion else { continue }
+
+            if let metadataData = version.referenceMetadataData,
+               let metadata = ReferenceMetadata.decode(metadataData),
+               !metadata.references.isEmpty {
+                for reference in metadata.references where reference.type == .reference {
+                    countsByEntryID[reference.entryID, default: 0] += 1
+                }
+                continue
+            }
+
+            guard let content = version.attributedContent else { continue }
+            for reference in content.allReferences() where reference.type == .reference {
+                countsByEntryID[reference.entryID, default: 0] += 1
+            }
+        }
+
+        var didChange = false
+        for entry in entries {
+            let actualCount = countsByEntryID[entry.id, default: 0]
+            if entry.referenceCount != actualCount {
+                entry.referenceCount = actualCount
+                entry.modifiedAt = Date()
+                didChange = true
+            }
+        }
+
+        if didChange {
+            Task { @MainActor in
+                WriteCoalescer.shared?.requestSave(reason: "back-matter-reference-count-reconcile")
+            }
+        }
+    }
     
     /// Generate the References section
     /// - Returns: Attributed string with references section, or nil if no entries
     func generateReferencesSection() -> NSAttributedString? {
+        reconcileReferenceEntryCounts()
+
         // Fetch reference entries for this project that have active references (refCount > 0)
         let projectID = project.id
         let descriptor = FetchDescriptor<ReferenceEntry>(

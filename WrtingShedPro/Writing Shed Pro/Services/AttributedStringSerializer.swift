@@ -519,6 +519,14 @@ struct AttributedStringSerializer {
                         break
                     }
                 }
+
+                if attributes.isReferenceAttachment != true,
+                   let typeString = attr[.referenceType] as? String,
+                   let idString = attr[.referenceID] as? String {
+                    attributes.referenceType = typeString
+                    attributes.referenceEntryID = idString
+                    attributes.referenceDisplayText = (sourceText as NSString).substring(with: range)
+                }
                 
                 #if DEBUG
                 // STYLE DIAG: Log final textStyle being encoded for each range
@@ -910,6 +918,12 @@ struct AttributedStringSerializer {
                     attributes[.attachment] = attachment
                     
                     // Also add the reference type and ID as custom attributes
+                    attributes[.referenceType] = referenceType.rawValue
+                    attributes[.referenceID] = entryID.uuidString
+                } else if let referenceTypeString = jsonAttributes.referenceType,
+                          let referenceType = ReferenceType(rawValue: referenceTypeString),
+                          let entryIDString = jsonAttributes.referenceEntryID,
+                          let entryID = UUID(uuidString: entryIDString) {
                     attributes[.referenceType] = referenceType.rawValue
                     attributes[.referenceID] = entryID.uuidString
                 }

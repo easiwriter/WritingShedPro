@@ -303,6 +303,11 @@ class JSONExportService {
         if let data = version.notesFormattedContent {
             notesFormattedContentBase64 = data.base64EncodedString()
         }
+
+        var referenceMetadataBase64: String? = nil
+        if let data = version.referenceMetadataData {
+            referenceMetadataBase64 = data.base64EncodedString()
+        }
         
         // Export comments
         let comments = (version.comments ?? []).map { buildCommentData(from: $0) }
@@ -315,6 +320,7 @@ class JSONExportService {
             content: version.content,
             formattedContentBase64: formattedContentBase64,
             notesFormattedContentBase64: notesFormattedContentBase64,
+            referenceMetadataBase64: referenceMetadataBase64,
             createdDate: version.createdDate,
             versionNumber: version.versionNumber,
             comment: version.comment,
@@ -895,6 +901,7 @@ struct WSPVersionData: Codable {
     var content: String = ""
     var formattedContentBase64: String?
     var notesFormattedContentBase64: String?
+    var referenceMetadataBase64: String?
     var createdDate: Date = Date()
     var versionNumber: Int = 1
     var comment: String?

@@ -49,6 +49,10 @@ private struct WSPAttributeValues: Codable {
     var isCommentAttachment: Bool?
     var isFootnoteAttachment: Bool?
     var isReferenceAttachment: Bool?
+    var referenceType: String?
+    var referenceEntryID: String?
+    var referenceDisplayText: String?
+    var referenceDisplayNumber: Int?
 }
 
 // MARK: - Decoder
@@ -77,10 +81,20 @@ enum WSPAttributeDecoder {
             string: text,
             attributes: [.font: defaultFont]
         )
+        var referenceReplacements: [(range: NSRange, displayText: String, attributes: [NSAttributedString.Key: Any])] = []
 
         for v in values {
             guard let loc = v.location, let len = v.length, len > 0,
                   loc >= 0, loc + len <= result.length else { continue }
+
+            if v.isReferenceAttachment == true {
+                let range = NSRange(location: loc, length: len)
+                let displayText = v.referenceDisplayText?.isEmpty == false ? v.referenceDisplayText! : fallbackReferenceDisplayText(v)
+                var attrs = result.attributes(at: loc, effectiveRange: nil)
+                attrs.removeValue(forKey: .attachment)
+                referenceReplacements.append((range, displayText, attrs))
+                continue
+            }
 
             if v.isImageAttachment == true,
                let imageBase64 = v.imageData,
@@ -126,6 +140,12 @@ enum WSPAttributeDecoder {
             if let u = v.underline { attrs[.underlineStyle] = Int(u) }
             if let s = v.strikethrough { attrs[.strikethroughStyle] = Int(s) }
 
+            if let referenceType = v.referenceType,
+               let referenceEntryID = v.referenceEntryID {
+                attrs[NSAttributedString.Key("com.writingshed.referenceType")] = referenceType
+                attrs[NSAttributedString.Key("com.writingshed.referenceID")] = referenceEntryID
+            }
+
             // Paragraph style
             let para = NSMutableParagraphStyle()
             if let al = v.textAlignment, let alignment = nsTextAlignment(from: al) {
@@ -143,6 +163,11 @@ enum WSPAttributeDecoder {
             attrs[.paragraphStyle] = para
 
             result.addAttributes(attrs, range: range)
+        }
+
+        for replacement in referenceReplacements.reversed() {
+            let marker = NSAttributedString(string: replacement.displayText, attributes: replacement.attributes)
+            result.replaceCharacters(in: replacement.range, with: marker)
         }
         return result
     }
@@ -214,6 +239,19 @@ enum WSPAttributeDecoder {
 #elseif canImport(AppKit)
         return NSColor(red: r, green: g, blue: b, alpha: a)
 #endif
+    }
+
+    private static func fallbackReferenceDisplayText(_ values: WSPAttributeValues) -> String {
+        if let number = values.referenceDisplayNumber, number > 0 {
+            switch values.referenceType {
+            case "figure": return "[Fig \(number)]"
+            case "table": return "[Table \(number)]"
+            case "note": return "[Note \(number)]"
+            default: return "[\(number)]"
+            }
+        }
+
+        return "[ref]"
     }
 
             private static func platformImage(from data: Data) -> WSPImage? {

@@ -1020,6 +1020,11 @@ class JSONImportService {
            let rtfData = Data(base64Encoded: base64) {
             version.notesFormattedContent = rtfData
         }
+
+        if let base64 = data.referenceMetadataBase64,
+           let metadataData = Data(base64Encoded: base64) {
+            version.referenceMetadataData = metadataData
+        }
         
         // Import comments
         for cData in data.comments ?? [] {

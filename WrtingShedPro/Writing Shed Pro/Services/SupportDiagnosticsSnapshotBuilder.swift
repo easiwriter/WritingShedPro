@@ -118,6 +118,15 @@ enum SupportDiagnosticsSnapshotBuilder {
         }
 
         lines.append("")
+        lines.append("Recent File Version Diagnostics (store)")
+        let fileVersionLines = recentFileVersionDiagnosticsLines(for: storeProjects)
+        if fileVersionLines.isEmpty {
+            lines.append("- none")
+        } else {
+            lines.append(contentsOf: fileVersionLines)
+        }
+
+        lines.append("")
         lines.append("Entity Counts (store):")
         lines.append("- Project: \((try? freshContext.fetchCount(FetchDescriptor<Project>())) ?? -1)")
         lines.append("- Publication: \((try? freshContext.fetchCount(FetchDescriptor<Publication>())) ?? -1)")
@@ -238,6 +247,29 @@ enum SupportDiagnosticsSnapshotBuilder {
             }
         }
         return count
+    }
+
+    private static func recentFileVersionDiagnosticsLines(for projects: [Project]) -> [String] {
+        let formatter = ISO8601DateFormatter()
+        let files = projects
+            .flatMap { project in allTextFiles(in: project).map { (project, $0) } }
+            .sorted { lhs, rhs in
+                if lhs.1.modifiedDate != rhs.1.modifiedDate {
+                    return lhs.1.modifiedDate > rhs.1.modifiedDate
+                }
+                return lhs.1.name < rhs.1.name
+            }
+            .prefix(25)
+
+        return files.map { project, file in
+            let versions = file.sortedVersions
+            let versionSummary = versions.map { version in
+                let formattedBytes = version.effectiveFormattedContent?.count ?? 0
+                let metadataBytes = version.referenceMetadataData?.count ?? 0
+                return "v\(version.versionNumber):text=\(version.content.count),formatted=\(formattedBytes),refs=\(metadataBytes)"
+            }.joined(separator: ";")
+            return "- project=\(project.name ?? "Untitled") | file=\(file.name) | id=\(file.id.uuidString) | currentIndex=\(file.currentVersionIndex) | modified=\(formatter.string(from: file.modifiedDate)) | versions=[\(versionSummary)]"
+        }
     }
 
     private static func imageFileSort(

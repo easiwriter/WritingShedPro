@@ -129,6 +129,7 @@ struct WSPVersionData: Codable {
     var id: String = ""
     var content: String = ""
     var formattedContentBase64: String?
+    var referenceMetadataBase64: String?
     var createdDate: Date = Date()
     var versionNumber: Int = 1
     var comment: String?

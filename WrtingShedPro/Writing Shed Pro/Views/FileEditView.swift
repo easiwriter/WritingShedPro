@@ -38,6 +38,7 @@ struct FileEditView: View {
     /// While set, saves are suppressed to avoid overwriting the phone's full content.
     @State private var hasMissingAttachments = false
     @State private var hasMismatchedFormattedContent = false
+    @State private var hasMissingSyncedBody = false
     @State private var presentDeleteAlert = false
     @State private var presentClearTextAlert = false
     @State private var showClearTextToast = false
@@ -179,10 +180,12 @@ struct FileEditView: View {
         _previousContent = State(initialValue: "")
         _selectedRange = State(initialValue: NSRange(location: 0, length: 0))
         
-        // Always start a fresh undo session when opening a file.
-        // Restoring serialized undo commands across reopen can replay stale snapshots
-        // against the current document and produce unexpected formatting rollbacks.
-        file.clearUndoHistory()
+        // Always start a fresh undo session when opening a file, unless this is a synced-empty
+        // shell. Mutating undo fields for a shell record creates local sync noise while the
+        // actual body is still missing from this device.
+        if !Self.isMissingSyncedBody(file.currentVersion) {
+            file.clearUndoHistory()
+        }
         let newManager = TextFileUndoManager(file: file)
         _undoManager = State(initialValue: newManager)
     }
@@ -1715,6 +1718,9 @@ struct FileEditView: View {
                 if file.isTOCFile {
                     tocInfoBanner
                 }
+                if hasMissingSyncedBody {
+                    missingSyncedBodyBanner
+                }
                 textEditorSection()
                 // Formatting toolbar (only shown for editable rich text files, not when displaying as markdown)
                 if isFileEditable && !isDisplayingAsMarkdown {
@@ -1875,6 +1881,26 @@ struct FileEditView: View {
             return false
         }
         return !file.isBackMatterFile && !file.isTOCFile
+    }
+
+    private var missingSyncedBodyBanner: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "icloud.and.arrow.down")
+                .font(.body)
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Content is still missing on this Mac")
+                    .font(.subheadline.weight(.semibold))
+                Text("The file record has synced, but its text body has not arrived. Editing is disabled here to avoid replacing the version that is visible on your other device.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
     
     var body: some View {
@@ -2665,8 +2691,17 @@ struct FileEditView: View {
             StyleSheetProvider.shared.register(styleSheet: styleSheet, for: file.id)
         }
         
-        // Always jump to latest version when opening a file
-        file.selectLatestVersion()
+        // Open the latest usable version without saving just because the file was selected.
+        // Under Ensembles, a follower can briefly have an empty latest version while the
+        // content-bearing version arrives separately; selecting that empty version and saving
+        // on open makes the blank state look authoritative.
+        selectLatestUsableVersionForEditing()
+        hasMissingSyncedBody = Self.isMissingSyncedBody(file.currentVersion)
+        if hasMissingSyncedBody {
+            #if DEBUG
+            print("⚠️ [FileEditView] '\(file.name)' has a synced-empty body shell; keeping editor read-only until body data arrives")
+            #endif
+        }
         
         // Load content from database - ALWAYS normalize for iPhone
         if let savedContent = file.currentVersion?.attributedContent {
@@ -2878,7 +2913,7 @@ struct FileEditView: View {
                 // Modern JSON format documents SHOULD have styles reapplied
                 let isLegacyRTF = AttributedStringSerializer.isLegacyRTFFormat(file.currentVersion?.effectiveFormattedContent)
                 
-                if !isLegacyRTF && !hasMissingAttachments && !hasMismatchedFormattedContent && shouldReapplyStylesOnOpen(for: project) {
+                if !isLegacyRTF && !hasMissingAttachments && !hasMismatchedFormattedContent && !hasMissingSyncedBody && shouldReapplyStylesOnOpen(for: project) {
                     #if DEBUG
                     print("📝 onAppear: Reapplying styles to pick up any changes")
                     #endif
@@ -2900,7 +2935,7 @@ struct FileEditView: View {
                 textViewCoordinator.modifyTypingAttributes { textView in
                     textView.typingAttributes = attrs
                 }
-            } else {
+            } else if !hasMissingSyncedBody {
                 let firstParagraphStyleName = project.styleSheet?.firstParagraphStyle?.name ?? UIFont.TextStyle.body.rawValue
                 let bodyAttrs = TextFormatter.getTypingAttributes(
                     forStyleNamed: firstParagraphStyleName,
@@ -2915,6 +2950,10 @@ struct FileEditView: View {
                 currentParagraphStyle = UIFont.TextStyle(rawValue: firstParagraphStyleName)
                 #if DEBUG
                 print("📝 onAppear: Set typing attributes for empty document using '\(firstParagraphStyleName)' and forced redraw")
+                #endif
+            } else {
+                #if DEBUG
+                print("📝 onAppear: Skipping empty-document typing attributes — synced body is missing")
                 #endif
             }
         }
@@ -2937,7 +2976,51 @@ struct FileEditView: View {
         
     }
     
-    /// Update the cached validation issue count asynchronously
+    private func selectLatestUsableVersionForEditing() {
+        let sortedVersions = file.sortedVersions
+        guard !sortedVersions.isEmpty else { return }
+
+        func hasUsableContent(_ version: Version) -> Bool {
+            if !version.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
+            if let data = version.effectiveFormattedContent,
+               !data.isEmpty,
+               AttributedStringSerializer.isLegacyRTFFormat(data) {
+                return true
+            }
+            return false
+        }
+
+        let selectedIndex = sortedVersions.lastIndex(where: hasUsableContent) ?? (sortedVersions.count - 1)
+        #if DEBUG
+        let versionSummaries = sortedVersions.enumerated().map { index, version in
+            let marker = index == selectedIndex ? "*" : " "
+            return "\(marker)v\(version.versionNumber):text=\(version.content.count),formatted=\(version.effectiveFormattedContent?.count ?? 0),sourceLen=\(version.formattedContentSourceTextLength.map(String.init) ?? "nil"),legacyRTF=\(AttributedStringSerializer.isLegacyRTFFormat(version.effectiveFormattedContent))"
+        }.joined(separator: " | ")
+        print("📝 [FileEditView] Version candidates for '\(file.name)': \(versionSummaries)")
+        #endif
+
+        if file.currentVersionIndex != selectedIndex {
+            #if DEBUG
+            let selectedVersion = sortedVersions[selectedIndex]
+            print("📝 [FileEditView] Opening version v\(selectedVersion.versionNumber) for '\(file.name)' without open-time save (contentLength=\(selectedVersion.content.count), formattedBytes=\(selectedVersion.effectiveFormattedContent?.count ?? 0))")
+            #endif
+            file.currentVersionIndex = selectedIndex
+        }
+    }
+
+    private static func isMissingSyncedBody(_ version: Version?) -> Bool {
+        guard let version,
+              version.content.isEmpty,
+              let data = version.effectiveFormattedContent,
+              !data.isEmpty,
+              !AttributedStringSerializer.isLegacyRTFFormat(data),
+              version.formattedContentSourceTextLength == 0 else {
+            return false
+        }
+
+        return true
+    }
+
     private func updateValidationBadgeAsync() {
         // Only for poetry projects with a structured form
         guard isPoetryProject,
@@ -3285,7 +3368,7 @@ struct FileEditView: View {
     }
 
     private var isFormattedContentSyncIncomplete: Bool {
-        hasMissingAttachments || hasMismatchedFormattedContent
+        hasMissingAttachments || hasMismatchedFormattedContent || hasMissingSyncedBody
     }
 
     private func suppressEditorWriteForIncompleteSync(reason: String) -> Bool {
@@ -3367,10 +3450,17 @@ struct FileEditView: View {
         pendingDebouncedAttributedContent = nil
         pendingDebouncedSaveNeedsTextViewSnapshot = false
 
-        attributedContent = attributedTextToSave
-        file.currentVersion?.attributedContent = attributedTextToSave
-        previousContent = attributedTextToSave.string
-        previousAttributedContent = attributedTextToSave
+        let contentToPersist = normalizeReferenceAttachmentsToText(in: attributedTextToSave)
+        if contentToPersist !== attributedTextToSave,
+           let textView = textViewCoordinator.textView {
+            textView.textStorage.setAttributedString(contentToPersist)
+        }
+
+        attributedContent = contentToPersist
+        file.currentVersion?.attributedContent = contentToPersist
+        file.currentVersion?.referenceMetadataData = extractReferenceMetadata(from: contentToPersist).encode()
+        previousContent = contentToPersist.string
+        previousAttributedContent = contentToPersist
         file.modifiedDate = Date()
 
         (coalescer ?? WriteCoalescer.shared)?.requestSave(reason: reason)
@@ -8731,7 +8821,9 @@ struct FileEditView: View {
         for i in stride(from: nsString.length - 1, through: 0, by: -1) {
             if nsString.character(at: i) == 0xFFFC {
                 let hasAttachment = mutable.attribute(.attachment, at: i, effectiveRange: nil) != nil
-                if !hasAttachment {
+                let hasReferenceMetadata = mutable.attribute(.referenceType, at: i, effectiveRange: nil) != nil
+                    && mutable.attribute(.referenceID, at: i, effectiveRange: nil) != nil
+                if !hasAttachment && !hasReferenceMetadata {
                     orphanedRanges.append(NSRange(location: i, length: 1))
                 }
             }
@@ -8752,8 +8844,12 @@ struct FileEditView: View {
         guard placeholderCount > 0 else { return false }
 
         var recognizedAttachmentCount = 0
-        attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length), options: []) { value, _, _ in
-            if value is ImageAttachment || value is CommentAttachment || value is FootnoteAttachment || value is ReferenceAttachment {
+        let nsString = attributedString.string as NSString
+        for i in 0..<nsString.length where nsString.character(at: i) == 0xFFFC {
+            let value = attributedString.attribute(.attachment, at: i, effectiveRange: nil)
+            let hasReferenceMetadata = attributedString.attribute(.referenceType, at: i, effectiveRange: nil) != nil
+                && attributedString.attribute(.referenceID, at: i, effectiveRange: nil) != nil
+            if value is ImageAttachment || value is CommentAttachment || value is FootnoteAttachment || value is ReferenceAttachment || hasReferenceMetadata {
                 recognizedAttachmentCount += 1
             }
         }
@@ -8808,6 +8904,12 @@ struct FileEditView: View {
         if hasMismatchedFormattedContent {
             #if DEBUG
             print("⚠️ [FileEditView] saveChanges skipped — formattedContent does not match plain text (CloudKit sync incomplete)")
+            #endif
+            return
+        }
+        if hasMissingSyncedBody {
+            #if DEBUG
+            print("⚠️ [FileEditView] saveChanges skipped — synced text body is missing on this device")
             #endif
             return
         }
@@ -9105,6 +9207,22 @@ struct FileEditView: View {
                         orphanedAttachments.append(range)
                     }
                 }
+            }
+        }
+
+        let nsString = mutableString.string as NSString
+        for index in 0..<nsString.length where nsString.character(at: index) == 0xFFFC {
+            guard mutableString.attribute(.attachment, at: index, effectiveRange: nil) == nil,
+                  let typeString = mutableString.attribute(.referenceType, at: index, effectiveRange: nil) as? String,
+                  let type = ReferenceType(rawValue: typeString),
+                  let idString = mutableString.attribute(.referenceID, at: index, effectiveRange: nil) as? String,
+                  let entryID = UUID(uuidString: idString) else {
+                continue
+            }
+
+            if let metadataIndex = mutableMetadata.references.firstIndex(where: { $0.entryID == entryID && $0.type == type }) {
+                let entry = mutableMetadata.references.remove(at: metadataIndex)
+                attachmentsToReplace.append((range: NSRange(location: index, length: 1), entry: entry))
             }
         }
         

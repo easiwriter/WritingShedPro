@@ -708,6 +708,7 @@ final class WSPReaderVersion: Identifiable {
     let id: String
     let content: String
     let formattedContentBase64: String?
+    let referenceMetadataBase64: String?
     let createdDate: Date
     let versionNumber: Int
     let comment: String?
@@ -722,6 +723,7 @@ final class WSPReaderVersion: Identifiable {
         self.id = data.id
         self.content = data.content
         self.formattedContentBase64 = data.formattedContentBase64
+        self.referenceMetadataBase64 = data.referenceMetadataBase64
         self.createdDate = data.createdDate
         self.versionNumber = data.versionNumber
         self.comment = data.comment
