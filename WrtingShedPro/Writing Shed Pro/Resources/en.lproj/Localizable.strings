@@ -1514,6 +1514,9 @@
 "toc.settings.level2" = "Level 3";
 "toc.settings.level3" = "Level 4";
 "toc.settings.saveFailed.title" = "Save Failed";
+"toc.settings.saveFailed.verification" = "The Table of Contents settings could not be verified after saving. Please try again.";
+"matter.settings.saveFailed.title" = "Save Failed";
+"matter.settings.saveFailed.verification" = "The settings could not be verified after saving. Please try again.";
 "toc.settings.previewSection" = "Preview";
 "toc.calculatingPages" = "Calculating page numbers...";
 "toc.infoBanner" = "The final manuscript preview and print/export includes formatted dot leaders and right-aligned page numbers.";
@@ -2213,6 +2216,11 @@
 "frontMatter.settings.footer" = "Enabled items will appear as files in your Front Matter folder.";
 "frontMatter.settings.accessibility" = "Front Matter settings";
 "frontMatter.settings.help" = "Configure front matter items";
+"frontMatter.titleEditor.title" = "Front Matter Title";
+"frontMatter.titleEditor.section" = "Section Title";
+"frontMatter.titleEditor.showTitle" = "Show title";
+"frontMatter.titleEditor.footer" = "Leave empty to use the default: %@";
+"frontMatter.titleEditor.editAccessibility" = "Edit title for %@";
 "frontMatter.frontCover" = "Front Cover";
 "frontMatter.halfTitle" = "Half Title";
 "frontMatter.titlePage" = "Title Page";

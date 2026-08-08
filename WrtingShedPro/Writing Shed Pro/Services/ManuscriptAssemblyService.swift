@@ -63,7 +63,7 @@ final class ManuscriptAssemblyService {
         
         // 1. Front Matter
         if let frontMatterFolder = getManuscriptSubfolder(project, named: "Front Matter") {
-            let files = collectFilesFromFolder(frontMatterFolder)
+            let files = collectMatterFiles(from: frontMatterFolder, sectionType: .frontMatter)
             if !files.isEmpty {
                 sections.append(ManuscriptSection(
                     title: NSLocalizedString("manuscript.section.frontMatter", comment: "Front Matter"),
@@ -88,7 +88,7 @@ final class ManuscriptAssemblyService {
         
         // 3. Back Matter
         if let backMatterFolder = getManuscriptSubfolder(project, named: "Back Matter") {
-            let files = collectFilesFromFolder(backMatterFolder)
+            let files = collectMatterFiles(from: backMatterFolder, sectionType: .backMatter)
             if !files.isEmpty {
                 sections.append(ManuscriptSection(
                     title: NSLocalizedString("manuscript.section.backMatter", comment: "Back Matter"),
@@ -699,6 +699,17 @@ final class ManuscriptAssemblyService {
             for file in section.files {
                 // Skip cover files — they contain only an image, not text content
                 if file.isCoverFile { continue }
+
+                if section.sectionType == .backMatter,
+                         project.type != .drama,
+                   let backMatterFolder = section.sourceFolder {
+                    let item = file.isTableOfFiguresFile
+                        ? BackMatterItem.tableOfFigures
+                        : Self.generatedBackMatterType(for: file)
+                    if let item, !backMatterFolder.backMatterSettings.isEnabled(item) {
+                        continue
+                    }
+                }
                 
                 // Skip print-only content for EPUB export (TOC with dot leaders,
                 // Table of Figures with page numbers, etc.)
@@ -730,7 +741,11 @@ final class ManuscriptAssemblyService {
                     )
                     preparedGeneratedContent = TableOfFiguresGenerationService.formatTOFContentForExport(renderedTOF, project: project)
                 } else if let generatedType = Self.generatedBackMatterType(for: file) {
-                    let generator = BackMatterGenerator(context: context, project: project)
+                    let generator = BackMatterGenerator(
+                        context: context,
+                        project: project,
+                        sourceFolder: section.sourceFolder
+                    )
                     let generated: NSAttributedString?
                     switch generatedType {
                     case .endnotes:
@@ -804,6 +819,9 @@ final class ManuscriptAssemblyService {
                 }
                 // Record offset before adding
                 fileOffsets[file.id] = assembled.length
+                if let heading = frontMatterHeading(for: file, in: section, project: project) {
+                    assembled.append(heading)
+                }
                 // Add file content
                 if isDrama, let version = file.currentVersion {
                     print("[ManuscriptAssemblyService] Rendering drama file: \(file.name)")
@@ -832,7 +850,12 @@ final class ManuscriptAssemblyService {
                     let contentOffset = assembled.length
                     // For TOC files, reformat with right-aligned page numbers and dot leaders for PDF
                     if file.isTOCFile {
-                        let exportContent = TOCGenerationService.formatTOCContentForExport(content, project: project, context: context)
+                        let exportContent = TOCGenerationService.formatTOCContentForExport(
+                            content,
+                            settings: file.tocSettings,
+                            project: project,
+                            context: context
+                        )
                         assembled.append(exportContent)
                     } else {
                         assembled.append(content)
@@ -938,7 +961,11 @@ final class ManuscriptAssemblyService {
         }
         
         // Create back matter generator
-        let backMatterGenerator = BackMatterGenerator(context: context, project: project)
+        let backMatterGenerator = BackMatterGenerator(
+            context: context,
+            project: project,
+            sourceFolder: getManuscriptSubfolder(project, named: "Back Matter")
+        )
         
         // Note: For index, we need page numbers calculated after pagination
         // This method provides the structure; actual page numbers are resolved in PrintService
@@ -993,9 +1020,14 @@ final class ManuscriptAssemblyService {
         )
         let fetchedFiles = (try? context.fetch(descriptor)) ?? []
         let relationshipFiles = folder.files ?? []
-        let files = fetchedFiles.isEmpty ? relationshipFiles : fetchedFiles
+        var filesByID = relationshipFiles.reduce(into: [UUID: TextFile]()) { result, file in
+            result[file.id] = file
+        }
+        for file in fetchedFiles {
+            filesByID[file.id] = file
+        }
 
-        return files
+        return filesByID.values
             .filter { $0.includedInManuscript }
             .sorted {
                 let order0 = $0.userOrder ?? Int.max
@@ -1006,6 +1038,87 @@ final class ManuscriptAssemblyService {
                 // Secondary sort by name for deterministic order when userOrder is equal
                 return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
             }
+    }
+
+    private func collectMatterFiles(from folder: Folder, sectionType: ManuscriptSection.SectionType) -> [TextFile] {
+        Self.canonicalMatterFiles(collectFilesFromFolder(folder), in: folder)
+            .filter { file in
+                switch sectionType {
+                case .frontMatter:
+                    if folder.isDramaProject {
+                        guard let item = DramaFrontMatterItem(rawValue: file.name) else { return true }
+                        return folder.dramaFrontMatterSettings.isEnabled(item)
+                    }
+                    guard let item = FrontMatterItem(rawValue: file.name) else { return true }
+                    return folder.frontMatterSettings.isEnabled(item)
+                case .backMatter:
+                    if folder.isDramaProject {
+                        guard let item = DramaBackMatterItem(rawValue: file.name) else { return true }
+                        return folder.dramaBackMatterSettings.isEnabled(item)
+                    }
+                    guard let item = BackMatterItem(rawValue: file.name) else { return true }
+                    return folder.backMatterSettings.isEnabled(item)
+                default:
+                    return true
+                }
+            }
+    }
+
+    /// Collapse distinct records representing the same built-in matter item without deleting data.
+    /// Cloud sync can temporarily produce duplicate records with different UUIDs.
+    static func canonicalMatterFiles(_ files: [TextFile], in folder: Folder) -> [TextFile] {
+        guard folder.isFrontMatterFolder || folder.isBackMatterFolder else { return files }
+
+        var result: [TextFile] = []
+        var canonicalIndexByName: [String: Int] = [:]
+
+        for file in files {
+            guard isBuiltInMatterFile(file, in: folder) else {
+                result.append(file)
+                continue
+            }
+
+            if let existingIndex = canonicalIndexByName[file.name] {
+                result[existingIndex] = preferredMatterFile(result[existingIndex], file)
+            } else {
+                canonicalIndexByName[file.name] = result.count
+                result.append(file)
+            }
+        }
+
+        return result
+    }
+
+    private static func isBuiltInMatterFile(_ file: TextFile, in folder: Folder) -> Bool {
+        if folder.isFrontMatterFolder {
+            return folder.isDramaProject
+                ? DramaFrontMatterItem(rawValue: file.name) != nil
+                : FrontMatterItem(rawValue: file.name) != nil
+        }
+
+        return folder.isDramaProject
+            ? DramaBackMatterItem(rawValue: file.name) != nil
+            : BackMatterItem(rawValue: file.name) != nil
+    }
+
+    private static func preferredMatterFile(_ lhs: TextFile, _ rhs: TextFile) -> TextFile {
+        let lhsContentLength = lhs.currentVersion?.attributedContent?.length
+            ?? lhs.currentVersion?.content.count
+            ?? 0
+        let rhsContentLength = rhs.currentVersion?.attributedContent?.length
+            ?? rhs.currentVersion?.content.count
+            ?? 0
+        if lhsContentLength != rhsContentLength {
+            return lhsContentLength > rhsContentLength ? lhs : rhs
+        }
+
+        let lhsVersionCount = lhs.versions?.count ?? 0
+        let rhsVersionCount = rhs.versions?.count ?? 0
+        if lhsVersionCount != rhsVersionCount {
+            return lhsVersionCount > rhsVersionCount ? lhs : rhs
+        }
+
+        return lhs.id.uuidString < rhs.id.uuidString ? lhs : rhs
     }
 
     private func shouldSkipEmptyMatterFile(_ file: TextFile, in section: ManuscriptSection) -> Bool {
@@ -1019,6 +1132,50 @@ final class ManuscriptAssemblyService {
         }
 
         return Self.isEffectivelyEmpty(file.currentVersion?.content ?? "")
+    }
+
+    private func frontMatterHeading(
+        for file: TextFile,
+        in section: ManuscriptSection,
+        project: Project
+    ) -> NSAttributedString? {
+        guard section.sectionType == .frontMatter,
+              project.type != .drama,
+              let folder = section.sourceFolder,
+              let item = FrontMatterItem(rawValue: file.name),
+              item.allowsManuscriptTitleConfiguration else { return nil }
+
+        let settings = folder.frontMatterSettings
+        guard settings.titleConfig(for: item).showTitle else { return nil }
+
+        var attributes: [NSAttributedString.Key: Any]
+        if let style = StyleSheetService.resolveStyle(
+            named: project.matterHeadingStyleName,
+            for: project,
+            context: context
+        ) ?? StyleSheetService.resolveStyle(.title1, for: project, context: context) {
+            attributes = style.generateAttributes()
+        } else {
+            attributes = [
+                .font: UIFont.preferredFont(forTextStyle: .title1),
+                .foregroundColor: UIColor.label
+            ]
+        }
+
+        if let paragraphStyle = attributes[.paragraphStyle] as? NSParagraphStyle {
+            let mutableStyle = paragraphStyle.mutableCopy() as! NSMutableParagraphStyle
+            mutableStyle.paragraphSpacing = max(mutableStyle.paragraphSpacing, 12)
+            attributes[.paragraphStyle] = mutableStyle
+        } else {
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.paragraphSpacing = 12
+            attributes[.paragraphStyle] = paragraphStyle
+        }
+
+        return NSAttributedString(
+            string: settings.displayTitle(for: item) + "\n",
+            attributes: attributes
+        )
     }
 
     private static func isEffectivelyEmpty(_ content: NSAttributedString) -> Bool {

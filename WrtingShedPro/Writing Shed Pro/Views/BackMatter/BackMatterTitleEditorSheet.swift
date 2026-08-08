@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 #if targetEnvironment(macCatalyst)
 import UIKit
 #endif
@@ -21,6 +22,8 @@ struct BackMatterTitleEditorSheet: View {
     
     @State private var titleText: String = ""
     @State private var headingStyle: BackMatterHeadingStyle = .title1
+    @State private var isSaving = false
+    @State private var saveErrorMessage: String?
     
     var body: some View {
         NavigationStack {
@@ -68,15 +71,27 @@ struct BackMatterTitleEditorSheet: View {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
                         dismissSheet()
                     }
+                    .disabled(isSaving)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("button.save", comment: "Save")) {
                         saveSettings()
                     }
+                    .disabled(isSaving)
                 }
             }
             .onAppear {
                 loadSettings()
+            }
+            .alert(NSLocalizedString("matter.settings.saveFailed.title", comment: "Save Failed"), isPresented: Binding(
+                get: { saveErrorMessage != nil },
+                set: { if !$0 { saveErrorMessage = nil } }
+            )) {
+                Button(NSLocalizedString("button.ok", comment: "OK")) {
+                    saveErrorMessage = nil
+                }
+            } message: {
+                Text(saveErrorMessage ?? "")
             }
         }
     }
@@ -89,19 +104,70 @@ struct BackMatterTitleEditorSheet: View {
     }
     
     private func saveSettings() {
-        guard let folder = folder else {
-            dismissSheet()
+        guard !isSaving else { return }
+        guard let folder, let persistenceContext = folder.modelContext else {
+            saveErrorMessage = NSLocalizedString(
+                "matter.settings.saveFailed.verification",
+                comment: "Matter settings could not be verified after saving"
+            )
             return
         }
-        var settings = folder.backMatterSettings
+
         let config = BackMatterItemTitle(
             customTitle: titleText.isEmpty ? nil : titleText,
             headingStyle: headingStyle
         )
-        settings.setTitleConfig(config, for: item)
-        folder.backMatterSettings = settings
-        onSave()
-        dismissSheet()
+        isSaving = true
+
+        Task { @MainActor in
+            let reason = "back-matter-title-save"
+            while true {
+                while !EnsemblesSaveGate.canSaveNow(reason: reason) {
+                    do {
+                        try await Task.sleep(nanoseconds: 500_000_000)
+                    } catch {
+                        isSaving = false
+                        return
+                    }
+                }
+
+                var settings = folder.backMatterSettings
+                settings.setTitleConfig(config, for: item)
+                folder.backMatterSettings = settings
+
+                do {
+                    try EnsemblesSaveGate.save(persistenceContext, reason: reason)
+                    guard titleConfigWasPersisted(config, folder: folder, context: persistenceContext) else {
+                        throw BackMatterTitleSaveError.verificationFailed
+                    }
+                    Write_App.scheduleEnsemblesSyncAfterLocalSave(reason: reason)
+                    onSave()
+                    isSaving = false
+                    dismissSheet()
+                    return
+                } catch is EnsemblesSaveGateError {
+                    continue
+                } catch {
+                    isSaving = false
+                    saveErrorMessage = error.localizedDescription
+                    return
+                }
+            }
+        }
+    }
+
+    private func titleConfigWasPersisted(
+        _ expectedConfig: BackMatterItemTitle,
+        folder: Folder,
+        context: ModelContext
+    ) -> Bool {
+        let verificationContext = ModelContext(context.container)
+        let folderID = folder.id
+        let descriptor = FetchDescriptor<Folder>(
+            predicate: #Predicate<Folder> { candidate in candidate.id == folderID }
+        )
+        guard let savedFolder = try? verificationContext.fetch(descriptor).first else { return false }
+        return savedFolder.backMatterSettings.titleConfig(for: item) == expectedConfig
     }
 
     private func dismissSheet() {
@@ -119,5 +185,16 @@ struct BackMatterTitleEditorSheet: View {
                 .dismiss(animated: true)
         }
         #endif
+    }
+}
+
+private enum BackMatterTitleSaveError: LocalizedError {
+    case verificationFailed
+
+    var errorDescription: String? {
+        NSLocalizedString(
+            "matter.settings.saveFailed.verification",
+            comment: "Matter settings could not be verified after saving"
+        )
     }
 }

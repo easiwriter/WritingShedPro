@@ -208,6 +208,106 @@ final class ManuscriptAssemblyServiceTests: XCTestCase {
         XCTAssertEqual(decoded.sectionBreakStyle, .sectionMark)
         XCTAssertEqual(decoded.footnoteNumbering, .perSection)
     }
+
+    func testLegacyFrontMatterSettingsDecodeWithDefaultTitles() throws {
+        let legacyData = Data(#"{"enabledItems":["Foreword"]}"#.utf8)
+
+        let settings = try JSONDecoder().decode(FrontMatterSettings.self, from: legacyData)
+
+        XCTAssertTrue(settings.isEnabled(.foreword))
+        XCTAssertTrue(settings.titleConfig(for: .foreword).showTitle)
+        XCTAssertFalse(settings.titleConfig(for: .titlePage).showTitle)
+        XCTAssertFalse(FrontMatterItem.tableOfContents.allowsManuscriptTitleConfiguration)
+    }
+
+    func testFrontMatterTitleConfigurationRoundTrips() throws {
+        var settings = FrontMatterSettings(enabledItems: [.preface])
+        settings.setTitleConfig(
+            FrontMatterItemTitle(customTitle: "Before We Begin", showTitle: true),
+            for: .preface
+        )
+
+        let data = try JSONEncoder().encode(settings)
+        let decoded = try JSONDecoder().decode(FrontMatterSettings.self, from: data)
+
+        XCTAssertEqual(decoded.displayTitle(for: .preface), "Before We Begin")
+        XCTAssertTrue(decoded.titleConfig(for: .preface).showTitle)
+    }
+
+    func testAssembleContentPrependsConfiguredFrontMatterTitle() async throws {
+        let project = Project(name: "Test Prose", type: .prose)
+        modelContext.insert(project)
+
+        let manuscriptFolder = Folder(name: "Manuscript", project: project)
+        let frontMatterFolder = Folder(name: "Front Matter", project: project)
+        frontMatterFolder.parentFolder = manuscriptFolder
+        manuscriptFolder.subfolders = [frontMatterFolder]
+        project.folders = [manuscriptFolder]
+        modelContext.insert(manuscriptFolder)
+        modelContext.insert(frontMatterFolder)
+
+        var settings = FrontMatterSettings(enabledItems: [.foreword])
+        settings.setTitleConfig(
+            FrontMatterItemTitle(customTitle: "A Word Before", showTitle: true),
+            for: .foreword
+        )
+        frontMatterFolder.frontMatterSettings = settings
+
+        let file = TextFile(name: FrontMatterItem.foreword.fileName, parentFolder: frontMatterFolder)
+        file.includedInManuscript = true
+        let version = Version(content: "The opening text.")
+        version.textFile = file
+        file.versions = [version]
+        frontMatterFolder.textFiles = [file]
+        modelContext.insert(file)
+        modelContext.insert(version)
+        try modelContext.save()
+
+        let content = try await assemblyService.assembleContent(for: project)
+
+        XCTAssertTrue(content.attributedString.string.hasPrefix("A Word Before\nThe opening text."))
+    }
+
+    func testMatterSectionsCollapseDistinctRecordsForSameBuiltInItem() throws {
+        let project = Project(name: "Test Prose", type: .prose)
+        let manuscriptFolder = Folder(name: "Manuscript", project: project)
+        let frontMatterFolder = Folder(name: "Front Matter", project: project)
+        let backMatterFolder = Folder(name: "Back Matter", project: project)
+        frontMatterFolder.parentFolder = manuscriptFolder
+        backMatterFolder.parentFolder = manuscriptFolder
+        manuscriptFolder.subfolders = [frontMatterFolder, backMatterFolder]
+        project.folders = [manuscriptFolder]
+        modelContext.insert(project)
+        modelContext.insert(manuscriptFolder)
+        modelContext.insert(frontMatterFolder)
+        modelContext.insert(backMatterFolder)
+
+        frontMatterFolder.frontMatterSettings = FrontMatterSettings(enabledItems: [.preface])
+        backMatterFolder.backMatterSettings = BackMatterSettings(enabledItems: [.endnotes])
+
+        let emptyPreface = TextFile(name: FrontMatterItem.preface.fileName, parentFolder: frontMatterFolder)
+        let populatedPreface = TextFile(name: FrontMatterItem.preface.fileName, parentFolder: frontMatterFolder)
+        let populatedVersion = Version(content: "Keep this preface")
+        populatedVersion.textFile = populatedPreface
+        populatedPreface.versions = [populatedVersion]
+
+        let firstEndnotes = TextFile(name: BackMatterItem.endnotes.fileName, parentFolder: backMatterFolder)
+        let secondEndnotes = TextFile(name: BackMatterItem.endnotes.fileName, parentFolder: backMatterFolder)
+        frontMatterFolder.textFiles = [emptyPreface, populatedPreface]
+        backMatterFolder.textFiles = [firstEndnotes, secondEndnotes]
+
+        [emptyPreface, populatedPreface, firstEndnotes, secondEndnotes].forEach(modelContext.insert)
+        modelContext.insert(populatedVersion)
+        try modelContext.save()
+
+        let sections = assemblyService.getSections(for: project)
+        let frontFiles = sections.first(where: { $0.sectionType == .frontMatter })?.files ?? []
+        let backFiles = sections.first(where: { $0.sectionType == .backMatter })?.files ?? []
+
+        XCTAssertEqual(frontFiles.count, 1)
+        XCTAssertEqual(frontFiles.first?.id, populatedPreface.id)
+        XCTAssertEqual(backFiles.count, 1)
+    }
     
     // MARK: - ManuscriptSection Tests
     

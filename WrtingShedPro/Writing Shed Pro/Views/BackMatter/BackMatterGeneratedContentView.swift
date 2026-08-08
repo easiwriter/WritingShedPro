@@ -1314,7 +1314,11 @@ struct BackMatterGeneratedContentView: View {
     private func regenerateFileContent() {
         guard let type = backMatterType else { return }
         
-        let generator = BackMatterGenerator(context: modelContext, project: project)
+        let generator = BackMatterGenerator(
+            context: modelContext,
+            project: project,
+            sourceFolder: file.parentFolder
+        )
         
         let generatedContent: NSAttributedString?
         switch type {

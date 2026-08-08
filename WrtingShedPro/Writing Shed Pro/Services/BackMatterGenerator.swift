@@ -21,6 +21,7 @@ final class BackMatterGenerator {
     
     private let context: ModelContext
     private let project: Project
+    private let sourceFolder: Folder?
     
     // MARK: - Style Resolution
     
@@ -105,7 +106,9 @@ final class BackMatterGenerator {
     
     /// Back matter settings from the project's back matter folder
     private lazy var backMatterSettings: BackMatterSettings = {
-        project.findBackMatterFolder()?.backMatterSettings ?? BackMatterSettings()
+        sourceFolder?.backMatterSettings
+            ?? project.findBackMatterFolder()?.backMatterSettings
+            ?? BackMatterSettings()
     }()
     
     /// Get entry heading style attributes — bold variant of the project's matter body style.
@@ -224,9 +227,10 @@ final class BackMatterGenerator {
     
     // MARK: - Initialization
     
-    init(context: ModelContext, project: Project) {
+    init(context: ModelContext, project: Project, sourceFolder: Folder? = nil) {
         self.context = context
         self.project = project
+        self.sourceFolder = sourceFolder
     }
     
     // MARK: - Public Methods
@@ -288,16 +292,25 @@ final class BackMatterGenerator {
     /// Generate the Notes/Endnotes section
     /// - Returns: Attributed string with notes section, or nil if no notes
     func generateNotesSection() -> NSAttributedString? {
-        // Fetch notes for this project that have active references (refCount > 0)
+        let referencedNoteIDs = activeNoteReferenceIDs()
+
+        // Include marker-backed notes even if their denormalized referenceCount
+        // has drifted to zero during sync or import.
         let projectID = project.id
-        let descriptor = FetchDescriptor<NoteEntry>(
-            predicate: #Predicate<NoteEntry> { entry in
-                entry.project?.id == projectID && entry.referenceCount > 0
-            },
-            sortBy: [SortDescriptor(\.displayNumber)]
-        )
-        
-        guard let notes = try? context.fetch(descriptor), !notes.isEmpty else {
+        let relationshipNotes = project.noteEntries ?? []
+        let fetchedNotes = ((try? context.fetch(FetchDescriptor<NoteEntry>())) ?? []).filter {
+            $0.project?.id == projectID
+        }
+        var notesByID = relationshipNotes.reduce(into: [UUID: NoteEntry]()) { result, note in
+            result[note.id] = note
+        }
+        for note in fetchedNotes {
+            notesByID[note.id] = note
+        }
+        let notes = notesByID.values.filter {
+            $0.referenceCount > 0 || referencedNoteIDs.contains($0.id)
+        }.sorted { $0.displayNumber < $1.displayNumber }
+        guard !notes.isEmpty else {
             return nil
         }
         
@@ -336,6 +349,32 @@ final class BackMatterGenerator {
         }
         
         return result
+    }
+
+    private func activeNoteReferenceIDs() -> Set<UUID> {
+        var referencedIDs = Set<UUID>()
+
+        for file in allProjectTextFiles() {
+            guard let version = file.currentVersion else { continue }
+
+            if let metadataData = version.referenceMetadataData,
+               let metadata = ReferenceMetadata.decode(metadataData),
+               !metadata.references.isEmpty {
+                for reference in metadata.references
+                where reference.type == .note || reference.type == .endnote {
+                    referencedIDs.insert(reference.entryID)
+                }
+                continue
+            }
+
+            guard let content = version.attributedContent else { continue }
+            for reference in content.allReferences()
+            where reference.type == .note || reference.type == .endnote {
+                referencedIDs.insert(reference.entryID)
+            }
+        }
+
+        return referencedIDs
     }
     
     /// Format a single note entry
@@ -467,7 +506,18 @@ final class BackMatterGenerator {
             }
         }
 
-        return collectFiles(from: project.folders ?? [])
+        let relationshipFiles = collectFiles(from: project.folders ?? [])
+        let projectID = project.id
+        let fetchedFiles = ((try? context.fetch(FetchDescriptor<TextFile>())) ?? []).filter {
+            $0.project?.id == projectID
+        }
+        var filesByID = relationshipFiles.reduce(into: [UUID: TextFile]()) { result, file in
+            result[file.id] = file
+        }
+        for file in fetchedFiles {
+            filesByID[file.id] = file
+        }
+        return Array(filesByID.values)
     }
 
     private func reconcileReferenceEntryCounts() {

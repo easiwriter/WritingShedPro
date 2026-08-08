@@ -93,9 +93,8 @@ struct StylePickerSheet: View {
                         Button(action: {
                             // Convert style name to UIFont.TextStyle
                             let textStyle = UIFont.TextStyle(rawValue: style.name)
-                            onClose?()
                             onStyleSelected(textStyle)
-                            dismiss()
+                            closeSheet()
                         }) {
                             StylePreviewRowFromModel(
                                 styleModel: style,
@@ -122,11 +121,10 @@ struct StylePickerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.done", comment: "")) {
-                        onClose?()
-                        dismiss()
+                        closeSheet()
                     }
                 }
-                
+
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
                         // Find the current style in the database
@@ -164,6 +162,16 @@ struct StylePickerSheet: View {
         .navigationViewStyle(.stack)
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
+    }
+
+    private func closeSheet() {
+        if let onClose {
+            DispatchQueue.main.async {
+                onClose()
+            }
+        } else {
+            dismiss()
+        }
     }
 }
 

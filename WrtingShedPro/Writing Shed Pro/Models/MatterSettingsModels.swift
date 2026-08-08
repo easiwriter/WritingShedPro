@@ -60,6 +60,21 @@ enum FrontMatterItem: String, CaseIterable, Codable, Identifiable {
     var isCover: Bool {
         self == .frontCover
     }
+
+    /// Narrative front matter conventionally displays a section heading.
+    var showsTitleByDefault: Bool {
+        switch self {
+        case .dedication, .epigraph, .foreword, .preface, .acknowledgements:
+            return true
+        case .frontCover, .halfTitle, .titlePage, .copyright, .tableOfContents:
+            return false
+        }
+    }
+
+    /// The table of contents owns its title through TOCSettings.
+    var allowsManuscriptTitleConfiguration: Bool {
+        self != .tableOfContents
+    }
     
     var sortOrder: Int {
         switch self {
@@ -136,12 +151,57 @@ enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
 
 // MARK: - Front Matter Settings
 
+/// Per-item title configuration for a front matter section.
+struct FrontMatterItemTitle: Codable, Equatable {
+    var customTitle: String?
+    var showTitle: Bool
+
+    init(customTitle: String? = nil, showTitle: Bool = true) {
+        self.customTitle = customTitle
+        self.showTitle = showTitle
+    }
+}
+
 /// Settings for which front matter items are enabled
 struct FrontMatterSettings: Codable, Equatable {
     var enabledItems: Set<FrontMatterItem>
+    var itemTitles: [String: FrontMatterItemTitle]
     
-    init(enabledItems: Set<FrontMatterItem> = []) {
+    init(
+        enabledItems: Set<FrontMatterItem> = [],
+        itemTitles: [String: FrontMatterItemTitle] = [:]
+    ) {
         self.enabledItems = enabledItems
+        self.itemTitles = itemTitles
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case enabledItems
+        case itemTitles
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        enabledItems = try container.decodeIfPresent(Set<FrontMatterItem>.self, forKey: .enabledItems) ?? []
+        itemTitles = try container.decodeIfPresent([String: FrontMatterItemTitle].self, forKey: .itemTitles) ?? [:]
+    }
+
+    func titleConfig(for item: FrontMatterItem) -> FrontMatterItemTitle {
+        itemTitles[item.rawValue]
+            ?? FrontMatterItemTitle(showTitle: item.showsTitleByDefault)
+    }
+
+    func displayTitle(for item: FrontMatterItem) -> String {
+        let customTitle = titleConfig(for: item).customTitle?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let customTitle, !customTitle.isEmpty {
+            return customTitle
+        }
+        return item.localizedName
+    }
+
+    mutating func setTitleConfig(_ config: FrontMatterItemTitle, for item: FrontMatterItem) {
+        itemTitles[item.rawValue] = config
     }
     
     /// Check if an item is enabled

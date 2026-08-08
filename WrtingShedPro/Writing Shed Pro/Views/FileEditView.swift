@@ -4446,6 +4446,10 @@ struct FileEditView: View {
             #endif
             return
         }
+
+        // Existing files are only authoritative for legacy projects that predate stored
+        // back-matter settings. Once settings exist, a stale synced file must not re-enable itself.
+        guard backMatterFolder.backMatterSettingsData == nil else { return }
         
         #if DEBUG
         print("🔄 Syncing back matter settings with actual files...")

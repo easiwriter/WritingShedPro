@@ -9,6 +9,17 @@ import SwiftUI
 import SwiftData
 import UIKit
 
+private enum MatterSettingsSaveError: LocalizedError {
+    case verificationFailed
+
+    var errorDescription: String? {
+        NSLocalizedString(
+            "matter.settings.saveFailed.verification",
+            comment: "Matter settings could not be verified after saving"
+        )
+    }
+}
+
 // MARK: - Front Matter Settings Dialog
 
 /// Dialog for configuring which front matter items to include
@@ -21,13 +32,20 @@ struct FrontMatterSettingsDialog: View {
     
     // Fiction project items
     @State private var enabledItems: Set<FrontMatterItem> = []
+    @State private var itemTitles: [String: FrontMatterItemTitle] = [:]
+    @State private var titleEditorItem: FrontMatterItem?
     // Drama project items
     @State private var dramaEnabledItems: Set<DramaFrontMatterItem> = []
     @State private var isProcessing = false
     @State private var showMatterStylePicker = false
+    @State private var saveErrorMessage: String?
     
     private var isDrama: Bool {
         folder.isDramaProject
+    }
+
+    private var persistenceContext: ModelContext {
+        folder.modelContext ?? modelContext
     }
     
     var body: some View {
@@ -40,7 +58,24 @@ struct FrontMatterSettingsDialog: View {
                         }
                     } else {
                         ForEach(FrontMatterItem.allCases) { item in
-                            Toggle(item.localizedName, isOn: binding(for: item))
+                            HStack {
+                                Toggle(item.localizedName, isOn: binding(for: item))
+                                if item.allowsManuscriptTitleConfiguration {
+                                    Button {
+                                        titleEditorItem = item
+                                    } label: {
+                                        Image(systemName: "pencil")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .accessibilityLabel(String(
+                                        format: NSLocalizedString(
+                                            "frontMatter.titleEditor.editAccessibility",
+                                            comment: "Edit title for front matter item"
+                                        ),
+                                        item.localizedName
+                                    ))
+                                }
+                            }
                         }
                     }
                 } header: {
@@ -61,6 +96,7 @@ struct FrontMatterSettingsDialog: View {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
                         dismissSheet()
                     }
+                    .disabled(isProcessing)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("button.save", comment: "Save")) {
@@ -73,13 +109,31 @@ struct FrontMatterSettingsDialog: View {
                 if isDrama {
                     dramaEnabledItems = folder.dramaFrontMatterSettings.enabledItems
                 } else {
-                    enabledItems = folder.frontMatterSettings.enabledItems
+                    let settings = folder.frontMatterSettings
+                    enabledItems = settings.enabledItems
+                    itemTitles = settings.itemTitles
                 }
+            }
+            .sheet(item: $titleEditorItem) { item in
+                FrontMatterTitleEditorSheet(
+                    item: item,
+                    config: titleConfigBinding(for: item)
+                )
             }
             .sheet(isPresented: $showMatterStylePicker) {
                 if let project = folder.resolvedProject {
                     MatterStylePickerSheet(project: project, isPresented: $showMatterStylePicker)
                 }
+            }
+            .alert(NSLocalizedString("matter.settings.saveFailed.title", comment: "Save Failed"), isPresented: Binding(
+                get: { saveErrorMessage != nil },
+                set: { if !$0 { saveErrorMessage = nil } }
+            )) {
+                Button(NSLocalizedString("button.ok", comment: "OK")) {
+                    saveErrorMessage = nil
+                }
+            } message: {
+                Text(saveErrorMessage ?? "")
             }
         }
         #if os(macOS)
@@ -113,6 +167,16 @@ struct FrontMatterSettingsDialog: View {
         )
     }
 
+    private func titleConfigBinding(for item: FrontMatterItem) -> Binding<FrontMatterItemTitle> {
+        Binding(
+            get: {
+                itemTitles[item.rawValue]
+                    ?? FrontMatterItemTitle(showTitle: item.showsTitleByDefault)
+            },
+            set: { itemTitles[item.rawValue] = $0 }
+        )
+    }
+
     private var matterStylesSection: some View {
         Section {
             Button {
@@ -128,18 +192,51 @@ struct FrontMatterSettingsDialog: View {
     }
     
     private func saveSettings() {
+        guard !isProcessing else { return }
         isProcessing = true
-        
-        if isDrama {
-            saveDramaSettings()
-        } else {
-            saveFictionSettings()
+
+        Task { @MainActor in
+            await persistSettingsWhenEnsemblesIsIdle()
         }
-        
-        WriteCoalescer.shared?.requestSave(reason: "front-matter-settings-save")
-        WriteCoalescer.shared?.flush()
-        isProcessing = false
-        dismissSheet()
+    }
+
+    @MainActor
+    private func persistSettingsWhenEnsemblesIsIdle() async {
+        let reason = "front-matter-settings-save"
+
+        while true {
+            while !EnsemblesSaveGate.canSaveNow(reason: reason) {
+                do {
+                    try await Task.sleep(nanoseconds: 500_000_000)
+                } catch {
+                    isProcessing = false
+                    return
+                }
+            }
+
+            if isDrama {
+                saveDramaSettings()
+            } else {
+                saveFictionSettings()
+            }
+
+            do {
+                try EnsemblesSaveGate.save(persistenceContext, reason: reason)
+                guard frontMatterSettingsWerePersisted() else {
+                    throw MatterSettingsSaveError.verificationFailed
+                }
+                Write_App.scheduleEnsemblesSyncAfterLocalSave(reason: reason)
+                isProcessing = false
+                dismissSheet()
+                return
+            } catch is EnsemblesSaveGateError {
+                continue
+            } catch {
+                isProcessing = false
+                saveErrorMessage = error.localizedDescription
+                return
+            }
+        }
     }
 
     private func dismissSheet() {
@@ -162,7 +259,11 @@ struct FrontMatterSettingsDialog: View {
     }
     
     private func saveFictionSettings() {
-        let newSettings = FrontMatterSettings(enabledItems: enabledItems)
+        let newSettings = FrontMatterSettings(
+            enabledItems: enabledItems,
+            itemTitles: itemTitles
+        )
+        folder.frontMatterSettings = newSettings
         
         for item in enabledItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
             createFileForItem(item)
@@ -171,12 +272,11 @@ struct FrontMatterSettingsDialog: View {
         for item in FrontMatterItem.allCases where !enabledItems.contains(item) {
             removeFileForItem(item)
         }
-        
-        folder.frontMatterSettings = newSettings
     }
     
     private func saveDramaSettings() {
         let newSettings = DramaFrontMatterSettings(enabledItems: dramaEnabledItems)
+        folder.dramaFrontMatterSettings = newSettings
         
         for item in dramaEnabledItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
             createFileForDramaItem(item)
@@ -185,12 +285,19 @@ struct FrontMatterSettingsDialog: View {
         for item in DramaFrontMatterItem.allCases where !dramaEnabledItems.contains(item) {
             removeFileForDramaItem(item)
         }
-        
-        folder.dramaFrontMatterSettings = newSettings
     }
     
     private func createFileForItem(_ item: FrontMatterItem) {
-        if fetchFile(named: item.fileName) != nil {
+        if let textFile = matchingFiles(named: item.fileName).first {
+            textFile.parentFolder = folder
+            textFile.isTOCFile = item == .tableOfContents
+            textFile.isCoverFile = item.isCover
+            if !(folder.textFiles ?? []).contains(where: { $0.id == textFile.id }) {
+                if folder.textFiles == nil {
+                    folder.textFiles = []
+                }
+                folder.textFiles?.append(textFile)
+            }
             return
         }
         
@@ -207,7 +314,7 @@ struct FrontMatterSettingsDialog: View {
             textFile.isCoverFile = true
         }
         
-        modelContext.insert(textFile)
+        persistenceContext.insert(textFile)
         
         if folder.textFiles == nil {
             folder.textFiles = []
@@ -216,13 +323,20 @@ struct FrontMatterSettingsDialog: View {
     }
     
     private func createFileForDramaItem(_ item: DramaFrontMatterItem) {
-        if fetchFile(named: item.fileName) != nil {
+        if let textFile = matchingFiles(named: item.fileName).first {
+            textFile.parentFolder = folder
+            if !(folder.textFiles ?? []).contains(where: { $0.id == textFile.id }) {
+                if folder.textFiles == nil {
+                    folder.textFiles = []
+                }
+                folder.textFiles?.append(textFile)
+            }
             return
         }
         
         let textFile = TextFile(name: item.fileName, initialContent: "", parentFolder: folder)
         textFile.userOrder = item.sortOrder
-        modelContext.insert(textFile)
+        persistenceContext.insert(textFile)
         
         if folder.textFiles == nil {
             folder.textFiles = []
@@ -231,27 +345,122 @@ struct FrontMatterSettingsDialog: View {
     }
     
     private func removeFileForItem(_ item: FrontMatterItem) {
-        if let file = fetchFile(named: item.fileName) {
+        for file in matchingFiles(named: item.fileName) {
             folder.textFiles?.removeAll { $0.id == file.id }
-            modelContext.delete(file)
+            persistenceContext.delete(file)
         }
     }
     
     private func removeFileForDramaItem(_ item: DramaFrontMatterItem) {
-        if let file = fetchFile(named: item.fileName) {
+        for file in matchingFiles(named: item.fileName) {
             folder.textFiles?.removeAll { $0.id == file.id }
-            modelContext.delete(file)
+            persistenceContext.delete(file)
         }
     }
 
-    private func fetchFile(named fileName: String) -> TextFile? {
+    private func matchingFiles(named fileName: String) -> [TextFile] {
+        let relationshipMatches = (folder.textFiles ?? []).filter { $0.name == fileName }
         let folderID = folder.id
         let descriptor = FetchDescriptor<TextFile>(
             predicate: #Predicate<TextFile> { file in
                 file.parentFolder?.id == folderID && file.name == fileName
             }
         )
-        return try? modelContext.fetch(descriptor).first
+        let fetchedMatches = (try? persistenceContext.fetch(descriptor)) ?? []
+        var seenIDs = Set<UUID>()
+        return (relationshipMatches + fetchedMatches).filter { seenIDs.insert($0.id).inserted }
+    }
+
+    private func frontMatterSettingsWerePersisted() -> Bool {
+        let verificationContext = ModelContext(modelContext.container)
+        let folderID = folder.id
+        let descriptor = FetchDescriptor<Folder>(
+            predicate: #Predicate<Folder> { candidate in
+                candidate.id == folderID
+            }
+        )
+        guard let savedFolder = try? verificationContext.fetch(descriptor).first else { return false }
+        if isDrama {
+            return savedFolder.dramaFrontMatterSettings.enabledItems == dramaEnabledItems
+        }
+        return savedFolder.frontMatterSettings == FrontMatterSettings(
+            enabledItems: enabledItems,
+            itemTitles: itemTitles
+        )
+    }
+}
+
+private struct FrontMatterTitleEditorSheet: View {
+    let item: FrontMatterItem
+    @Binding var config: FrontMatterItemTitle
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var showTitle = true
+    @State private var titleText = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Toggle(
+                        NSLocalizedString("frontMatter.titleEditor.showTitle", comment: "Show title"),
+                        isOn: $showTitle
+                    )
+                    TextField(item.localizedName, text: $titleText)
+                        .textInputAutocapitalization(.words)
+                        .disabled(!showTitle)
+                } header: {
+                    Text(NSLocalizedString("frontMatter.titleEditor.section", comment: "Section Title"))
+                } footer: {
+                    Text(String(
+                        format: NSLocalizedString(
+                            "frontMatter.titleEditor.footer",
+                            comment: "Leave empty to use the default title"
+                        ),
+                        item.localizedName
+                    ))
+                }
+
+                if showTitle {
+                    Section {
+                        Text(titleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                             ? item.localizedName
+                             : titleText)
+                            .font(Font(UIFont.preferredFont(forTextStyle: .title1)))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 8)
+                    } header: {
+                        Text(NSLocalizedString("backMatter.titleEditor.preview", comment: "Preview"))
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle(NSLocalizedString("frontMatter.titleEditor.title", comment: "Front Matter Title"))
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(NSLocalizedString("button.done", comment: "Done")) {
+                        let trimmedTitle = titleText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        config = FrontMatterItemTitle(
+                            customTitle: trimmedTitle.isEmpty ? nil : trimmedTitle,
+                            showTitle: showTitle
+                        )
+                        dismiss()
+                    }
+                }
+            }
+            .onAppear {
+                showTitle = config.showTitle
+                titleText = config.customTitle ?? ""
+            }
+        }
     }
 }
 
@@ -276,9 +485,14 @@ struct BackMatterSettingsDialog: View {
     @State private var showRemoveEntriesConfirmation = false
     @State private var pendingItemToDisable: BackMatterItem?
     @State private var showMatterStylePicker = false
+    @State private var saveErrorMessage: String?
     
     private var isDrama: Bool {
         folder.isDramaProject
+    }
+
+    private var persistenceContext: ModelContext {
+        folder.modelContext ?? modelContext
     }
     
     /// Check if a back matter item has any references in the project
@@ -382,6 +596,7 @@ struct BackMatterSettingsDialog: View {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
                         dismissSheet()
                     }
+                    .disabled(isProcessing)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("button.save", comment: "Save")) {
@@ -403,6 +618,16 @@ struct BackMatterSettingsDialog: View {
                 if let project = folder.resolvedProject {
                     MatterStylePickerSheet(project: project, isPresented: $showMatterStylePicker)
                 }
+            }
+            .alert(NSLocalizedString("matter.settings.saveFailed.title", comment: "Save Failed"), isPresented: Binding(
+                get: { saveErrorMessage != nil },
+                set: { if !$0 { saveErrorMessage = nil } }
+            )) {
+                Button(NSLocalizedString("button.ok", comment: "OK")) {
+                    saveErrorMessage = nil
+                }
+            } message: {
+                Text(saveErrorMessage ?? "")
             }
         }
         .confirmationDialog(
@@ -478,18 +703,51 @@ struct BackMatterSettingsDialog: View {
     }
     
     private func saveSettings() {
+        guard !isProcessing else { return }
         isProcessing = true
-        
-        if isDrama {
-            saveDramaSettings()
-        } else {
-            saveFictionSettings()
+
+        Task { @MainActor in
+            await persistSettingsWhenEnsemblesIsIdle()
         }
-        
-        WriteCoalescer.shared?.requestSave(reason: "back-matter-settings-save")
-        WriteCoalescer.shared?.flush()
-        isProcessing = false
-        dismissSheet()
+    }
+
+    @MainActor
+    private func persistSettingsWhenEnsemblesIsIdle() async {
+        let reason = "back-matter-settings-save"
+
+        while true {
+            while !EnsemblesSaveGate.canSaveNow(reason: reason) {
+                do {
+                    try await Task.sleep(nanoseconds: 500_000_000)
+                } catch {
+                    isProcessing = false
+                    return
+                }
+            }
+
+            if isDrama {
+                saveDramaSettings()
+            } else {
+                saveFictionSettings()
+            }
+
+            do {
+                try EnsemblesSaveGate.save(persistenceContext, reason: reason)
+                guard backMatterSettingsWerePersisted() else {
+                    throw MatterSettingsSaveError.verificationFailed
+                }
+                Write_App.scheduleEnsemblesSyncAfterLocalSave(reason: reason)
+                isProcessing = false
+                dismissSheet()
+                return
+            } catch is EnsemblesSaveGateError {
+                continue
+            } catch {
+                isProcessing = false
+                saveErrorMessage = error.localizedDescription
+                return
+            }
+        }
     }
 
     private func dismissSheet() {
@@ -545,7 +803,16 @@ struct BackMatterSettingsDialog: View {
     }
     
     private func createFileForItem(_ item: BackMatterItem) {
-        if fetchFile(named: item.fileName) != nil {
+        if let textFile = matchingFiles(named: item.fileName).first {
+            textFile.parentFolder = folder
+            textFile.isTableOfFiguresFile = item == .tableOfFigures
+            textFile.isCoverFile = item.isCover
+            if !(folder.textFiles ?? []).contains(where: { $0.id == textFile.id }) {
+                if folder.textFiles == nil {
+                    folder.textFiles = []
+                }
+                folder.textFiles?.append(textFile)
+            }
             return
         }
         
@@ -562,7 +829,7 @@ struct BackMatterSettingsDialog: View {
             textFile.isCoverFile = true
         }
         
-        modelContext.insert(textFile)
+        persistenceContext.insert(textFile)
         
         if folder.textFiles == nil {
             folder.textFiles = []
@@ -571,13 +838,20 @@ struct BackMatterSettingsDialog: View {
     }
     
     private func createFileForDramaItem(_ item: DramaBackMatterItem) {
-        if fetchFile(named: item.fileName) != nil {
+        if let textFile = matchingFiles(named: item.fileName).first {
+            textFile.parentFolder = folder
+            if !(folder.textFiles ?? []).contains(where: { $0.id == textFile.id }) {
+                if folder.textFiles == nil {
+                    folder.textFiles = []
+                }
+                folder.textFiles?.append(textFile)
+            }
             return
         }
         
         let textFile = TextFile(name: item.fileName, initialContent: "", parentFolder: folder)
         textFile.userOrder = item.sortOrder
-        modelContext.insert(textFile)
+        persistenceContext.insert(textFile)
         
         if folder.textFiles == nil {
             folder.textFiles = []
@@ -586,32 +860,50 @@ struct BackMatterSettingsDialog: View {
     }
     
     private func removeFileForItem(_ item: BackMatterItem) {
-        if let file = fetchFile(named: item.fileName) {
+        for file in matchingFiles(named: item.fileName) {
             folder.textFiles?.removeAll { $0.id == file.id }
-            modelContext.delete(file)
+            persistenceContext.delete(file)
         }
     }
     
     private func removeFileForDramaItem(_ item: DramaBackMatterItem) {
-        if let file = fetchFile(named: item.fileName) {
+        for file in matchingFiles(named: item.fileName) {
             if let version = file.currentVersion,
                let content = version.attributedContent,
                !content.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return
+                continue
             }
             folder.textFiles?.removeAll { $0.id == file.id }
-            modelContext.delete(file)
+            persistenceContext.delete(file)
         }
     }
 
-    private func fetchFile(named fileName: String) -> TextFile? {
+    private func matchingFiles(named fileName: String) -> [TextFile] {
+        let relationshipMatches = (folder.textFiles ?? []).filter { $0.name == fileName }
         let folderID = folder.id
         let descriptor = FetchDescriptor<TextFile>(
             predicate: #Predicate<TextFile> { file in
                 file.parentFolder?.id == folderID && file.name == fileName
             }
         )
-        return try? modelContext.fetch(descriptor).first
+        let fetchedMatches = (try? persistenceContext.fetch(descriptor)) ?? []
+        var seenIDs = Set<UUID>()
+        return (relationshipMatches + fetchedMatches).filter { seenIDs.insert($0.id).inserted }
+    }
+
+    private func backMatterSettingsWerePersisted() -> Bool {
+        let verificationContext = ModelContext(modelContext.container)
+        let folderID = folder.id
+        let descriptor = FetchDescriptor<Folder>(
+            predicate: #Predicate<Folder> { candidate in
+                candidate.id == folderID
+            }
+        )
+        guard let savedFolder = try? verificationContext.fetch(descriptor).first else { return false }
+        if isDrama {
+            return savedFolder.dramaBackMatterSettings.enabledItems == dramaEnabledItems
+        }
+        return savedFolder.backMatterSettings.enabledItems == enabledItems
     }
     
     /// Remove all entries and inline references for a back matter type

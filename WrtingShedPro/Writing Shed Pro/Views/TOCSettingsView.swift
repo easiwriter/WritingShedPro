@@ -22,12 +22,14 @@ struct TOCSettingsView: View {
     @State private var showPageNumbers: Bool = true
     @State private var useDotLeaders: Bool = true
     @State private var pageNumberPosition: CGFloat = 480
+    @State private var titleStyleName: String = "UICTFontTextStyleTitle0"
     
     @State private var level0StyleName: String = "UICTFontTextStyleBody"
     @State private var level1StyleName: String = "UICTFontTextStyleBody"
     @State private var level2StyleName: String = "UICTFontTextStyleBody"
     @State private var level3StyleName: String = "UICTFontTextStyleBody"
     @State private var saveErrorMessage: String?
+    @State private var isSaving = false
     
     // Callback to regenerate TOC after settings change
     var onSettingsChanged: (() -> Void)?
@@ -40,21 +42,15 @@ struct TOCSettingsView: View {
         }
         return file.project
     }
-    
-    /// Resolve the project's matter heading style display name
-    private var matterHeadingDisplayName: String {
-        guard let project = file.project ?? file.parentFolder?.project,
-              let styleSheet = StyleSheetService.getStyleSheet(for: project, context: modelContext),
-              let style = styleSheet.textStyles?.first(where: { $0.name == project.matterHeadingStyleName }) else {
-            return "Title 1"
-        }
-        return style.displayName
+
+    private var persistenceContext: ModelContext {
+        file.modelContext ?? modelContext
     }
     
     // Available styles from project stylesheet (name -> displayName pairs)
     private var availableStyles: [(name: String, displayName: String)] {
-        guard let project = file.project ?? file.parentFolder?.project,
-              let styleSheet = StyleSheetService.getStyleSheet(for: project, context: modelContext),
+          guard let project,
+              let styleSheet = StyleSheetService.getStyleSheet(for: project, context: persistenceContext),
               let styles = styleSheet.textStyles else {
             // Fallback defaults if no stylesheet found
             return [
@@ -77,10 +73,15 @@ struct TOCSettingsView: View {
                 Section {
                     TextField(NSLocalizedString("toc.settings.titlePlaceholder", comment: "Table of Contents title"), text: $title)
                         .accessibilityLabel(NSLocalizedString("toc.settings.title.accessibility", comment: "TOC title"))
+                    Picker(NSLocalizedString("toc.settings.titleStyle", comment: "Title style"), selection: $titleStyleName) {
+                        ForEach(availableStyles, id: \.name) { style in
+                            Text(style.displayName).tag(style.name)
+                        }
+                    }
                 } header: {
                     Text(NSLocalizedString("toc.settings.titleSection", comment: "Title"))
                 } footer: {
-                    Text(String(format: NSLocalizedString("tof.settings.titleFooter.withStyle", comment: ""), matterHeadingDisplayName))
+                    Text(NSLocalizedString("toc.settings.stylesFooter", comment: "Styles applied to the TOC title and entries"))
                 }
                 
                 // Entry Styles Section - Per level
@@ -111,14 +112,14 @@ struct TOCSettingsView: View {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
                         dismissSheet()
                     }
+                    .disabled(isSaving)
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("button.save", comment: "Save")) {
-                        if saveSettings() {
-                            dismissSheet()
-                        }
+                        saveSettings()
                     }
+                    .disabled(isSaving)
                 }
             }
             .onAppear {
@@ -166,6 +167,7 @@ struct TOCSettingsView: View {
         showPageNumbers = settings.showPageNumbers
         useDotLeaders = settings.useDotLeaders
         pageNumberPosition = settings.pageNumberPosition
+        titleStyleName = settings.titleStyleName
         
         let styleNames = normalizedLevelStyleNames(from: settings.levelStyleNames)
         level0StyleName = styleNames[0]
@@ -191,13 +193,24 @@ struct TOCSettingsView: View {
         #endif
     }
     
-    private func saveSettings() -> Bool {
+    private func saveSettings() {
+        guard !isSaving else { return }
+        isSaving = true
+
+        Task { @MainActor in
+            await persistSettingsWhenEnsemblesIsIdle()
+        }
+    }
+
+    @MainActor
+    private func persistSettingsWhenEnsemblesIsIdle() async {
         var settings = file.tocSettings
         settings.title = title
         settings.separator = separator
         settings.showPageNumbers = showPageNumbers
         settings.useDotLeaders = useDotLeaders
         settings.pageNumberPosition = pageNumberPosition
+        settings.titleStyleName = titleStyleName
         settings.levelStyleNames = [
             level0StyleName,
             level1StyleName,
@@ -209,31 +222,38 @@ struct TOCSettingsView: View {
         
         do {
             let data = try JSONEncoder().encode(settings)
-            file.tocSettingsData = data
-            file.modifiedDate = Date()
-            applySettingsDataToProjectTOCFiles(data)
-        } catch {
-            #if DEBUG
-            print("❌ TOCSettingsView failed to encode settings: \(error)")
-            #endif
-            saveErrorMessage = error.localizedDescription
-            return false
-        }
+            let reason = "toc-settings-save"
 
-        do {
-            WriteCoalescer.shared.requestSave(reason: "toc-settings-save")
-            try WriteCoalescer.shared.flushOrThrow(reason: "toc-settings-save")
+            while true {
+                while !EnsemblesSaveGate.canSaveNow(reason: reason) {
+                    try await Task.sleep(nanoseconds: 500_000_000)
+                }
+
+                file.tocSettingsData = data
+                file.modifiedDate = Date()
+                applySettingsDataToProjectTOCFiles(data)
+
+                do {
+                    try EnsemblesSaveGate.save(persistenceContext, reason: reason)
+                    guard tocSettingsWerePersisted(settings) else {
+                        throw TOCSettingsSaveError.verificationFailed
+                    }
+                    Write_App.scheduleEnsemblesSyncAfterLocalSave(reason: reason)
+                    onSettingsChanged?()
+                    isSaving = false
+                    dismissSheet()
+                    return
+                } catch is EnsemblesSaveGateError {
+                    continue
+                }
+            }
         } catch {
             #if DEBUG
             print("❌ TOCSettingsView failed to save settings: \(error)")
             #endif
+            isSaving = false
             saveErrorMessage = error.localizedDescription
-            return false
         }
-        
-        // Trigger TOC regeneration
-        onSettingsChanged?()
-        return true
     }
 
     private func applySettingsDataToProjectTOCFiles(_ data: Data) {
@@ -241,7 +261,7 @@ struct TOCSettingsView: View {
         project.modifiedDate = Date()
 
         let projectID = project.id
-        let allTextFiles = (try? modelContext.fetch(FetchDescriptor<TextFile>())) ?? []
+        let allTextFiles = (try? persistenceContext.fetch(FetchDescriptor<TextFile>())) ?? []
         for textFile in allTextFiles {
             guard textFile.id == file.id || textFile.project?.id == projectID else { continue }
             guard textFile.id == file.id || textFile.isTOCFile || textFile.name == "Table of Contents" || textFile.name == "Contents" else { continue }
@@ -250,11 +270,34 @@ struct TOCSettingsView: View {
         }
     }
 
+    private func tocSettingsWerePersisted(_ expectedSettings: TOCSettings) -> Bool {
+        let verificationContext = ModelContext(modelContext.container)
+        let fileID = file.id
+        let descriptor = FetchDescriptor<TextFile>(
+            predicate: #Predicate<TextFile> { candidate in
+                candidate.id == fileID
+            }
+        )
+        guard let savedFile = try? verificationContext.fetch(descriptor).first else { return false }
+        return savedFile.tocSettings == expectedSettings
+    }
+
     private func normalizedLevelStyleNames(from styleNames: [String]) -> [String] {
         var normalized = styleNames
         while normalized.count < 4 {
             normalized.append("UICTFontTextStyleBody")
         }
         return Array(normalized.prefix(4))
+    }
+}
+
+private enum TOCSettingsSaveError: LocalizedError {
+    case verificationFailed
+
+    var errorDescription: String? {
+        NSLocalizedString(
+            "toc.settings.saveFailed.verification",
+            comment: "TOC settings could not be verified after saving"
+        )
     }
 }

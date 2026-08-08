@@ -520,15 +520,56 @@ struct FolderFilesView: View {
         // Update userOrder for all files
         for (index, file) in files.enumerated() {
             file.userOrder = index
+            file.modifiedDate = Date()
         }
-        
-        // Save context
-        do {
-            try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
-        } catch {
-            #if DEBUG
-            print("Error saving reordered matter files: \(error)")
-            #endif
+
+        let orderedFileIDs = files.map(\.id)
+        Task { @MainActor in
+            await persistMatterFileOrder(orderedFileIDs)
+        }
+    }
+
+    @MainActor
+    private func persistMatterFileOrder(_ orderedFileIDs: [UUID]) async {
+        let reason = "folder-files-matter-order-save"
+        let persistenceContext = folder.modelContext ?? modelContext
+        let folderID = folder.id
+
+        while true {
+            while !EnsemblesSaveGate.canSaveNow(reason: reason) {
+                do {
+                    try await Task.sleep(nanoseconds: 500_000_000)
+                } catch {
+                    return
+                }
+            }
+
+            let descriptor = FetchDescriptor<TextFile>(
+                predicate: #Predicate<TextFile> { file in
+                    file.parentFolder?.id == folderID
+                }
+            )
+            let storedFiles = (try? persistenceContext.fetch(descriptor)) ?? []
+            let filesByID = storedFiles.reduce(into: [UUID: TextFile]()) { result, file in
+                result[file.id] = file
+            }
+            for (index, fileID) in orderedFileIDs.enumerated() {
+                filesByID[fileID]?.userOrder = index
+                filesByID[fileID]?.modifiedDate = Date()
+            }
+
+            do {
+                try EnsemblesSaveGate.save(persistenceContext, reason: reason)
+                Write_App.scheduleEnsemblesSyncAfterLocalSave(reason: reason)
+                return
+            } catch is EnsemblesSaveGateError {
+                continue
+            } catch {
+                #if DEBUG
+                print("Error saving reordered matter files: \(error)")
+                #endif
+                return
+            }
         }
     }
     

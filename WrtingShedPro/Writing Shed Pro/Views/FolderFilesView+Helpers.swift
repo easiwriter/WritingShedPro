@@ -43,7 +43,41 @@ extension FolderFilesView {
     var sortedFiles: [TextFile] {
         // Sort Matter folders by userOrder to maintain standard manuscript order
         if isMatterFolder {
-            let sorted = allFiles.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+            let visibleFiles: [TextFile]
+            if folder.isFrontMatterFolder {
+                if folder.isDramaProject {
+                    let settings = folder.dramaFrontMatterSettings
+                    visibleFiles = allFiles.filter { file in
+                        guard let item = DramaFrontMatterItem(rawValue: file.name) else { return true }
+                        return settings.isEnabled(item)
+                    }
+                } else {
+                    let settings = folder.frontMatterSettings
+                    visibleFiles = allFiles.filter { file in
+                        guard let item = FrontMatterItem(rawValue: file.name) else { return true }
+                        return settings.isEnabled(item)
+                    }
+                }
+            } else if folder.isBackMatterFolder && !folder.isDramaProject {
+                let settings = folder.backMatterSettings
+                visibleFiles = allFiles.filter { file in
+                    if file.isTableOfFiguresFile {
+                        return settings.isEnabled(.tableOfFigures)
+                    }
+                    if let item = ManuscriptAssemblyService.generatedBackMatterType(for: file) {
+                        return settings.isEnabled(item)
+                    }
+                    if file.isCoverFile && file.name == BackMatterItem.backCover.fileName {
+                        return settings.isEnabled(.backCover)
+                    }
+                    return true
+                }
+            } else {
+                visibleFiles = allFiles
+            }
+
+            let canonicalFiles = ManuscriptAssemblyService.canonicalMatterFiles(visibleFiles, in: folder)
+            let sorted = canonicalFiles.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
             let coverNames: Set<String> = [
                 FrontMatterItem.frontCover.fileName,
                 BackMatterItem.backCover.fileName
