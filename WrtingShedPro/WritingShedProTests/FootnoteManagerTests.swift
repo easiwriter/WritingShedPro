@@ -123,6 +123,25 @@ final class FootnoteManagerTests: XCTestCase {
         let retrieved = manager.getFootnote(id: footnoteID, context: modelContext)
         XCTAssertNil(retrieved)
     }
+
+    func testDeleteFootnoteResolvesModelInDeletionContext() throws {
+        let footnote = manager.createFootnote(
+            version: testVersion,
+            characterPosition: 5,
+            attachmentID: UUID(),
+            text: "Delete from another context",
+            context: modelContext
+        )
+        let footnoteID = footnote.id
+        try modelContext.save()
+
+        let deletionContext = ModelContext(modelContext.container)
+        XCTAssertTrue(manager.deleteFootnote(footnote, context: deletionContext))
+        try deletionContext.save()
+
+        let verificationContext = ModelContext(modelContext.container)
+        XCTAssertNil(manager.getFootnote(id: footnoteID, context: verificationContext))
+    }
     
     func testUpdateFootnoteText() throws {
         let footnote = manager.createFootnote(

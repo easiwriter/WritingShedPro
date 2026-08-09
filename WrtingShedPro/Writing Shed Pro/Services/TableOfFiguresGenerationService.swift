@@ -32,6 +32,7 @@ struct FigureEntry: Identifiable {
 }
 
 /// Service for generating Table of Figures from manuscript images
+@MainActor
 final class TableOfFiguresGenerationService {
     private let context: ModelContext
     private let assemblyService: ManuscriptAssemblyService

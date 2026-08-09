@@ -123,16 +123,29 @@ final class FootnoteManager: ObservableObject {
     ///   - context: SwiftData model context
     @discardableResult
     func deleteFootnote(_ footnote: FootnoteModel, context: ModelContext) -> Bool {
-        let version = footnote.version
+        let footnoteID = footnote.id
+        let descriptor = FetchDescriptor<FootnoteModel>(
+            predicate: #Predicate { candidate in
+                candidate.id == footnoteID
+            }
+        )
+        guard let contextFootnote = try? context.fetch(descriptor).first else {
+            #if DEBUG
+            print("⚠️ Could not resolve footnote \(footnoteID) in deletion context")
+            #endif
+            return false
+        }
+
+        let version = contextFootnote.version
         if version == nil {
             #if DEBUG
-            print("⚠️ Deleting footnote with no version relationship: \(footnote.id)")
+            print("⚠️ Deleting footnote with no version relationship: \(contextFootnote.id)")
             #endif
         }
         
-        footnote.prepareForPermanentDeletion()
-        context.delete(footnote)
-        WriteCoalescer.shared?.requestSave()
+        contextFootnote.prepareForPermanentDeletion()
+        context.delete(contextFootnote)
+        WriteCoalescer.shared?.requestSave(reason: "footnote-delete")
         
         #if DEBUG
         print("✅ Footnote permanently deleted")

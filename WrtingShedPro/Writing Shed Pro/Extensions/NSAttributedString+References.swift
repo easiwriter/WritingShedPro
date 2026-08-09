@@ -83,30 +83,22 @@ extension NSAttributedString {
     /// - Parameter range: The range to search within
     /// - Returns: Array of reference marker information
     func references(in range: NSRange) -> [ReferenceMarkerInfo] {
-        var markers: [ReferenceMarkerInfo] = []
-        
         // Clamp range to valid bounds
         let validRange = NSIntersectionRange(range, NSRange(location: 0, length: length))
         guard validRange.length > 0 else { return [] }
-        
-        enumerateAttributes(in: validRange, options: []) { attributes, attrRange, _ in
-            if let typeString = attributes[.referenceType] as? String,
-               let type = ReferenceType(rawValue: typeString),
-               let idString = attributes[.referenceID] as? String,
-               let entryID = UUID(uuidString: idString) {
-                let markerText = (string as NSString).substring(with: attrRange)
-                let isPrimary = attributes[.referencePrimary] as? Bool ?? false
-                markers.append(ReferenceMarkerInfo(
-                    type: type,
-                    entryID: entryID,
-                    range: attrRange,
-                    markerText: markerText,
-                    isPrimary: isPrimary
-                ))
-            }
+
+        return allReferences().filter { NSIntersectionRange($0.range, validRange).length > 0 }
+    }
+
+    /// Expand a proposed text deletion to include every complete inline reference
+    /// marker it intersects.
+    func deletionRangeIncludingReferences(_ range: NSRange) -> NSRange {
+        let validRange = NSIntersectionRange(range, NSRange(location: 0, length: length))
+        guard validRange.length > 0 else { return validRange }
+
+        return references(in: validRange).reduce(validRange) { expandedRange, marker in
+            NSUnionRange(expandedRange, marker.range)
         }
-        
-        return markers.sorted { $0.range.location < $1.range.location }
     }
     
     /// Find all references of a specific type

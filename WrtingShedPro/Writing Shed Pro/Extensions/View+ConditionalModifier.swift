@@ -6,6 +6,31 @@
 //
 
 import SwiftUI
+#if targetEnvironment(macCatalyst)
+import UIKit
+#endif
+
+@MainActor
+func dismissPresentedSheetOnCatalyst() {
+    #if targetEnvironment(macCatalyst)
+    DispatchQueue.main.async {
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+        guard let rootViewController = (windows.first { $0.isKeyWindow } ?? windows.first)?.rootViewController else {
+            return
+        }
+
+        var topViewController = rootViewController
+        while let presented = topViewController.presentedViewController {
+            topViewController = presented
+        }
+        if topViewController !== rootViewController {
+            topViewController.dismiss(animated: true)
+        }
+    }
+    #endif
+}
 
 extension View {
     /// Conditionally applies a view modifier.

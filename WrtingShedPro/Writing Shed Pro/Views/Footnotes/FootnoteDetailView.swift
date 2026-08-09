@@ -243,18 +243,6 @@ struct FootnoteDetailView: View {
 
     private func closePresentedView() {
         dismiss()
-
-        #if targetEnvironment(macCatalyst)
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootViewController = windowScene.windows.first?.rootViewController {
-            var topViewController = rootViewController
-            while let presented = topViewController.presentedViewController {
-                topViewController = presented
-            }
-            if topViewController !== rootViewController {
-                topViewController.dismiss(animated: true)
-            }
-        }
-        #endif
+        dismissPresentedSheetOnCatalyst()
     }
 }

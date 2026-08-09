@@ -24,6 +24,8 @@ struct ContributorEditorSheet: View {
     let existingContributor: ContributorEntry?
     /// Callback when save completes
     var onSave: (() -> Void)?
+    /// Clears the parent sheet binding/item on every dismissal path.
+    var onDismiss: (() -> Void)?
     
     // MARK: - State
     
@@ -95,7 +97,7 @@ struct ContributorEditorSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        dismissSheet()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -191,6 +193,12 @@ struct ContributorEditorSheet: View {
         WriteCoalescer.shared?.requestSave(reason: "contributor-editor-save")
         WriteCoalescer.shared?.flush()
         onSave?()
+        dismissSheet()
+    }
+
+    private func dismissSheet() {
+        onDismiss?()
         dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 }

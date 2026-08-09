@@ -220,15 +220,21 @@ struct BackMatterGeneratedContentView: View {
                 }
             }
             .sheet(isPresented: $showAddContributorSheet) {
-                ContributorEditorSheet(project: project, existingContributor: nil) {
-                    refreshTrigger = UUID()
-                }
+                ContributorEditorSheet(
+                    project: project,
+                    existingContributor: nil,
+                    onSave: { refreshTrigger = UUID() },
+                    onDismiss: { showAddContributorSheet = false }
+                )
                 .id("addContributor") // Stable identity prevents sheet flicker on desktop switch
             }
             .sheet(item: $contributorToEdit) { contributor in
-                ContributorEditorSheet(project: project, existingContributor: contributor) {
-                    refreshTrigger = UUID()
-                }
+                ContributorEditorSheet(
+                    project: project,
+                    existingContributor: contributor,
+                    onSave: { refreshTrigger = UUID() },
+                    onDismiss: { contributorToEdit = nil }
+                )
                 .id(contributor.id) // Stable identity prevents sheet flicker on desktop switch
             }
             // Index entry edit sheet

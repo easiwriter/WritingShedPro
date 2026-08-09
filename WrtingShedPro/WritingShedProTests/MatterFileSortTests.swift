@@ -129,6 +129,26 @@ final class MatterFileSortTests: XCTestCase {
         XCTAssertTrue(backMatterFolder.isBackMatterFolder)
         XCTAssertFalse(backMatterFolder.isFrontMatterFolder)
     }
+
+    func testFindBackMatterFolderPrefersModernNestedFolderOverLegacyRootFolder() {
+        let manuscriptFolder = Folder(name: "Manuscript", project: testProject)
+        let modernBackMatterFolder = Folder(name: "Back Matter", parentFolder: manuscriptFolder)
+        manuscriptFolder.folders = [modernBackMatterFolder]
+        testProject.folders = [backMatterFolder, manuscriptFolder]
+        modelContext.insert(manuscriptFolder)
+        modelContext.insert(modernBackMatterFolder)
+
+        backMatterFolder.backMatterSettings = BackMatterSettings(enabledItems: [.glossary])
+        modernBackMatterFolder.backMatterSettings = BackMatterSettings(
+            enabledItems: [.endnotes, .glossary, .references, .index]
+        )
+
+        XCTAssertEqual(testProject.findBackMatterFolder()?.id, modernBackMatterFolder.id)
+        XCTAssertEqual(
+            testProject.findBackMatterFolder()?.backMatterSettings.enabledItems,
+            [.endnotes, .glossary, .references, .index]
+        )
+    }
     
     func testRegularFolderNotMatterFolder() {
         let regularFolder = Folder(name: "Poems", project: testProject)

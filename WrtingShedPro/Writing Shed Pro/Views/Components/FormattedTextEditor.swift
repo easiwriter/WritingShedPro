@@ -1378,17 +1378,20 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                 
                     if let attrText = textView.attributedText {
                         // Find all attachments in the range being deleted
+                        let referenceDeletionRange = attrText.deletionRangeIncludingReferences(range)
                         var referencesToDelete: [ReferenceAttachment] = []
                         var commentsToDelete: [CommentAttachment] = []
                         var footnotesToDelete: [FootnoteAttachment] = []
                         var seenAttachments = Set<ObjectIdentifier>()
+                        var seenReferenceMarkers = Set<String>()
                         
-                        attrText.enumerateAttribute(.attachment, in: range, options: []) { value, _, _ in
+                        attrText.enumerateAttribute(.attachment, in: range, options: []) { value, markerRange, _ in
                             // Check for ReferenceAttachment (notes, glossary, references)
                             if let attachment = value as? ReferenceAttachment {
                                 let identifier = ObjectIdentifier(attachment)
                                 guard !seenAttachments.contains(identifier) else { return }
                                 seenAttachments.insert(identifier)
+                                seenReferenceMarkers.insert("\(attachment.referenceType.rawValue):\(attachment.entryID.uuidString):\(markerRange.location):\(markerRange.length)")
                                 referencesToDelete.append(attachment)
                                 #if DEBUG
                                 print("🗑️ 📌 Found ReferenceAttachment in deletion range: \(attachment.displayText) (type: \(attachment.referenceType), id: \(attachment.entryID.uuidString.prefix(8)))")
@@ -1416,6 +1419,22 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                             }
                         }
 
+                        // Inline reference markers are stored as attributed text rather than
+                        // NSTextAttachment instances. Include them in the same confirmation flow.
+                        for marker in attrText.references(in: range) {
+                            let markerKey = "\(marker.type.rawValue):\(marker.entryID.uuidString):\(marker.range.location):\(marker.range.length)"
+                            guard !seenReferenceMarkers.contains(markerKey) else { continue }
+
+                            let attachment = ReferenceAttachment(
+                                referenceType: marker.type,
+                                entryID: marker.entryID,
+                                displayText: marker.markerText
+                            )
+                            attachment.isPrimaryReference = marker.isPrimary
+                            seenReferenceMarkers.insert(markerKey)
+                            referencesToDelete.append(attachment)
+                        }
+
                         // Count how many different types of attachments are being deleted
                         let typesFound = [!referencesToDelete.isEmpty, !commentsToDelete.isEmpty, !footnotesToDelete.isEmpty].filter { $0 }.count
                         
@@ -1427,7 +1446,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                             
                             pendingChangeRange = nil
                             pendingReplacementText = nil
-                            parent.onMixedAttachmentsDeleted?(referencesToDelete, commentsToDelete, footnotesToDelete, range)
+                            parent.onMixedAttachmentsDeleted?(referencesToDelete, commentsToDelete, footnotesToDelete, referenceDeletionRange)
                             return false
                         }
                         
@@ -1440,7 +1459,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                             // Prevent the deletion for now - we'll handle it after user confirms
                             pendingChangeRange = nil
                             pendingReplacementText = nil
-                            parent.onReferenceDeleted?(referencesToDelete, range)
+                            parent.onReferenceDeleted?(referencesToDelete, referenceDeletionRange)
                            
                             // Return false to prevent UITextView from deleting the text
                             // We'll manually delete after the user confirms in the alert
@@ -1518,26 +1537,34 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             // Detect paste operation: more than 1 character was inserted
             let cursorPos = textView.selectedRange.location
             let insertedLength = currentLength - previousTextLength
+            let replacementLength = pendingReplacementText.map { ($0 as NSString).length } ?? 0
+            let pasteRange: NSRange? = {
+                if let changedRange = pendingChangeRange,
+                   replacementLength > 1,
+                   changedRange.location + replacementLength <= currentLength {
+                    return NSRange(location: changedRange.location, length: replacementLength)
+                }
+                if insertedLength > 1 && cursorPos >= insertedLength {
+                    return NSRange(location: cursorPos - insertedLength, length: insertedLength)
+                }
+                return nil
+            }()
             
             // PASTE FIX: If multiple characters were inserted, normalize colors for the entire range
-            // This handles pasted text that may have hardcoded black color from external sources
-            if insertedLength > 1 && cursorPos >= insertedLength {
-                let pasteStartPos = cursorPos - insertedLength
-                let pasteRange = NSRange(location: pasteStartPos, length: insertedLength)
-                
+            // This handles pasted text that may have fixed or adaptive neutral colors from external sources.
+            if let pasteRange {
                 #if DEBUG
-                print("📋 Paste detected: \(insertedLength) characters inserted at position \(pasteStartPos)")
+                print("📋 Paste detected: \(pasteRange.length) characters inserted at position \(pasteRange.location)")
                 #endif
                 
                 // Enumerate through the pasted range and fix colors
                 textStorage.enumerateAttribute(.foregroundColor, in: pasteRange, options: []) { value, range, _ in
                     if let color = value as? UIColor {
-                        // Check if it's pure black - replace with .label for dark mode compatibility
-                        if let hex = color.toHex()?.uppercased(),
-                           (hex == "#000000" || hex == "#000000FF") {
+                        if AttributedStringSerializer.isAdaptiveSystemColor(color) ||
+                           AttributedStringSerializer.isFixedBlackOrWhite(color) {
                             textStorage.addAttribute(.foregroundColor, value: UIColor.label, range: range)
                             #if DEBUG
-                            print("📋 Fixed black color in pasted text at range \(range)")
+                            print("📋 Normalized neutral color in pasted text at range \(range)")
                             #endif
                         }
                     } else {

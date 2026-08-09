@@ -773,11 +773,12 @@ class PrintService {
         let printSizeContent = removePlatformScaling(from: content.attributedString)
         
         // Transfer non-Sendable values to the background queue.
-        // These are only read (not mutated) on the background thread, so this is safe.
+        // SwiftData models and contexts remain confined to the executor that created them.
         nonisolated(unsafe) let bgContent = printSizeContent
         nonisolated(unsafe) let bgSetup = setup
-        nonisolated(unsafe) let bgProject = project
-        nonisolated(unsafe) let bgContext = context
+        let projectID = project.id
+        let projectName = project.name ?? "Manuscript"
+        let modelContainer = context.container
         let bgHasFrontCover = content.hasFrontCover
         let bgHasBackCover = content.hasBackCover
         let bgFrontMatterFileCount = content.frontMatterFileCount
@@ -790,13 +791,24 @@ class PrintService {
         
         return await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
+                let renderContext = ModelContext(modelContainer)
+                let descriptor = FetchDescriptor<Project>(
+                    predicate: #Predicate<Project> { project in
+                        project.id == projectID
+                    }
+                )
+                guard let renderProject = try? renderContext.fetch(descriptor).first else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
                 let result = createPDFWithProgress(
                     from: bgContent,
                     pageSetup: bgSetup,
-                    title: bgProject.name ?? "Manuscript",
+                    title: projectName,
                     version: nil,
-                    project: bgProject,
-                    context: bgContext,
+                    project: renderProject,
+                    context: renderContext,
                     layoutProgress: layoutProgress,
                     renderProgress: renderProgress,
                     hasFrontCover: bgHasFrontCover,

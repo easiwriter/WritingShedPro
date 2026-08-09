@@ -654,7 +654,8 @@ struct FolderListView: View {
     }
     
     /// Build the async PDF generator closure for the manuscript preview sheet
-    private func makeManuscriptPDFGenerator() -> (@escaping (Double, String) -> Void) async -> Data? {
+    @MainActor
+    private func makeManuscriptPDFGenerator() -> @MainActor (@escaping (Double, String) -> Void) async -> Data? {
         let project = project
         let modelContext = modelContext
         return { report in

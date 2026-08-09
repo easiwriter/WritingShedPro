@@ -155,6 +155,46 @@ final class NSAttributedStringReferencesTests: XCTestCase {
         XCTAssertEqual(refs.count, 1)
         XCTAssertEqual(refs[0].entryID, entryID)
     }
+
+    func testReferencesInRangeReturnsCompleteMarkerForSingleCharacterIntersection() {
+        let entryID = UUID()
+        let mutableString = NSMutableAttributedString(string: "Start glossary End")
+        let refRange = (mutableString.string as NSString).range(of: "glossary")
+        mutableString.addReference(type: .glossary, entryID: entryID, to: refRange)
+
+        let refs = mutableString.references(in: NSRange(location: refRange.location, length: 1))
+
+        XCTAssertEqual(refs.count, 1)
+        XCTAssertEqual(refs[0].range, refRange)
+        XCTAssertEqual(refs[0].markerText, "glossary")
+    }
+
+    func testDeletionRangeExpandsToCompleteReferenceMarker() {
+        let mutableString = NSMutableAttributedString(string: "Start glossary End")
+        let refRange = (mutableString.string as NSString).range(of: "glossary")
+        mutableString.addReference(type: .glossary, entryID: UUID(), to: refRange)
+
+        let deletionRange = mutableString.deletionRangeIncludingReferences(
+            NSRange(location: refRange.location, length: 1)
+        )
+
+        XCTAssertEqual(deletionRange, refRange)
+    }
+
+    func testDeletionRangePreservesSelectedTextAroundReferenceMarker() {
+        let mutableString = NSMutableAttributedString(string: "Before glossary after")
+        let refRange = (mutableString.string as NSString).range(of: "glossary")
+        mutableString.addReference(type: .glossary, entryID: UUID(), to: refRange)
+        let selectedRange = NSRange(location: refRange.location - 2, length: 5)
+
+        let deletionRange = mutableString.deletionRangeIncludingReferences(selectedRange)
+
+        XCTAssertEqual(
+            deletionRange,
+            NSUnionRange(selectedRange, refRange),
+            "The original selection and complete marker should both be removed"
+        )
+    }
     
     func testReferencesInRangeExcludesReferenceOutsideRange() {
         let entryID = UUID()

@@ -1641,24 +1641,35 @@ struct FileEditView: View {
             return BackMatterSettings()
         }
 
-        // Prefer a fresh store fetch to avoid stale relationship snapshots.
-        let projectID = project.id
-        let descriptor = FetchDescriptor<Folder>(
-            predicate: #Predicate<Folder> { folder in
-                folder.name == "Back Matter"
-            }
-        )
+        // Drama has its own back-matter model and none of its sections insert markers
+        // into the manuscript editor.
+        guard project.type != .drama else { return BackMatterSettings() }
 
-        if let folders = try? modelContext.fetch(descriptor),
-           let backMatterFolder = folders.first(where: {
-               $0.project?.id == projectID || $0.parentFolder?.project?.id == projectID
-           }) {
+        // Prefer the live model so SwiftUI observes backMatterSettingsData and rebuilds
+        // both insert menus immediately after the settings dialog saves.
+        if let backMatterFolder = project.findBackMatterFolder() {
             return backMatterFolder.backMatterSettings
         }
 
-        // Fallback to relationship traversal.
-        if let backMatterFolder = project.findBackMatterFolder() {
-            return backMatterFolder.backMatterSettings
+        // Fall back to a fresh store fetch when synced relationships are incomplete.
+        let projectID = project.id
+        let localizedBackMatterName = NSLocalizedString("folder.backMatter", comment: "Back Matter")
+        let descriptor = FetchDescriptor<Folder>(
+            predicate: #Predicate<Folder> { folder in
+                folder.name == "Back Matter" || folder.name == localizedBackMatterName
+            }
+        )
+
+        if let folders = try? modelContext.fetch(descriptor) {
+            let projectFolders = folders.filter {
+                $0.project?.id == projectID || $0.parentFolder?.project?.id == projectID
+            }
+            let backMatterFolder = projectFolders.first {
+                $0.parentFolder?.name == "Manuscript"
+            } ?? projectFolders.first
+            if let backMatterFolder {
+                return backMatterFolder.backMatterSettings
+            }
         }
 
         return BackMatterSettings()
@@ -5053,8 +5064,14 @@ struct FileEditView: View {
             
             // Move footnotes to trash
             for attachment in footnotes {
-                if let footnotesArray = self.file.currentVersion?.footnotes,
-                   let footnote = footnotesArray.first(where: { $0.attachmentID == attachment.footnoteID }) {
+                let relationshipFootnote = self.file.currentVersion?.footnotes?.first {
+                    $0.attachmentID == attachment.footnoteID
+                }
+                let fetchedFootnote = FootnoteManager.shared.getFootnoteByAttachment(
+                    attachmentID: attachment.footnoteID,
+                    context: self.modelContext
+                )
+                if let footnote = relationshipFootnote ?? fetchedFootnote {
                     FootnoteManager.shared.deleteFootnote(footnote, context: self.modelContext)
                     #if DEBUG
                     print("📝 Moved footnote to trash: \(attachment.footnoteID.uuidString.prefix(8))")
@@ -5320,8 +5337,14 @@ struct FileEditView: View {
             
             // Move the footnote(s) to trash using FootnoteManager (handles renumbering)
             for attachment in attachments {
-                if let footnotes = self.file.currentVersion?.footnotes,
-                   let footnote = footnotes.first(where: { $0.attachmentID == attachment.footnoteID }) {
+                let relationshipFootnote = self.file.currentVersion?.footnotes?.first {
+                    $0.attachmentID == attachment.footnoteID
+                }
+                let fetchedFootnote = FootnoteManager.shared.getFootnoteByAttachment(
+                    attachmentID: attachment.footnoteID,
+                    context: self.modelContext
+                )
+                if let footnote = relationshipFootnote ?? fetchedFootnote {
                     FootnoteManager.shared.deleteFootnote(footnote, context: self.modelContext)
                     #if DEBUG
                     print("📝 Moved footnote to trash: \(attachment.footnoteID.uuidString.prefix(8))")
@@ -5371,39 +5394,52 @@ struct FileEditView: View {
                 if let noteEntry = try? modelContext.fetch(FetchDescriptor<NoteEntry>())
                     .first(where: { $0.id == entryID }) {
                     let newCount = max(0, noteEntry.referenceCount - entryInfo.count)
-                    noteEntry.referenceCount = newCount
                     if newCount == 0 {
-                        noteEntry.referencingFileIDs.removeAll { $0 == file.id }
+                        modelContext.delete(noteEntry)
+                    } else {
+                        noteEntry.referenceCount = newCount
                     }
                     #if DEBUG
-                    print("📝 Decremented note ref count to: \(noteEntry.referenceCount)")
+                    print("📝 \(newCount == 0 ? "Deleted unreferenced note entry" : "Decremented note ref count to: \(newCount)")")
                     #endif
                 }
             case .glossary:
                 if let glossaryEntry = try? modelContext.fetch(FetchDescriptor<GlossaryEntry>())
                     .first(where: { $0.id == entryID }) {
                     let newCount = max(0, glossaryEntry.referenceCount - entryInfo.count)
-                    glossaryEntry.referenceCount = newCount
+                    if newCount == 0 {
+                        modelContext.delete(glossaryEntry)
+                    } else {
+                        glossaryEntry.referenceCount = newCount
+                    }
                     #if DEBUG
-                    print("📕 Decremented glossary ref count to: \(glossaryEntry.referenceCount)")
+                    print("📕 \(newCount == 0 ? "Deleted unreferenced glossary entry" : "Decremented glossary ref count to: \(newCount)")")
                     #endif
                 }
             case .reference:
                 if let referenceEntry = try? modelContext.fetch(FetchDescriptor<ReferenceEntry>())
                     .first(where: { $0.id == entryID }) {
                     let newCount = max(0, referenceEntry.referenceCount - entryInfo.count)
-                    referenceEntry.referenceCount = newCount
+                    if newCount == 0 {
+                        modelContext.delete(referenceEntry)
+                    } else {
+                        referenceEntry.referenceCount = newCount
+                    }
                     #if DEBUG
-                    print("📗 Decremented reference ref count to: \(referenceEntry.referenceCount)")
+                    print("📗 \(newCount == 0 ? "Deleted unreferenced reference entry" : "Decremented reference ref count to: \(newCount)")")
                     #endif
                 }
             case .index, .figure, .table:
                 if let indexEntry = try? modelContext.fetch(FetchDescriptor<IndexEntry>())
                     .first(where: { $0.id == entryID }) {
                     let newCount = max(0, indexEntry.referenceCount - entryInfo.count)
-                    indexEntry.referenceCount = newCount
+                    if newCount == 0 {
+                        modelContext.delete(indexEntry)
+                    } else {
+                        indexEntry.referenceCount = newCount
+                    }
                     #if DEBUG
-                    print("📙 Decremented index ref count to: \(indexEntry.referenceCount)")
+                    print("📙 \(newCount == 0 ? "Deleted unreferenced index entry" : "Decremented index ref count to: \(newCount)")")
                     #endif
                 }
             }
@@ -9068,18 +9104,6 @@ struct FileEditView: View {
             return
         }
 
-        let localContent = textViewCoordinator.textView?.attributedText ?? attributedContent
-        let localAttachmentSignature = attachmentSignature(in: localContent)
-        let freshAttachmentSignature = attachmentSignature(in: freshContent)
-        let droppedAttachments = localAttachmentSignature.subtracting(freshAttachmentSignature)
-        guard droppedAttachments.isEmpty else {
-            #if DEBUG
-            let missing = droppedAttachments.sorted().joined(separator: ",")
-            print("⬇️ [Remote Refresh] Skipping reload — remote content would drop local attachment marker(s): [\(missing)] local=\(attachmentDebugSummary(localContent)) remote=\(attachmentDebugSummary(freshContent))")
-            #endif
-            return
-        }
-
         // Only reload if content actually differs (check attributes too — e.g. underline removal
         // changes no plain text but the formatted attributes are different).
         let plainTextSame = freshContent.string == attributedContent.string
@@ -9092,7 +9116,7 @@ struct FileEditView: View {
         }
 
         #if DEBUG
-        print("⬇️ [Remote Refresh] CloudKit imported new content for '\(file.name)' version=#\(freshVersion.versionNumber) — reloading editor (\(attributedContent.length) → \(freshContent.length) chars)")
+        print("⬇️ [Remote Refresh] Sync imported new content for '\(file.name)' version=#\(freshVersion.versionNumber) — reloading editor (\(attributedContent.length) → \(freshContent.length) chars)")
         #endif
 
         // Strip adaptive colors for dark-mode safety (same as setupOnAppear)

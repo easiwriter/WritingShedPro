@@ -18,7 +18,7 @@ struct ManuscriptPreviewView: View {
     let title: String
     /// Optional async generator — called when pdfData is nil to build the PDF in the background.
     /// The closure receives a progress callback: (fraction 0–1, display text).
-    var pdfGenerator: ((@escaping (Double, String) -> Void) async -> Data?)? = nil
+    var pdfGenerator: (@MainActor (@escaping (Double, String) -> Void) async -> Data?)? = nil
     
     /// Explicit binding to dismiss on Catalyst where @Environment(\.dismiss)
     /// can fail inside NavigationStack within a .sheet.
@@ -32,7 +32,7 @@ struct ManuscriptPreviewView: View {
     @State private var progressText: String = ""
     
     /// Convenience init without binding (uses dismiss() only — works on iOS, may not on Catalyst)
-    init(pdfData: Data?, title: String, pdfGenerator: ((@escaping (Double, String) -> Void) async -> Data?)? = nil) {
+    init(pdfData: Data?, title: String, pdfGenerator: (@MainActor (@escaping (Double, String) -> Void) async -> Data?)? = nil) {
         self.pdfData = pdfData
         self.title = title
         self.pdfGenerator = pdfGenerator
@@ -40,7 +40,7 @@ struct ManuscriptPreviewView: View {
     }
     
     /// Init with explicit isPresented binding (reliable on all platforms)
-    init(pdfData: Data?, title: String, isPresented: Binding<Bool>, pdfGenerator: ((@escaping (Double, String) -> Void) async -> Data?)? = nil) {
+    init(pdfData: Data?, title: String, isPresented: Binding<Bool>, pdfGenerator: (@MainActor (@escaping (Double, String) -> Void) async -> Data?)? = nil) {
         self.pdfData = pdfData
         self.title = title
         self.pdfGenerator = pdfGenerator
@@ -58,18 +58,8 @@ struct ManuscriptPreviewView: View {
         
         // First try: SwiftUI binding
         isPresented = false
-        
-        // Second try: UIKit-level dismissal of the presented view controller
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootVC = windowScene.windows.first?.rootViewController {
-            var topVC = rootVC
-            while let presented = topVC.presentedViewController {
-                topVC = presented
-            }
-            if topVC != rootVC {
-                topVC.dismiss(animated: true)
-            }
-        }
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
     
     var body: some View {

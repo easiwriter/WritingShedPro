@@ -63,6 +63,7 @@ struct TOCEntry: Identifiable {
 }
 
 /// Service for generating Table of Contents from manuscript content
+@MainActor
 final class TOCGenerationService {
     private let context: ModelContext
     private let assemblyService: ManuscriptAssemblyService
@@ -285,9 +286,11 @@ final class TOCGenerationService {
         }
 
         let preparedManuscript = prepareForPageCounting(assembledContent.attributedString)
-        let storage = NSTextStorage(attributedString: preparedManuscript)
-        let layout = PaginatedTextLayoutManager(textStorage: storage, pageSetup: pageSetup)
-        let layoutResult = layout.calculateLayout(assembledFootnotes: assembledContent.assembledFootnotes)
+        let layoutResult = await calculateLayoutOffMain(
+            content: preparedManuscript,
+            pageSetup: pageSetup,
+            assembledFootnotes: assembledContent.assembledFootnotes
+        )
 
         for i in 0..<updatedEntries.count {
             guard let fileOffset = assembledContent.fileOffsets[updatedEntries[i].sourceFile.id] else { continue }
@@ -363,9 +366,10 @@ final class TOCGenerationService {
                     frontMatterPageCount += 1  // Content was only form feeds
                     continue
                 }
-                let storage = NSTextStorage(attributedString: prepared)
-                let layout = PaginatedTextLayoutManager(textStorage: storage, pageSetup: pageSetup)
-                let result = layout.calculateLayout()
+                let result = await calculateLayoutOffMain(
+                    content: prepared,
+                    pageSetup: pageSetup
+                )
                 
                 // Map any front matter TOC entries in this file
                 for i in 0..<updatedEntries.count where updatedEntries[i].sourceFile.id == file.id {
@@ -390,6 +394,56 @@ final class TOCGenerationService {
         #endif
         
         return updatedEntries
+    }
+
+    private func calculateLayoutOffMain(
+        content: NSAttributedString,
+        pageSetup: PageSetup,
+        assembledFootnotes: [ManuscriptFootnote] = []
+    ) async -> PaginatedTextLayoutManager.LayoutResult {
+        nonisolated(unsafe) let backgroundContent = content
+        nonisolated(unsafe) let backgroundFootnotes = assembledFootnotes
+        let paperName = pageSetup.paperName
+        let orientationRaw = pageSetup.orientation
+        let headers = pageSetup.hasHeaders
+        let footers = pageSetup.hasFooters
+        let marginTop = pageSetup.marginTop
+        let marginBottom = pageSetup.marginBottom
+        let marginLeft = pageSetup.marginLeft
+        let marginRight = pageSetup.marginRight
+        let headerDepth = pageSetup.headerDepth
+        let footerDepth = pageSetup.footerDepth
+        let scaleFactor = pageSetup.scaleFactor
+
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let backgroundPageSetup = PageSetup(
+                    paperName: paperName,
+                    orientation: Orientation(rawValue: orientationRaw) ?? .portrait,
+                    headers: headers,
+                    footers: footers,
+                    marginTop: marginTop,
+                    marginBottom: marginBottom,
+                    marginLeft: marginLeft,
+                    marginRight: marginRight,
+                    headerDepth: headerDepth,
+                    footerDepth: footerDepth,
+                    scaleFactor: scaleFactor
+                )
+                let storage = NSTextStorage(attributedString: backgroundContent)
+                let layout = PaginatedTextLayoutManager(
+                    textStorage: storage,
+                    pageSetup: backgroundPageSetup
+                )
+                let result: PaginatedTextLayoutManager.LayoutResult
+                if backgroundFootnotes.isEmpty {
+                    result = layout.calculateLayout()
+                } else {
+                    result = layout.calculateLayout(assembledFootnotes: backgroundFootnotes)
+                }
+                continuation.resume(returning: result)
+            }
+        }
     }
     
     /// Prepare content for accurate page counting:

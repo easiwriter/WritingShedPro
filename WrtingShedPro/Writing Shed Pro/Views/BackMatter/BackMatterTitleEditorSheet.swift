@@ -173,18 +173,7 @@ struct BackMatterTitleEditorSheet: View {
     private func dismissSheet() {
         isPresented = false
         dismiss()
-
-        #if targetEnvironment(macCatalyst)
-        DispatchQueue.main.async {
-            UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .flatMap(\.windows)
-                .first { $0.isKeyWindow }?
-                .rootViewController?
-                .presentedViewController?
-                .dismiss(animated: true)
-        }
-        #endif
+        dismissPresentedSheetOnCatalyst()
     }
 }
 

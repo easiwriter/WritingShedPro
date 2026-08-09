@@ -179,18 +179,8 @@ struct TOCSettingsView: View {
     /// Dismiss the sheet reliably on all platforms including Mac Catalyst
     private func dismissSheet() {
         isPresented = false
-        #if targetEnvironment(macCatalyst)
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootVC = windowScene.windows.first?.rootViewController {
-            var topVC = rootVC
-            while let presented = topVC.presentedViewController {
-                topVC = presented
-            }
-            if topVC != rootVC {
-                topVC.dismiss(animated: true)
-            }
-        }
-        #endif
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
     
     private func saveSettings() {
@@ -239,9 +229,12 @@ struct TOCSettingsView: View {
                         throw TOCSettingsSaveError.verificationFailed
                     }
                     Write_App.scheduleEnsemblesSyncAfterLocalSave(reason: reason)
-                    onSettingsChanged?()
                     isSaving = false
                     dismissSheet()
+                    Task { @MainActor in
+                        await Task.yield()
+                        onSettingsChanged?()
+                    }
                     return
                 } catch is EnsemblesSaveGateError {
                     continue

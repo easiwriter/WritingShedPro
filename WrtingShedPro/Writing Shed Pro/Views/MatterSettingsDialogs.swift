@@ -242,20 +242,7 @@ struct FrontMatterSettingsDialog: View {
     private func dismissSheet() {
         isPresented = false
         dismiss()
-        #if targetEnvironment(macCatalyst)
-        DispatchQueue.main.async {
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let rootVC = windowScene.windows.first?.rootViewController {
-                var topVC = rootVC
-                while let presented = topVC.presentedViewController {
-                    topVC = presented
-                }
-                if topVC !== rootVC {
-                    topVC.dismiss(animated: true)
-                }
-            }
-        }
-        #endif
+        dismissPresentedSheetOnCatalyst()
     }
     
     private func saveFictionSettings() {
@@ -753,20 +740,7 @@ struct BackMatterSettingsDialog: View {
     private func dismissSheet() {
         isPresented = false
         dismiss()
-        #if targetEnvironment(macCatalyst)
-        DispatchQueue.main.async {
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let rootVC = windowScene.windows.first?.rootViewController {
-                var topVC = rootVC
-                while let presented = topVC.presentedViewController {
-                    topVC = presented
-                }
-                if topVC !== rootVC {
-                    topVC.dismiss(animated: true)
-                }
-            }
-        }
-        #endif
+        dismissPresentedSheetOnCatalyst()
     }
     
     private func saveFictionSettings() {

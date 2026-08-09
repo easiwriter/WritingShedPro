@@ -307,16 +307,7 @@ final class Project {
     func findBackMatterFolder() -> Folder? {
         guard let allFolders = folders, !allFolders.isEmpty else { return nil }
         
-        // First try: Back Matter folder at project level (legacy projects)
-        for folder in allFolders {
-            // Check folder name safely - if name is nil, skip
-            guard let folderName = folder.name else { continue }
-            if folderName == "Back Matter" || folderName == NSLocalizedString("folder.backMatter", comment: "") {
-                return folder
-            }
-        }
-        
-        // Second try: Back Matter folder inside Manuscript (modern structure)
+        // Prefer the canonical Back Matter folder inside Manuscript.
         for folder in allFolders {
             guard let folderName = folder.name, folderName == "Manuscript" else { continue }
             guard let subfolders = folder.folders, !subfolders.isEmpty else { continue }
@@ -325,6 +316,14 @@ final class Project {
                 if subfolderName == "Back Matter" || subfolderName == NSLocalizedString("folder.backMatter", comment: "") {
                     return subfolder
                 }
+            }
+        }
+
+        // Fall back to a root-level Back Matter folder for legacy projects.
+        for folder in allFolders {
+            guard let folderName = folder.name else { continue }
+            if folderName == "Back Matter" || folderName == NSLocalizedString("folder.backMatter", comment: "") {
+                return folder
             }
         }
         return nil

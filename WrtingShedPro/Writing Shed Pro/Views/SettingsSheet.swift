@@ -243,5 +243,6 @@ struct SettingsSheet: View {
     private func dismissSheet() {
         isPresented = false
         dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 }

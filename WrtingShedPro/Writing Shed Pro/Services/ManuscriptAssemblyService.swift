@@ -5,6 +5,7 @@ import UIKit
 
 /// Service responsible for assembling manuscript content from source folders (Feature 029)
 @Observable
+@MainActor
 final class ManuscriptAssemblyService {
     private let context: ModelContext
     
