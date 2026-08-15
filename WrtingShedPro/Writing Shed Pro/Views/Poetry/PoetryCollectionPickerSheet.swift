@@ -15,7 +15,6 @@ struct PoetryCollectionPickerSheet: View {
     
     @Environment(\.dismiss) private var dismiss
     @Query private var allCollections: [PoetryCollection]
-    @Query private var allCollectionLinks: [TextFileCollectionLink]
     
     // MARK: - Properties
     
@@ -29,42 +28,21 @@ struct PoetryCollectionPickerSheet: View {
     private var sortedCollections: [PoetryCollection] {
         allCollections
             .filter { $0.project?.id == project.id }
-            .sorted { lhs, rhs in
-                let lhsOrder = lhs.userOrder ?? Int.max
-                let rhsOrder = rhs.userOrder ?? Int.max
-                if lhsOrder != rhsOrder { return lhsOrder < rhsOrder }
-                return (lhs.name ?? "").localizedCaseInsensitiveCompare(rhs.name ?? "") == .orderedAscending
-            }
+            .sorted(by: ContainerDisplayOrder.isOrdered)
     }
 
     private func liveFileCount(for collection: PoetryCollection) -> Int {
-        allCollectionLinks.reduce(into: 0) { count, link in
-            if link.poetryCollectionID == collection.id || link.poetryCollection?.id == collection.id {
-                count += 1
-            }
-        }
+        collection.textFiles?.count ?? 0
     }
 
     private var hasAnyAssignedCollection: Bool {
-        let selectedFileIDs = Set(selectedFiles.map(\.id))
-        return allCollectionLinks.contains { link in
-            let textFileID = link.textFileID ?? link.textFile?.id
-            let collectionID = link.poetryCollectionID ?? link.poetryCollection?.id
-            return textFileID.map { selectedFileIDs.contains($0) } == true && collectionID != nil
-        }
+        selectedFiles.contains { $0.poetryCollection != nil }
     }
     
     /// Check if all selected files are assigned to the same collection
     private var assignedCollection: PoetryCollection? {
-        guard let firstFileID = selectedFiles.first?.id,
-              let firstCollectionID = allCollectionLinks.first(where: { $0.textFileID == firstFileID || $0.textFile?.id == firstFileID })?.poetryCollectionID ??
-                allCollectionLinks.first(where: { $0.textFileID == firstFileID || $0.textFile?.id == firstFileID })?.poetryCollection?.id,
-              let firstCollection = sortedCollections.first(where: { $0.id == firstCollectionID }) else { return nil }
-        let allSameCollection = selectedFiles.allSatisfy { file in
-            let collectionID = allCollectionLinks.first(where: { $0.textFileID == file.id || $0.textFile?.id == file.id })?.poetryCollectionID ??
-                allCollectionLinks.first(where: { $0.textFileID == file.id || $0.textFile?.id == file.id })?.poetryCollection?.id
-            return collectionID == firstCollectionID
-        }
+                guard let firstCollection = selectedFiles.first?.poetryCollection else { return nil }
+                let allSameCollection = selectedFiles.allSatisfy { $0.poetryCollection?.id == firstCollection.id }
         return allSameCollection ? firstCollection : nil
     }
     

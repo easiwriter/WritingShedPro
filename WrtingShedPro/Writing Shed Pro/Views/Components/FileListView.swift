@@ -213,7 +213,7 @@ struct FileListView: View {
             .toolbar {
                 // Top toolbar for alphabetical expand/collapse (only when using sections and not in edit mode)
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    if isEditMode {
+                    if isEditMode && !useCollectionGrouping {
                         selectAllToggleButton
                     } else if useSections {
                         expandCollapseButtons
@@ -360,7 +360,7 @@ struct FileListView: View {
                     Section {
                         if expandedCollections.contains(group.id) {
                             ForEach(group.files) { file in
-                                fileRow(for: file)
+                                fileRow(for: file, collectionGroupID: group.id)
                                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                         if !isEditMode {
@@ -468,7 +468,7 @@ struct FileListView: View {
     
     /// File row view - behavior changes based on edit mode
     @ViewBuilder
-    private func fileRow(for file: TextFile) -> some View {
+    private func fileRow(for file: TextFile, collectionGroupID: String? = nil) -> some View {
         HStack {
             // Main content area - clickable to select/navigate
             HStack {
@@ -500,7 +500,7 @@ struct FileListView: View {
             .onTapGesture {
                 if isEditMode {
                     // Edit mode: toggle selection
-                    toggleSelection(for: file)
+                    toggleSelection(for: file, collectionGroupID: collectionGroupID)
                 } else {
                     // Normal mode: navigate to file
                     onFileSelected(file)
@@ -873,10 +873,19 @@ struct FileListView: View {
     // MARK: - Actions
     
     /// Toggles selection for a file (tap-to-toggle in edit mode)
-    private func toggleSelection(for file: TextFile) {
+    private func toggleSelection(for file: TextFile, collectionGroupID: String?) {
         if selectedFileIDs.contains(file.id) {
             selectedFileIDs.remove(file.id)
         } else {
+            if let collectionGroupID,
+               let groups = collectionGroups,
+               selectedFileIDs.contains(where: { selectedID in
+                   groups.contains { group in
+                       group.id != collectionGroupID && group.files.contains { $0.id == selectedID }
+                   }
+               }) {
+                selectedFileIDs.removeAll()
+            }
             selectedFileIDs.insert(file.id)
         }
     }

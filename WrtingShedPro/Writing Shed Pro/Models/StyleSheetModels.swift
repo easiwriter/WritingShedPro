@@ -89,6 +89,11 @@ final class StyleSheet {
     var sortedStyles: [TextStyleModel] {
         return textStyles?.sorted(by: { $0.displayOrder < $1.displayOrder }) ?? []
     }
+
+    /// Latest definition change, including child styles that sync independently.
+    var latestStyleModifiedDate: Date {
+        max(modifiedDate, textStyles?.map(\.modifiedDate).max() ?? modifiedDate)
+    }
     
     /// Get all image styles sorted by display order
     var sortedImageStyles: [ImageStyle] {
@@ -487,13 +492,8 @@ final class TextStyleModel {
 /// ImageStyle serves as a TEMPLATE for newly inserted images.
 /// - When a user inserts an image, it gets these default values
 /// - When a user edits an image, those changes are saved on the ImageAttachment instance
-/// - Changing ImageStyle properties only affects NEW images, not existing ones
-/// - Similar to text styles: changing "Body" style doesn't affect manually bolded text
-///
-/// This design ensures:
-/// - Consistent defaults for new images across a document
-/// - User customizations are preserved and never overwritten by stylesheet changes
-/// - Predictable behavior familiar from word processors
+/// Image styles provide insertion defaults and can be explicitly reapplied to
+/// existing attachments assigned through `ImageAttachment.imageStyleName`.
 @Model
 final class ImageStyle {
     var id: UUID = UUID()
@@ -506,6 +506,8 @@ final class ImageStyle {
     var defaultAlignmentRaw: String = "center"  // ImageAlignment raw value
     var hasCaptionByDefault: Bool = false
     var defaultCaptionStyle: String = "UICTFontTextStyleCaption1"  // References a TextStyle name
+    var defaultSpacingAbove: CGFloat = 0
+    var defaultSpacingBelow: CGFloat = 0
     
     // MARK: - Metadata
     var createdDate: Date = Date()
@@ -532,6 +534,8 @@ final class ImageStyle {
         defaultAlignment: ImageAttachment.ImageAlignment = .center,
         hasCaptionByDefault: Bool = false,
         defaultCaptionStyle: String = "UICTFontTextStyleCaption1",
+        defaultSpacingAbove: CGFloat = 0,
+        defaultSpacingBelow: CGFloat = 0,
         isSystemStyle: Bool = false
     ) {
         self.name = name
@@ -541,6 +545,8 @@ final class ImageStyle {
         self.defaultAlignment = defaultAlignment
         self.hasCaptionByDefault = hasCaptionByDefault
         self.defaultCaptionStyle = defaultCaptionStyle
+        self.defaultSpacingAbove = defaultSpacingAbove
+        self.defaultSpacingBelow = defaultSpacingBelow
         self.isSystemStyle = isSystemStyle
     }
     
@@ -555,6 +561,20 @@ final class ImageStyle {
             hasCaptionByDefault: false,
             defaultCaptionStyle: "caption1",
             isSystemStyle: true
+        )
+    }
+
+    func apply(to attachment: ImageAttachment) {
+        attachment.imageStyleName = name
+        attachment.scale = defaultScale
+        attachment.alignment = defaultAlignment
+        attachment.spacingAbove = defaultSpacingAbove
+        attachment.spacingBelow = defaultSpacingBelow
+        attachment.updateCaption(
+            hasCaption: hasCaptionByDefault,
+            prefix: attachment.captionPrefix,
+            text: attachment.captionText,
+            style: defaultCaptionStyle
         )
     }
 }

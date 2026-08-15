@@ -793,13 +793,19 @@ final class TextFile {
     // A TextFile can be the content of a Scene
     var scene: StoryScene?
     
-    // Prose: A TextFile can belong to multiple ProseSections (via join table for CloudKit)
+    // Legacy ProseSection links retained until existing stores are migrated.
     @Relationship(deleteRule: .nullify, inverse: \TextFileSectionLink.textFile)
     var sectionLinks: [TextFileSectionLink]? = []
+
+    @Relationship(deleteRule: .nullify, inverse: \ProseSection.textFiles)
+    var section: ProseSection?
     
-    // Feature 036: Poetry Collection membership (via join table for CloudKit)
+    // Legacy PoetryCollection links retained until existing stores are migrated.
     @Relationship(deleteRule: .nullify, inverse: \TextFileCollectionLink.textFile)
     var poetryCollectionLinks: [TextFileCollectionLink]? = []
+
+    @Relationship(deleteRule: .nullify, inverse: \PoetryCollection.textFiles)
+    var poetryCollection: PoetryCollection?
     
     // Feature 029: Manuscript Assembly
     // Whether this file is included in manuscript assembly (default: true)
@@ -864,50 +870,18 @@ final class TextFile {
         return parentFolder?.name == "Back Matter"
     }
     
-    // MARK: - Many-to-Many Computed Properties (via join tables)
+    // MARK: - Container Compatibility Properties
     
-    /// Prose sections this file belongs to (derived from join table)
+    /// Array-form archive compatibility for the file's single prose section.
     var sections: [ProseSection]? {
-        get { sectionLinks?.compactMap(\.section) }
-        set {
-            for link in sectionLinks ?? [] { modelContext?.delete(link) }
-            sectionLinks = []
-            for section in newValue ?? [] {
-                let link = TextFileSectionLink(textFile: self, section: section)
-                modelContext?.insert(link)
-                if sectionLinks == nil { sectionLinks = [] }
-                sectionLinks?.append(link)
-            }
-        }
+        get { section.map { [$0] } }
+        set { section = newValue?.first }
     }
     
-    /// Poetry collections this file belongs to (derived from join table)
+    /// The file's poetry collection, represented as an array for archive compatibility.
     var poetryCollections: [PoetryCollection]? {
-        get {
-            guard let context = modelContext else {
-                return poetryCollectionLinks?.compactMap(\.poetryCollection)
-            }
-
-            let links = ((try? context.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? [])
-                .filter { $0.resolvedTextFileID == id }
-            let linkedCollections = links.compactMap(\.poetryCollection)
-
-            let missingCollectionIDs = Set(links.compactMap(\.resolvedPoetryCollectionID)).subtracting(linkedCollections.map(\.id))
-            guard !missingCollectionIDs.isEmpty else { return linkedCollections }
-
-            let allCollections = (try? context.fetch(FetchDescriptor<PoetryCollection>())) ?? []
-            return linkedCollections + allCollections.filter { missingCollectionIDs.contains($0.id) }
-        }
-        set {
-            guard let context = modelContext else { return }
-            let links = (try? context.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
-            for link in links where link.resolvedTextFileID == id { context.delete(link) }
-            poetryCollectionLinks = []
-            for collection in newValue ?? [] {
-                let link = TextFileCollectionLink(textFileID: id, poetryCollectionID: collection.id)
-                context.insert(link)
-            }
-        }
+        get { poetryCollection.map { [$0] } }
+        set { poetryCollection = newValue?.first }
     }
     
     /// Get the poetry form for this file (if assigned)

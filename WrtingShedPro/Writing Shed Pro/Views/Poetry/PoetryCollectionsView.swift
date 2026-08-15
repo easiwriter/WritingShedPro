@@ -45,7 +45,7 @@ struct PoetryCollectionsView: View {
     // MARK: - Computed
     
     private var sortedCollections: [PoetryCollection] {
-        (project.poetryCollections ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        (project.poetryCollections ?? []).sorted(by: ContainerDisplayOrder.isOrdered)
     }
     
     private var isEditMode: Bool {
@@ -288,15 +288,12 @@ struct PoetryCollectionsView: View {
         let freshContext = ModelContext(modelContext.container)
         var counts: [UUID: Int] = [:]
         let collectionIDs = Set(sortedCollections.map(\.id))
-        let links = (try? freshContext.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
-        let fileByID = Dictionary(
-            uniqueKeysWithValues: ((try? freshContext.fetch(FetchDescriptor<TextFile>())) ?? []).map { ($0.id, $0) }
-        )
+        let files = (try? freshContext.fetch(FetchDescriptor<TextFile>())) ?? []
 
-        for link in links {
-            guard let collectionID = link.resolvedPoetryCollectionID, collectionIDs.contains(collectionID) else { continue }
-            let file = link.textFile ?? link.resolvedTextFileID.flatMap { fileByID[$0] }
-            guard file?.trashItem == nil else { continue }
+        for file in files {
+            guard let collectionID = file.poetryCollection?.id,
+                  collectionIDs.contains(collectionID),
+                  file.trashItem == nil else { continue }
             counts[collectionID, default: 0] += 1
         }
 
@@ -310,18 +307,13 @@ struct PoetryCollectionsView: View {
     private func collectionFilesByID(for collectionIDs: Set<UUID>) -> [UUID: [TextFile]] {
         guard !collectionIDs.isEmpty else { return [:] }
 
-        let links = (try? modelContext.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
-        let fileByID = Dictionary(
-            uniqueKeysWithValues: ((try? modelContext.fetch(FetchDescriptor<TextFile>())) ?? []).map { ($0.id, $0) }
-        )
+        let files = (try? modelContext.fetch(FetchDescriptor<TextFile>())) ?? []
         var filesByCollectionID: [UUID: [TextFile]] = [:]
-        var seenFileIDsByCollectionID: [UUID: Set<UUID>] = [:]
 
-        for link in links {
-            guard let collectionID = link.resolvedPoetryCollectionID, collectionIDs.contains(collectionID) else { continue }
-            guard let file = link.textFile ?? link.resolvedTextFileID.flatMap({ fileByID[$0] }) else { continue }
-            guard file.trashItem == nil else { continue }
-            guard seenFileIDsByCollectionID[collectionID, default: []].insert(file.id).inserted else { continue }
+        for file in files {
+            guard let collectionID = file.poetryCollection?.id,
+                  collectionIDs.contains(collectionID),
+                  file.trashItem == nil else { continue }
             filesByCollectionID[collectionID, default: []].append(file)
         }
 
@@ -330,15 +322,11 @@ struct PoetryCollectionsView: View {
     
     private func deleteSelectedCollections() {
         let deletedIDs = Set(selectedCollections.map { $0.id })
-        let links = (try? modelContext.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
 
         for collection in selectedCollections {
-            // Remove only this collection link from poems; do not touch folders/files.
-            for link in links where link.resolvedPoetryCollectionID == collection.id {
-                if let file = link.textFile {
-                    file.modifiedDate = Date()
-                }
-                modelContext.delete(link)
+            for file in collection.textFiles ?? [] {
+                file.poetryCollection = nil
+                file.modifiedDate = Date()
             }
             // Remove from Body Matter if included
             collection.isInBodyMatter = false

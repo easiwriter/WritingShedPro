@@ -197,13 +197,27 @@ class FileMoveService {
     /// - Parameter files: Array of TextFiles to permanently delete
     /// - Throws: FileMoveError if any file is invalid
     func deleteFilesPermanently(_ files: [TextFile]) throws {
+        guard EnsemblesSaveGate.canSaveNow(
+            reason: "file-move-permanent-delete",
+            context: modelContext
+        ) else {
+            let ensemblesContainer = Write_App.activeEnsemblesContainer
+            throw EnsemblesSaveGateError.syncBusy(
+                reason: "file-move-permanent-delete",
+                attached: ensemblesContainer?.isAttached ?? false,
+                activity: ensemblesContainer.map { String(describing: $0.currentActivity) } ?? "none"
+            )
+        }
+
+        var affectedFolders: [Folder] = []
+
         for file in files {
             if let scene = file.scene {
                 modelContext.delete(scene)
             }
-            if let parentFolder = file.parentFolder,
-               let index = parentFolder.textFiles?.firstIndex(where: { $0.id == file.id }) {
-                parentFolder.textFiles?.remove(at: index)
+            if let parentFolder = file.parentFolder {
+                affectedFolders.append(parentFolder)
+                parentFolder.textFiles = (parentFolder.textFiles ?? []).filter { $0.id != file.id }
             }
             file.parentFolder = nil
 
@@ -212,10 +226,14 @@ class FileMoveService {
             modelContext.delete(file)
         }
 
+        modelContext.processPendingChanges()
+        for folder in affectedFolders {
+            folder.textFiles = (folder.textFiles ?? []).filter { !$0.isDeleted }
+        }
+
         // Permanent deletes must persist immediately so the file cannot
         // reappear after relaunch if the coalescer is unavailable or delayed.
         try EnsemblesSaveGate.save(modelContext, reason: "file-move-permanent-delete")
-        modelContext.processPendingChanges()
     }
     
     /// Cleans up index entry references when a file is deleted

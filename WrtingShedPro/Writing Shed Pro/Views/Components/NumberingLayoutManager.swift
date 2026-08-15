@@ -33,10 +33,6 @@ class NumberingLayoutManager: NSLayoutManager {
     /// Whether to draw editor line numbers in the right margin
     var showDocumentLineNumbers: Bool = false
 
-    /// Whether the layout manager should draw the extra trailing editor line number.
-    /// FormattedTextEditor handles this in CustomTextView.draw(_:) to avoid clip issues.
-    var drawDocumentExtraLineInBackground: Bool = true
-
     private var suppressDecorativeDrawingUntil: Date?
 
     var isDecorativeDrawingSuppressed: Bool {
@@ -688,29 +684,57 @@ class NumberingLayoutManager: NSLayoutManager {
         }
     }
 
+    /// Build source-style line numbers keyed by paragraph start.
+    /// Blank lines and marked non-poem sections do not consume a number.
+    func buildDocumentLineNumberMap(for attributedText: NSAttributedString) -> [Int: Int] {
+        let text = attributedText.string as NSString
+        var lineNumbers: [Int: Int] = [:]
+        var lineNumber = 0
+        var location = 0
+
+        while location < text.length {
+            let paragraphRange = text.paragraphRange(for: NSRange(location: location, length: 0))
+            let paragraph = text.substring(with: paragraphRange)
+                .replacingOccurrences(of: "\u{200B}", with: "")
+            let isMarkedSection: Bool
+            if paragraphRange.location < attributedText.length,
+               let sectionType = attributedText.attribute(
+                   .poemSectionType,
+                   at: paragraphRange.location,
+                   effectiveRange: nil
+               ) as? String {
+                isMarkedSection = sectionType != PoemSectionType.poem.rawValue
+            } else {
+                isMarkedSection = false
+            }
+
+            if !isMarkedSection,
+               !paragraph.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                lineNumber += 1
+                lineNumbers[paragraphRange.location] = lineNumber
+            }
+            location = NSMaxRange(paragraphRange)
+        }
+
+        return lineNumbers
+    }
+
     /// Draw line numbers on the left margin for regular editor documents.
-    /// Counts rendered visual lines (line fragments), including wrapped and blank lines.
+    /// Numbers only the first rendered fragment of each nonblank logical line.
     private func drawDocumentLineNumbers(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
-        guard textStorage != nil,
-              let textContainer = textContainers.first else {
+        guard let textStorage = textStorage else {
             return
         }
 
-        // Empty editor still displays line 1.
         if numberOfGlyphs == 0 {
-            let defaultLineHeight = UIFont.preferredFont(forTextStyle: .body).lineHeight
-            let emptyRect = extraLineFragmentRect.isEmpty
-                ? CGRect(x: 0, y: 0, width: 100, height: defaultLineHeight)
-                : extraLineFragmentRect
-            drawDocumentLineNumber(1, at: origin, lineFragmentRect: emptyRect)
             return
         }
 
         let visibleGlyphStart = glyphsToShow.location
         let visibleGlyphEnd = glyphsToShow.location + glyphsToShow.length
         let fullGlyphRange = NSRange(location: 0, length: numberOfGlyphs)
-
-        var lineNumber = 1
+        let text = textStorage.string as NSString
+        let lineNumbers = buildDocumentLineNumberMap(for: textStorage)
 
         enumerateLineFragments(forGlyphRange: fullGlyphRange) { [weak self] lineFragmentRect, _, _, fragmentGlyphRange, stop in
             guard let self = self else {
@@ -722,7 +746,6 @@ class NumberingLayoutManager: NSLayoutManager {
             let fragmentEnd = fragmentGlyphRange.location + fragmentGlyphRange.length
 
             if fragmentEnd <= visibleGlyphStart {
-                lineNumber += 1
                 return
             }
 
@@ -731,20 +754,15 @@ class NumberingLayoutManager: NSLayoutManager {
                 return
             }
 
-            self.drawDocumentLineNumber(lineNumber, at: origin, lineFragmentRect: lineFragmentRect)
-            lineNumber += 1
-        }
-
-          let extraRect = extraLineFragmentRect
-          if drawDocumentExtraLineInBackground,
-              extraLineFragmentTextContainer === textContainer,
-           !extraRect.isEmpty {
-            let visibleRect = boundingRect(forGlyphRange: glyphsToShow, in: textContainer)
-            let isExtraLineVisible = glyphsToShow.length == 0 || extraRect.intersects(visibleRect)
-
-            if isExtraLineVisible {
-                drawDocumentLineNumber(lineNumber, at: origin, lineFragmentRect: extraRect)
+            let characterRange = self.characterRange(forGlyphRange: fragmentGlyphRange, actualGlyphRange: nil)
+            let paragraphRange = text.paragraphRange(for: NSRange(location: characterRange.location, length: 0))
+            let paragraphGlyphRange = self.glyphRange(forCharacterRange: paragraphRange, actualCharacterRange: nil)
+            guard fragmentStart == paragraphGlyphRange.location,
+                  let lineNumber = lineNumbers[paragraphRange.location] else {
+                return
             }
+
+            self.drawDocumentLineNumber(lineNumber, at: origin, lineFragmentRect: lineFragmentRect)
         }
     }
 

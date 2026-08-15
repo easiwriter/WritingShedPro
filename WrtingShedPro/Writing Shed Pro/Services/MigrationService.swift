@@ -35,10 +35,181 @@ class MigrationService {
         if importConfirmed {
             deduplicateManuscriptSubfolders(context: context)
             cleanupOrphanedTrashItems(context: context)
+            migrateSingleContainerRelationships(context: context)
             cleanupOrphanedJoinLinks(context: context)
         }
         migrateManuscriptSubfolders(context: context, importConfirmed: importConfirmed)
         migrateFeature036(context: context, importConfirmed: importConfirmed)
+    }
+
+    /// Converts legacy assignment join rows to direct many-to-one relationships.
+    /// One resolved legacy row is retained per item for store compatibility; any
+    /// additional resolved rows in the same relationship family are removed.
+    @discardableResult
+    static func migrateSingleContainerRelationships(context: ModelContext) -> Bool {
+        var migratedAssignments = 0
+        var removedLinks = 0
+
+        func preferredContainer<T>(
+            _ candidates: [(linkID: UUID, linkPersistentID: PersistentIdentifier, container: T)],
+            order: (T) -> Int?,
+            name: (T) -> String?,
+            id: (T) -> UUID
+        ) -> (linkID: UUID, linkPersistentID: PersistentIdentifier, container: T)? {
+            candidates.sorted { lhs, rhs in
+                let lhsOrder = order(lhs.container) ?? Int.max
+                let rhsOrder = order(rhs.container) ?? Int.max
+                if lhsOrder != rhsOrder { return lhsOrder < rhsOrder }
+
+                let nameComparison = (name(lhs.container) ?? "")
+                    .localizedCaseInsensitiveCompare(name(rhs.container) ?? "")
+                if nameComparison != .orderedSame { return nameComparison == .orderedAscending }
+
+                let lhsID = id(lhs.container).uuidString
+                let rhsID = id(rhs.container).uuidString
+                if lhsID != rhsID { return lhsID < rhsID }
+                return lhs.linkID.uuidString < rhs.linkID.uuidString
+            }.first
+        }
+
+        func uniqueModelsByID<T>(_ models: [T], id: (T) -> UUID) -> [UUID: T] {
+            Dictionary(grouping: models, by: id).reduce(into: [:]) { result, entry in
+                guard entry.value.count == 1, let model = entry.value.first else { return }
+                result[entry.key] = model
+            }
+        }
+
+        let files = (try? context.fetch(FetchDescriptor<TextFile>())) ?? []
+        let filesByID = uniqueModelsByID(files, id: { $0.id })
+        let collections = (try? context.fetch(FetchDescriptor<PoetryCollection>())) ?? []
+        let collectionsByID = uniqueModelsByID(collections, id: { $0.id })
+
+        let collectionLinks = (try? context.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
+        let resolvedCollectionLinks = collectionLinks.compactMap { link -> (TextFile, TextFileCollectionLink, PoetryCollection)? in
+            guard let file = link.textFile ?? link.resolvedTextFileID.flatMap({ filesByID[$0] }),
+                  let collection = link.poetryCollection ?? link.resolvedPoetryCollectionID.flatMap({ collectionsByID[$0] }) else {
+                return nil
+            }
+            return (file, link, collection)
+        }
+        for links in Dictionary(grouping: resolvedCollectionLinks, by: { $0.0.persistentModelID }).values {
+            guard let file = links.first?.0 else { continue }
+            let candidates = links.map { (linkID: $0.1.id, linkPersistentID: $0.1.persistentModelID, container: $0.2) }
+            let winner = file.poetryCollection.map { existing in
+                candidates.first(where: { $0.container.persistentModelID == existing.persistentModelID })
+            } ?? preferredContainer(candidates, order: { $0.userOrder }, name: { $0.name }, id: { $0.id })
+            guard let winner else { continue }
+            if file.poetryCollection == nil {
+                file.poetryCollection = winner.container
+                migratedAssignments += 1
+            }
+            for (_, link, _) in links where link.persistentModelID != winner.linkPersistentID {
+                context.delete(link)
+                removedLinks += 1
+            }
+        }
+
+        let sectionLinks = (try? context.fetch(FetchDescriptor<TextFileSectionLink>())) ?? []
+        let resolvedSectionLinks = sectionLinks.compactMap { link -> (TextFile, TextFileSectionLink, ProseSection)? in
+            guard let file = link.textFile, let section = link.section else { return nil }
+            return (file, link, section)
+        }
+        for links in Dictionary(grouping: resolvedSectionLinks, by: { $0.0.persistentModelID }).values {
+            guard let file = links.first?.0 else { continue }
+            let candidates = links.map { (linkID: $0.1.id, linkPersistentID: $0.1.persistentModelID, container: $0.2) }
+            let winner = file.section.map { existing in
+                candidates.first(where: { $0.container.persistentModelID == existing.persistentModelID })
+            } ?? preferredContainer(candidates, order: { $0.userOrder }, name: { $0.name }, id: { $0.id })
+            guard let winner else { continue }
+            if file.section == nil {
+                file.section = winner.container
+                migratedAssignments += 1
+            }
+            for (_, link, _) in links where link.persistentModelID != winner.linkPersistentID {
+                context.delete(link)
+                removedLinks += 1
+            }
+        }
+
+        let chapterLinks = (try? context.fetch(FetchDescriptor<SceneChapterLink>())) ?? []
+        let resolvedChapterLinks = chapterLinks.compactMap { link -> (StoryScene, SceneChapterLink, Chapter)? in
+            guard let scene = link.scene, let chapter = link.chapter else { return nil }
+            return (scene, link, chapter)
+        }
+        for links in Dictionary(grouping: resolvedChapterLinks, by: { $0.0.persistentModelID }).values {
+            guard let scene = links.first?.0 else { continue }
+            let candidates = links.map { (linkID: $0.1.id, linkPersistentID: $0.1.persistentModelID, container: $0.2) }
+            let winner = scene.chapter.map { existing in
+                candidates.first(where: { $0.container.persistentModelID == existing.persistentModelID })
+            } ?? preferredContainer(candidates, order: { $0.userOrder }, name: { $0.name }, id: { $0.id })
+            guard let winner else { continue }
+            if scene.chapter == nil {
+                scene.chapter = winner.container
+                migratedAssignments += 1
+            }
+            for (_, link, _) in links where link.persistentModelID != winner.linkPersistentID {
+                context.delete(link)
+                removedLinks += 1
+            }
+        }
+
+        let actLinks = (try? context.fetch(FetchDescriptor<SceneActLink>())) ?? []
+        let resolvedActLinks = actLinks.compactMap { link -> (StoryScene, SceneActLink, Act)? in
+            guard let scene = link.scene, let act = link.act else { return nil }
+            return (scene, link, act)
+        }
+        for links in Dictionary(grouping: resolvedActLinks, by: { $0.0.persistentModelID }).values {
+            guard let scene = links.first?.0 else { continue }
+            let candidates = links.map { (linkID: $0.1.id, linkPersistentID: $0.1.persistentModelID, container: $0.2) }
+            let winner = scene.act.map { existing in
+                candidates.first(where: { $0.container.persistentModelID == existing.persistentModelID })
+            } ?? preferredContainer(candidates, order: { $0.userOrder }, name: { $0.name }, id: { $0.id })
+            guard let winner else { continue }
+            if scene.act == nil {
+                scene.act = winner.container
+                migratedAssignments += 1
+            }
+            for (_, link, _) in links where link.persistentModelID != winner.linkPersistentID {
+                context.delete(link)
+                removedLinks += 1
+            }
+        }
+
+        let bookLinks = (try? context.fetch(FetchDescriptor<SceneBookLink>())) ?? []
+        let resolvedBookLinks = bookLinks.compactMap { link -> (StoryScene, SceneBookLink, Book)? in
+            guard let scene = link.scene, let book = link.book else { return nil }
+            return (scene, link, book)
+        }
+        for links in Dictionary(grouping: resolvedBookLinks, by: { $0.0.persistentModelID }).values {
+            guard let scene = links.first?.0 else { continue }
+            let candidates = links.map { (linkID: $0.1.id, linkPersistentID: $0.1.persistentModelID, container: $0.2) }
+            let winner = scene.book.map { existing in
+                candidates.first(where: { $0.container.persistentModelID == existing.persistentModelID })
+            } ?? preferredContainer(candidates, order: { $0.userOrder }, name: { $0.name }, id: { $0.id })
+            guard let winner else { continue }
+            if scene.book == nil {
+                scene.book = winner.container
+                migratedAssignments += 1
+            }
+            for (_, link, _) in links where link.persistentModelID != winner.linkPersistentID {
+                context.delete(link)
+                removedLinks += 1
+            }
+        }
+
+        guard migratedAssignments > 0 || removedLinks > 0 else { return true }
+        do {
+            try EnsemblesSaveGate.save(context, reason: "migration-single-container-relationships")
+            #if DEBUG
+            print("🔗 [MigrationService] Migrated \(migratedAssignments) container assignment(s); removed \(removedLinks) excess legacy link(s)")
+            #endif
+            return true
+        } catch {
+            #if DEBUG
+            print("❌ [MigrationService] Failed single-container relationship migration: \(error)")
+            #endif
+            return false
+        }
     }
 
     /// Repairs obviously broken records left behind by CloudKit mirroring resets.
@@ -995,7 +1166,8 @@ class MigrationService {
         #if DEBUG
         print("  ↳ Removing Collections folder from \(project.type.rawValue) project \(project.name ?? "Untitled")")
         #endif
-        
+
+        project.folders = (project.folders ?? []).filter { $0.id != collectionsFolder.id }
         context.delete(collectionsFolder)
     }
     

@@ -7,7 +7,8 @@ final class ManuscriptAnalystService {
     static let shared = ManuscriptAnalystService()
 
     private var reviewCache: [String: ManuscriptReview] = [:]
-    private let cacheSchemaVersion = "v3"
+    private let cacheSchemaVersion = "v5"
+    private let manuscriptFileBoundaryPrefix = "[[WSP_FILE:"
     private let cloudFlareEndpoint = "https://wsp-support.writingshedpro.workers.dev/api/manuscript-analyst/review"
     
     // Soft cap tracking
@@ -33,7 +34,7 @@ final class ManuscriptAnalystService {
             throw ManuscriptAnalystError.projectNotFound
         }
 
-        let rawContent = textFile.currentContent
+        let rawContent = contentForAnalysis(textFile, project: project)
         guard !rawContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ManuscriptAnalystError.noContentToAnalyze
         }
@@ -338,11 +339,11 @@ final class ManuscriptAnalystService {
             let files = (folder.textFiles ?? []).sorted(by: { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) })
             for file in files {
                 let content = normalizeContentForAnalysis(
-                    file.currentContent,
+                    contentForAnalysis(file, project: project),
                     projectType: project.type
                 )
                 if !content.isEmpty {
-                    combinedContent += "\n\n--- \(file.name) ---\n\n"
+                    combinedContent += "\n\n\(manuscriptFileBoundaryPrefix) \(file.name)]]\n\n"
                     combinedContent += content
                     fileCount += 1
                 }
@@ -350,6 +351,19 @@ final class ManuscriptAnalystService {
         }
 
         return (combinedContent, fileCount)
+    }
+
+    private func contentForAnalysis(_ textFile: TextFile, project: Project) -> String {
+        let usesPoetrySections = project.type == .poetry
+            || textFile.poetryFormId != nil
+            || project.fictionClass?.usesPoetryEditor == true
+
+        guard usesPoetrySections,
+              let attributedContent = textFile.currentVersion?.attributedContent else {
+            return textFile.currentContent
+        }
+
+        return attributedContent.extractPoemBody()
     }
 
     private func callCloudFlareAPI(_ request: ManuscriptAnalystRequest) async throws -> ManuscriptAnalystResponse {
@@ -504,7 +518,12 @@ final class ManuscriptAnalystService {
 
         let location = matches[0].range.location
         let prefix = sourceNSString.substring(to: location)
-        return prefix.components(separatedBy: .newlines).count
+        let precedingLines = prefix.components(separatedBy: .newlines).dropLast()
+        let precedingNonblankCount = precedingLines.filter {
+            let trimmed = $0.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !trimmed.isEmpty && !trimmed.hasPrefix(manuscriptFileBoundaryPrefix)
+        }.count
+        return precedingNonblankCount + 1
     }
 
     private func parseSingleLineNumber(from location: String) -> Int? {
@@ -598,10 +617,13 @@ final class ManuscriptAnalystService {
             return content
         }
 
-        return lines.enumerated()
-            .map { index, line in
-                let number = String(format: "%04d", index + 1)
-                return "\(number) | \(line)"
+        var lineNumber = 0
+        return lines.map { line in
+                guard !line.trimmingCharacters(in: .whitespaces).isEmpty else {
+                    return line
+                }
+                lineNumber += 1
+                return "\(String(format: "%04d", lineNumber)) | \(line)"
             }
             .joined(separator: "\n")
     }

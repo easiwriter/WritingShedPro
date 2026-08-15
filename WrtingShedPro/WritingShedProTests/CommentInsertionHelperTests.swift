@@ -18,15 +18,7 @@ final class CommentInsertionHelperTests: XCTestCase {
     
     override func setUpWithError() throws {
         // Create in-memory model container
-        let schema = Schema([
-            CommentModel.self,
-            Project.self,
-            Folder.self,
-            TextFile.self,
-            Version.self
-        ])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [config])
+        let container = try TestModelContainerFactory.make()
         modelContext = ModelContext(container)
         
         testVersion = Version(content: "Test content")

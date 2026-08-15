@@ -37,7 +37,7 @@ struct SectionListView: View {
     // MARK: - Computed
     
     private var sortedSections: [ProseSection] {
-        (project.sections ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        (project.sections ?? []).sorted(by: ContainerDisplayOrder.isOrdered)
     }
     
     private var isEditMode: Bool {

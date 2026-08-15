@@ -4,6 +4,47 @@ import ToolbarSUI
 import UniformTypeIdentifiers
 import PhotosUI
 
+enum StyleReapplicationAttributeMerger {
+    static func merge(
+        styleAttributes: [NSAttributedString.Key: Any],
+        currentAttributes: [NSAttributedString.Key: Any]
+    ) -> [NSAttributedString.Key: Any] {
+        var merged = styleAttributes
+
+        if let newFont = styleAttributes[.font] as? UIFont {
+            let existingFont = currentAttributes[.font] as? UIFont ?? newFont
+            let existingTraits = existingFont.fontDescriptor.symbolicTraits
+            if !existingTraits.isEmpty,
+               let descriptor = newFont.fontDescriptor.withSymbolicTraits(existingTraits) {
+                merged[.font] = UIFont(descriptor: descriptor, size: newFont.pointSize)
+            } else {
+                merged[.font] = newFont
+            }
+        }
+
+        if let attachment = currentAttributes[.attachment] {
+            merged[.attachment] = attachment
+            if let attachmentParagraphStyle = currentAttributes[.paragraphStyle] {
+                merged[.paragraphStyle] = attachmentParagraphStyle
+            }
+        }
+
+        if let poemSectionType = currentAttributes[.poemSectionType] {
+            merged[.poemSectionType] = poemSectionType
+            merged[.foregroundColor] = UIColor.systemGray
+        }
+
+        if merged[.underlineStyle] == nil, let underlineStyle = currentAttributes[.underlineStyle] {
+            merged[.underlineStyle] = underlineStyle
+        }
+        if merged[.strikethroughStyle] == nil, let strikethroughStyle = currentAttributes[.strikethroughStyle] {
+            merged[.strikethroughStyle] = strikethroughStyle
+        }
+
+        return merged
+    }
+}
+
 /// Data for presenting the new index entry dialog
 /// Using Identifiable allows us to use sheet(item:) pattern which is more reliable than sheet(isPresented:)
 struct NewIndexEntryData: Identifiable {
@@ -48,6 +89,9 @@ struct FileEditView: View {
     @State private var forceRefresh = false
     @State private var showStylePicker = false
     @State private var needsStyleReapplyAfterPickerDismiss = false
+    @State private var hasPendingStyleReapply = false
+    @State private var isReapplyingStyles = false
+    @State private var hasPendingRemoteRefresh = false
     @State private var showImageEditor = false
     @State private var showLockedVersionWarning = false
     @State private var attemptedEdit = false
@@ -1827,14 +1871,7 @@ struct FileEditView: View {
             // which causes visible "twitch"/jump on macOS. Only reapply when the
             // style definition itself was edited inside the picker flow.
             if needsStyleReapplyAfterPickerDismiss {
-                reapplyAllStyles(registerUndo: false)
-
-                textViewCoordinator.modifyTypingAttributes { textView in
-                    textView.textStorage.setAttributedString(attributedContent)
-                    textView.layoutManager.invalidateLayout(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length), actualCharacterRange: nil)
-                    textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
-                    textView.setNeedsDisplay()
-                }
+                attemptPendingStyleReapply()
             }
             needsStyleReapplyAfterPickerDismiss = false
         }) {
@@ -1850,7 +1887,7 @@ struct FileEditView: View {
                 onReapplyStyles: {
                     // Style definition updates should not create document undo steps.
                     needsStyleReapplyAfterPickerDismiss = true
-                    reapplyAllStyles(registerUndo: false)
+                    requestStyleReapply()
                 }
             )
         }
@@ -1858,16 +1895,23 @@ struct FileEditView: View {
             ImageStyleEditorSheetContent(
                 imageAttachment: imageAttachment,
                 file: file,
-                onApply: { imageData, scale, alignment, hasCaption, captionPrefix, captionText, captionStyle in
+                onApply: { values in
                     updateImage(
                         attachment: imageAttachment,
-                        scale: scale,
-                        alignment: alignment,
-                        hasCaption: hasCaption,
-                        captionPrefix: captionPrefix,
-                        captionText: captionText,
-                        captionStyle: captionStyle
+                        imageStyleName: values.imageStyleName,
+                        scale: values.scale,
+                        alignment: values.alignment,
+                        hasCaption: values.hasCaption,
+                        captionPrefix: values.captionPrefix,
+                        captionText: values.captionText,
+                        captionStyle: values.captionStyle,
+                        spacingAbove: values.spacingAbove,
+                        spacingBelow: values.spacingBelow
                     )
+                    imageToEdit = nil
+                },
+                onUpdateStyle: { values in
+                    updateImageStyle(values, attachment: imageAttachment)
                     imageToEdit = nil
                 },
                 onCancel: {
@@ -1964,10 +2008,37 @@ struct FileEditView: View {
                 flushPendingEditorChanges(reason: "editor-will-terminate-flush")
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                reloadFromRemoteChangeIfSafe()
+                refreshRemoteContentAndStylesIfSafe()
             }
             .onReceive(NotificationCenter.default.publisher(for: .writingShedProSyncDidUpdateLocalData)) { _ in
-                reloadFromRemoteChangeIfSafe()
+                refreshRemoteContentAndStylesIfSafe()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .writeCoalescerDidFinishSave)) { _ in
+                guard hasPendingRemoteRefresh else { return }
+                hasPendingRemoteRefresh = false
+                refreshRemoteContentAndStylesIfSafe()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .formattedTextEditorDidEndEditing)) { notification in
+                guard let endedTextView = notification.object as? UITextView,
+                      endedTextView === textViewCoordinator.textView else { return }
+                if hasPendingStyleReapply {
+                    _ = commitPendingEditorSave(reason: "style-reapply-editing-ended")
+                }
+                attemptPendingStyleReapply()
+                if hasPendingRemoteRefresh {
+                    let committedPendingEdit: Bool
+                    if saveDebounceTimer != nil ||
+                        pendingDebouncedAttributedContent != nil ||
+                        pendingDebouncedSaveNeedsTextViewSnapshot {
+                        committedPendingEdit = commitPendingEditorSave(reason: "remote-refresh-editing-ended")
+                    } else {
+                        committedPendingEdit = false
+                    }
+                    if !committedPendingEdit {
+                        hasPendingRemoteRefresh = false
+                        refreshRemoteContentAndStylesIfSafe()
+                    }
+                }
             }
             .onAppear {
                 setupOnAppear()
@@ -2928,8 +2999,7 @@ struct FileEditView: View {
                     #if DEBUG
                     print("📝 onAppear: Reapplying styles to pick up any changes")
                     #endif
-                    reapplyAllStyles(registerUndo: false)  // Don't register undo for initial load
-                    markStylesReappliedOnOpen(for: project)
+                    requestStyleReapply()
                 } else {
                     #if DEBUG
                     if hasMissingAttachments {
@@ -3119,7 +3189,7 @@ struct FileEditView: View {
             #if DEBUG
             print("📋 Reapplying all styles due to stylesheet change")
             #endif
-            reapplyAllStyles(registerUndo: false)
+            requestStyleReapply()
         } else {
             #if DEBUG
             print("📋 Document is empty, skipping reapply")
@@ -3186,7 +3256,7 @@ struct FileEditView: View {
             #if DEBUG
             print("📝 Reapplying all styles due to style modification")
             #endif
-            reapplyAllStyles(registerUndo: false)
+            requestStyleReapply()
         } else {
             #if DEBUG
             print("📝 Document is empty, skipping reapply")
@@ -3475,6 +3545,7 @@ struct FileEditView: View {
         file.modifiedDate = Date()
 
         (coalescer ?? WriteCoalescer.shared)?.requestSave(reason: reason)
+        attemptPendingStyleReapply()
         return true
     }
 
@@ -7585,7 +7656,8 @@ struct FileEditView: View {
     /// - Existing images retain their custom scale/alignment settings
     /// - Similar to how manually bolded text keeps its formatting even if Body style changes
     /// - Parameter registerUndo: Whether to register an undo command for the style changes (default true, false for initial load)
-    private func reapplyAllStyles(registerUndo: Bool = true) {
+    @discardableResult
+    private func reapplyAllStyles(registerUndo: Bool = true) -> Bool {
         #if DEBUG
         print("🔄 ========== REAPPLY ALL STYLES START ==========")
         #endif
@@ -7601,7 +7673,7 @@ struct FileEditView: View {
             #if DEBUG
             print("🔄 ========== REAPPLY ALL STYLES END (NO PROJECT) ==========")
             #endif
-            return
+            return false
         }
         
         #if DEBUG
@@ -7614,20 +7686,25 @@ struct FileEditView: View {
         print("🔄 Stylesheet ID: \(project.styleSheet?.id.uuidString ?? "none")")
         #endif
         
+        let sourceContent = textViewCoordinator.textView.map {
+            NSAttributedString(attributedString: $0.attributedText)
+        } ?? attributedContent
+
         // If document is empty, nothing to reapply
-        guard attributedContent.length > 0 else {
+        guard sourceContent.length > 0 else {
             #if DEBUG
             print("📝 Document is empty - nothing to reapply")
             #endif
             #if DEBUG
             print("🔄 ========== REAPPLY ALL STYLES END (EMPTY) ==========")
             #endif
-            return
+            return true
         }
         
-        let mutableText = NSMutableAttributedString(attributedString: attributedContent)
+        let mutableText = NSMutableAttributedString(attributedString: sourceContent)
         var hasChanges = false
         var stylesFound = 0
+        var hasUnresolvedStyles = false
         
         // Walk through entire document and reapply all text styles
         mutableText.enumerateAttribute(
@@ -7653,6 +7730,7 @@ struct FileEditView: View {
                 for: project,
                 context: modelContext
             ) else {
+                hasUnresolvedStyles = true
                 #if DEBUG
                 print("⚠️ Could not resolve style '\(styleName)' for project '\(project.name ?? "unnamed")'")
                 #endif
@@ -7666,46 +7744,13 @@ struct FileEditView: View {
             // Get updated attributes from the style
             let newAttributes = updatedStyle.generateAttributes()
             guard let newFont = newAttributes[NSAttributedString.Key.font] as? UIFont else {
+                hasUnresolvedStyles = true
                 #if DEBUG
                 print("⚠️ Style '\(styleName)' has no font in generated attributes")
                 #endif
                 return
             }
 
-            // Merge style attributes with existing run-level traits so direct BIU formatting
-            // (bold/italic/underline/strikethrough) is preserved across style reapplication.
-            func mergedAttributesPreservingRunTraits(from currentAttrs: [NSAttributedString.Key: Any]) -> [NSAttributedString.Key: Any] {
-                var merged = newAttributes
-
-                let existingFont = currentAttrs[.font] as? UIFont ?? newFont
-                let existingTraits = existingFont.fontDescriptor.symbolicTraits
-                if !existingTraits.isEmpty,
-                   let descriptor = newFont.fontDescriptor.withSymbolicTraits(existingTraits) {
-                    merged[.font] = UIFont(descriptor: descriptor, size: newFont.pointSize)
-                } else {
-                    merged[.font] = newFont
-                }
-
-                if let attachment = currentAttrs[.attachment] {
-                    merged[.attachment] = attachment
-                }
-
-                if let poemSectionType = currentAttrs[.poemSectionType] {
-                    merged[.poemSectionType] = poemSectionType
-                    merged[.foregroundColor] = UIColor.systemGray
-                }
-
-                // Preserve direct character-level decorations unless the style explicitly defines them.
-                if merged[.underlineStyle] == nil, let underlineStyle = currentAttrs[.underlineStyle] {
-                    merged[.underlineStyle] = underlineStyle
-                }
-                if merged[.strikethroughStyle] == nil, let strikethroughStyle = currentAttrs[.strikethroughStyle] {
-                    merged[.strikethroughStyle] = strikethroughStyle
-                }
-
-                return merged
-            }
-            
             #if DEBUG
             print("📝 New font: \(newFont.fontName) \(newFont.pointSize)pt, bold=\(updatedStyle.isBold), italic=\(updatedStyle.isItalic)")
             #endif
@@ -7733,80 +7778,15 @@ struct FileEditView: View {
                 }
             }
             
-            // Check if this range contains an image attachment
-            var attachmentPosition: Int? = nil
-            var preservedParagraphStyle: NSParagraphStyle?
-            
-            // Check EVERY position in the range for attachments
-            for pos in range.location..<min(range.location + range.length, mutableText.length) {
-                let existingAttrs = mutableText.attributes(at: pos, effectiveRange: nil)
-                if existingAttrs[.attachment] != nil {
-                    attachmentPosition = pos
-                    // Preserve the attachment's paragraph style
-                    preservedParagraphStyle = existingAttrs[.paragraphStyle] as? NSParagraphStyle
-                    #if DEBUG
-                    print("   🖼️ Found attachment at position \(pos) within range {\(range.location), \(range.length)}")
-                    #endif
-                    break
-                }
-            }
-            
-            // Apply attributes based on whether we have an attachment
             #if DEBUG
             print("✅ Applying new attributes to range {\(range.location), \(range.length)}")
             #endif
-            if let attachmentPos = attachmentPosition {
-                #if DEBUG
-                print("   🖼️ Range contains attachment at position \(attachmentPos) - using selective application")
-                #endif
-
-                // Apply updated style attributes while preserving run-level font traits
-                // and leaving paragraph style handling to the dedicated logic below.
-                mutableText.enumerateAttributes(in: range, options: []) { currentAttrs, subrange, _ in
-                    var merged = mergedAttributesPreservingRunTraits(from: currentAttrs)
-                    merged.removeValue(forKey: .paragraphStyle)
-                    mutableText.setAttributes(merged, range: subrange)
-                }
-                
-                // Apply default left-aligned paragraph style to text portions
-                let defaultParagraphStyle = NSMutableParagraphStyle()
-                defaultParagraphStyle.alignment = .left
-                
-                // Apply to text BEFORE the image
-                if attachmentPos > range.location {
-                    let beforeRange = NSRange(location: range.location, length: attachmentPos - range.location)
-                    mutableText.addAttribute(.paragraphStyle, value: defaultParagraphStyle, range: beforeRange)
-                    #if DEBUG
-                    print("   📝 Applied left alignment to text before image: range {\(beforeRange.location), \(beforeRange.length)}")
-                    #endif
-                }
-                
-                // Apply to text AFTER the image
-                if attachmentPos < range.location + range.length - 1 {
-                    let afterStart = attachmentPos + 1
-                    let afterLength = (range.location + range.length) - afterStart
-                    if afterLength > 0 {
-                        let afterRange = NSRange(location: afterStart, length: afterLength)
-                        mutableText.addAttribute(.paragraphStyle, value: defaultParagraphStyle, range: afterRange)
-                        #if DEBUG
-                        print("   📝 Applied left alignment to text after image: range {\(afterRange.location), \(afterRange.length)}")
-                        #endif
-                    }
-                }
-                
-                // Preserve the image's original paragraph style
-                if let paragraphStyle = preservedParagraphStyle {
-                    mutableText.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: attachmentPos, length: 1))
-                    #if DEBUG
-                    print("   🖼️ Preserved image paragraph alignment at position \(attachmentPos)")
-                    #endif
-                }
-            } else {
-                // No attachment - apply updated style while preserving run-level traits.
-                mutableText.enumerateAttributes(in: range, options: []) { currentAttrs, subrange, _ in
-                    let merged = mergedAttributesPreservingRunTraits(from: currentAttrs)
-                    mutableText.setAttributes(merged, range: subrange)
-                }
+            mutableText.enumerateAttributes(in: range, options: []) { currentAttrs, subrange, _ in
+                let merged = StyleReapplicationAttributeMerger.merge(
+                    styleAttributes: newAttributes,
+                    currentAttributes: currentAttrs
+                )
+                mutableText.setAttributes(merged, range: subrange)
             }
             
             // Log what color is ACTUALLY in the text after we set it
@@ -7832,7 +7812,7 @@ struct FileEditView: View {
         print("🔄 Has changes: \(hasChanges)")
         #endif
 
-        if hasChanges && mutableText.isEqual(to: attributedContent) {
+        if hasChanges && mutableText.isEqual(to: sourceContent) {
             hasChanges = false
             #if DEBUG
             print("📝 Reapplied style output matches existing content - skipping open-time rewrite")
@@ -7841,8 +7821,13 @@ struct FileEditView: View {
         
         // Update document if any changes were made
         if hasChanges {
-            let beforeContent = attributedContent
+            let beforeContent = sourceContent
             attributedContent = mutableText
+            cancelPendingEditorSave()
+            file.currentVersion?.attributedContent = mutableText
+            previousAttributedContent = mutableText
+            file.modifiedDate = Date()
+            WriteCoalescer.shared?.requestSave(reason: "stylesheet-reapply")
             
             #if DEBUG
             print("✅ Updated attributedContent with new styles")
@@ -7939,6 +7924,37 @@ struct FileEditView: View {
         #if DEBUG
         print("🔄 ========== REAPPLY ALL STYLES END ==========")
         #endif
+        return !hasUnresolvedStyles
+    }
+
+    private func requestStyleReapply() {
+        hasPendingStyleReapply = true
+        attemptPendingStyleReapply()
+    }
+
+    private func attemptPendingStyleReapply() {
+        guard hasPendingStyleReapply,
+              !isReapplyingStyles,
+              saveDebounceTimer == nil,
+              !isPreviewingAsAlternateFormat,
+              !isPerformingUndoRedo,
+              !hasMissingAttachments,
+              !hasMismatchedFormattedContent,
+              !hasMissingSyncedBody,
+              attributedContent.length > 0,
+              !AttributedStringSerializer.isLegacyRTFFormat(file.currentVersion?.effectiveFormattedContent) else {
+            return
+        }
+
+        isReapplyingStyles = true
+        let completed = reapplyAllStyles(registerUndo: false)
+        isReapplyingStyles = false
+
+        guard completed else { return }
+        hasPendingStyleReapply = false
+        if let project = file.project {
+            markStylesReappliedOnOpen(for: project)
+        }
     }
 
     private func styleReapplyCacheKey(for project: Project) -> String? {
@@ -7952,15 +7968,10 @@ struct FileEditView: View {
             return false
         }
 
-        let styleModified = styleSheet.modifiedDate.timeIntervalSinceReferenceDate
+        let styleModifiedDate = styleSheet.latestStyleModifiedDate
+        let styleModified = styleModifiedDate.timeIntervalSinceReferenceDate
         let lastApplied = UserDefaults.standard.double(forKey: cacheKey)
         if lastApplied >= styleModified {
-            return false
-        }
-
-        if lastApplied == 0,
-           file.modifiedDate >= styleSheet.modifiedDate {
-            UserDefaults.standard.set(styleModified, forKey: cacheKey)
             return false
         }
 
@@ -7972,7 +7983,7 @@ struct FileEditView: View {
               let cacheKey = styleReapplyCacheKey(for: project) else {
             return
         }
-        UserDefaults.standard.set(styleSheet.modifiedDate.timeIntervalSinceReferenceDate, forKey: cacheKey)
+        UserDefaults.standard.set(styleSheet.latestStyleModifiedDate.timeIntervalSinceReferenceDate, forKey: cacheKey)
     }
 
     /// Apply a paragraph style to the current selection
@@ -8413,6 +8424,9 @@ struct FileEditView: View {
                     var alignment: ImageAttachment.ImageAlignment = .center
                     var hasCaption = false
                     var captionStyle = "UICTFontTextStyleCaption1"
+                    var imageStyleName = "default"
+                    var spacingAbove: CGFloat = 0
+                    var spacingBelow: CGFloat = 0
                     
                     if let project = self.file.project,
                        let stylesheet = project.styleSheet,
@@ -8422,6 +8436,9 @@ struct FileEditView: View {
                         alignment = defaultStyle.defaultAlignment
                         hasCaption = defaultStyle.hasCaptionByDefault
                         captionStyle = defaultStyle.defaultCaptionStyle
+                        imageStyleName = defaultStyle.name
+                        spacingAbove = defaultStyle.defaultSpacingAbove
+                        spacingBelow = defaultStyle.defaultSpacingBelow
                         #if DEBUG
                         print("🖼️ Using image style '\(defaultStyle.displayName)': scale=\(scale), alignment=\(alignment.rawValue)")
                         #endif
@@ -8453,6 +8470,9 @@ struct FileEditView: View {
                         hasCaption: hasCaption,
                         captionText: "",
                         captionStyle: captionStyle,
+                        imageStyleName: imageStyleName,
+                        spacingAbove: spacingAbove,
+                        spacingBelow: spacingBelow,
                         originalFilename: filename
                     )
                 }
@@ -8480,6 +8500,9 @@ struct FileEditView: View {
         hasCaption: Bool,
         captionText: String,
         captionStyle: String,
+        imageStyleName: String,
+        spacingAbove: CGFloat,
+        spacingBelow: CGFloat,
         originalFilename: String? = nil
     ) {
         guard let imageData = imageData else { return }
@@ -8496,6 +8519,9 @@ struct FileEditView: View {
             hasCaption: hasCaption,
             captionText: captionText,
             captionStyle: captionStyle,
+            imageStyleName: imageStyleName,
+            spacingAbove: spacingAbove,
+            spacingBelow: spacingBelow,
             originalFilename: originalFilename,
             targetFile: file
         )
@@ -9050,20 +9076,21 @@ struct FileEditView: View {
     /// but ONLY when the user is not actively typing. This keeps the Mac editor in sync with
     /// changes made on other devices without clobbering in-progress local edits.
     private func reloadFromRemoteChangeIfSafe() {
-        // Skip if user is actively typing (debounce timer is live)
-        guard saveDebounceTimer == nil else {
+        // Fresh contexts read SQLite, so reloading while the main context has an
+        // unsaved style reapply would restore the previous paragraph attributes.
+        if WriteCoalescer.shared?.pendingSave == true {
+            hasPendingRemoteRefresh = true
             #if DEBUG
-            print("⬇️ [Remote Refresh] Skipping reload — user is actively typing")
+            print("⬇️ [Remote Refresh] Deferring reload — local save is pending")
             #endif
             return
         }
-        // Do not replace the live editor while it is focused. CloudKit remote-change
-        // notifications can include echoes of older local state while a just-saved edit
-        // is still moving through persistent history; applying them here can remove a
-        // newly inserted attachment from the visible UITextView.
-        if textViewCoordinator.textView?.isFirstResponder == true {
+
+        // Skip if user is actively typing (debounce timer is live)
+        guard saveDebounceTimer == nil else {
+            hasPendingRemoteRefresh = true
             #if DEBUG
-            print("⬇️ [Remote Refresh] Skipping reload — editor is focused")
+            print("⬇️ [Remote Refresh] Deferring reload — user is actively typing")
             #endif
             return
         }
@@ -9126,6 +9153,10 @@ struct FileEditView: View {
         attributedContent = processedContent
         previousContent = processedContent.string
         previousAttributedContent = processedContent
+    }
+
+    private func refreshRemoteContentAndStylesIfSafe() {
+        reloadFromRemoteChangeIfSafe()
     }
     
     /// FEATURE 029: Extract all reference attachments and create metadata
@@ -9287,23 +9318,98 @@ struct FileEditView: View {
     }
     
     // MARK: - Image Editing
+
+    private func updateImageStyle(
+        _ values: ImageStyleEditorValues,
+        attachment: ImageAttachment
+    ) {
+        guard let styleSheet = file.project?.styleSheet,
+              let imageStyle = styleSheet.imageStyles?.first(where: { $0.name == values.imageStyleName }) else {
+            return
+        }
+
+        imageStyle.defaultScale = values.scale
+        imageStyle.defaultAlignment = values.alignment
+        imageStyle.hasCaptionByDefault = values.hasCaption
+        imageStyle.defaultCaptionStyle = values.captionStyle
+        imageStyle.defaultSpacingAbove = values.spacingAbove
+        imageStyle.defaultSpacingBelow = values.spacingBelow
+        imageStyle.modifiedDate = Date()
+        styleSheet.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "image-style-update")
+
+        if let content = file.currentVersion?.attributedContent {
+            content.enumerateAttribute(
+                .attachment,
+                in: NSRange(location: 0, length: content.length)
+            ) { value, _, stop in
+                guard let storedAttachment = value as? ImageAttachment,
+                      storedAttachment.imageID == attachment.imageID else { return }
+                storedAttachment.imageStyleName = imageStyle.name
+                stop.pointee = true
+            }
+        }
+
+        let updatedFiles = StyleSheetService.reapplyUpdatedImageStyle(imageStyle, in: styleSheet)
+        #if DEBUG
+        print("✅ Reapplied image style '\(imageStyle.name)' in \(updatedFiles) file(s)")
+        #endif
+
+        guard let updatedContent = file.currentVersion?.attributedContent else { return }
+        attributedContent = updatedContent
+        previousAttributedContent = updatedContent
+        if let textView = textViewCoordinator.textView {
+            textView.textStorage.setAttributedString(updatedContent)
+            textView.layoutManager.invalidateLayout(
+                forCharacterRange: NSRange(location: 0, length: updatedContent.length),
+                actualCharacterRange: nil
+            )
+            textView.layoutManager.invalidateDisplay(
+                forCharacterRange: NSRange(location: 0, length: updatedContent.length)
+            )
+            textView.setNeedsLayout()
+            textView.setNeedsDisplay()
+        }
+        selectedImage = attachment
+        refreshTrigger = UUID()
+    }
     
     /// Update an existing image attachment with new properties
     private func updateImage(
         attachment: ImageAttachment,
+        imageStyleName: String,
         scale: CGFloat,
         alignment: ImageAttachment.ImageAlignment,
         hasCaption: Bool,
         captionPrefix: String,
         captionText: String,
-        captionStyle: String
+        captionStyle: String,
+        spacingAbove: CGFloat,
+        spacingBelow: CGFloat
     ) {
         #if DEBUG
         print("🖼️ Updating image: scale=\(scale), alignment=\(alignment.rawValue)")
         #endif
         
-        // Find the attachment in the content
-        guard let position = findAttachmentPosition(attachment) else {
+        let sourceContent = textViewCoordinator.textView.map {
+            NSAttributedString(attributedString: $0.attributedText)
+        } ?? attributedContent
+        let mutableContent = NSMutableAttributedString(attributedString: sourceContent)
+
+        var storedAttachment: ImageAttachment?
+        var position: Int?
+        mutableContent.enumerateAttribute(
+            .attachment,
+            in: NSRange(location: 0, length: mutableContent.length)
+        ) { value, range, stop in
+            guard let candidate = value as? ImageAttachment,
+                  candidate.imageID == attachment.imageID else { return }
+            storedAttachment = candidate
+            position = range.location
+            stop.pointee = true
+        }
+
+        guard let storedAttachment, let position else {
             #if DEBUG
             print("❌ Could not find attachment in content")
             #endif
@@ -9311,79 +9417,96 @@ struct FileEditView: View {
         }
         
         // Capture the before state for undo/redo
-        let beforeContent = attributedContent
+        let beforeContent = sourceContent
         
         // Update the attachment properties
-        let oldScale = attachment.scale
-        let oldAlignment = attachment.alignment
-        let oldHasCaption = attachment.hasCaption
-        let oldCaptionPrefix = attachment.captionPrefix
-        let oldCaptionText = attachment.captionText
-        let oldCaptionStyle = attachment.captionStyle
-        
-        attachment.scale = scale
-        attachment.alignment = alignment
+        let oldScale = storedAttachment.scale
+        let oldAlignment = storedAttachment.alignment
+        let oldHasCaption = storedAttachment.hasCaption
+        let oldCaptionPrefix = storedAttachment.captionPrefix
+        let oldCaptionText = storedAttachment.captionText
+        let oldCaptionStyle = storedAttachment.captionStyle
+        let oldImageStyleName = storedAttachment.imageStyleName
+        let oldSpacingAbove = storedAttachment.spacingAbove
+        let oldSpacingBelow = storedAttachment.spacingBelow
+
+        storedAttachment.scale = scale
+        storedAttachment.alignment = alignment
+        storedAttachment.imageStyleName = imageStyleName
+        storedAttachment.spacingAbove = max(0, spacingAbove)
+        storedAttachment.spacingBelow = max(0, spacingBelow)
         #if DEBUG
         print("🖼️ FileEditView.updateImage() - About to update caption")
         #endif
-        attachment.updateCaption(hasCaption: hasCaption, prefix: captionPrefix, text: captionText, style: captionStyle)
+        storedAttachment.updateCaption(hasCaption: hasCaption, prefix: captionPrefix, text: captionText, style: captionStyle)
         #if DEBUG
-        print("   After update: hasCaption=\(attachment.hasCaption), prefix=\(attachment.captionPrefix ?? "nil"), text=\(attachment.captionText ?? "nil")")
+        print("   After update: hasCaption=\(storedAttachment.hasCaption), prefix=\(storedAttachment.captionPrefix ?? "nil"), text=\(storedAttachment.captionText ?? "nil")")
         #endif
         
-        // Update the paragraph alignment to match image alignment
-        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
-        let paragraphStyle = NSMutableParagraphStyle()
-        switch alignment {
-        case .left:
-            paragraphStyle.alignment = .left
-        case .center:
-            paragraphStyle.alignment = .center
-        case .right:
-            paragraphStyle.alignment = .right
-        case .inline:
-            paragraphStyle.alignment = .natural
-        }
-        
-        mutableContent.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: position, length: 1))
+        mutableContent.addAttribute(
+            .paragraphStyle,
+            value: storedAttachment.paragraphStyle(),
+            range: NSRange(location: position, length: 1)
+        )
         
         // Update the content
         attributedContent = mutableContent
         file.currentVersion?.attributedContent = mutableContent
         file.modifiedDate = Date()
+
+        if let textView = textViewCoordinator.textView {
+            textView.textStorage.setAttributedString(mutableContent)
+            let attachmentRange = NSRange(location: position, length: 1)
+            textView.textStorage.addAttribute(.attachment, value: storedAttachment, range: attachmentRange)
+            textView.textStorage.edited(.editedAttributes, range: attachmentRange, changeInLength: 0)
+            textView.selectedRange = NSRange(location: position, length: 1)
+            textView.layoutManager.invalidateLayout(
+                forCharacterRange: attachmentRange,
+                actualCharacterRange: nil
+            )
+            textView.layoutManager.invalidateDisplay(forCharacterRange: attachmentRange)
+            textView.layoutManager.ensureLayout(for: textView.textContainer)
+            textView.setNeedsDisplay()
+            textView.setNeedsLayout()
+            textView.layoutIfNeeded()
+        }
         
-        WriteCoalescer.shared?.requestSave()
+        WriteCoalescer.shared?.requestSave(reason: "image-editor-apply")
         
         // Create undo/redo command to restore image properties
         let command = ImageUpdateCommand(
             description: "Update Image",
             beforeContent: beforeContent,
             afterContent: mutableContent,
-            attachment: attachment,
+            attachment: storedAttachment,
             oldScale: oldScale,
             oldAlignment: oldAlignment,
             oldHasCaption: oldHasCaption,
             oldCaptionPrefix: oldCaptionPrefix,
             oldCaptionText: oldCaptionText,
             oldCaptionStyle: oldCaptionStyle,
+            oldImageStyleName: oldImageStyleName,
+            oldSpacingAbove: oldSpacingAbove,
+            oldSpacingBelow: oldSpacingBelow,
             newScale: scale,
             newAlignment: alignment,
             newHasCaption: hasCaption,
             newCaptionPrefix: captionPrefix,
             newCaptionText: captionText,
             newCaptionStyle: captionStyle,
+            newImageStyleName: imageStyleName,
+            newSpacingAbove: storedAttachment.spacingAbove,
+            newSpacingBelow: storedAttachment.spacingBelow,
             targetFile: file
         )
         undoManager.execute(command)
         
         // Keep the image selected and update the selection to the image position
-        selectedImage = attachment
+        selectedImage = storedAttachment
         
         // Set the selected range to the image position so when the view refreshes,
         // the selection is preserved
-        if let imagePosition = findAttachmentPosition(attachment) {
-            selectedRange = NSRange(location: imagePosition, length: 1)
-        }
+        selectedRange = NSRange(location: position, length: 1)
         
         // Trigger view refresh to show updated image
         // Note: We rely on the notification system in ImageAttachmentViewProvider to update the view
@@ -9394,18 +9517,6 @@ struct FileEditView: View {
         imageToEdit = nil
     }
     
-    /// Find the position of an attachment in the attributed content
-    private func findAttachmentPosition(_ targetAttachment: ImageAttachment) -> Int? {
-        var position: Int?
-        attributedContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedContent.length)) { value, range, stop in
-            if let attachment = value as? ImageAttachment,
-               attachment.imageID == targetAttachment.imageID {
-                position = range.location
-                stop.pointee = true
-            }
-        }
-        return position
-    }
 }
 
 // MARK: - New Comment Sheet
@@ -9497,7 +9608,8 @@ private struct NewFootnoteSheet: View {
 private struct ImageStyleEditorSheetContent: View {
     let imageAttachment: ImageAttachment
     let file: TextFile
-    let onApply: (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String, String) -> Void
+    let onApply: (ImageStyleEditorValues) -> Void
+    let onUpdateStyle: (ImageStyleEditorValues) -> Void
     let onCancel: () -> Void
     
     private var imageData: Data? {
@@ -9526,6 +9638,10 @@ private struct ImageStyleEditorSheetContent: View {
         // If still empty, use defaults anyway for display
         return existingDefaults.isEmpty ? defaults : existingDefaults
     }
+
+    private var imageStyles: [ImageStyle] {
+        styleSheet?.imageStyles ?? []
+    }
     
     var body: some View {
         ImageStyleEditorView(
@@ -9536,9 +9652,14 @@ private struct ImageStyleEditorSheetContent: View {
             captionPrefix: imageAttachment.captionPrefix ?? "Figure",
             captionText: imageAttachment.captionText ?? "",
             captionStyle: imageAttachment.captionStyle ?? "UICTFontTextStyleCaption1",
+            imageStyleName: imageAttachment.imageStyleName,
+            spacingAbove: imageAttachment.spacingAbove,
+            spacingBelow: imageAttachment.spacingBelow,
             availableCaptionStyles: captionStyles,
+            availableImageStyles: imageStyles,
             styleSheet: styleSheet,
             onApply: onApply,
+            onUpdateStyle: onUpdateStyle,
             onCancel: onCancel
         )
     }

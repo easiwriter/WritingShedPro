@@ -26,6 +26,40 @@ final class ImageAttachmentTests: XCTestCase {
         XCTAssertNil(attachment.captionText, "Caption text should be nil by default")
         XCTAssertNil(attachment.captionStyle, "Caption style should be nil by default")
         XCTAssertNil(attachment.fileID, "File ID should be nil by default")
+        XCTAssertEqual(attachment.spacingAbove, 0)
+        XCTAssertEqual(attachment.spacingBelow, 0)
+    }
+
+    func testImageSpacingSurvivesSecureCoding() throws {
+        let attachment = ImageAttachment()
+        attachment.spacingAbove = 12
+        attachment.spacingBelow = 8
+        attachment.captionPrefix = "Figure"
+
+        let data = try NSKeyedArchiver.archivedData(
+            withRootObject: attachment,
+            requiringSecureCoding: true
+        )
+        let decoded = try XCTUnwrap(
+            NSKeyedUnarchiver.unarchivedObject(ofClass: ImageAttachment.self, from: data)
+        )
+
+        XCTAssertEqual(decoded.spacingAbove, 12)
+        XCTAssertEqual(decoded.spacingBelow, 8)
+        XCTAssertEqual(decoded.captionPrefix, "Figure")
+    }
+
+    func testImageSpacingProducesParagraphLayoutAttributes() {
+        let attachment = ImageAttachment()
+        attachment.alignment = .center
+        attachment.spacingAbove = 12
+        attachment.spacingBelow = 8
+
+        let paragraphStyle = attachment.paragraphStyle()
+
+        XCTAssertEqual(paragraphStyle.alignment, .center)
+        XCTAssertEqual(paragraphStyle.paragraphSpacingBefore, 12)
+        XCTAssertEqual(paragraphStyle.paragraphSpacing, 8)
     }
     
     func testFileIDProperty() {
@@ -41,6 +75,18 @@ final class ImageAttachmentTests: XCTestCase {
     }
     
     // MARK: - Scale Tests
+
+    func testImageScaleInputParsesPercentageForApply() {
+        XCTAssertEqual(ImageScaleInput.scale(from: "75"), 0.75)
+        XCTAssertEqual(ImageScaleInput.scale(from: " 125 "), 1.25)
+    }
+
+    func testImageScaleInputRejectsInvalidPercentage() {
+        XCTAssertNil(ImageScaleInput.scale(from: ""))
+        XCTAssertNil(ImageScaleInput.scale(from: "9"))
+        XCTAssertNil(ImageScaleInput.scale(from: "201"))
+        XCTAssertNil(ImageScaleInput.scale(from: "abc"))
+    }
     
     func testSetScale() {
         // Given
@@ -304,6 +350,30 @@ final class ImageAttachmentTests: XCTestCase {
         attachment.setScale(0.5)
         XCTAssertEqual(attachment.displaySize(forAvailableWidth: 600).width, 300, accuracy: 0.1,
                        "At 50% scale the image occupies half the 600pt column")
+    }
+
+    func testTextKitLayoutUpdatesAfterScaleAttributeEdit() {
+        let attachment = ImageAttachment()
+        attachment.image = createTestImage(width: 1200, height: 600)
+        attachment.setScale(0.5)
+
+        let textStorage = NSTextStorage(attributedString: NSAttributedString(attachment: attachment))
+        let layoutManager = NSLayoutManager()
+        let textContainer = NSTextContainer(size: CGSize(width: 400, height: 1_000))
+        textContainer.lineFragmentPadding = 0
+        textStorage.addLayoutManager(layoutManager)
+        layoutManager.addTextContainer(textContainer)
+        layoutManager.ensureLayout(for: textContainer)
+        let initialWidth = layoutManager.usedRect(for: textContainer).width
+
+        attachment.setScale(1.0)
+        let attachmentRange = NSRange(location: 0, length: 1)
+        textStorage.addAttribute(.attachment, value: attachment, range: attachmentRange)
+        textStorage.edited(.editedAttributes, range: attachmentRange, changeInLength: 0)
+        layoutManager.invalidateLayout(forCharacterRange: attachmentRange, actualCharacterRange: nil)
+        layoutManager.ensureLayout(for: textContainer)
+
+        XCTAssertGreaterThan(layoutManager.usedRect(for: textContainer).width, initialWidth)
     }
     
     func testDisplaySizeWithoutImage() {

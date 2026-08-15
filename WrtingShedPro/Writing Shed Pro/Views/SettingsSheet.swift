@@ -43,13 +43,6 @@ struct SettingsSheet: View {
                     
                     Button {
                         dismissSheet()
-                        state.showStore = true
-                    } label: {
-                        Label("Manage Purchases", systemImage: "cart")
-                    }
-                    
-                    Button {
-                        dismissSheet()
                         state.showManageStyles = true
                     } label: {
                         Label("Stylesheet Editor", systemImage: "paintbrush")

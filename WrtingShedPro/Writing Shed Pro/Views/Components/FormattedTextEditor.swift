@@ -2,6 +2,10 @@ import SwiftUI
 import UIKit
 import SwiftData
 
+extension Notification.Name {
+    static let formattedTextEditorDidEndEditing = Notification.Name("FormattedTextEditorDidEndEditing")
+}
+
 struct TextEditorChange {
     let attributedText: NSAttributedString
     let range: NSRange?
@@ -44,6 +48,59 @@ enum FormattedTextEditorAttachmentComparison {
         }
 
         return signature
+    }
+}
+
+enum FormattedTextEditorContentComparison {
+    static func hasExternalAttributeChange(
+        current: NSAttributedString,
+        incoming: NSAttributedString,
+        bindingObjectChanged: Bool,
+        isProcessingUserTextChange: Bool
+    ) -> Bool {
+        guard current.string == incoming.string,
+              bindingObjectChanged,
+              !isProcessingUserTextChange else {
+            return false
+        }
+
+        return !current.isEqual(to: incoming)
+    }
+}
+
+enum FormattedTextEditorImageBoundary {
+    static func isImmediatelyAfterImage(in attributedString: NSAttributedString, location: Int) -> Bool {
+        guard location > 0, location <= attributedString.length else { return false }
+
+        let string = attributedString.string as NSString
+        var index = location - 1
+        var skippedNewline = false
+
+        while index >= 0 {
+            let character = string.character(at: index)
+            if character == 0x200B {
+                index -= 1
+                continue
+            }
+            if character == 0x0A, !skippedNewline {
+                skippedNewline = true
+                index -= 1
+                continue
+            }
+            return attributedString.attribute(.attachment, at: index, effectiveRange: nil) is ImageAttachment
+        }
+
+        return false
+    }
+
+    static func bodyParagraphInsertion(
+        currentAttributes: [NSAttributedString.Key: Any],
+        bodyAttributes: [NSAttributedString.Key: Any]
+    ) -> NSAttributedString {
+        let insertion = NSMutableAttributedString()
+        insertion.append(NSAttributedString(string: "\n", attributes: currentAttributes))
+        insertion.append(NSAttributedString(string: "\u{200B}", attributes: bodyAttributes))
+        return insertion
     }
 }
 
@@ -353,7 +410,6 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         layoutManager.project = project
         layoutManager.showInvisibles = showInvisibles
         layoutManager.showDocumentLineNumbers = showLineNumbers
-        layoutManager.drawDocumentExtraLineInBackground = false
         
         textStorage.addLayoutManager(layoutManager)
         layoutManager.addTextContainer(textContainer)
@@ -520,6 +576,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         
         // Set initial content - this should be done AFTER layout configuration
         textView.attributedText = attributedText
+        context.coordinator.lastObservedAttributedText = attributedText
         
         // Initialize previousTextLength for paste detection
         context.coordinator.previousTextLength = attributedText.length
@@ -663,6 +720,9 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             return
         }
         
+        let bindingObjectChanged = attributedText !== context.coordinator.lastObservedAttributedText
+        context.coordinator.lastObservedAttributedText = attributedText
+
         let textViewString = textViewAttrs.string
         let newString = attributedText.string
         let stringsMatch = textViewString == newString
@@ -671,6 +731,12 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             ? FormattedTextEditorAttachmentComparison.attachmentsMatch(textViewAttrs, attributedText, includeLocation: stringsMatch)
             : true
         let hasAttachmentChange = !attachmentsMatch
+        let hasAttributeChange = FormattedTextEditorContentComparison.hasExternalAttributeChange(
+            current: textViewAttrs,
+            incoming: attributedText,
+            bindingObjectChanged: bindingObjectChanged,
+            isProcessingUserTextChange: context.coordinator.isProcessingUserTextChange
+        )
 
         if !stringsMatch, textView.isFirstResponder, !hasAttachmentChange {
             return
@@ -688,14 +754,10 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         }
         #endif
         
-        // PERFORMANCE FIX: Only update text storage if text content actually changed
-        // The expensive isEqual(to:) comparison was causing update loops with large documents
-        // because it compares every attribute of every character (O(n) where n = length × attributes)
-        // and dictionary key ordering differences caused false positives.
-        // For most attribute-only updates from formatting, textViewDidChange will handle it.
-        // Attachment identity is the important exception: losing the attachment attribute leaves
-        // the same U+FFFC character in the string, but the marker/image/comment disappears visually.
-        if !stringsMatch || !attachmentsMatch {
+        // Compare all attributes only when SwiftUI supplies a different attributed-string object.
+        // This keeps routine view updates cheap while still rendering external formatting changes
+        // such as paragraph spacing, alignment, font, and colour.
+        if !stringsMatch || !attachmentsMatch || hasAttributeChange {
             // Text content changed - need to update
             // Set flag to prevent feedback from delegate
             context.coordinator.isUpdatingFromSwiftUI = true
@@ -955,6 +1017,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         var parent: LegacyFormattedTextEditor
         var isUpdatingFromSwiftUI = false
         weak var textView: UITextView?
+        var lastObservedAttributedText: NSAttributedString?
         var previousSelection: NSRange = NSRange(location: 0, length: 0)
         var previousTextLength: Int = 0  // Track text length to detect paste operations
         var currentZoomScale: CGFloat = 1.0
@@ -1164,10 +1227,29 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                 if range.location > 0, let attrText = textView.attributedText {
                     var attrs = attrText.attributes(at: range.location > 0 ? range.location - 1 : 0, effectiveRange: nil)
 
-                    // If Enter is pressed after an attachment (e.g., image), start a normal body paragraph.
-                    // Attachment attributes can carry non-body paragraph alignment/formatting.
-                    if attrs[.attachment] != nil {
-                        attrs = resolvedBodyStyleAttributes()
+                    // Images use a synthetic newline/ZWS boundary for caret navigation, so the
+                    // character immediately before the caret is not always the attachment itself.
+                    let isAfterImage = FormattedTextEditorImageBoundary.isImmediatelyAfterImage(
+                        in: attrText,
+                        location: range.location
+                    )
+                    if isAfterImage {
+                        let bodyAttributes = resolvedBodyStyleAttributes()
+                        let insertion = FormattedTextEditorImageBoundary.bodyParagraphInsertion(
+                            currentAttributes: attrs,
+                            bodyAttributes: bodyAttributes
+                        )
+                        textView.textStorage.replaceCharacters(in: range, with: insertion)
+
+                        let newCursorPosition = range.location + insertion.length
+                        textView.selectedRange = NSRange(location: newCursorPosition, length: 0)
+                        textView.typingAttributes = bodyAttributes
+                        refreshLineNumberDisplay(in: textView, from: range.location - 1)
+
+                        pendingChangeRange = range
+                        pendingReplacementText = "\n\u{200B}"
+                        self.textViewDidChange(textView)
+                        return false
                     }
 
                     var useFollowOnStyle = false
@@ -1643,6 +1725,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             #if targetEnvironment(macCatalyst)
             flushPendingSimpleTypingChange()
             #endif
+            NotificationCenter.default.post(name: .formattedTextEditorDidEndEditing, object: textView)
         }
 
         @objc func flushPendingTypingNotification(_ notification: Notification) {
@@ -2189,9 +2272,6 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
 
 /// Custom UITextView subclass to support inputAccessoryView
 private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
-    private let documentLineNumberWidth: CGFloat = 56
-    private let documentLineNumberFontSize: CGFloat = 14
-
     private final class FallbackSelectionRect: UITextSelectionRect {
         private let fallbackRect: CGRect
 
@@ -2739,59 +2819,6 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         }
     }
 
-    private func drawDocumentLineNumber(_ lineNumber: Int, at lineFragmentRect: CGRect) {
-        let numberString = "\(lineNumber)" as NSString
-        let numberAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.monospacedDigitSystemFont(ofSize: documentLineNumberFontSize, weight: .regular),
-            .foregroundColor: UIColor.secondaryLabel
-        ]
-
-        let numberSize = numberString.size(withAttributes: numberAttributes)
-        let numberRect = CGRect(
-            x: textContainerInset.left - documentLineNumberWidth + 6,
-            y: textContainerInset.top + lineFragmentRect.origin.y + (lineFragmentRect.height - numberSize.height) / 2,
-            width: documentLineNumberWidth - 10,
-            height: numberSize.height
-        )
-
-        numberString.draw(in: numberRect, withAttributes: numberAttributes)
-    }
-
-    private func drawEditorExtraLineNumberIfNeeded(in rect: CGRect, using layoutManager: NumberingLayoutManager) {
-        guard layoutManager.showDocumentLineNumbers,
-                            !layoutManager.isDecorativeDrawingSuppressed,
-              !layoutManager.isPaginatedView,
-              layoutManager.extraLineFragmentTextContainer === textContainer else {
-            return
-        }
-
-        if textStorage.length == 0 {
-            let emptyRect = layoutManager.extraLineFragmentRect.isEmpty
-                ? CGRect(x: 0, y: 0, width: 100, height: UIFont.preferredFont(forTextStyle: .body).lineHeight)
-                : layoutManager.extraLineFragmentRect
-            drawDocumentLineNumber(1, at: emptyRect)
-            return
-        }
-
-        let extraRect = layoutManager.extraLineFragmentRect
-        guard !extraRect.isEmpty else {
-            return
-        }
-
-        let translatedExtraRect = extraRect.offsetBy(dx: textContainerInset.left, dy: textContainerInset.top)
-        guard translatedExtraRect.intersects(rect) else {
-            return
-        }
-
-        var lineNumber = 1
-        let fullGlyphRange = NSRange(location: 0, length: layoutManager.numberOfGlyphs)
-        layoutManager.enumerateLineFragments(forGlyphRange: fullGlyphRange) { _, _, _, _, _ in
-            lineNumber += 1
-        }
-
-        drawDocumentLineNumber(lineNumber, at: extraRect)
-    }
-
     private func hasOnlyInvisiblePlaceholderText() -> Bool {
         let length = textStorage.length
         guard length > 0 else { return true }
@@ -2814,10 +2841,6 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     // Custom drawing for empty document numbering (Feature 016)
     override func draw(_ rect: CGRect) {
         super.draw(rect)
-
-        if let numberingLayoutManager = layoutManager as? NumberingLayoutManager {
-            drawEditorExtraLineNumberIfNeeded(in: rect, using: numberingLayoutManager)
-        }
         
         // For empty documents (or documents with only invisible chars like zero-width space),
         // draw the number based on either the typingAttributes or the current style

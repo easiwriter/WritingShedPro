@@ -137,6 +137,7 @@ final class MarkdownExportServiceTests: XCTestCase {
         let attachmentID = UUID()
         let footnote = FootnoteModel(
             version: version,
+            characterPosition: 4,
             attachmentID: attachmentID,
             text: "This is the note.",
             number: 1

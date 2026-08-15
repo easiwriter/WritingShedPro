@@ -50,6 +50,13 @@ struct ProjectFolderMigrationService {
     /// Runs only the safe publication-target folder/type migration.
     /// This is separate from the older folder migrations, which remain disabled at app launch.
     static func migratePublicationTargetsIfNeeded(modelContext: ModelContext) {
+        guard EnsemblesSaveGate.canSaveNow(
+            reason: "publication-target-migration",
+            context: modelContext
+        ) else {
+            return
+        }
+
         let lastVersion = UserDefaults.standard.integer(forKey: publicationTargetMigrationVersionKey)
         let hasLegacyCommissions = hasLegacyCommissionData(modelContext: modelContext)
         let hasMissingPublicationFolders = hasMissingStandardPublicationFolders(modelContext: modelContext)

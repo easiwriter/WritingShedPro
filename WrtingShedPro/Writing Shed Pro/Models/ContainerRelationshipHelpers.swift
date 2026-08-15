@@ -2,14 +2,38 @@
 //  ContainerRelationshipHelpers.swift
 //  Writing Shed Pro
 //
-//  Convenience methods for many-to-many container relationships.
-//  All many-to-many relationships use join tables for CloudKit compatibility.
-//  TextFile ↔ PoetryCollection, TextFile ↔ ProseSection
-//  StoryScene ↔ Chapter, StoryScene ↔ Act, StoryScene ↔ Book
+//  Convenience methods for container relationships.
+//  Join tables are retained for CloudKit and archive compatibility.
+//  Each item has one optional assignment per applicable container type.
 //
 
 import Foundation
 import SwiftData
+
+protocol ContainerDisplayOrderable {
+    var id: UUID { get }
+    var name: String? { get }
+    var userOrder: Int? { get }
+}
+
+extension PoetryCollection: ContainerDisplayOrderable {}
+extension ProseSection: ContainerDisplayOrderable {}
+extension Chapter: ContainerDisplayOrderable {}
+extension Act: ContainerDisplayOrderable {}
+extension Book: ContainerDisplayOrderable {}
+
+enum ContainerDisplayOrder {
+    static func isOrdered<T: ContainerDisplayOrderable>(_ lhs: T, _ rhs: T) -> Bool {
+        let lhsOrder = lhs.userOrder ?? Int.max
+        let rhsOrder = rhs.userOrder ?? Int.max
+        if lhsOrder != rhsOrder { return lhsOrder < rhsOrder }
+
+        let nameComparison = (lhs.name ?? "").localizedCaseInsensitiveCompare(rhs.name ?? "")
+        if nameComparison != .orderedSame { return nameComparison == .orderedAscending }
+
+        return lhs.id.uuidString < rhs.id.uuidString
+    }
+}
 
 // MARK: - TextFile Container Helpers
 
@@ -19,140 +43,64 @@ extension TextFile {
     
     /// Whether this file belongs to the given poetry collection
     func isInPoetryCollection(_ collection: PoetryCollection) -> Bool {
-        if poetryCollectionLinks?.contains(where: { $0.poetryCollectionID == collection.id || $0.poetryCollection?.id == collection.id }) == true {
-            return true
-        }
-
-        guard let context = modelContext else { return false }
-        let descriptor = FetchDescriptor<TextFileCollectionLink>()
-        let links = (try? context.fetch(descriptor)) ?? []
-        return links.contains { link in
-            (link.textFileID == id || link.textFile?.id == id) &&
-            (link.poetryCollectionID == collection.id || link.poetryCollection?.id == collection.id)
-        }
+        poetryCollection?.id == collection.id
     }
     
-    /// Add this file to a poetry collection (no-op if already a member)
+    /// Assign this file to one poetry collection, replacing any prior assignment.
     func addToPoetryCollection(_ collection: PoetryCollection) {
-        guard !isInPoetryCollection(collection) else { return }
-        let link = TextFileCollectionLink(textFileID: id, poetryCollectionID: collection.id)
-        modelContext?.insert(link)
+        guard poetryCollection?.id != collection.id else { return }
+        poetryCollection?.modifiedDate = Date()
+        poetryCollection = collection
         modifiedDate = Date()
         collection.modifiedDate = Date()
     }
     
     /// Remove this file from a specific poetry collection
     func removeFromPoetryCollection(_ collection: PoetryCollection) {
-        let links = poetryCollectionLinks ?? []
-        let removedLinkIDs = Set(
-            links
-                .filter { $0.poetryCollectionID == collection.id || $0.poetryCollection?.id == collection.id }
-                .map { $0.id }
-        )
-        let contextLinks: [TextFileCollectionLink]
-        if let context = modelContext {
-            contextLinks = (try? context.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
-        } else {
-            contextLinks = []
-        }
-        let collectionSideRemovedLinkIDs = Set(
-            contextLinks
-                .filter { ($0.textFileID == id || $0.textFile?.id == id) && ($0.poetryCollectionID == collection.id || $0.poetryCollection?.id == collection.id) }
-                .map { $0.id }
-        )
-
-        for link in links where link.poetryCollectionID == collection.id || link.poetryCollection?.id == collection.id {
-            modelContext?.delete(link)
-        }
-        for link in contextLinks where (link.textFileID == id || link.textFile?.id == id) && (link.poetryCollectionID == collection.id || link.poetryCollection?.id == collection.id) && !removedLinkIDs.contains(link.id) {
-            modelContext?.delete(link)
-        }
-
-        if !removedLinkIDs.isEmpty || !collectionSideRemovedLinkIDs.isEmpty {
-            modifiedDate = Date()
-            collection.modifiedDate = Date()
-        }
+        guard poetryCollection?.id == collection.id else { return }
+        poetryCollection = nil
+        modifiedDate = Date()
+        collection.modifiedDate = Date()
     }
     
     /// Remove this file from all poetry collections
     func removeFromAllPoetryCollections() {
-        guard let context = modelContext else {
-            poetryCollectionLinks = []
-            modifiedDate = Date()
-            return
-        }
-
-        let contextLinks = (try? context.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
-        let matchingLinks = contextLinks.filter { $0.resolvedTextFileID == id }
-
-        for link in matchingLinks {
-            if let collection = link.poetryCollection {
-                collection.modifiedDate = Date()
-            }
-            context.delete(link)
-        }
-        poetryCollectionLinks = []
+        guard let existingCollection = poetryCollection else { return }
+        existingCollection.modifiedDate = Date()
+        poetryCollection = nil
         modifiedDate = Date()
-    }
-    
-    /// The first (or only) poetry collection — backwards-compat convenience
-    var poetryCollection: PoetryCollection? {
-        get { poetryCollections?.first }
-        set {
-            removeFromAllPoetryCollections()
-            if let c = newValue {
-                addToPoetryCollection(c)
-            }
-        }
     }
     
     // MARK: Prose Section
     
     /// Whether this file belongs to the given prose section
     func isInSection(_ section: ProseSection) -> Bool {
-        sectionLinks?.contains(where: { $0.section?.id == section.id }) ?? false
+        self.section?.id == section.id
     }
     
-    /// Add this file to a prose section (no-op if already a member)
+    /// Assign this file to a prose section, replacing any prior assignment.
     func addToSection(_ section: ProseSection) {
-        guard !isInSection(section) else { return }
-        let link = TextFileSectionLink(textFile: self, section: section)
-        modelContext?.insert(link)
-        if sectionLinks == nil { sectionLinks = [] }
-        sectionLinks?.append(link)
+        guard self.section?.id != section.id else { return }
+        self.section?.modifiedDate = Date()
+        self.section = section
+        modifiedDate = Date()
         section.modifiedDate = Date()
     }
     
     /// Remove this file from a specific prose section
     func removeFromSection(_ section: ProseSection) {
-        guard let links = sectionLinks else { return }
-        for link in links where link.section?.id == section.id {
-            modelContext?.delete(link)
-        }
-        sectionLinks?.removeAll(where: { $0.section?.id == section.id })
+        guard self.section?.id == section.id else { return }
+        self.section = nil
+        modifiedDate = Date()
         section.modifiedDate = Date()
     }
     
     /// Remove this file from all prose sections
     func removeFromAllSections() {
-        for link in sectionLinks ?? [] {
-            modelContext?.delete(link)
-            if let section = link.section {
-                section.modifiedDate = Date()
-            }
-        }
-        sectionLinks = []
-    }
-    
-    /// The first (or only) section — backwards-compat convenience
-    var section: ProseSection? {
-        get { sections?.first }
-        set {
-            removeFromAllSections()
-            if let s = newValue {
-                addToSection(s)
-            }
-        }
+        guard let existingSection = section else { return }
+        existingSection.modifiedDate = Date()
+        section = nil
+        modifiedDate = Date()
     }
 }
 
@@ -164,146 +112,95 @@ extension StoryScene {
     
     /// Whether this scene belongs to the given chapter
     func isInChapter(_ chapter: Chapter) -> Bool {
-        chapterLinks?.contains(where: { $0.chapter?.id == chapter.id }) ?? false
+        self.chapter?.id == chapter.id
     }
     
-    /// Add this scene to a chapter (no-op if already a member)
+    /// Assign this scene to a chapter, replacing any prior assignment.
     func addToChapter(_ chapter: Chapter) {
-        guard !isInChapter(chapter) else { return }
-        let link = SceneChapterLink(scene: self, chapter: chapter)
-        modelContext?.insert(link)
-        if chapterLinks == nil { chapterLinks = [] }
-        chapterLinks?.append(link)
+        guard self.chapter?.id != chapter.id else { return }
+        self.chapter?.modifiedDate = Date()
+        self.chapter = chapter
+        modifiedDate = Date()
         chapter.modifiedDate = Date()
     }
     
     /// Remove this scene from a specific chapter
     func removeFromChapter(_ chapter: Chapter) {
-        guard let links = chapterLinks else { return }
-        for link in links where link.chapter?.id == chapter.id {
-            modelContext?.delete(link)
-        }
-        chapterLinks?.removeAll(where: { $0.chapter?.id == chapter.id })
+        guard self.chapter?.id == chapter.id else { return }
+        self.chapter = nil
+        modifiedDate = Date()
         chapter.modifiedDate = Date()
     }
     
     /// Remove this scene from all chapters
     func removeFromAllChapters() {
-        for link in chapterLinks ?? [] {
-            modelContext?.delete(link)
-            if let chapter = link.chapter {
-                chapter.modifiedDate = Date()
-            }
-        }
-        chapterLinks = []
-    }
-    
-    /// The first (or only) chapter — backwards-compat convenience
-    var chapter: Chapter? {
-        get { chapters?.first }
-        set {
-            removeFromAllChapters()
-            if let c = newValue {
-                addToChapter(c)
-            }
-        }
+        guard let existingChapter = chapter else { return }
+        existingChapter.modifiedDate = Date()
+        chapter = nil
+        modifiedDate = Date()
     }
     
     // MARK: Act
     
     /// Whether this scene belongs to the given act
     func isInAct(_ act: Act) -> Bool {
-        actLinks?.contains(where: { $0.act?.id == act.id }) ?? false
+        self.act?.id == act.id
     }
     
-    /// Add this scene to an act (no-op if already a member)
+    /// Assign this scene to an act, replacing any prior assignment.
     func addToAct(_ act: Act) {
-        guard !isInAct(act) else { return }
-        let link = SceneActLink(scene: self, act: act)
-        modelContext?.insert(link)
-        if actLinks == nil { actLinks = [] }
-        actLinks?.append(link)
+        guard self.act?.id != act.id else { return }
+        self.act?.modifiedDate = Date()
+        self.act = act
+        modifiedDate = Date()
         act.modifiedDate = Date()
     }
     
     /// Remove this scene from a specific act
     func removeFromAct(_ act: Act) {
-        guard let links = actLinks else { return }
-        for link in links where link.act?.id == act.id {
-            modelContext?.delete(link)
-        }
-        actLinks?.removeAll(where: { $0.act?.id == act.id })
+        guard self.act?.id == act.id else { return }
+        self.act = nil
+        modifiedDate = Date()
         act.modifiedDate = Date()
     }
     
     /// Remove this scene from all acts
     func removeFromAllActs() {
-        for link in actLinks ?? [] {
-            modelContext?.delete(link)
-            if let act = link.act {
-                act.modifiedDate = Date()
-            }
-        }
-        actLinks = []
-    }
-    
-    /// The first (or only) act — backwards-compat convenience
-    var act: Act? {
-        get { acts?.first }
-        set {
-            removeFromAllActs()
-            if let a = newValue {
-                addToAct(a)
-            }
-        }
+        guard let existingAct = act else { return }
+        existingAct.modifiedDate = Date()
+        act = nil
+        modifiedDate = Date()
     }
     
     // MARK: Book
     
     /// Whether this scene belongs to the given book
     func isInBook(_ book: Book) -> Bool {
-        bookLinks?.contains(where: { $0.book?.id == book.id }) ?? false
+        self.book?.id == book.id
     }
     
-    /// Add this scene to a book (no-op if already a member)
+    /// Assign this scene to a book, replacing any prior assignment.
     func addToBook(_ book: Book) {
-        guard !isInBook(book) else { return }
-        let link = SceneBookLink(scene: self, book: book)
-        modelContext?.insert(link)
-        if bookLinks == nil { bookLinks = [] }
-        bookLinks?.append(link)
+        guard self.book?.id != book.id else { return }
+        self.book?.modifiedDate = Date()
+        self.book = book
+        modifiedDate = Date()
         book.modifiedDate = Date()
     }
     
     /// Remove this scene from a specific book
     func removeFromBook(_ book: Book) {
-        guard let links = bookLinks else { return }
-        for link in links where link.book?.id == book.id {
-            modelContext?.delete(link)
-        }
-        bookLinks?.removeAll(where: { $0.book?.id == book.id })
+        guard self.book?.id == book.id else { return }
+        self.book = nil
+        modifiedDate = Date()
         book.modifiedDate = Date()
     }
     
     /// Remove this scene from all books
     func removeFromAllBooks() {
-        for link in bookLinks ?? [] {
-            modelContext?.delete(link)
-            if let book = link.book {
-                book.modifiedDate = Date()
-            }
-        }
-        bookLinks = []
-    }
-    
-    /// The first (or only) book — backwards-compat convenience
-    var book: Book? {
-        get { books?.first }
-        set {
-            removeFromAllBooks()
-            if let b = newValue {
-                addToBook(b)
-            }
-        }
+        guard let existingBook = book else { return }
+        existingBook.modifiedDate = Date()
+        book = nil
+        modifiedDate = Date()
     }
 }

@@ -15,7 +15,7 @@ const RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
 const MAX_QUERY_LENGTH = 2000;
 const MAX_DIAGNOSTICS_LENGTH = 12000;
 const MAX_ANALYST_CONTENT_LENGTH = 120000;
-const ANALYST_CACHE_VERSION = "v3";
+const ANALYST_CACHE_VERSION = "v7";
 const ANALYST_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
 const MAX_MESSAGE_TITLE_LENGTH = 200;
 const MAX_MESSAGE_BODY_LENGTH = 4000;
@@ -1842,7 +1842,10 @@ function buildAnalystUserPrompt(content, metadata, options, analysisProfile) {
         }
     }
     
-    const numberedContent = addSourceLineNumbers(content || "");
+    const numberedContent = addSourceLineNumbers(content || "", {
+        skipMatchingTitles: projectType === "poetry",
+        fileName: metadata.fileName,
+    });
     prompt += `\nSource (line-numbered):\n${numberedContent}\n\n`;
     
     if (options?.focusAreas && options.focusAreas.length > 0) {
@@ -1854,7 +1857,7 @@ function buildAnalystUserPrompt(content, metadata, options, analysisProfile) {
     return prompt;
 }
 
-function addSourceLineNumbers(content) {
+function addSourceLineNumbers(content, options = {}) {
     const lines = String(content).replace(/\r\n?/g, "\n").split("\n");
 
     // If content is already line-numbered (e.g. "0001 | ..."), keep it as-is.
@@ -1863,9 +1866,32 @@ function addSourceLineNumbers(content) {
         return lines.join("\n");
     }
 
+    let lineNumber = 0;
+    let expectedTitle = options.skipMatchingTitles ? normalizeSourceTitle(options.fileName) : null;
     return lines
-        .map((line, idx) => `${String(idx + 1).padStart(4, "0")} | ${line}`)
+        .map((line) => {
+            const trimmed = line.trim();
+            const modernBoundary = trimmed.match(/^\[\[WSP_FILE:\s*(.+)\]\]$/);
+            const legacyBoundary = trimmed.match(/^---\s+(.+)\s+---$/);
+            const boundaryTitle = modernBoundary?.[1] || legacyBoundary?.[1];
+            if (boundaryTitle) {
+                expectedTitle = options.skipMatchingTitles ? normalizeSourceTitle(boundaryTitle) : null;
+                return line;
+            }
+            if (trimmed.length === 0) return line;
+            if (expectedTitle && normalizeSourceTitle(trimmed) === expectedTitle) {
+                expectedTitle = null;
+                return line;
+            }
+            expectedTitle = null;
+            lineNumber += 1;
+            return `${String(lineNumber).padStart(4, "0")} | ${line}`;
+        })
         .join("\n");
+}
+
+function normalizeSourceTitle(value) {
+    return String(value || "").trim().replace(/\s+/g, " ").toLocaleLowerCase();
 }
 
 function parseAnalysisResponse(text, analysisProfile) {

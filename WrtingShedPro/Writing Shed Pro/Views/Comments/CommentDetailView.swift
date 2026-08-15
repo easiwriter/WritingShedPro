@@ -203,16 +203,14 @@ struct CommentDetailView: View {
     
     private func deleteComment() {
         CommentManager.shared.deleteComment(comment, context: modelContext)
+        onDelete?(comment)
         dismiss()
-        DispatchQueue.main.async {
-            onDelete?(comment)
-        }
+        dismissPresentedSheetOnCatalyst()
     }
 
     private func closeView() {
+        onClose?()
         dismiss()
-        DispatchQueue.main.async {
-            onClose?()
-        }
+        dismissPresentedSheetOnCatalyst()
     }
 }

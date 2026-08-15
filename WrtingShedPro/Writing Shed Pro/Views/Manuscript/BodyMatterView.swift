@@ -694,23 +694,9 @@ struct BodyMatterView: View {
     }
 
     private func liveCollectionFiles(for collection: PoetryCollection) -> [TextFile] {
-        let collectionID = collection.id
-        let freshContext = ModelContext(modelContext.container)
-        let descriptor = FetchDescriptor<TextFileCollectionLink>()
-        let links = (try? freshContext.fetch(descriptor)) ?? []
-        let allFiles = (try? freshContext.fetch(FetchDescriptor<TextFile>())) ?? []
-        var seen = Set<UUID>()
-
-        let files = links.compactMap { link -> TextFile? in
-            guard link.poetryCollectionID == collectionID || link.poetryCollection?.id == collectionID else { return nil }
-            let file = link.textFile ?? allFiles.first { $0.id == link.textFileID }
-            guard let file, file.trashItem == nil else { return nil }
-            guard !seen.contains(file.id) else { return nil }
-            seen.insert(file.id)
-            return file
-        }
-
-        return files.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        (collection.textFiles ?? [])
+            .filter { $0.trashItem == nil }
+            .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
     }
 
     private func wordCount(for file: TextFile) -> Int {

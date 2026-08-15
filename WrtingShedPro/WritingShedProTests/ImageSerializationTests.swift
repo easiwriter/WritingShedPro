@@ -47,6 +47,9 @@ final class ImageSerializationTests: XCTestCase {
             XCTFail("Failed to create image attachment")
             return
         }
+                attachment.spacingAbove = 12
+                attachment.spacingBelow = 8
+                attachment.imageStyleName = "figure"
         
         // Insert attachment
         let attachmentString = NSAttributedString(attachment: attachment)
@@ -66,6 +69,9 @@ final class ImageSerializationTests: XCTestCase {
         XCTAssertNotNil(restoredAttachment, "Image attachment should be restored")
         XCTAssertEqual(restoredAttachment?.scale ?? 0, 0.8, accuracy: 0.01, "Scale should be preserved")
         XCTAssertEqual(restoredAttachment?.alignment, .center, "Alignment should be preserved")
+        XCTAssertEqual(restoredAttachment?.imageStyleName, "figure", "Assigned image style should be preserved")
+        XCTAssertEqual(restoredAttachment?.spacingAbove, 12, "Space above should be preserved")
+        XCTAssertEqual(restoredAttachment?.spacingBelow, 8, "Space below should be preserved")
         XCTAssertNotNil(restoredAttachment?.imageData, "Image data should be preserved")
         XCTAssertNotNil(restoredAttachment?.image, "Image should be reconstructed")
     }

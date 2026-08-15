@@ -43,49 +43,25 @@ final class PublicationTypeTests: XCTestCase {
     func testAvailableTypesForPoetry() {
         let types = PublicationType.availableTypes(for: .poetry)
         
-        // Poetry should have: magazine, competition, other
-        XCTAssertEqual(types.count, 3)
-        XCTAssertTrue(types.contains(.magazine))
-        XCTAssertTrue(types.contains(.competition))
-        XCTAssertTrue(types.contains(.other))
-        
-        // Should NOT have publisher/agent (those are for long-form works)
-        XCTAssertFalse(types.contains(.publisher))
-        XCTAssertFalse(types.contains(.agent))
+        XCTAssertEqual(types, allTypes)
     }
     
     func testAvailableTypesForProse() {
         let types = PublicationType.availableTypes(for: .prose)
         
-        // Prose should have: publisher, agent, other
-        XCTAssertEqual(types.count, 3)
-        XCTAssertTrue(types.contains(.publisher))
-        XCTAssertTrue(types.contains(.agent))
-        XCTAssertTrue(types.contains(.other))
-        
-        // Should NOT have magazine/competition (those are for poetry)
-        XCTAssertFalse(types.contains(.magazine))
-        XCTAssertFalse(types.contains(.competition))
+        XCTAssertEqual(types, allTypes)
     }
     
     func testAvailableTypesForFiction() {
         let types = PublicationType.availableTypes(for: .fiction)
         
-        // Fiction should have: publisher, agent, other
-        XCTAssertEqual(types.count, 3)
-        XCTAssertTrue(types.contains(.publisher))
-        XCTAssertTrue(types.contains(.agent))
-        XCTAssertTrue(types.contains(.other))
+        XCTAssertEqual(types, allTypes)
     }
     
     func testAvailableTypesForDrama() {
         let types = PublicationType.availableTypes(for: .drama)
         
-        // Drama should have: publisher, agent, other
-        XCTAssertEqual(types.count, 3)
-        XCTAssertTrue(types.contains(.publisher))
-        XCTAssertTrue(types.contains(.agent))
-        XCTAssertTrue(types.contains(.other))
+        XCTAssertEqual(types, allTypes)
     }
     
     // MARK: - Raw Values (for Codable)

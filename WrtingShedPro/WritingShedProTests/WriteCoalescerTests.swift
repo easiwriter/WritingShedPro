@@ -30,6 +30,30 @@ final class WriteCoalescerTests: XCTestCase {
         return project
     }
 
+    func testSaveGateErrorHidesInternalDiagnostics() {
+        let idleError = EnsemblesSaveGateError.syncBusy(
+            reason: "file-move-permanent-delete",
+            attached: true,
+            activity: "none"
+        )
+        let activeError = EnsemblesSaveGateError.syncBusy(
+            reason: "json-import-wsp-phase-1",
+            attached: true,
+            activity: "syncing"
+        )
+
+        XCTAssertEqual(
+            idleError.errorDescription,
+            "Sync is temporarily finishing an update. Please try again in a few seconds."
+        )
+        XCTAssertEqual(
+            activeError.errorDescription,
+            "Sync is currently active. Please try again when it has finished."
+        )
+        XCTAssertFalse(idleError.errorDescription?.contains("reason=") ?? true)
+        XCTAssertFalse(activeError.errorDescription?.contains("attached=") ?? true)
+    }
+
     // MARK: - T007(a): Single requestSave produces one save
 
     func testSingleRequestSaveProducesOneSave() async {
@@ -77,6 +101,25 @@ final class WriteCoalescerTests: XCTestCase {
         XCTAssertEqual(coalescer.saveCount, 1)
         XCTAssertFalse(coalescer.pendingSave)
         XCTAssertNotNil(coalescer.lastFlushTime)
+    }
+
+    func testFlushPostsSaveCompletionNotification() {
+        let coalescer = WriteCoalescer(modelContext: context, flushDelay: 10.0)
+        insertDirtyProject()
+        let notificationExpectation = expectation(description: "Save completion notification")
+        let observer = NotificationCenter.default.addObserver(
+            forName: .writeCoalescerDidFinishSave,
+            object: coalescer,
+            queue: .main
+        ) { _ in
+            notificationExpectation.fulfill()
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        coalescer.requestSave()
+        coalescer.flush()
+
+        wait(for: [notificationExpectation], timeout: 1)
     }
 
     // MARK: - T007(d): flush() is no-op when not pending

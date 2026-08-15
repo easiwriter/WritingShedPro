@@ -5,6 +5,7 @@ import SwiftData
 
 /// Tests for Feature 036: Project Folder Revamp
 /// Covers model CRUD, Body Matter assembly, and migration service
+@MainActor
 final class Feature036Tests: XCTestCase {
     var modelContainer: ModelContainer!
     var modelContext: ModelContext!
@@ -131,8 +132,12 @@ final class Feature036Tests: XCTestCase {
         modelContext.delete(collection)
         try modelContext.save()
         
-        // File should still exist but collection reference should be nil
-        XCTAssertTrue(try poetryCollectionLinks(fileID: file.id).isEmpty)
+        // The file survives and the join is nullified rather than cascade-deleted.
+        // CloudKit can deliver the relationship update separately from either record.
+        let links = try poetryCollectionLinks(fileID: file.id)
+        XCTAssertEqual(links.count, 1)
+        XCTAssertNil(links.first?.poetryCollection)
+        XCTAssertNil(file.poetryCollection)
     }
     
     func testPoetryCollectionBodyMatterTracking() throws {

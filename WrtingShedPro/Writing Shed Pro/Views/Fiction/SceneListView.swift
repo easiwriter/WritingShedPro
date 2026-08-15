@@ -316,12 +316,7 @@ struct SceneListView: View {
     
     /// Helper: Sort chapters by userOrder then name
     private func sortChapters(_ chapters: [Chapter]) -> [Chapter] {
-        chapters.sorted { ch0, ch1 in
-            let order0: Int = ch0.userOrder ?? Int.max
-            let order1: Int = ch1.userOrder ?? Int.max
-            if order0 != order1 { return order0 < order1 }
-            return (ch0.name ?? "").localizedCaseInsensitiveCompare(ch1.name ?? "") == .orderedAscending
-        }
+        chapters.sorted(by: ContainerDisplayOrder.isOrdered)
     }
     
     /// Helper: Build groups for chapters with their scenes
@@ -331,13 +326,11 @@ struct SceneListView: View {
         
         for chapter in chapters {
             let chapterScenes = getScenesForChapter(chapter, currentSceneIDs: currentSceneIDs)
-            if !chapterScenes.isEmpty {
-                groups.append(SceneChapterGroup(
-                    id: chapter.id.uuidString,
-                    name: chapter.name ?? fictionClass.chapterSingularName,
-                    scenes: chapterScenes
-                ))
-            }
+            groups.append(SceneChapterGroup(
+                id: chapter.id.uuidString,
+                name: chapter.name ?? fictionClass.chapterSingularName,
+                scenes: chapterScenes
+            ))
         }
         
         return groups
@@ -388,12 +381,7 @@ struct SceneListView: View {
     
     /// Helper: Sort acts by userOrder then name
     private func sortActs(_ acts: [Act]) -> [Act] {
-        acts.sorted { a0, a1 in
-            let order0: Int = a0.userOrder ?? Int.max
-            let order1: Int = a1.userOrder ?? Int.max
-            if order0 != order1 { return order0 < order1 }
-            return (a0.name ?? "").localizedCaseInsensitiveCompare(a1.name ?? "") == .orderedAscending
-        }
+        acts.sorted(by: ContainerDisplayOrder.isOrdered)
     }
     
     /// Helper: Build groups for acts with their scenes
@@ -403,13 +391,11 @@ struct SceneListView: View {
         
         for a in acts {
             let actScenes = getScenesForAct(a, currentSceneIDs: currentSceneIDs)
-            if !actScenes.isEmpty {
-                groups.append(SceneActGroup(
-                    id: a.id.uuidString,
-                    name: a.name ?? NSLocalizedString("drama.act", comment: "Act"),
-                    scenes: actScenes
-                ))
-            }
+            groups.append(SceneActGroup(
+                id: a.id.uuidString,
+                name: a.name ?? NSLocalizedString("drama.act", comment: "Act"),
+                scenes: actScenes
+            ))
         }
         
         return groups
@@ -453,12 +439,7 @@ struct SceneListView: View {
     
     /// Helper: Sort books by userOrder then name
     private func sortBooks(_ books: [Book]) -> [Book] {
-        books.sorted { b0, b1 in
-            let order0: Int = b0.userOrder ?? Int.max
-            let order1: Int = b1.userOrder ?? Int.max
-            if order0 != order1 { return order0 < order1 }
-            return (b0.name ?? "").localizedCaseInsensitiveCompare(b1.name ?? "") == .orderedAscending
-        }
+        books.sorted(by: ContainerDisplayOrder.isOrdered)
     }
     
     /// Helper: Build groups for books with their scenes
@@ -468,13 +449,11 @@ struct SceneListView: View {
         
         for book in books {
             let bookScenes = getScenesForBook(book, currentSceneIDs: currentSceneIDs)
-            if !bookScenes.isEmpty {
-                groups.append(SceneChapterGroup(
-                    id: book.id.uuidString,
-                    name: book.name ?? fictionClass.chapterSingularName,
-                    scenes: bookScenes
-                ))
-            }
+            groups.append(SceneChapterGroup(
+                id: book.id.uuidString,
+                name: book.name ?? fictionClass.chapterSingularName,
+                scenes: bookScenes
+            ))
         }
         
         return groups
@@ -507,7 +486,9 @@ struct SceneListView: View {
 
     @ViewBuilder
     private var primaryContent: some View {
-        if sortedScenes.isEmpty && statusFilter == nil {
+        if useChapterGrouping || useActGrouping {
+            sceneList
+        } else if sortedScenes.isEmpty && statusFilter == nil {
             emptyState
         } else if sortedScenes.isEmpty {
             ContentUnavailableView {
@@ -848,7 +829,12 @@ struct SceneListView: View {
         } message: {
             Text(deleteErrorMessage)
         }
-        .sheet(item: $containerAssignmentItem) { item in
+        .sheet(item: $containerAssignmentItem, onDismiss: {
+            withAnimation {
+                editMode = .inactive
+            }
+            selectedSceneIDs.removeAll()
+        }) { item in
             containerAssignmentContent(for: item.scenes)
         }
         .sheet(item: $sceneForFormChange) { file in

@@ -370,60 +370,54 @@ struct TextStyleEditorView: View {
                 
                 HStack {
                     Text("textStyleEditor.lineSpacing")
-                    TextField("textStyleEditor.spacing", value: Binding(
-                        get: { Double(style.lineSpacing) },
-                        set: { style.lineSpacing = CGFloat($0); hasUnsavedChanges = true }
-                    ), format: .number.precision(.fractionLength(0...1)))
+                    ZeroableCGFloatField("textStyleEditor.spacing", value: $style.lineSpacing) {
+                        hasUnsavedChanges = true
+                    }
                         .frame(width: 60)
                         .accessibilityLabel("textStyleEditor.lineSpacing.accessibility")
                 }
                 
                 HStack {
                     Text("textStyleEditor.paragraphSpacingBefore")
-                    TextField("textStyleEditor.spacing", value: Binding(
-                        get: { Double(style.paragraphSpacingBefore) },
-                        set: { style.paragraphSpacingBefore = CGFloat($0); hasUnsavedChanges = true }
-                    ), format: .number.precision(.fractionLength(0...1)))
+                    ZeroableCGFloatField("textStyleEditor.spacing", value: $style.paragraphSpacingBefore) {
+                        hasUnsavedChanges = true
+                    }
                         .frame(width: 60)
                         .accessibilityLabel("textStyleEditor.paragraphSpacingBefore.accessibility")
                 }
                 
                 HStack {
                     Text("textStyleEditor.paragraphSpacingAfter")
-                    TextField("textStyleEditor.spacing", value: Binding(
-                        get: { Double(style.paragraphSpacingAfter) },
-                        set: { style.paragraphSpacingAfter = CGFloat($0); hasUnsavedChanges = true }
-                    ), format: .number.precision(.fractionLength(0...1)))
+                    ZeroableCGFloatField("textStyleEditor.spacing", value: $style.paragraphSpacingAfter) {
+                        hasUnsavedChanges = true
+                    }
                         .frame(width: 60)
                         .accessibilityLabel("textStyleEditor.paragraphSpacingAfter.accessibility")
                 }
                 
                 HStack {
                     Text("textStyleEditor.firstLineIndent")
-                    TextField("textStyleEditor.indent", value: Binding(
-                        get: { Double(style.firstLineIndent) },
-                        set: { style.firstLineIndent = CGFloat($0); hasUnsavedChanges = true }
-                    ), format: .number.precision(.fractionLength(0...1)))
+                    ZeroableCGFloatField("textStyleEditor.indent", value: $style.firstLineIndent) {
+                        hasUnsavedChanges = true
+                    }
                         .frame(width: 60)
                         .accessibilityLabel("textStyleEditor.firstLineIndent.accessibility")
                 }
                 
                 HStack {
                     Text("textStyleEditor.headIndent")
-                    TextField("textStyleEditor.indent", value: Binding(
-                        get: { Double(style.headIndent) },
-                        set: { style.headIndent = CGFloat($0); hasUnsavedChanges = true }
-                    ), format: .number.precision(.fractionLength(0...1)))
+                    ZeroableCGFloatField("textStyleEditor.indent", value: $style.headIndent) {
+                        hasUnsavedChanges = true
+                    }
                         .frame(width: 60)
                         .accessibilityLabel("textStyleEditor.headIndent.accessibility")
                 }
                 
                 HStack {
                     Text("textStyleEditor.tailIndent")
-                    TextField("textStyleEditor.indent", value: Binding(
-                        get: { Double(style.tailIndent) },
-                        set: { style.tailIndent = CGFloat($0); hasUnsavedChanges = true }
-                    ), format: .number.precision(.fractionLength(0...1)))
+                    ZeroableCGFloatField("textStyleEditor.indent", value: $style.tailIndent) {
+                        hasUnsavedChanges = true
+                    }
                         .frame(width: 60)
                         .accessibilityLabel("textStyleEditor.tailIndent.accessibility")
                 }
@@ -708,6 +702,7 @@ struct TextStyleEditorView: View {
     
     private func saveChanges() {
         style.displayName = editedDisplayName
+        style.modifiedDate = Date()
 
         // Defend against duplicate flags from sync/artifacts by normalizing on save.
         if style.isFirstParagraphStyle {
@@ -1002,6 +997,59 @@ struct TextStyleEditorView: View {
         } catch {
             deleteErrorMessage = error.localizedDescription
         }
+    }
+}
+
+private struct ZeroableCGFloatField: View {
+    let prompt: LocalizedStringKey
+    @Binding var value: CGFloat
+    let onValueChanged: () -> Void
+
+    @State private var text: String
+    @FocusState private var isFocused: Bool
+
+    init(_ prompt: LocalizedStringKey, value: Binding<CGFloat>, onValueChanged: @escaping () -> Void) {
+        self.prompt = prompt
+        self._value = value
+        self.onValueChanged = onValueChanged
+        self._text = State(initialValue: Self.displayText(for: value.wrappedValue))
+    }
+
+    var body: some View {
+        TextField(prompt, text: $text)
+            .keyboardType(.numbersAndPunctuation)
+            .focused($isFocused)
+            .onChange(of: text) { _, newText in
+                let trimmed = newText.trimmingCharacters(in: .whitespaces)
+                if trimmed.isEmpty {
+                    updateValue(0)
+                } else if let parsedValue = Double(trimmed.replacingOccurrences(of: ",", with: ".")) {
+                    updateValue(CGFloat(parsedValue))
+                }
+            }
+            .onChange(of: isFocused) { _, focused in
+                if !focused {
+                    text = Self.displayText(for: value)
+                }
+            }
+            .onChange(of: value) { _, newValue in
+                if !isFocused {
+                    text = Self.displayText(for: newValue)
+                }
+            }
+    }
+
+    private func updateValue(_ newValue: CGFloat) {
+        guard value != newValue else { return }
+        value = newValue
+        onValueChanged()
+    }
+
+    private static func displayText(for value: CGFloat) -> String {
+        if value.rounded() == value {
+            return String(Int(value))
+        }
+        return String(Double(value))
     }
 }
 

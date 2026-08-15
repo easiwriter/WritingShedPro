@@ -35,7 +35,7 @@ struct ActListView: View {
     // MARK: - Computed
     
     private var sortedActs: [Act] {
-        (project.acts ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        (project.acts ?? []).sorted(by: ContainerDisplayOrder.isOrdered)
     }
     
     private var isEditMode: Bool {

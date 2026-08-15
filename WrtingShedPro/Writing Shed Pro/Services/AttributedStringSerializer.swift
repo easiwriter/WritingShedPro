@@ -33,6 +33,9 @@ struct AttributeValues: Codable {
     var imageData: String?  // Base64-encoded image data
     var imageScale: CGFloat?
     var imageAlignment: String?
+    var imageStyleName: String?
+    var imageSpacingAbove: CGFloat?
+    var imageSpacingBelow: CGFloat?
     var hasCaption: Bool?
     var captionPrefix: String?
     var captionText: String?
@@ -480,6 +483,9 @@ struct AttributedStringSerializer {
                             
                             attributes.imageScale = imageAttachment.scale
                             attributes.imageAlignment = imageAttachment.alignment.rawValue
+                            attributes.imageStyleName = imageAttachment.imageStyleName
+                            attributes.imageSpacingAbove = imageAttachment.spacingAbove
+                            attributes.imageSpacingBelow = imageAttachment.spacingBelow
                             attributes.hasCaption = imageAttachment.hasCaption
                             attributes.captionPrefix = imageAttachment.captionPrefix
                             attributes.captionText = imageAttachment.captionText
@@ -818,6 +824,7 @@ struct AttributedStringSerializer {
                     // Create ImageAttachment
                     let attachment = ImageAttachment()
                     attachment.imageID = imageID
+                    attachment.imageStyleName = jsonAttributes.imageStyleName ?? "default"
                     
                     // Decode image data from base64
                     if let imageDataString = jsonAttributes.imageData,
@@ -852,6 +859,16 @@ struct AttributedStringSerializer {
                         }
                         attributes[.paragraphStyle] = paragraphStyle
                     }
+
+                    let decodedParagraphStyle = attributes[.paragraphStyle] as? NSParagraphStyle
+                    attachment.spacingAbove = max(
+                        0,
+                        jsonAttributes.imageSpacingAbove ?? decodedParagraphStyle?.paragraphSpacingBefore ?? 0
+                    )
+                    attachment.spacingBelow = max(
+                        0,
+                        jsonAttributes.imageSpacingBelow ?? decodedParagraphStyle?.paragraphSpacing ?? 0
+                    )
                     
                     // Restore caption
                     attachment.hasCaption = jsonAttributes.hasCaption ?? false

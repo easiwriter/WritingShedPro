@@ -133,6 +133,35 @@ final class StyleReapplicationTests: XCTestCase {
         XCTAssertEqual(paragraphStyle?.alignment, .natural)
         XCTAssertEqual(paragraphStyle?.lineSpacing, 0)
     }
+
+    func testReapplicationKeepsFirstLineIndentWhenStyleRunContainsAttachment() throws {
+        let style = TextStyleModel(name: "body", displayName: "Body")
+        style.firstLineIndent = 16
+        let styleAttributes = style.generateAttributes()
+
+        let textAttributes = StyleReapplicationAttributeMerger.merge(
+            styleAttributes: styleAttributes,
+            currentAttributes: [.font: UIFont.systemFont(ofSize: 17)]
+        )
+        let textParagraphStyle = textAttributes[.paragraphStyle] as? NSParagraphStyle
+        XCTAssertEqual(textParagraphStyle?.firstLineHeadIndent, 16)
+
+        let attachment = ImageAttachment()
+        let attachmentParagraphStyle = NSMutableParagraphStyle()
+        attachmentParagraphStyle.alignment = .center
+        let attachmentAttributes = StyleReapplicationAttributeMerger.merge(
+            styleAttributes: styleAttributes,
+            currentAttributes: [
+                .attachment: attachment,
+                .paragraphStyle: attachmentParagraphStyle
+            ]
+        )
+        XCTAssertTrue(attachmentAttributes[.attachment] as? ImageAttachment === attachment)
+        XCTAssertEqual(
+            (attachmentAttributes[.paragraphStyle] as? NSParagraphStyle)?.alignment,
+            .center
+        )
+    }
     
     func testGenerateAttributesWithCustomFont() throws {
         // Given - A style with custom font family

@@ -496,6 +496,8 @@ struct CreateStyleSheetView: View {
                         defaultAlignment: imageStyle.defaultAlignment,
                         hasCaptionByDefault: imageStyle.hasCaptionByDefault,
                         defaultCaptionStyle: imageStyle.defaultCaptionStyle,
+                        defaultSpacingAbove: imageStyle.defaultSpacingAbove,
+                        defaultSpacingBelow: imageStyle.defaultSpacingBelow,
                         isSystemStyle: false  // User stylesheets should have editable styles
                     )
                     

@@ -271,11 +271,22 @@ struct ProseFilesView: View {
     // MARK: - File List
     
     private var fileList: some View {
-        List(selection: $selectedFileIDs) {
+        List {
             ForEach(sortedFiles) { file in
                 HStack {
                     if isEditMode {
-                        FileRowView(file: file)
+                        Button {
+                            toggleSelection(for: file)
+                        } label: {
+                            HStack {
+                                Image(systemName: selectedFileIDs.contains(file.id) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(selectedFileIDs.contains(file.id) ? .blue : .gray)
+                                    .imageScale(.large)
+                                FileRowView(file: file)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     } else {
                         NavigationLink {
                             FileEditView(file: file)
@@ -295,6 +306,14 @@ struct ProseFilesView: View {
         }
         .listStyle(.plain)
         .environment(\.editMode, $editMode)
+    }
+
+    private func toggleSelection(for file: TextFile) {
+        if selectedFileIDs.contains(file.id) {
+            selectedFileIDs.remove(file.id)
+        } else {
+            selectedFileIDs.insert(file.id)
+        }
     }
     
     // MARK: - Empty State

@@ -25,7 +25,7 @@ struct SectionPickerSheet: View {
     // MARK: - Computed
     
     private var sortedSections: [ProseSection] {
-        (project.sections ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        (project.sections ?? []).sorted(by: ContainerDisplayOrder.isOrdered)
     }
     
     /// Check if all selected files are assigned to the same section

@@ -15,7 +15,6 @@ import UniformTypeIdentifiers
 struct FolderFilesView: View {
     @Bindable var folder: Folder
     @Environment(\.modelContext) var modelContext
-    @Query var allCollectionLinks: [TextFileCollectionLink]
     
     // State for edit mode (shared with FileListView)
     @State var editMode: EditMode = .inactive
@@ -146,6 +145,7 @@ struct FolderFilesView: View {
     @State var collectionExpandedSections: Set<String> = []
     @State var deferredSortedFiles: [TextFile]? = nil
     @State var deferredPoetryCollectionGroups: [CollectionGroup]? = nil
+    @State private var fileListRevision = UUID()
     
     /// Returns the number of TrashItem objects for this folder's project
     /// Uses the project's existing relationship instead of a broad @Query
@@ -180,6 +180,7 @@ struct FolderFilesView: View {
             hasAvailableCollectionsForAddToCollection: !(folder.project?.poetryCollections?.isEmpty ?? true),
             expandedCollections: $collectionExpandedSections
         )
+        .id(fileListRevision)
     }
     
     private func handleFileSelected(_ file: TextFile) {
@@ -273,6 +274,7 @@ struct FolderFilesView: View {
             let loadedFiles = sortedFiles
             deferredSortedFiles = loadedFiles
             deferredPoetryCollectionGroups = poetryCollectionGroups(for: loadedFiles)
+            fileListRevision = UUID()
         }
     }
     
@@ -295,7 +297,7 @@ struct FolderFilesView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else if isMatterFolder && !(deferredSortedFiles?.isEmpty ?? true) {
                         matterFolderBody
-                    } else if !(deferredSortedFiles?.isEmpty ?? true) {
+                    } else if !(deferredSortedFiles?.isEmpty ?? true) || deferredPoetryCollectionGroups != nil {
                         VStack(spacing: 0) {
                             fileListSection
                         }
@@ -1070,14 +1072,23 @@ struct FolderFilesView: View {
     
     func deleteFilesPermanently(_ files: [TextFile]) {
         let service = FileMoveService(modelContext: modelContext)
+        let deletedFileIDs = Set(files.map(\.id))
         
         do {
             try service.deleteFilesPermanently(files)
+            let visibleFiles = (deferredSortedFiles ?? sortedFiles).filter {
+                !deletedFileIDs.contains($0.id)
+            }
+            deferredSortedFiles = visibleFiles
+            deferredPoetryCollectionGroups = poetryCollectionGroups(for: visibleFiles)
+            selectedFileIDs.subtract(deletedFileIDs)
+            fileListRevision = UUID()
         } catch {
             #if DEBUG
             print("Error permanently deleting files: \(error)")
             #endif
-            // TODO: Show error alert
+            importErrorMessage = error.localizedDescription
+            showImportError = true
         }
     }
     

@@ -65,6 +65,10 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     
     /// Caption style name (from stylesheet)
     var captionStyle: String?
+
+    /// Vertical spacing in points around this image paragraph.
+    var spacingAbove: CGFloat = 0
+    var spacingBelow: CGFloat = 0
     
     /// Caption number (for numbered caption styles) - updated by document processing
     /// This is computed based on document order, not stored persistently
@@ -231,9 +235,12 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         }
         
         self.hasCaption = coder.decodeBool(forKey: "hasCaption")
+        self.spacingAbove = max(0, CGFloat(coder.decodeDouble(forKey: "spacingAbove")))
+        self.spacingBelow = max(0, CGFloat(coder.decodeDouble(forKey: "spacingBelow")))
         
         // Decode optional properties
         self.captionText = coder.decodeObject(of: NSString.self, forKey: "captionText") as? String
+        self.captionPrefix = coder.decodeObject(of: NSString.self, forKey: "captionPrefix") as? String
         self.captionStyle = coder.decodeObject(of: NSString.self, forKey: "captionStyle") as? String
         self.originalFilename = coder.decodeObject(of: NSString.self, forKey: "originalFilename") as? String
         
@@ -266,11 +273,16 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         coder.encode(Double(scale), forKey: "scale")
         coder.encode(alignment.rawValue, forKey: "alignment")
         coder.encode(hasCaption, forKey: "hasCaption")
+        coder.encode(Double(spacingAbove), forKey: "spacingAbove")
+        coder.encode(Double(spacingBelow), forKey: "spacingBelow")
         coder.encode(imageStyleName, forKey: "imageStyleName") // Not optional
         
         // Encode optional properties only if they exist
         if let captionText = captionText {
             coder.encode(captionText, forKey: "captionText")
+        }
+        if let captionPrefix = captionPrefix {
+            coder.encode(captionPrefix, forKey: "captionPrefix")
         }
         if let captionStyle = captionStyle {
             coder.encode(captionStyle, forKey: "captionStyle")
@@ -299,6 +311,23 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     }
     
     // MARK: - Methods
+
+    func paragraphStyle() -> NSParagraphStyle {
+        let paragraphStyle = NSMutableParagraphStyle()
+        switch alignment {
+        case .left:
+            paragraphStyle.alignment = .left
+        case .center:
+            paragraphStyle.alignment = .center
+        case .right:
+            paragraphStyle.alignment = .right
+        case .inline:
+            paragraphStyle.alignment = .natural
+        }
+        paragraphStyle.paragraphSpacingBefore = max(0, spacingAbove)
+        paragraphStyle.paragraphSpacing = max(0, spacingBelow)
+        return paragraphStyle
+    }
     
     /// Set the scale for this image (0.1 to 2.0)
     func setScale(_ newScale: CGFloat) {

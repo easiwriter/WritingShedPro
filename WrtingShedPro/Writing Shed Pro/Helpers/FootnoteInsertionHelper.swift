@@ -57,7 +57,13 @@ struct FootnoteInsertionHelper {
             context: effectiveContext
         )
 
-        syncFootnotesWithMarkers(in: mutableText, forVersion: version, context: effectiveContext, markerStyle: markerStyle)
+        syncFootnotesWithMarkers(
+            in: mutableText,
+            forVersion: version,
+            context: effectiveContext,
+            markerStyle: markerStyle,
+            deleteMissingModels: false
+        )
         
         return (mutableText, footnote)
     }
@@ -107,7 +113,13 @@ struct FootnoteInsertionHelper {
             context: effectiveContext
         )
 
-        syncFootnotesWithMarkers(in: textStorage, forVersion: version, context: effectiveContext, markerStyle: markerStyle)
+        syncFootnotesWithMarkers(
+            in: textStorage,
+            forVersion: version,
+            context: effectiveContext,
+            markerStyle: markerStyle,
+            deleteMissingModels: false
+        )
         
         return footnote
     }

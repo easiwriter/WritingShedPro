@@ -1310,6 +1310,10 @@
 "contentView.importError.emptyFile" = "The selected file is empty or corrupt.";
 "contentView.importError.failed" = "Failed to import project: %@";
 "contentView.importError.selectFailed" = "Failed to select file: %@";
+"contentView.importError.syncPreparing" = "The project was not imported because sync is currently updating the database. Try again when sync has finished.";
+"contentView.importError.syncFinalizing" = "The project was not imported because sync is finalizing database changes. Try again shortly, when Settings shows All synced.";
+"contentView.importError.syncChangedBeforeSave" = "Sync changed while the project was being prepared. No project was imported. Please wait a moment, then try again.";
+"contentView.importError.syncChangedDuringImport" = "Sync changed before the import could finish. Check the project list before retrying to avoid creating a duplicate.";
 
 /* Markdown Import */
 "import.markdown.error.invalid" = "Invalid Markdown file";
@@ -1572,6 +1576,13 @@
 "imageStyleEditor.captionStyle" = "Caption Style";
 "imageStyleEditor.caption.footer.enabled" = "Images will include a caption using the '%@' style";
 "imageStyleEditor.caption.footer.disabled" = "Images will not have captions by default";
+"imageStyleEditor.spacing" = "Spacing";
+"imageStyleEditor.spacingAbove" = "Space Above";
+"imageStyleEditor.spacingBelow" = "Space Below";
+"imageStyleEditor.points" = "pt";
+"imageStyleEditor.imageStyle" = "Image Style";
+"imageStyleEditor.resetToStyle" = "Reset to Style";
+"imageStyleEditor.updateStyle" = "Update Style";
 
 /* FootnotesListView - New Keys */
 "footnotesList.title" = "Footnotes";
@@ -1920,7 +1931,7 @@
 "imageStyleEditor.showCaption" = "Show Caption";
 "imageStyleEditor.captionText.placeholder" = "Caption text";
 "imageStyleEditor.captionStyle" = "Caption Style";
-"imageStyleEditor.apply" = "Apply";
+"imageStyleEditor.apply" = "Apply to Image";
 
 /* StylePickerSheet */
 "stylePicker.title" = "Paragraph Style";
@@ -2919,8 +2930,7 @@
 
 // MARK: - Container Assignment Dialog
 "containerAssignment.title" = "%@ Assignment";
-"containerAssignment.move" = "Move";
-"containerAssignment.copy" = "Copy";
+"containerAssignment.attach" = "Attach";
 "containerAssignment.unassigned" = "Unassigned";
 
 // MARK: - Offline Purchase Warning

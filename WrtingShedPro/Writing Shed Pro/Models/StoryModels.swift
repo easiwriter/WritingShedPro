@@ -445,7 +445,7 @@ final class StoryScene {
     var isTrashed: Bool = false
     var trashedDate: Date?
     
-    // Relationships (via join tables for CloudKit compatibility)
+    // Legacy assignment links retained until existing stores are migrated.
     @Relationship(deleteRule: .nullify, inverse: \SceneChapterLink.scene)
     var chapterLinks: [SceneChapterLink]? = []
     
@@ -454,6 +454,15 @@ final class StoryScene {
     
     @Relationship(deleteRule: .nullify, inverse: \SceneBookLink.scene)
     var bookLinks: [SceneBookLink]? = []
+
+    @Relationship(deleteRule: .nullify, inverse: \Chapter.scenes)
+    var chapter: Chapter?
+
+    @Relationship(deleteRule: .nullify, inverse: \Act.scenes)
+    var act: Act?
+
+    @Relationship(deleteRule: .nullify, inverse: \Book.scenes)
+    var book: Book?
     
     @Relationship(deleteRule: .nullify, inverse: \ScenePlotElementLink.scene)
     var plotElementLinks: [ScenePlotElementLink]? = []
@@ -474,48 +483,21 @@ final class StoryScene {
     @Relationship(deleteRule: .nullify, inverse: \SceneLocationLink.scene)
     var locationLinks: [SceneLocationLink]? = []
     
-    // MARK: - Many-to-Many Computed Properties (via join tables)
+    // MARK: - Container Compatibility Properties
     
     var chapters: [Chapter]? {
-        get { chapterLinks?.compactMap(\.chapter) }
-        set {
-            for link in chapterLinks ?? [] { modelContext?.delete(link) }
-            chapterLinks = []
-            for chapter in newValue ?? [] {
-                let link = SceneChapterLink(scene: self, chapter: chapter)
-                modelContext?.insert(link)
-                if chapterLinks == nil { chapterLinks = [] }
-                chapterLinks?.append(link)
-            }
-        }
+        get { chapter.map { [$0] } }
+        set { chapter = newValue?.first }
     }
     
     var acts: [Act]? {
-        get { actLinks?.compactMap(\.act) }
-        set {
-            for link in actLinks ?? [] { modelContext?.delete(link) }
-            actLinks = []
-            for act in newValue ?? [] {
-                let link = SceneActLink(scene: self, act: act)
-                modelContext?.insert(link)
-                if actLinks == nil { actLinks = [] }
-                actLinks?.append(link)
-            }
-        }
+        get { act.map { [$0] } }
+        set { act = newValue?.first }
     }
     
     var books: [Book]? {
-        get { bookLinks?.compactMap(\.book) }
-        set {
-            for link in bookLinks ?? [] { modelContext?.delete(link) }
-            bookLinks = []
-            for book in newValue ?? [] {
-                let link = SceneBookLink(scene: self, book: book)
-                modelContext?.insert(link)
-                if bookLinks == nil { bookLinks = [] }
-                bookLinks?.append(link)
-            }
-        }
+        get { book.map { [$0] } }
+        set { book = newValue?.first }
     }
     
     var plotElements: [PlotElement]? {
@@ -646,21 +628,9 @@ final class Chapter {
     
     @Relationship(deleteRule: .nullify, inverse: \SceneChapterLink.chapter)
     var sceneLinks: [SceneChapterLink]? = []
-    
-    /// Scenes in this chapter (derived from join table)
-    var scenes: [StoryScene]? {
-        get { sceneLinks?.compactMap(\.scene) }
-        set {
-            for link in sceneLinks ?? [] { modelContext?.delete(link) }
-            sceneLinks = []
-            for scene in newValue ?? [] {
-                let link = SceneChapterLink(scene: scene, chapter: self)
-                modelContext?.insert(link)
-                if sceneLinks == nil { sceneLinks = [] }
-                sceneLinks?.append(link)
-            }
-        }
-    }
+
+    @Relationship(deleteRule: .nullify)
+    var scenes: [StoryScene]? = []
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {
         self.name = name
@@ -689,21 +659,9 @@ final class Act {
     
     @Relationship(deleteRule: .nullify, inverse: \SceneActLink.act)
     var sceneLinks: [SceneActLink]? = []
-    
-    /// Scenes in this act (derived from join table)
-    var scenes: [StoryScene]? {
-        get { sceneLinks?.compactMap(\.scene) }
-        set {
-            for link in sceneLinks ?? [] { modelContext?.delete(link) }
-            sceneLinks = []
-            for scene in newValue ?? [] {
-                let link = SceneActLink(scene: scene, act: self)
-                modelContext?.insert(link)
-                if sceneLinks == nil { sceneLinks = [] }
-                sceneLinks?.append(link)
-            }
-        }
-    }
+
+    @Relationship(deleteRule: .nullify)
+    var scenes: [StoryScene]? = []
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {
         self.name = name
@@ -732,21 +690,9 @@ final class ProseSection {
     
     @Relationship(deleteRule: .nullify, inverse: \TextFileSectionLink.section)
     var textFileLinks: [TextFileSectionLink]? = []
-    
-    /// Text files in this section (derived from join table)
-    var textFiles: [TextFile]? {
-        get { textFileLinks?.compactMap(\.textFile) }
-        set {
-            for link in textFileLinks ?? [] { modelContext?.delete(link) }
-            textFileLinks = []
-            for file in newValue ?? [] {
-                let link = TextFileSectionLink(textFile: file, section: self)
-                modelContext?.insert(link)
-                if textFileLinks == nil { textFileLinks = [] }
-                textFileLinks?.append(link)
-            }
-        }
-    }
+
+    @Relationship(deleteRule: .nullify)
+    var textFiles: [TextFile]? = []
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {
         self.name = name

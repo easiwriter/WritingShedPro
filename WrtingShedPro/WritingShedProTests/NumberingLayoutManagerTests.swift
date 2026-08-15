@@ -39,6 +39,35 @@ final class NumberingLayoutManagerTests: XCTestCase {
         context = nil
         layoutManager = nil
     }
+
+    func testDocumentLineNumberMapSkipsBlankAndWhitespaceOnlyLines() {
+        let text = NSAttributedString(string: "First line\n\n  \t\n\u{200B}\nSecond line\nThird line")
+
+        let lineNumbers = layoutManager.buildDocumentLineNumberMap(for: text)
+        let plainText = text.string as NSString
+
+        XCTAssertEqual(lineNumbers[plainText.range(of: "First line").location], 1)
+        XCTAssertEqual(lineNumbers[plainText.range(of: "Second line").location], 2)
+        XCTAssertEqual(lineNumbers[plainText.range(of: "Third line").location], 3)
+        XCTAssertEqual(lineNumbers.count, 3)
+    }
+
+    func testDocumentLineNumberMapSkipsMarkedSections() {
+        let text = NSMutableAttributedString(
+            string: "Poem Title\nFirst poem line\nFor someone\nSecond poem line"
+        )
+        let plainText = text.string as NSString
+        text.markSection(.title, in: plainText.range(of: "Poem Title"))
+        text.markSection(.dedication, in: plainText.range(of: "For someone"))
+
+        let lineNumbers = layoutManager.buildDocumentLineNumberMap(for: text)
+
+        XCTAssertNil(lineNumbers[plainText.range(of: "Poem Title").location])
+        XCTAssertEqual(lineNumbers[plainText.range(of: "First poem line").location], 1)
+        XCTAssertNil(lineNumbers[plainText.range(of: "For someone").location])
+        XCTAssertEqual(lineNumbers[plainText.range(of: "Second poem line").location], 2)
+        XCTAssertEqual(lineNumbers.count, 2)
+    }
     
     // MARK: - Helper: create a stylesheet with a hierarchy
     

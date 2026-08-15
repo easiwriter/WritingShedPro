@@ -258,11 +258,9 @@ struct FileDetailsSheet: View {
     // MARK: - Actions
 
     private func closeSheet() {
-        if let onDismiss = onDismiss {
-            onDismiss()
-        } else {
-            dismiss()
-        }
+        onDismiss?()
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
     
     private func saveChanges() {

@@ -207,27 +207,32 @@ struct ProseListView: View {
         var count: Int { files.count }
     }
     
-    /// Group files by their section name (only when not viewing a specific section)
+    /// Group files in the same order as the project's sections.
     private var sectionGroups: [SectionGroup] {
         guard section == nil else { return [] }  // Don't group when viewing a section
-        
-        var groups: [String: [TextFile]] = [:]
-        var unassignedFiles: [TextFile] = []
-        
+
+        let sections = (project.sections ?? []).sorted(by: ContainerDisplayOrder.isOrdered)
+        guard !sections.isEmpty else { return [] }
+
+        var filesBySectionID: [UUID: [TextFile]] = [:]
+        var assignedFileIDs: Set<UUID> = []
+
         for file in sortedFiles {
-            if let sectionName = file.section?.name {
-                groups[sectionName, default: []].append(file)
-            } else {
-                unassignedFiles.append(file)
-            }
+            guard let sectionID = file.section?.id else { continue }
+            assignedFileIDs.insert(file.id)
+            filesBySectionID[sectionID, default: []].append(file)
         }
-        
-        // Build result with assigned sections first (sorted by name), then unassigned
-        var result: [SectionGroup] = groups.keys.sorted().map { name in
-            SectionGroup(id: name, name: name, files: groups[name]!)
+
+        var result = sections.map { section in
+            SectionGroup(
+                id: section.id.uuidString,
+                name: section.name ?? NSLocalizedString("prose.untitled", comment: "Untitled"),
+                files: filesBySectionID[section.id] ?? []
+            )
         }
-        
+
         // Add unassigned files at the end if any
+        let unassignedFiles = sortedFiles.filter { !assignedFileIDs.contains($0.id) }
         if !unassignedFiles.isEmpty {
             let unassignedLabel = NSLocalizedString("prose.section.unassigned", comment: "Unassigned")
             result.append(SectionGroup(id: "__unassigned__", name: unassignedLabel, files: unassignedFiles))
@@ -236,9 +241,9 @@ struct ProseListView: View {
         return result
     }
     
-    /// Whether to show collapsible sections (only when there are assigned sections and not viewing a specific section)
+    /// Whether to show collapsible sections when the project defines sections.
     private var useSections: Bool {
-        section == nil && sectionGroups.count > 1
+        section == nil && !sectionGroups.isEmpty
     }
     
     // MARK: - Body
@@ -301,7 +306,12 @@ struct ProseListView: View {
             } message: {
                 Text(String(format: NSLocalizedString("submissions.duplicate.message", comment: "Duplicate message"), createdSubmissionName))
             }
-            .sheet(item: $containerAssignmentFiles) { item in
+            .sheet(item: $containerAssignmentFiles, onDismiss: {
+                withAnimation {
+                    editMode = .inactive
+                }
+                selectedFileIDs.removeAll()
+            }) { item in
                 ContainerAssignmentView.forProseSections(
                     project: project,
                     selectedFiles: item.files,
@@ -414,7 +424,9 @@ struct ProseListView: View {
             workflowStatusFilter
             
             Group {
-                if sortedFiles.isEmpty && statusFilter == nil {
+                if useSections {
+                    fileList
+                } else if sortedFiles.isEmpty && statusFilter == nil {
                     emptyState
                 } else if sortedFiles.isEmpty {
                     // Filtered but no results
@@ -825,7 +837,7 @@ struct ProseListView: View {
     // MARK: - File List
     
     private var fileList: some View {
-        List(selection: $selectedFileIDs) {
+        List {
             if useSections {
                 // Show collapsible sections grouped by section name
                 ForEach(sectionGroups) { group in
@@ -944,7 +956,18 @@ struct ProseListView: View {
     private func fileRow(for file: TextFile) -> some View {
         HStack {
             if isEditMode {
-                FileRowView(file: file)
+                Button {
+                    toggleSelection(for: file)
+                } label: {
+                    HStack {
+                        Image(systemName: selectedFileIDs.contains(file.id) ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(selectedFileIDs.contains(file.id) ? .blue : .gray)
+                            .imageScale(.large)
+                        FileRowView(file: file)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             } else {
                 NavigationLink {
                     FileEditView(file: file)
@@ -958,6 +981,14 @@ struct ProseListView: View {
                 FileSubmissionsButton(file: file)
                 fileOptionsMenu(for: file)
             }
+        }
+    }
+
+    private func toggleSelection(for file: TextFile) {
+        if selectedFileIDs.contains(file.id) {
+            selectedFileIDs.remove(file.id)
+        } else {
+            selectedFileIDs.insert(file.id)
         }
     }
     

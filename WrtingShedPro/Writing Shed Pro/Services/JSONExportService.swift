@@ -277,13 +277,13 @@ class JSONExportService {
             poetryFormId: textFile.poetryFormId?.uuidString,
             poetryFormName: textFile.poetryFormName,
             sectionId: textFile.section?.id.uuidString,
-            sectionIds: textFile.sections?.map { $0.id.uuidString },
+            sectionIds: textFile.section.map { [$0.id.uuidString] },
             includedInManuscript: textFile.includedInManuscript,
             contentTypeRaw: textFile.contentTypeRaw != "richText" ? textFile.contentTypeRaw : nil,  // Only export if not default
             isTOCFile: textFile.isTOCFile ? true : nil,  // Only export if true
             tocSettingsBase64: tocSettingsBase64,
             poetryCollectionId: textFile.poetryCollection?.id.uuidString,
-            poetryCollectionIds: textFile.poetryCollections?.map { $0.id.uuidString },
+            poetryCollectionIds: textFile.poetryCollection.map { [$0.id.uuidString] },
             isCoverFile: textFile.isCoverFile ? true : nil,  // Only export if true
             coverImageBase64: coverImageBase64,
             versions: versions
@@ -529,11 +529,11 @@ class JSONExportService {
                 bodyMatterOrder: scene.bodyMatterOrder,
                 isInBodyMatter: scene.isInBodyMatter,
                 chapterId: scene.chapter?.id.uuidString,
-                chapterIds: scene.chapters?.map { $0.id.uuidString },
+                chapterIds: scene.chapter.map { [$0.id.uuidString] },
                 actId: scene.act?.id.uuidString,
-                actIds: scene.acts?.map { $0.id.uuidString },
+                actIds: scene.act.map { [$0.id.uuidString] },
                 bookId: scene.book?.id.uuidString,
-                bookIds: scene.books?.map { $0.id.uuidString },
+                bookIds: scene.book.map { [$0.id.uuidString] },
                 textFileId: scene.textFile?.id.uuidString,
                 isTrashed: scene.isTrashed,
                 trashedDate: scene.trashedDate,
@@ -776,6 +776,8 @@ class JSONExportService {
                 defaultAlignmentRaw: style.defaultAlignmentRaw,
                 hasCaptionByDefault: style.hasCaptionByDefault,
                 defaultCaptionStyle: style.defaultCaptionStyle,
+                defaultSpacingAbove: style.defaultSpacingAbove,
+                defaultSpacingBelow: style.defaultSpacingBelow,
                 isSystemStyle: style.isSystemStyle
             )
         }
@@ -884,13 +886,13 @@ struct WSPTextFileData: Codable {
     var poetryFormId: String?
     var poetryFormName: String?
     var sectionId: String?
-    var sectionIds: [String]?  // v1.3: many-to-many sections
+    var sectionIds: [String]?  // v1.3 compatibility; exports at most one section
     var includedInManuscript: Bool?  // Optional for backward compatibility, defaults to true
     var contentTypeRaw: String?  // Optional for backward compatibility - "richText" or "markdown"
     var isTOCFile: Bool?  // Optional for backward compatibility - Feature 031
     var tocSettingsBase64: String?  // Base64 encoded TOCSettings JSON - Feature 031
     var poetryCollectionId: String?  // Feature 036: link to PoetryCollection
-    var poetryCollectionIds: [String]?  // v1.3: many-to-many poetry collections
+    var poetryCollectionIds: [String]?  // v1.3 compatibility; exports at most one collection
     var isCoverFile: Bool?  // Cover image file (Front Cover / Back Cover)
     var coverImageBase64: String?  // Base64 encoded cover image data (JPEG/PNG)
     var versions: [WSPVersionData] = []
@@ -1024,11 +1026,11 @@ struct WSPStorySceneData: Codable {
     var bodyMatterOrder: Int?
     var isInBodyMatter: Bool = false
     var chapterId: String?
-    var chapterIds: [String]?  // v1.3: many-to-many chapters
+    var chapterIds: [String]?  // v1.3 compatibility; exports at most one chapter
     var actId: String?
-    var actIds: [String]?  // v1.3: many-to-many acts
+    var actIds: [String]?  // v1.3 compatibility; exports at most one act
     var bookId: String?
-    var bookIds: [String]?  // v1.3: many-to-many books
+    var bookIds: [String]?  // v1.3 compatibility; exports at most one book
     var textFileId: String?
     var isTrashed: Bool = false
     var trashedDate: Date?
@@ -1215,5 +1217,7 @@ struct WSPImageStyleData: Codable {
     var defaultAlignmentRaw: String = "center"
     var hasCaptionByDefault: Bool = false
     var defaultCaptionStyle: String = "UICTFontTextStyleCaption1"
+    var defaultSpacingAbove: CGFloat?
+    var defaultSpacingBelow: CGFloat?
     var isSystemStyle: Bool = false
 }

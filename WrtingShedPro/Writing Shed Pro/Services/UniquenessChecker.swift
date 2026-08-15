@@ -61,7 +61,7 @@ struct UniquenessChecker {
     static func getFileNameConflict(_ name: String, in folder: Folder) -> String? {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         // Check active files
-        let files = folder.textFiles ?? []
+        let files = (folder.textFiles ?? []).filter { !$0.isDeleted }
         if files.contains(where: { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(trimmedName) == .orderedSame }) {
             return "active"
         }

@@ -248,11 +248,22 @@ struct PoetryCollectionPoemsView: View {
     // MARK: - File List
     
     private var fileList: some View {
-        List(selection: $selectedFileIDs) {
+        List {
             ForEach(sortedFiles) { file in
                 HStack {
                     if isEditMode {
-                        PoemRowView(file: file)
+                        Button {
+                            toggleSelection(for: file)
+                        } label: {
+                            HStack {
+                                Image(systemName: selectedFileIDs.contains(file.id) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(selectedFileIDs.contains(file.id) ? .blue : .gray)
+                                    .imageScale(.large)
+                                PoemRowView(file: file)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     } else {
                         NavigationLink {
                             FileEditView(file: file)
@@ -269,6 +280,14 @@ struct PoetryCollectionPoemsView: View {
         }
         .listStyle(.plain)
         .environment(\.editMode, $editMode)
+    }
+
+    private func toggleSelection(for file: TextFile) {
+        if selectedFileIDs.contains(file.id) {
+            selectedFileIDs.remove(file.id)
+        } else {
+            selectedFileIDs.insert(file.id)
+        }
     }
     
     // MARK: - Empty State
@@ -336,21 +355,9 @@ struct PoetryCollectionPoemsView: View {
     // MARK: - Actions
     
     private func reloadCollectionFiles() {
-        let collectionID = collection.id
-        let links = (try? modelContext.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
-        let matchingLinks = links.filter { $0.resolvedPoetryCollectionID == collectionID }
-        let fileByID = Dictionary(
-            uniqueKeysWithValues: ((try? modelContext.fetch(FetchDescriptor<TextFile>())) ?? []).map { ($0.id, $0) }
-        )
-
-        var seen = Set<UUID>()
-        liveCollectionFiles = matchingLinks.compactMap { link -> TextFile? in
-            let file = link.textFile ?? link.resolvedTextFileID.flatMap { fileByID[$0] }
-            guard let file, file.trashItem == nil else { return nil }
-            guard seen.insert(file.id).inserted else { return nil }
-            return file
-        }
-        .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        liveCollectionFiles = (collection.textFiles ?? [])
+            .filter { $0.trashItem == nil }
+            .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
     }
 
     private func addPoemToCollection(_ file: TextFile) {

@@ -40,6 +40,7 @@ struct ContentView: View {
     /// Last time we attempted post-import repair cleanup.
     /// Keeps reconcile/startup paths from repeatedly scanning the store after a sync storm.
     @State private var lastPostImportRepairDate: Date = .distantPast
+    @State private var hasRunSingleContainerMigration = false
 
     /// Debounced task handle for remote-change reconciliation.
     @State private var remoteReconcileTask: Task<Void, Never>?
@@ -444,6 +445,7 @@ struct ContentView: View {
         }
 
         // Automatically clean up strict clone rows once sync is settled.
+        performSingleContainerMigrationIfSafe()
         performAutomaticDedupIfSafe(reason: "reconcile")
         performPostImportRepairIfSafe(reason: "reconcile")
 
@@ -665,6 +667,25 @@ struct ContentView: View {
         #endif
         refreshTrigger.toggle()
     }
+
+    private func performSingleContainerMigrationIfSafe() {
+        guard !hasRunSingleContainerMigration else { return }
+        guard scenePhase == .active else { return }
+
+        if let ensemblesContainer = Write_App.activeEnsemblesContainer {
+            guard Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch else { return }
+            guard ensemblesContainer.currentActivity == .none else { return }
+            guard !Write_App.isInEnsemblesMergeSaveCooldown() else { return }
+            guard !Write_App.isInEnsemblesMergeConflictCooldown() else { return }
+        }
+
+        guard EnsemblesSaveGate.canSaveNow(
+            reason: "migration-single-container-relationships",
+            context: modelContext
+        ) else { return }
+
+        hasRunSingleContainerMigration = MigrationService.migrateSingleContainerRelationships(context: modelContext)
+    }
     
     /// Prefetch project relationships async to warm up Swift type system
     /// This prevents UI freeze when tapping first project after app launch
@@ -719,6 +740,14 @@ struct ContentView: View {
     
     /// Initialize default stylesheets async on main thread (moved from Write_App to avoid blocking launch)
     private func initializeStyleSheets() {
+        guard !Write_App.isLocalRecoveryModeEnabled else {
+            hasInitializedStyleSheets = true
+            #if DEBUG
+            print("⏸️ [ContentView] Skipping stylesheet initialization in Local Recovery Mode")
+            #endif
+            return
+        }
+
         guard !Write_App.initialEnsemblesImportUnavailable else {
             hasInitializedStyleSheets = true
             #if DEBUG
@@ -1000,9 +1029,15 @@ struct ContentView: View {
                 }
                 
                 do {
-                    guard await waitForEnsemblesUserImportWindow(reason: "JSON/WSP import") else {
+                    guard canBeginEnsemblesUserImport(reason: "JSON/WSP import") else {
                         await MainActor.run {
-                            state.importErrorMessage = "Ensembles is still preparing sync. Please wait a minute, then try importing the WSP file again."
+                            let messageKey = Write_App.isInEnsemblesMergeSaveCooldown()
+                                ? "contentView.importError.syncFinalizing"
+                                : "contentView.importError.syncPreparing"
+                            state.importErrorMessage = NSLocalizedString(
+                                messageKey,
+                                comment: "Sync is not ready for project import"
+                            )
                             state.showImportError = true
                         }
                         return
@@ -1017,8 +1052,10 @@ struct ContentView: View {
                     // JSON/WSP/WSD import
                     // Always generate new UUIDs to prevent CloudKit from merging
                     // duplicate-UUID folders/files across the original and imported projects
+                    let importContext = ModelContext(modelContext.container)
+                    importContext.autosaveEnabled = false
                     let jsonImporter = JSONImportService(
-                        modelContext: modelContext,
+                        modelContext: importContext,
                         errorHandler: errorHandler,
                         generateNewUUIDs: true
                     )
@@ -1055,6 +1092,21 @@ struct ContentView: View {
                         state.importErrorMessage = NSLocalizedString("contentView.importError.emptyFile", comment: "The selected file is empty or corrupt")
                         state.showImportError = true
                     }
+                } catch let saveGateError as EnsemblesSaveGateError {
+                    let messageKey: String
+                    switch saveGateError {
+                    case let .syncBusy(reason, _, _):
+                        messageKey = reason == "json-import-wsp-phase-1"
+                            ? "contentView.importError.syncChangedBeforeSave"
+                            : "contentView.importError.syncChangedDuringImport"
+                    }
+                    await MainActor.run {
+                        state.importErrorMessage = NSLocalizedString(
+                            messageKey,
+                            comment: "Sync changed during project import"
+                        )
+                        state.showImportError = true
+                    }
                 } catch {
                     await MainActor.run {
                         state.importErrorMessage = String(format: NSLocalizedString("contentView.importError.failed", comment: "Failed to import project"), error.localizedDescription)
@@ -1075,35 +1127,18 @@ struct ContentView: View {
         }
     }
 
-    private func waitForEnsemblesUserImportWindow(reason: String) async -> Bool {
+    private func canBeginEnsemblesUserImport(reason: String) -> Bool {
         guard let ensemblesContainer = Write_App.activeEnsemblesContainer else { return true }
 
-        let maxWaitSeconds = 120
-        for second in 0..<maxWaitSeconds {
-            let activity = String(describing: ensemblesContainer.currentActivity)
-            if Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch || activity.lowercased() == "none" {
-                return true
-            }
-
-            if !ensemblesContainer.isAttached,
-               activity.lowercased() == "attaching",
-               !EnsemblesSaveGate.isInStartupAttachGracePeriod() {
-                #if DEBUG
-                print("⚠️ [ContentView] Allowing \(reason) while Ensembles is unavailable attached=\(ensemblesContainer.isAttached) activity=\(activity)")
-                #endif
-                return true
-            }
-
-            #if DEBUG
-            if second == 0 || second % 10 == 0 {
-                print("⏳ [ContentView] Waiting for Ensembles before \(reason)... attached=\(ensemblesContainer.isAttached) activity=\(activity)")
-            }
-            #endif
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        if EnsemblesSaveGate.canSaveNow(
+            reason: "json-import-wsp-phase-1",
+            context: modelContext
+        ) {
+            return true
         }
 
         #if DEBUG
-        print("⚠️ [ContentView] Timed out waiting for Ensembles before \(reason); attached=\(ensemblesContainer.isAttached) activity=\(String(describing: ensemblesContainer.currentActivity))")
+        print("⏸️ [ContentView] Import blocked immediately while Ensembles is busy reason=\(reason) attached=\(ensemblesContainer.isAttached) activity=\(String(describing: ensemblesContainer.currentActivity))")
         #endif
         return false
     }

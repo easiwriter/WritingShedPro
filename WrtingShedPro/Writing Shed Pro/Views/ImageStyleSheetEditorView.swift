@@ -15,6 +15,8 @@ struct ImageStyleSheetEditorView: View {
     @Bindable var imageStyle: ImageStyle
     
     @State private var scaleText: String = ""
+    @State private var spacingAboveText: String = ""
+    @State private var spacingBelowText: String = ""
     
     var body: some View {
         Form {
@@ -73,6 +75,11 @@ struct ImageStyleSheetEditorView: View {
             } footer: {
                 Text("imageStyleEditor.size.footer")
                     .font(.caption)
+            }
+
+            Section("imageStyleEditor.spacing") {
+                spacingField("imageStyleEditor.spacingAbove", text: $spacingAboveText)
+                spacingField("imageStyleEditor.spacingBelow", text: $spacingBelowText)
             }
             
             // Default Alignment Section
@@ -147,10 +154,34 @@ struct ImageStyleSheetEditorView: View {
         }
         .onAppear {
             scaleText = "\(Int(imageStyle.defaultScale * 100))"
+            spacingAboveText = spacingText(imageStyle.defaultSpacingAbove)
+            spacingBelowText = spacingText(imageStyle.defaultSpacingBelow)
         }
     }
     
     // MARK: - Scale Management
+
+    private func spacingField(_ title: LocalizedStringKey, text: Binding<String>) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            TextField("0", text: text)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 64)
+            Text("imageStyleEditor.points")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func spacingValue(_ text: String) -> CGFloat {
+        let normalized = text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
+        return max(0, CGFloat(Double(normalized) ?? 0))
+    }
+
+    private func spacingText(_ value: CGFloat) -> String {
+        value.rounded() == value ? String(Int(value)) : String(Double(value))
+    }
     
     private func incrementScale() {
         let newScale = min(imageStyle.defaultScale + 0.1, 2.0)
@@ -185,7 +216,10 @@ struct ImageStyleSheetEditorView: View {
     }
     
     private func saveChanges() {
+        imageStyle.defaultSpacingAbove = spacingValue(spacingAboveText)
+        imageStyle.defaultSpacingBelow = spacingValue(spacingBelowText)
         imageStyle.modifiedDate = Date()
+        imageStyle.styleSheet?.modifiedDate = Date()
         
         do {
             try WriteCoalescer.shared.requestSaveAndFlush(reason: "image-style-sheet-save")

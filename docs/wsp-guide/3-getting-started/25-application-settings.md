@@ -7,9 +7,6 @@ Writing Shed Pro's Settings screen gives you quick access to app-wide features, 
 ### About Writing Shed Pro
 View version information, build number, and credits.
 
-### Manage Purchases
-Review and restore your in-app purchases. If you've reinstalled the app or switched devices, use this to restore previous purchases.
-
 ### Stylesheet Editor
 Open the stylesheet editor to create and customise stylesheets for your documents. Stylesheets control fonts, sizes, spacing, and other formatting when you export or print. See [Stylesheet Editor](../10-tools/102-stylesheet-editor.md) for details.
 

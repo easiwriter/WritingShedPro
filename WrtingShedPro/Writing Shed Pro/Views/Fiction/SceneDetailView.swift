@@ -572,11 +572,9 @@ struct SceneDetailView: View {
     
 
     private func closeView() {
-        if let onDismiss = onDismiss {
-            onDismiss()
-        } else {
-            dismiss()
-        }
+        onDismiss?()
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 
     private func startEditing() {

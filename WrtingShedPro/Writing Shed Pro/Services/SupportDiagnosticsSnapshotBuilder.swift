@@ -13,6 +13,7 @@ enum SupportDiagnosticsSnapshotBuilder {
         lines.append("syncBackend: Ensembles")
         lines.append("cloudContainer: iCloud.com.appworks.writingshedpro")
         lines.append("activeEnsemblesContainer: \(Write_App.activeEnsemblesContainer != nil)")
+        lines.append("ensemblesSeedPolicy: \(Write_App.currentEnsemblesSeedPolicy)")
         lines.append("firstSuccessfulSyncThisLaunch: \(Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch)")
         lines.append("observedEnsemblesDataThisLaunch: \(Write_App.hasObservedEnsemblesDataThisLaunch)")
         lines.append("observedPartialEnsemblesStoreThisLaunch: \(Write_App.hasObservedPartialEnsemblesStoreThisLaunch)")
@@ -135,6 +136,10 @@ enum SupportDiagnosticsSnapshotBuilder {
         lines.append("- StoryScene: \((try? freshContext.fetchCount(FetchDescriptor<StoryScene>())) ?? -1)")
         lines.append("- TrashItem: \((try? freshContext.fetchCount(FetchDescriptor<TrashItem>())) ?? -1)")
         lines.append("- Version: \((try? freshContext.fetchCount(FetchDescriptor<Version>())) ?? -1)")
+        let orphanedVersionCount = (try? freshContext.fetch(FetchDescriptor<Version>()))?
+            .filter { $0.textFile == nil }
+            .count ?? -1
+        lines.append("- Orphaned Version: \(orphanedVersionCount)")
         lines.append("- StyleSheet: \((try? freshContext.fetchCount(FetchDescriptor<StyleSheet>())) ?? -1)")
         lines.append("- TextStyleModel: \((try? freshContext.fetchCount(FetchDescriptor<TextStyleModel>())) ?? -1)")
         lines.append("- ImageStyle: \((try? freshContext.fetchCount(FetchDescriptor<ImageStyle>())) ?? -1)")

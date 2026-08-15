@@ -1241,10 +1241,8 @@ struct FolderListView: View {
 
     // Load folders asynchronously to avoid blocking UI
     private func loadFolders() async {
-        let freshContext = ModelContext(modelContext.container)
-
         if selectedFolder == nil {
-            ProjectFolderMigrationService.migratePublicationTargetsIfNeeded(modelContext: freshContext)
+            ProjectFolderMigrationService.migratePublicationTargetsIfNeeded(modelContext: modelContext)
         }
 
         if let selectedFolder {
@@ -1256,17 +1254,18 @@ struct FolderListView: View {
                     folder.parentFolder?.id == selectedFolderID
                 }
             )
-            loadedSubfolders = (try? freshContext.fetch(descriptor)) ?? []
+            loadedSubfolders = (try? modelContext.fetch(descriptor)) ?? []
             loadedFolders = []
         } else {
-            // Fetch only top-level project folders from a fresh context.
+            // Fetch only top-level project folders from the view's context so
+            // model instances remain valid while retained in view state.
             let projectID = project.id
             let descriptor = FetchDescriptor<Folder>(
                 predicate: #Predicate<Folder> { folder in
                     folder.project?.id == projectID && folder.parentFolder == nil
                 }
             )
-            loadedFolders = (try? freshContext.fetch(descriptor)) ?? []
+            loadedFolders = (try? modelContext.fetch(descriptor)) ?? []
             loadedSubfolders = []
         }
 

@@ -228,17 +228,13 @@ struct FootnoteDetailView: View {
     
     private func deleteFootnote() {
         FootnoteManager.shared.deleteFootnote(footnote, context: modelContext)
+        onDelete?()
         closePresentedView()
-        DispatchQueue.main.async {
-            onDelete?()
-        }
     }
 
     private func closeView() {
+        onClose?()
         closePresentedView()
-        DispatchQueue.main.async {
-            onClose?()
-        }
     }
 
     private func closePresentedView() {

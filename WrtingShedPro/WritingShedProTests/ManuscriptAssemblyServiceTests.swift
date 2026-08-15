@@ -2,6 +2,7 @@ import XCTest
 import SwiftData
 @testable import Writing_Shed_Pro
 
+@MainActor
 final class ManuscriptAssemblyServiceTests: XCTestCase {
     var modelContainer: ModelContainer!
     var modelContext: ModelContext!
@@ -241,7 +242,7 @@ final class ManuscriptAssemblyServiceTests: XCTestCase {
         let manuscriptFolder = Folder(name: "Manuscript", project: project)
         let frontMatterFolder = Folder(name: "Front Matter", project: project)
         frontMatterFolder.parentFolder = manuscriptFolder
-        manuscriptFolder.subfolders = [frontMatterFolder]
+        manuscriptFolder.folders = [frontMatterFolder]
         project.folders = [manuscriptFolder]
         modelContext.insert(manuscriptFolder)
         modelContext.insert(frontMatterFolder)
@@ -275,7 +276,7 @@ final class ManuscriptAssemblyServiceTests: XCTestCase {
         let backMatterFolder = Folder(name: "Back Matter", project: project)
         frontMatterFolder.parentFolder = manuscriptFolder
         backMatterFolder.parentFolder = manuscriptFolder
-        manuscriptFolder.subfolders = [frontMatterFolder, backMatterFolder]
+        manuscriptFolder.folders = [frontMatterFolder, backMatterFolder]
         project.folders = [manuscriptFolder]
         modelContext.insert(project)
         modelContext.insert(manuscriptFolder)

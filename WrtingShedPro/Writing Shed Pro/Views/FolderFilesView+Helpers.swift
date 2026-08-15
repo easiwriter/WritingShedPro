@@ -28,7 +28,7 @@ extension FolderFilesView {
     /// Previously used @Query over ALL TextFiles (2167+) and filtered in Swift,
     /// causing 750-970ms re-fetches every ~1s during CloudKit sync WAL checkpoints.
     var allFiles: [TextFile] {
-        folder.textFiles ?? []
+        (folder.textFiles ?? []).filter { !$0.isDeleted }
     }
 
     func fileCount(for status: WorkflowStatus?) -> Int {
@@ -129,41 +129,24 @@ extension FolderFilesView {
 
         var groups: [CollectionGroup] = []
 
-        // Sort collections by userOrder, then by name
-        let sortedCollections = collections.sorted {
-            let order0 = $0.userOrder ?? Int.max
-            let order1 = $1.userOrder ?? Int.max
-            if order0 != order1 { return order0 < order1 }
-            return ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
-        }
+        let sortedCollections = collections.sorted(by: ContainerDisplayOrder.isOrdered)
 
-        // Drive membership from join rows. New collection links store scalar IDs
-        // so they may not appear in each file's relationship cache immediately.
-        let validCollectionIDs = Set(sortedCollections.map(\.id))
-        let visibleFileIDs = Set(visibleFiles.map(\.id))
         var membershipByCollectionID: [UUID: [TextFile]] = [:]
         var assignedVisibleFileIDs: Set<UUID> = []
 
-        for link in allCollectionLinks {
-            guard let fileID = link.textFileID ?? link.textFile?.id,
-                  visibleFileIDs.contains(fileID),
-                  let file = visibleFiles.first(where: { $0.id == fileID }),
-                  let collectionID = link.poetryCollectionID ?? link.poetryCollection?.id,
-                  validCollectionIDs.contains(collectionID) else { continue }
-
-            assignedVisibleFileIDs.insert(fileID)
+        for file in visibleFiles {
+            guard let collectionID = file.poetryCollection?.id else { continue }
+            assignedVisibleFileIDs.insert(file.id)
             membershipByCollectionID[collectionID, default: []].append(file)
         }
 
         for collection in sortedCollections {
             let collectionFiles = membershipByCollectionID[collection.id] ?? []
-            if !collectionFiles.isEmpty {
-                groups.append(CollectionGroup(
-                    id: collection.id.uuidString,
-                    name: collection.name ?? NSLocalizedString("poetry.collection.unnamed", comment: "Unnamed"),
-                    files: collectionFiles
-                ))
-            }
+            groups.append(CollectionGroup(
+                id: collection.id.uuidString,
+                name: collection.name ?? NSLocalizedString("poetry.collection.unnamed", comment: "Unnamed"),
+                files: collectionFiles
+            ))
         }
 
         // Add unassigned poems
@@ -188,7 +171,7 @@ extension FolderFilesView {
     }
 
     var sortedMixedFiles: [TextFile] {
-        let allFiles = folder.textFiles ?? []
+        let allFiles = (folder.textFiles ?? []).filter { !$0.isDeleted }
         var seenIDs = Set<UUID>()
         let uniqueFiles = allFiles.filter { file in
             if seenIDs.contains(file.id) {

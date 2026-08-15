@@ -25,7 +25,7 @@ struct ActPickerSheet: View {
     // MARK: - Computed
     
     private var sortedActs: [Act] {
-        (project.acts ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        (project.acts ?? []).sorted(by: ContainerDisplayOrder.isOrdered)
     }
     
     /// Check if all selected scenes are assigned to the same act

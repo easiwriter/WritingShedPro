@@ -23,6 +23,9 @@ final class ImageUpdateCommand: UndoableCommand {
     let oldCaptionPrefix: String?
     let oldCaptionText: String?
     let oldCaptionStyle: String?
+    let oldImageStyleName: String
+    let oldSpacingAbove: CGFloat
+    let oldSpacingBelow: CGFloat
     
     /// New image properties (for redo)
     let newScale: CGFloat
@@ -31,6 +34,9 @@ final class ImageUpdateCommand: UndoableCommand {
     let newCaptionPrefix: String
     let newCaptionText: String
     let newCaptionStyle: String
+    let newImageStyleName: String
+    let newSpacingAbove: CGFloat
+    let newSpacingBelow: CGFloat
     
     /// Reference to the target file (weak to prevent retain cycles)
     weak var targetFile: TextFile?
@@ -49,12 +55,18 @@ final class ImageUpdateCommand: UndoableCommand {
          oldCaptionPrefix: String?,
          oldCaptionText: String?,
          oldCaptionStyle: String?,
+         oldImageStyleName: String,
+         oldSpacingAbove: CGFloat,
+         oldSpacingBelow: CGFloat,
          newScale: CGFloat,
          newAlignment: ImageAttachment.ImageAlignment,
          newHasCaption: Bool,
          newCaptionPrefix: String,
          newCaptionText: String,
          newCaptionStyle: String,
+         newImageStyleName: String,
+         newSpacingAbove: CGFloat,
+         newSpacingBelow: CGFloat,
          targetFile: TextFile?) {
         self.id = id
         self.timestamp = timestamp
@@ -68,12 +80,18 @@ final class ImageUpdateCommand: UndoableCommand {
         self.oldCaptionPrefix = oldCaptionPrefix
         self.oldCaptionText = oldCaptionText
         self.oldCaptionStyle = oldCaptionStyle
+        self.oldImageStyleName = oldImageStyleName
+        self.oldSpacingAbove = oldSpacingAbove
+        self.oldSpacingBelow = oldSpacingBelow
         self.newScale = newScale
         self.newAlignment = newAlignment
         self.newHasCaption = newHasCaption
         self.newCaptionPrefix = newCaptionPrefix
         self.newCaptionText = newCaptionText
         self.newCaptionStyle = newCaptionStyle
+        self.newImageStyleName = newImageStyleName
+        self.newSpacingAbove = newSpacingAbove
+        self.newSpacingBelow = newSpacingBelow
         self.targetFile = targetFile
     }
     
@@ -95,6 +113,9 @@ final class ImageUpdateCommand: UndoableCommand {
         // Update attachment properties to new state
         attachment?.scale = newScale
         attachment?.alignment = newAlignment
+        attachment?.imageStyleName = newImageStyleName
+        attachment?.spacingAbove = newSpacingAbove
+        attachment?.spacingBelow = newSpacingBelow
         attachment?.updateCaption(hasCaption: newHasCaption, prefix: newCaptionPrefix, text: newCaptionText, style: newCaptionStyle)
         
         #if DEBUG
@@ -123,6 +144,9 @@ final class ImageUpdateCommand: UndoableCommand {
         // Restore old attachment properties
         attachment?.scale = oldScale
         attachment?.alignment = oldAlignment
+        attachment?.imageStyleName = oldImageStyleName
+        attachment?.spacingAbove = oldSpacingAbove
+        attachment?.spacingBelow = oldSpacingBelow
         attachment?.updateCaption(hasCaption: oldHasCaption, prefix: oldCaptionPrefix, text: oldCaptionText, style: oldCaptionStyle)
         
         #if DEBUG
@@ -143,8 +167,8 @@ final class ImageUpdateCommand: UndoableCommand {
         case id, timestamp, description
         case beforeContentData, beforeContentText
         case afterContentData, afterContentText
-        case oldScale, oldAlignment, oldHasCaption, oldCaptionPrefix, oldCaptionText, oldCaptionStyle
-        case newScale, newAlignment, newHasCaption, newCaptionPrefix, newCaptionText, newCaptionStyle
+        case oldScale, oldAlignment, oldHasCaption, oldCaptionPrefix, oldCaptionText, oldCaptionStyle, oldImageStyleName, oldSpacingAbove, oldSpacingBelow
+        case newScale, newAlignment, newHasCaption, newCaptionPrefix, newCaptionText, newCaptionStyle, newImageStyleName, newSpacingAbove, newSpacingBelow
     }
     
     required init(from decoder: Decoder) throws {
@@ -168,6 +192,9 @@ final class ImageUpdateCommand: UndoableCommand {
         self.oldCaptionPrefix = try container.decodeIfPresent(String.self, forKey: .oldCaptionPrefix)
         self.oldCaptionText = try container.decodeIfPresent(String.self, forKey: .oldCaptionText)
         self.oldCaptionStyle = try container.decodeIfPresent(String.self, forKey: .oldCaptionStyle)
+        self.oldImageStyleName = try container.decodeIfPresent(String.self, forKey: .oldImageStyleName) ?? "default"
+        self.oldSpacingAbove = try container.decodeIfPresent(CGFloat.self, forKey: .oldSpacingAbove) ?? 0
+        self.oldSpacingBelow = try container.decodeIfPresent(CGFloat.self, forKey: .oldSpacingBelow) ?? 0
         
         // Decode new properties
         self.newScale = try container.decode(CGFloat.self, forKey: .newScale)
@@ -177,6 +204,9 @@ final class ImageUpdateCommand: UndoableCommand {
         self.newCaptionPrefix = try container.decodeIfPresent(String.self, forKey: .newCaptionPrefix) ?? "Figure"
         self.newCaptionText = try container.decode(String.self, forKey: .newCaptionText)
         self.newCaptionStyle = try container.decode(String.self, forKey: .newCaptionStyle)
+        self.newImageStyleName = try container.decodeIfPresent(String.self, forKey: .newImageStyleName) ?? "default"
+        self.newSpacingAbove = try container.decodeIfPresent(CGFloat.self, forKey: .newSpacingAbove) ?? 0
+        self.newSpacingBelow = try container.decodeIfPresent(CGFloat.self, forKey: .newSpacingBelow) ?? 0
         
         self.attachment = nil
         self.targetFile = nil
@@ -195,11 +225,17 @@ final class ImageUpdateCommand: UndoableCommand {
         try container.encodeIfPresent(oldCaptionPrefix, forKey: .oldCaptionPrefix)
         try container.encodeIfPresent(oldCaptionText, forKey: .oldCaptionText)
         try container.encodeIfPresent(oldCaptionStyle, forKey: .oldCaptionStyle)
+        try container.encode(oldImageStyleName, forKey: .oldImageStyleName)
+        try container.encode(oldSpacingAbove, forKey: .oldSpacingAbove)
+        try container.encode(oldSpacingBelow, forKey: .oldSpacingBelow)
         try container.encode(newScale, forKey: .newScale)
         try container.encode(newAlignment.rawValue, forKey: .newAlignment)
         try container.encode(newHasCaption, forKey: .newHasCaption)
         try container.encode(newCaptionPrefix, forKey: .newCaptionPrefix)
         try container.encode(newCaptionText, forKey: .newCaptionText)
         try container.encode(newCaptionStyle, forKey: .newCaptionStyle)
+        try container.encode(newImageStyleName, forKey: .newImageStyleName)
+        try container.encode(newSpacingAbove, forKey: .newSpacingAbove)
+        try container.encode(newSpacingBelow, forKey: .newSpacingBelow)
     }
 }

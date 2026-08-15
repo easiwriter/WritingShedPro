@@ -37,7 +37,7 @@ struct ChapterPickerSheet: View {
     }
     
     private var sortedChapters: [Chapter] {
-        (project.chapters ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        (project.chapters ?? []).sorted(by: ContainerDisplayOrder.isOrdered)
     }
     
     /// Check if all selected scenes are assigned to the same chapter

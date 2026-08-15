@@ -180,7 +180,7 @@ Create with: name, category, description, line count, stanza count, syllable pat
 Used for non-verse lines within a poem (epigraphs, prose interludes, etc.)
 
 ### Poetry Collections
-- Virtual groupings of poems (poems can belong to multiple collections)
+- Virtual groupings of poems (each poem can belong to one collection)
 - **Only available in Poetry projects**
 - Collections don't move poems — they reference them
 - Used for: chapbooks, submission packages, themed sets, reading selections
@@ -557,7 +557,6 @@ Access: Main screen → Settings (gear icon)
 | **Sync Diagnostics** | Troubleshoot iCloud sync |
 | **Contact Support** | Report bugs, suggestions, questions |
 | **Rate This App** | App Store rating |
-| **Manage Purchases** | View/restore in-app purchase |
 | **About** | App version, credits, licenses |
 
 ---

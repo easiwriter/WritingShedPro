@@ -311,8 +311,10 @@ struct ProjectEditableList: View {
 
             let errorHandler = ImportErrorHandler()
             DeduplicationService.pauseZombieDeletion(for: 45)
+            let importContext = ModelContext(modelContext.container)
+            importContext.autosaveEnabled = false
             let importService = JSONImportService(
-                modelContext: modelContext,
+                modelContext: importContext,
                 errorHandler: errorHandler,
                 generateNewUUIDs: true
             )

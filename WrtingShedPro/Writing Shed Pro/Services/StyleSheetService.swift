@@ -916,6 +916,64 @@ struct StyleSheetService {
         return updatedFilesCount
     }
 
+    @discardableResult
+    static func reapplyUpdatedImageStyle(
+        _ imageStyle: ImageStyle,
+        in styleSheet: StyleSheet
+    ) -> Int {
+        var updatedFilesCount = 0
+
+        func processFolder(_ folder: Folder) {
+            for file in folder.textFiles ?? [] {
+                guard let version = file.currentVersion,
+                      let content = version.attributedContent,
+                      content.length > 0 else { continue }
+
+                let mutableContent = NSMutableAttributedString(attributedString: content)
+                var matchingAttachments: [(ImageAttachment, NSRange)] = []
+                mutableContent.enumerateAttribute(
+                    .attachment,
+                    in: NSRange(location: 0, length: mutableContent.length)
+                ) { value, range, _ in
+                    guard let attachment = value as? ImageAttachment,
+                          attachment.imageStyleName == imageStyle.name else { return }
+                    matchingAttachments.append((attachment, range))
+                }
+
+                guard !matchingAttachments.isEmpty else { continue }
+                for (attachment, range) in matchingAttachments {
+                    imageStyle.apply(to: attachment)
+                    mutableContent.addAttribute(
+                        .paragraphStyle,
+                        value: attachment.paragraphStyle(),
+                        range: range
+                    )
+                }
+
+                version.attributedContent = mutableContent
+                file.modifiedDate = Date()
+                updatedFilesCount += 1
+            }
+
+            for subfolder in folder.folders ?? [] {
+                processFolder(subfolder)
+            }
+        }
+
+        for project in styleSheet.projects ?? [] {
+            for folder in project.folders ?? [] {
+                processFolder(folder)
+            }
+        }
+
+        if updatedFilesCount > 0 {
+            Task { @MainActor in
+                WriteCoalescer.shared?.requestSave(reason: "image-style-reapply")
+            }
+        }
+        return updatedFilesCount
+    }
+
     private static func reapplyStyleInProject(
         styleName: String,
         styleSheet: StyleSheet,

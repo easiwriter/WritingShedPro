@@ -35,13 +35,13 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         // Poetry: Poems, Collections, Submissions, Manuscript, Research, Magazines, Competitions, Other, Trash
         let allFolders = newProject.folders ?? []
         let rootFolders = allFolders.filter { $0.parentFolder == nil }
-        XCTAssertEqual(rootFolders.count, 9, "Should create 9 root folders for poetry project")
+        XCTAssertEqual(rootFolders.count, 11, "Should create 11 root folders for poetry project")
         
         // Verify expected folder names exist
         let folderNames = Set(rootFolders.compactMap { $0.name })
         let expectedFolders: Set<String> = [
             "Poems", "Collections", "Submissions", "Manuscript",
-            "Research", "Magazines", "Competitions", 
+            "Research", "Magazines", "Competitions", "Publishers", "Agents",
             "Other", "Trash"
         ]
         XCTAssertEqual(folderNames, expectedFolders, "Should have correct folder names")
@@ -59,7 +59,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         // Then: Root folders are accessible directly from project
         // Note: Manuscript subfolders are NOT in project.folders - they're linked via parentFolder only
         // This is by design for CloudKit sync (see ProjectTemplateService line 97)
-        XCTAssertEqual(projectFolders.count, 9, "Prose project should have 9 root folders")
+        XCTAssertEqual(projectFolders.count, 11, "Prose project should have 11 root folders")
         
         for folder in projectFolders {
             XCTAssertNotNil(folder.name, "Folder should have name")
@@ -85,7 +85,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
         // Then: Can access all root folders
-        XCTAssertEqual(rootFolders.count, 9, "Should find 9 root folders for poetry project")
+        XCTAssertEqual(rootFolders.count, 11, "Should find 11 root folders for poetry project")
         
         let folderNames = Set(rootFolders.compactMap { $0.name })
         XCTAssert(folderNames.contains("Poems"), "Should contain Poems folder")
@@ -113,8 +113,8 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         let proseRootFolders = allProseFolders.filter { $0.parentFolder == nil }
         
         // Then: Each has its own folder structure
-        XCTAssertEqual(poetryRootFolders.count, 9, "Poetry project should have 9 root folders")
-        XCTAssertEqual(proseRootFolders.count, 9, "Prose project should have 9 root folders")
+        XCTAssertEqual(poetryRootFolders.count, 11, "Poetry project should have 11 root folders")
+        XCTAssertEqual(proseRootFolders.count, 11, "Prose project should have 11 root folders")
         
         // Verify type-specific folders
         let poetryFolderNames = Set(poetryRootFolders.compactMap { $0.name })
@@ -157,14 +157,14 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         let allFolders = project.folders ?? []
         let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        // Then: Verify structure matches spec (9 root folders, Manuscript has 3 subfolders)
-        XCTAssertEqual(rootFolders.count, 9, "Should have 9 root folders total for poetry project")
+        // Then: Verify structure matches spec (11 root folders, Manuscript has 3 subfolders)
+        XCTAssertEqual(rootFolders.count, 11, "Should have 11 root folders total for poetry project")
         
         let folderNames = Set(rootFolders.compactMap { $0.name })
         let expectedNames = Set([
             "Poems", "Collections", "Submissions", "Manuscript",
             "Research", 
-            "Magazines", "Competitions", "Other", 
+            "Magazines", "Competitions", "Publishers", "Agents", "Other",
             "Trash"
         ])
         XCTAssertEqual(folderNames, expectedNames, "Folder names should match spec")

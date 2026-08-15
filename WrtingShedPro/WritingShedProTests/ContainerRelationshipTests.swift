@@ -3,7 +3,7 @@
 //  Writing Shed ProTests
 //
 //  Created on 28 February 2026.
-//  Tests for many-to-many container relationships and helper methods.
+//  Tests for container relationships and helper methods.
 //
 
 import XCTest
@@ -58,6 +58,32 @@ final class ContainerRelationshipTests: XCTestCase {
     }
     
     // MARK: - TextFile ↔ PoetryCollection
+
+    func testContainerDisplayOrderUsesUserOrderThenNameForAllProjectTypes() {
+        let later = PoetryCollection(name: "A", userOrder: 2)
+        let firstNamedB = PoetryCollection(name: "B", userOrder: 1)
+        let firstNamedA = PoetryCollection(name: "A", userOrder: 1)
+        let unordered = PoetryCollection(name: "Unordered")
+
+        let sorted = [unordered, later, firstNamedB, firstNamedA]
+            .sorted(by: ContainerDisplayOrder.isOrdered)
+
+        XCTAssertEqual(sorted.map(\.id), [firstNamedA.id, firstNamedB.id, later.id, unordered.id])
+
+        let sections = [ProseSection(name: "B", userOrder: 1), ProseSection(name: "A", userOrder: 1)]
+            .sorted(by: ContainerDisplayOrder.isOrdered)
+        let chapters = [Chapter(name: "B", userOrder: 1), Chapter(name: "A", userOrder: 1)]
+            .sorted(by: ContainerDisplayOrder.isOrdered)
+        let acts = [Act(name: "B", userOrder: 1), Act(name: "A", userOrder: 1)]
+            .sorted(by: ContainerDisplayOrder.isOrdered)
+        let books = [Book(name: "B", userOrder: 1), Book(name: "A", userOrder: 1)]
+            .sorted(by: ContainerDisplayOrder.isOrdered)
+
+        XCTAssertEqual(sections.map(\.name), ["A", "B"])
+        XCTAssertEqual(chapters.map(\.name), ["A", "B"])
+        XCTAssertEqual(acts.map(\.name), ["A", "B"])
+        XCTAssertEqual(books.map(\.name), ["A", "B"])
+    }
     
     func testAddToPoetryCollection() throws {
         let collection = PoetryCollection(name: "Sonnets")
@@ -70,11 +96,11 @@ final class ContainerRelationshipTests: XCTestCase {
         try modelContext.save()
         
         XCTAssertTrue(file.isInPoetryCollection(collection))
-        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 1)
-        XCTAssertEqual(try poetryCollectionIDs(for: file), [collection.id])
+        XCTAssertEqual(file.poetryCollection?.id, collection.id)
+        XCTAssertTrue(collection.textFiles?.contains(where: { $0.id == file.id }) == true)
     }
 
-    func testAddToPoetryCollectionCreatesScalarLinkWithoutRelationships() throws {
+    func testAddToPoetryCollectionDoesNotCreateLegacyLink() throws {
         let collection = PoetryCollection(name: "Sonnets")
         modelContext.insert(collection)
 
@@ -84,11 +110,8 @@ final class ContainerRelationshipTests: XCTestCase {
         file.addToPoetryCollection(collection)
         try modelContext.save()
 
-        let link = try XCTUnwrap(poetryCollectionLinks(for: file).first)
-        XCTAssertEqual(link.textFileID, file.id)
-        XCTAssertEqual(link.poetryCollectionID, collection.id)
-        XCTAssertNil(link.textFile)
-        XCTAssertNil(link.poetryCollection)
+        XCTAssertEqual(file.poetryCollection?.id, collection.id)
+        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 0)
     }
     
     func testAddToPoetryCollection_NoDuplicate() throws {
@@ -102,10 +125,11 @@ final class ContainerRelationshipTests: XCTestCase {
         file.addToPoetryCollection(collection) // duplicate
         try modelContext.save()
         
-        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 1)
+        XCTAssertEqual(file.poetryCollection?.id, collection.id)
+        XCTAssertEqual(collection.textFiles?.filter { $0.id == file.id }.count, 1)
     }
     
-    func testMultiplePoetryCollections() throws {
+    func testAssigningAnotherPoetryCollectionReplacesExistingAssignment() throws {
         let col1 = PoetryCollection(name: "Sonnets")
         let col2 = PoetryCollection(name: "Love Poems")
         modelContext.insert(col1)
@@ -118,9 +142,9 @@ final class ContainerRelationshipTests: XCTestCase {
         file.addToPoetryCollection(col2)
         try modelContext.save()
         
-        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 2)
-        XCTAssertTrue(file.isInPoetryCollection(col1))
+        XCTAssertFalse(file.isInPoetryCollection(col1))
         XCTAssertTrue(file.isInPoetryCollection(col2))
+        XCTAssertEqual(file.poetryCollection?.id, col2.id)
     }
     
     func testRemoveFromPoetryCollection() throws {
@@ -137,7 +161,6 @@ final class ContainerRelationshipTests: XCTestCase {
         file.removeFromPoetryCollection(col1)
         try modelContext.save()
         
-        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 1)
         XCTAssertFalse(file.isInPoetryCollection(col1))
         XCTAssertTrue(file.isInPoetryCollection(col2))
     }
@@ -176,7 +199,7 @@ final class ContainerRelationshipTests: XCTestCase {
         file.removeFromAllPoetryCollections()
         try modelContext.save()
         
-        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 0)
+        XCTAssertNil(file.poetryCollection)
         XCTAssertFalse(file.isInPoetryCollection(col1))
         XCTAssertFalse(file.isInPoetryCollection(col2))
     }
@@ -188,16 +211,14 @@ final class ContainerRelationshipTests: XCTestCase {
         let file = TextFile(name: "Poem 1", initialContent: "")
         modelContext.insert(file)
         
-        // Set via backwards-compat property
         file.poetryCollection = collection
         try modelContext.save()
         
-        XCTAssertEqual(try poetryCollectionIDs(for: file), [collection.id])
-        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 1)
+        XCTAssertEqual(file.poetryCollection?.id, collection.id)
+        XCTAssertTrue(collection.textFiles?.contains(where: { $0.id == file.id }) == true)
         
-        // Clear via backwards-compat property
         file.poetryCollection = nil
-        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 0)
+        XCTAssertFalse(collection.textFiles?.contains(where: { $0.id == file.id }) ?? false)
     }
 
     func testDeleteFilesPermanentlyPersistsWithoutWriteCoalescer() throws {
@@ -217,6 +238,8 @@ final class ContainerRelationshipTests: XCTestCase {
 
         XCTAssertFalse(folder.textFiles?.contains(where: { $0.id == file.id }) ?? false,
                    "Permanent delete should remove the file from the folder relationship immediately")
+        XCTAssertTrue(UniquenessChecker.isFileNameUnique("Draft 1", in: folder),
+                  "A permanently deleted filename should be reusable immediately")
 
         let freshContext = ModelContext(modelContainer)
         let fileID = file.id
@@ -287,7 +310,7 @@ final class ContainerRelationshipTests: XCTestCase {
         XCTAssertEqual(file.sections?.count, 1)
     }
     
-    func testMultipleSections() throws {
+    func testAssigningAnotherSectionReplacesExistingAssignment() throws {
         let sec1 = ProseSection(name: "Introduction")
         let sec2 = ProseSection(name: "Conclusion")
         modelContext.insert(sec1)
@@ -300,8 +323,8 @@ final class ContainerRelationshipTests: XCTestCase {
         file.addToSection(sec2)
         try modelContext.save()
         
-        XCTAssertEqual(file.sections?.count, 2)
-        XCTAssertTrue(file.isInSection(sec1))
+        XCTAssertEqual(file.sections?.count, 1)
+        XCTAssertFalse(file.isInSection(sec1))
         XCTAssertTrue(file.isInSection(sec2))
     }
     
@@ -387,7 +410,7 @@ final class ContainerRelationshipTests: XCTestCase {
         XCTAssertEqual(scene.chapters?.count, 1)
     }
     
-    func testMultipleChapters() throws {
+    func testAssigningAnotherChapterReplacesExistingAssignment() throws {
         let ch1 = Chapter(name: "Chapter 1")
         let ch2 = Chapter(name: "Chapter 2")
         modelContext.insert(ch1)
@@ -400,8 +423,8 @@ final class ContainerRelationshipTests: XCTestCase {
         scene.addToChapter(ch2)
         try modelContext.save()
         
-        XCTAssertEqual(scene.chapters?.count, 2)
-        XCTAssertTrue(scene.isInChapter(ch1))
+        XCTAssertEqual(scene.chapters?.count, 1)
+        XCTAssertFalse(scene.isInChapter(ch1))
         XCTAssertTrue(scene.isInChapter(ch2))
     }
     
@@ -487,7 +510,7 @@ final class ContainerRelationshipTests: XCTestCase {
         XCTAssertEqual(scene.acts?.count, 1)
     }
     
-    func testMultipleActs() throws {
+    func testAssigningAnotherActReplacesExistingAssignment() throws {
         let act1 = Act(name: "Act 1")
         let act2 = Act(name: "Act 2")
         modelContext.insert(act1)
@@ -500,8 +523,8 @@ final class ContainerRelationshipTests: XCTestCase {
         scene.addToAct(act2)
         try modelContext.save()
         
-        XCTAssertEqual(scene.acts?.count, 2)
-        XCTAssertTrue(scene.isInAct(act1))
+        XCTAssertEqual(scene.acts?.count, 1)
+        XCTAssertFalse(scene.isInAct(act1))
         XCTAssertTrue(scene.isInAct(act2))
     }
     
@@ -587,7 +610,7 @@ final class ContainerRelationshipTests: XCTestCase {
         XCTAssertEqual(scene.books?.count, 1)
     }
     
-    func testMultipleBooks() throws {
+    func testAssigningAnotherBookReplacesExistingAssignment() throws {
         let book1 = Book(name: "Book 1")
         let book2 = Book(name: "Book 2")
         modelContext.insert(book1)
@@ -600,8 +623,8 @@ final class ContainerRelationshipTests: XCTestCase {
         scene.addToBook(book2)
         try modelContext.save()
         
-        XCTAssertEqual(scene.books?.count, 2)
-        XCTAssertTrue(scene.isInBook(book1))
+        XCTAssertEqual(scene.books?.count, 1)
+        XCTAssertFalse(scene.isInBook(book1))
         XCTAssertTrue(scene.isInBook(book2))
     }
     
@@ -738,9 +761,9 @@ final class ContainerRelationshipTests: XCTestCase {
         XCTAssertFalse(scene.displayName.isEmpty)
     }
     
-    // MARK: - Cross-Container Multi-Membership Tests
+    // MARK: - Cross-Container Membership Tests
     
-    func testFileInMultipleCollectionsPreservedOnSingleRemoval() throws {
+    func testPoetryCollectionAssignmentKeepsOnlyLatestCollection() throws {
         let col1 = PoetryCollection(name: "Collection A")
         let col2 = PoetryCollection(name: "Collection B")
         let col3 = PoetryCollection(name: "Collection C")
@@ -756,19 +779,13 @@ final class ContainerRelationshipTests: XCTestCase {
         file.addToPoetryCollection(col3)
         try modelContext.save()
         
-        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 3)
-        
-        // Remove from one — others should remain
-        file.removeFromPoetryCollection(col2)
-        try modelContext.save()
-        
-        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 2)
-        XCTAssertTrue(file.isInPoetryCollection(col1))
+        XCTAssertEqual(file.poetryCollection?.id, col3.id)
+        XCTAssertFalse(file.isInPoetryCollection(col1))
         XCTAssertFalse(file.isInPoetryCollection(col2))
         XCTAssertTrue(file.isInPoetryCollection(col3))
     }
     
-    func testSceneInMultipleChaptersPreservedOnSingleRemoval() throws {
+    func testSceneChapterAssignmentKeepsOnlyLatestChapter() throws {
         let ch1 = Chapter(name: "Chapter 1")
         let ch2 = Chapter(name: "Chapter 2")
         let ch3 = Chapter(name: "Chapter 3")
@@ -784,58 +801,129 @@ final class ContainerRelationshipTests: XCTestCase {
         scene.addToChapter(ch3)
         try modelContext.save()
         
-        XCTAssertEqual(scene.chapters?.count, 3)
+        XCTAssertEqual(scene.chapters?.count, 1)
+        XCTAssertEqual(scene.chapter?.id, ch3.id)
         
         scene.removeFromChapter(ch2)
         try modelContext.save()
         
-        XCTAssertEqual(scene.chapters?.count, 2)
-        XCTAssertTrue(scene.isInChapter(ch1))
+        XCTAssertEqual(scene.chapters?.count, 1)
+        XCTAssertFalse(scene.isInChapter(ch1))
         XCTAssertFalse(scene.isInChapter(ch2))
         XCTAssertTrue(scene.isInChapter(ch3))
     }
     
-    // MARK: - Backwards-Compat Setter Replaces All
+    // MARK: - Historical Link Normalization
     
-    func testBackwardsCompatSetterReplacesMultiple_PoetryCollection() throws {
+    func testMigrationRetainsOneHistoricalPoetryCollectionLink() throws {
         let col1 = PoetryCollection(name: "A")
         let col2 = PoetryCollection(name: "B")
-        let col3 = PoetryCollection(name: "C")
         modelContext.insert(col1)
         modelContext.insert(col2)
-        modelContext.insert(col3)
         
         let file = TextFile(name: "Poem", initialContent: "")
         modelContext.insert(file)
         
-        file.addToPoetryCollection(col1)
-        file.addToPoetryCollection(col2)
+        modelContext.insert(TextFileCollectionLink(textFileID: file.id, poetryCollectionID: col1.id))
+        modelContext.insert(TextFileCollectionLink(textFileID: file.id, poetryCollectionID: col2.id))
         XCTAssertEqual(try poetryCollectionLinkCount(for: file), 2)
         
-        // Setting via backwards-compat property should replace with single
-        file.poetryCollection = col3
+        MigrationService.migrateSingleContainerRelationships(context: modelContext)
+
         XCTAssertEqual(try poetryCollectionLinkCount(for: file), 1)
-        XCTAssertEqual(try poetryCollectionIDs(for: file), [col3.id])
+        XCTAssertEqual(file.poetryCollection?.id, col1.id)
+        XCTAssertEqual(try poetryCollectionIDs(for: file), [col1.id])
+    }
+
+    func testAssignmentNormalizesHistoricalDuplicateLinks() throws {
+        let collection = PoetryCollection(name: "A")
+        modelContext.insert(collection)
+
+        let file = TextFile(name: "Poem", initialContent: "")
+        modelContext.insert(file)
+
+        modelContext.insert(TextFileCollectionLink(textFileID: file.id, poetryCollectionID: collection.id))
+        modelContext.insert(TextFileCollectionLink(textFileID: file.id, poetryCollectionID: collection.id))
+        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 2)
+
+        MigrationService.migrateSingleContainerRelationships(context: modelContext)
+
+        XCTAssertEqual(try poetryCollectionLinkCount(for: file), 1)
+        XCTAssertEqual(file.poetryCollection?.id, collection.id)
+        XCTAssertEqual(try poetryCollectionIDs(for: file), [collection.id])
+    }
+
+    func testMigrationHandlesDuplicateTextFileIDsWithoutCrossLinkingRows() throws {
+        let duplicateID = UUID()
+        let firstFile = TextFile(name: "First", initialContent: "")
+        firstFile.id = duplicateID
+        let secondFile = TextFile(name: "Second", initialContent: "")
+        secondFile.id = duplicateID
+        let firstCollection = PoetryCollection(name: "First Collection")
+        let secondCollection = PoetryCollection(name: "Second Collection")
+
+        modelContext.insert(firstFile)
+        modelContext.insert(secondFile)
+        modelContext.insert(firstCollection)
+        modelContext.insert(secondCollection)
+        modelContext.insert(TextFileCollectionLink(textFile: firstFile, poetryCollection: firstCollection))
+        modelContext.insert(TextFileCollectionLink(textFile: secondFile, poetryCollection: secondCollection))
+
+        XCTAssertTrue(MigrationService.migrateSingleContainerRelationships(context: modelContext))
+        XCTAssertEqual(firstFile.poetryCollection?.persistentModelID, firstCollection.persistentModelID)
+        XCTAssertEqual(secondFile.poetryCollection?.persistentModelID, secondCollection.persistentModelID)
     }
     
-    func testBackwardsCompatSetterReplacesMultiple_Chapter() throws {
+    func testMigrationRetainsOneHistoricalChapterLink() throws {
         let ch1 = Chapter(name: "Ch 1")
         let ch2 = Chapter(name: "Ch 2")
-        let ch3 = Chapter(name: "Ch 3")
         modelContext.insert(ch1)
         modelContext.insert(ch2)
-        modelContext.insert(ch3)
         
         let scene = StoryScene(name: "Scene")
         modelContext.insert(scene)
         
-        scene.addToChapter(ch1)
-        scene.addToChapter(ch2)
-        XCTAssertEqual(scene.chapters?.count, 2)
+        modelContext.insert(SceneChapterLink(scene: scene, chapter: ch1))
+        modelContext.insert(SceneChapterLink(scene: scene, chapter: ch2))
+        XCTAssertEqual(try modelContext.fetch(FetchDescriptor<SceneChapterLink>()).count, 2)
         
-        scene.chapter = ch3
+        MigrationService.migrateSingleContainerRelationships(context: modelContext)
         XCTAssertEqual(scene.chapters?.count, 1)
-        XCTAssertEqual(scene.chapter?.id, ch3.id)
+        XCTAssertEqual(scene.chapter?.id, ch1.id)
+        XCTAssertEqual(try modelContext.fetch(FetchDescriptor<SceneChapterLink>()).count, 1)
+    }
+
+    func testMigrationRetainsOneLinkForSectionActAndBook() throws {
+        let sectionA = ProseSection(name: "A")
+        let sectionB = ProseSection(name: "B")
+        let file = TextFile(name: "File", initialContent: "")
+        let actA = Act(name: "A")
+        let actB = Act(name: "B")
+        let bookA = Book(name: "A")
+        let bookB = Book(name: "B")
+        let scene = StoryScene(name: "Scene")
+
+        [sectionA, sectionB].forEach(modelContext.insert)
+        modelContext.insert(file)
+        [actA, actB].forEach(modelContext.insert)
+        [bookA, bookB].forEach(modelContext.insert)
+        modelContext.insert(scene)
+
+        modelContext.insert(TextFileSectionLink(textFile: file, section: sectionB))
+        modelContext.insert(TextFileSectionLink(textFile: file, section: sectionA))
+        modelContext.insert(SceneActLink(scene: scene, act: actB))
+        modelContext.insert(SceneActLink(scene: scene, act: actA))
+        modelContext.insert(SceneBookLink(scene: scene, book: bookB))
+        modelContext.insert(SceneBookLink(scene: scene, book: bookA))
+
+        MigrationService.migrateSingleContainerRelationships(context: modelContext)
+
+        XCTAssertEqual(file.section?.id, sectionA.id)
+        XCTAssertEqual(scene.act?.id, actA.id)
+        XCTAssertEqual(scene.book?.id, bookA.id)
+        XCTAssertEqual(try modelContext.fetch(FetchDescriptor<TextFileSectionLink>()).count, 1)
+        XCTAssertEqual(try modelContext.fetch(FetchDescriptor<SceneActLink>()).count, 1)
+        XCTAssertEqual(try modelContext.fetch(FetchDescriptor<SceneBookLink>()).count, 1)
     }
     
     // MARK: - WSP Export Data Structure Tests (v1.3)

@@ -32,6 +32,7 @@ struct SyncDiagnosticsView: View {
     @State private var syncStatusMessage = ""
     @State private var showLocalResetConfirmation = false
     @State private var showRemoveEnsemblesCloudDataConfirmation = false
+    @State private var showRemoveLegacyCloudDataConfirmation = false
     @State private var localResetQueued = false
     @State private var localRecoveryModeQueued = UserDefaults.standard.bool(forKey: Write_App.localRecoveryModeOnNextLaunchKey)
     @State private var ensemblesCloudDataRemovedThisSession = false
@@ -59,11 +60,18 @@ struct SyncDiagnosticsView: View {
                 message: localResetDialogMessage
             )
             .confirmationDialog(
-                "Remove the Ensembles cloud data?",
+                "Remove all Writing Shed Pro sync cloud data?",
                 isPresented: $showRemoveEnsemblesCloudDataConfirmation,
                 titleVisibility: .visible,
                 actions: removeCloudDataDialogActions,
                 message: removeCloudDataDialogMessage
+            )
+            .confirmationDialog(
+                "Remove the legacy Core Data CloudKit zone?",
+                isPresented: $showRemoveLegacyCloudDataConfirmation,
+                titleVisibility: .visible,
+                actions: removeLegacyCloudDataDialogActions,
+                message: removeLegacyCloudDataDialogMessage
             )
         }
     }
@@ -84,7 +92,21 @@ struct SyncDiagnosticsView: View {
             LabeledContent("Backend", value: "Ensembles")
             LabeledContent("Cloud Container", value: "iCloud.com.appworks.writingshedpro")
             LabeledContent("Container Active", value: Write_App.activeEnsemblesContainer == nil ? "No" : "Yes")
+            LabeledContent("Seed Policy", value: Write_App.currentEnsemblesSeedPolicy)
+            if let container = Write_App.activeEnsemblesContainer {
+                LabeledContent("Attached", value: container.isAttached ? "Yes" : "No")
+                LabeledContent("Sync Suspended", value: container.isSyncSuspended ? "Yes" : "No")
+                LabeledContent("Current Activity", value: String(describing: container.currentActivity))
+            } else {
+                LabeledContent("Attached", value: "No container")
+                LabeledContent("Sync Suspended", value: "No container")
+                LabeledContent("Current Activity", value: "No container")
+            }
             LabeledContent("First Sync This Launch", value: Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch ? "Yes" : "No")
+            LabeledContent("Data Observed This Launch", value: Write_App.hasObservedEnsemblesDataThisLaunch ? "Yes" : "No")
+            LabeledContent("Partial Store Observed", value: Write_App.hasObservedPartialEnsemblesStoreThisLaunch ? "Yes" : "No")
+            LabeledContent("Local Recovery Mode", value: Write_App.isLocalRecoveryModeEnabled ? "Yes" : "No")
+            LabeledContent("Local Reset Queued", value: UserDefaults.standard.bool(forKey: Write_App.resetLocalEnsemblesStoreOnNextLaunchKey) ? "Yes" : "No")
 
             Button {
                 Task { await runManualSync() }
@@ -96,7 +118,13 @@ struct SyncDiagnosticsView: View {
             Button {
                 Task { await verifyEnsemblesZoneContent() }
             } label: {
-                Label("Verify Ensembles Zone", systemImage: "icloud.and.arrow.down")
+                Label("Verify Sync Zones", systemImage: "icloud.and.arrow.down")
+            }
+
+            Button(role: .destructive) {
+                showRemoveLegacyCloudDataConfirmation = true
+            } label: {
+                Label("Remove Legacy Core Data Zone Only", systemImage: "icloud.slash")
             }
 
             Button {
@@ -108,7 +136,7 @@ struct SyncDiagnosticsView: View {
             Button(role: .destructive) {
                 showRemoveEnsemblesCloudDataConfirmation = true
             } label: {
-                Label(Write_App.activeEnsemblesContainer == nil ? "Remove Ensembles Cloud Data (Local Recovery)" : "Remove Ensembles Cloud Data", systemImage: "icloud.slash")
+                Label(Write_App.activeEnsemblesContainer == nil ? "Remove All Sync Cloud Data (Local Recovery)" : "Remove All Sync Cloud Data", systemImage: "icloud.slash")
             }
             .disabled(projectCount == 0)
 
@@ -150,7 +178,7 @@ struct SyncDiagnosticsView: View {
             }
 
             if ensemblesCloudDataRemovedThisSession {
-                Text("Ensembles cloud data was removed in this app session. Wait a few minutes for CloudKit propagation, then sync this complete source device first.")
+                Text("Both sync zones were removed. This source device's local store is the only source of truth: do not reset it. Keep Local Recovery Mode enabled, wait at least 60 seconds, and verify both zones are absent before reseeding.")
                     .font(.caption)
                     .foregroundStyle(.red)
             }
@@ -286,7 +314,7 @@ struct SyncDiagnosticsView: View {
 
     @ViewBuilder
     private func removeCloudDataDialogActions() -> some View {
-        Button("Remove Ensembles Cloud Data", role: .destructive) {
+        Button("Remove Both Sync Zones", role: .destructive) {
             Task { await removeEnsemblesCloudDataFromSourceDevice() }
         }
         Button("Cancel", role: .cancel) { }
@@ -294,10 +322,22 @@ struct SyncDiagnosticsView: View {
 
     private func removeCloudDataDialogMessage() -> some View {
         if Write_App.activeEnsemblesContainer == nil {
-            Text("Use this only on the source device that visibly has the complete project list, after all other devices are closed or offline. Local Recovery Mode is active, so this will not attach or detach this device; it will make a safety backup, then remove the shared Ensembles cloud history. Wait a few minutes, then disable Local Recovery Mode and launch this source device first to seed clean cloud data.")
+            Text("Use this only during controlled recovery after all other devices are closed. Local Recovery Mode is active, so this will first make a safety backup, permanently delete both sync zones, and remove the old local Ensembles event history. This Mac's rebuilt project store is preserved. Do not reset it after deletion. Wait at least 60 seconds, verify both zones are absent, then disable Local Recovery Mode and relaunch to create a fresh baseline from this Mac.")
         } else {
-            Text("Use this only on the source device that visibly has the complete project list, after all other devices have been detached or kept offline. This first detaches this device, then removes the shared Ensembles cloud history. Wait a few minutes, then sync this source device first to seed clean cloud data.")
+            Text("Cloud data can only be removed in Local Recovery Mode so automatic sync cannot reattach during recovery. Cancel, enable Local Recovery Mode, then quit and relaunch before trying again.")
         }
+    }
+
+    @ViewBuilder
+    private func removeLegacyCloudDataDialogActions() -> some View {
+        Button("Remove Legacy Zone Only", role: .destructive) {
+            Task { await removeLegacyCoreDataCloudZone() }
+        }
+        Button("Cancel", role: .cancel) { }
+    }
+
+    private func removeLegacyCloudDataDialogMessage() -> some View {
+        Text("This permanently deletes only com.apple.coredata.cloudkit.zone. It does not modify the Ensembles zone or this device's local store. Keep all other Writing Shed Pro devices powered off during this recovery step.")
     }
 
     @MainActor
@@ -343,65 +383,67 @@ struct SyncDiagnosticsView: View {
 
     @MainActor
     private func verifyEnsemblesZoneContent() async {
-        syncStatusMessage = "Checking Ensembles CloudKit zone..."
+        syncStatusMessage = "Checking both sync zones..."
+        let ensemblesStatus: String
         do {
-            let summary = try await fetchEnsemblesZoneSummary()
-            syncStatusMessage = summary
-            Write_App.logToFile("☁️ [Ensembles] Zone verification: \(summary)")
+            ensemblesStatus = "present (\(try await fetchEnsemblesZoneSummary()))"
+        } catch let error as CKError where error.code == .zoneNotFound || error.code == .unknownItem {
+            ensemblesStatus = "absent"
         } catch {
-            let detail = Write_App.detailedErrorDescription(error)
-            syncStatusMessage = "Ensembles zone check failed. Copy diagnostics."
-            Write_App.logErrorToFile("❌ [Ensembles] Zone verification failed: \(detail)")
+            ensemblesStatus = "check failed: \(Write_App.detailedErrorDescription(error))"
         }
+
+        let legacyStatus = await cloudZoneStatus(zoneName: "com.apple.coredata.cloudkit.zone")
+        let summary = "Ensembles zone: \(ensemblesStatus). Legacy Core Data zone: \(legacyStatus)."
+        syncStatusMessage = summary
+        Write_App.logToFile("☁️ [Sync Zones] \(summary)")
     }
 
     @MainActor
     private func removeEnsemblesCloudDataFromSourceDevice() async {
+        guard Write_App.activeEnsemblesContainer == nil else {
+            syncStatusMessage = "Cloud data removal blocked: enable Local Recovery Mode, then quit and relaunch before trying again."
+            Write_App.logErrorToFile("⚠️ [Ensembles] Cloud data removal blocked because an active auto-sync container could reattach after removal")
+            return
+        }
+
         guard projectCount > 0 else {
             syncStatusMessage = "Cloud data removal blocked: this device has no local projects."
             Write_App.logErrorToFile("⚠️ [Ensembles] Cloud data removal blocked because local project count is zero")
             return
         }
 
-        guard createLocalSafetyBackup(reason: "remove-ensembles-cloud-data") != nil else {
+        guard createLocalSafetyBackup(reason: "remove-all-sync-cloud-data") != nil else {
             syncStatusMessage = "Cloud data removal blocked: local safety backup failed. Copy diagnostics before trying again."
             return
         }
 
-        if let container = Write_App.activeEnsemblesContainer, container.isAttached {
-            let activity = String(describing: container.currentActivity)
-            guard activity == "none" else {
-                syncStatusMessage = "Cloud data removal blocked: Ensembles is busy (activity=\(activity)). Try again when activity is none."
-                Write_App.logErrorToFile("⚠️ [Ensembles] Cloud data removal blocked because source device activity=\(activity)")
-                return
-            }
+        Write_App.logToFile("🛟 [Sync Zones] Removing both sync zones from Local Recovery Mode without attach/detach")
 
-            syncStatusMessage = "Detaching this source device before removing cloud data..."
-            Write_App.logToFile("🔌 [Ensembles] Source detach before cloud data removal started (isAttached=\(container.isAttached), activity=\(activity))")
-            do {
-                try await container.detach()
-                Write_App.logToFile("✅ [Ensembles] Source device detached before cloud data removal")
-            } catch {
-                syncStatusMessage = "Cloud data removal blocked: detach failed. Copy diagnostics and try again after sync activity stops."
-                Write_App.logErrorToFile("❌ [Ensembles] Source detach before cloud data removal failed: \(Write_App.detailedErrorDescription(error))")
-                return
-            }
-        } else if Write_App.activeEnsemblesContainer == nil {
-            Write_App.logToFile("🛟 [Ensembles] Removing cloud data from Local Recovery Mode without attach/detach")
-        }
-
-        syncStatusMessage = "Removing Ensembles cloud data..."
-        Write_App.logToFile("🧨 [Ensembles] Ensembles cloud data removal started from diagnostics (projects=\(projectCount))")
+        syncStatusMessage = "Removing both sync cloud zones..."
+        Write_App.logToFile("🧨 [Sync Zones] Cloud data removal started from diagnostics (projects=\(projectCount))")
 
         do {
             try await removeEnsemblesCloudData()
+            try prepareLocalEnsemblesHistoryForSourceReseed()
             ensemblesCloudDataRemovedThisSession = true
-            syncStatusMessage = "Ensembles cloud data removed. Wait a few minutes, then sync this complete source device first."
-            Write_App.logToFile("✅ [Ensembles] Ensembles cloud data removed from diagnostics")
+            syncStatusMessage = "Both sync zones and the backed-up local Ensembles history were removed. The rebuilt project store was preserved. Keep Local Recovery Mode enabled, wait at least 60 seconds, then verify both zones are absent before reseeding."
+            Write_App.logToFile("✅ [Sync Zones] Both sync zones removed and local Ensembles history cleared for source reseed")
         } catch {
-            syncStatusMessage = "Ensembles cloud data removal failed. Copy diagnostics."
-            Write_App.logErrorToFile("❌ [Ensembles] Ensembles cloud data removal failed: \(Write_App.detailedErrorDescription(error))")
+            syncStatusMessage = "Sync cloud data removal or local reseed preparation failed. Keep Local Recovery Mode enabled and copy diagnostics."
+            Write_App.logErrorToFile("❌ [Sync Zones] Cloud data removal failed: \(Write_App.detailedErrorDescription(error))")
         }
+    }
+
+    private func prepareLocalEnsemblesHistoryForSourceReseed() throws {
+        let eventDataDirectory = URL.documentsDirectory.appending(path: "EnsemblesEventData", directoryHint: .isDirectory)
+        if FileManager.default.fileExists(atPath: eventDataDirectory.path) {
+            try FileManager.default.removeItem(at: eventDataDirectory)
+            Write_App.logToFile("🗑️ [Ensembles] Removed backed-up local Ensembles history for fresh source reseed")
+        }
+        UserDefaults.standard.removeObject(forKey: Write_App.excludeLocalDataOnNextEnsemblesAttachKey)
+        Write_App.clearEnsemblesCloudKitListingCaches()
+        Write_App.logToFile("✅ [Ensembles] Source reseed prepared with mergeAllData policy")
     }
 
     @discardableResult
@@ -457,26 +499,102 @@ struct SyncDiagnosticsView: View {
             withIdentifier: Write_App.ensembleIdentifier,
             in: cloudFileSystem
         )
+
+        let database = CKContainer(identifier: "iCloud.com.appworks.writingshedpro").privateCloudDatabase
+        let zoneID = CKRecordZone.ID(
+            zoneName: "com.mentalfaculty.ensembles.zone.schema2",
+            ownerName: CKCurrentUserDefaultName
+        )
+        do {
+            _ = try await database.deleteRecordZone(withID: zoneID)
+        } catch let error as CKError where error.code == .zoneNotFound || error.code == .unknownItem {
+            // The Ensembles removal may already have removed the dedicated zone.
+        }
+
+        let legacyZoneID = CKRecordZone.ID(
+            zoneName: "com.apple.coredata.cloudkit.zone",
+            ownerName: CKCurrentUserDefaultName
+        )
+        do {
+            _ = try await database.deleteRecordZone(withID: legacyZoneID)
+        } catch let error as CKError where error.code == .zoneNotFound || error.code == .unknownItem {
+            // The legacy native CloudKit zone may already be absent.
+        }
+        Write_App.clearEnsemblesCloudKitListingCaches()
+    }
+
+    @MainActor
+    private func removeLegacyCoreDataCloudZone() async {
+        guard isEnsemblesIdle else {
+            syncStatusMessage = "Legacy zone removal blocked until Ensembles activity returns to none."
+            return
+        }
+
+        syncStatusMessage = "Removing legacy Core Data CloudKit zone..."
+        let database = CKContainer(identifier: "iCloud.com.appworks.writingshedpro").privateCloudDatabase
+        let zoneID = CKRecordZone.ID(
+            zoneName: "com.apple.coredata.cloudkit.zone",
+            ownerName: CKCurrentUserDefaultName
+        )
+
+        do {
+            _ = try await database.deleteRecordZone(withID: zoneID)
+            syncStatusMessage = "Legacy Core Data CloudKit zone removed. The Ensembles zone and local store were not changed."
+            Write_App.logToFile("✅ [Sync Zones] Removed legacy Core Data CloudKit zone only")
+        } catch let error as CKError where error.code == .zoneNotFound || error.code == .unknownItem {
+            syncStatusMessage = "Legacy Core Data CloudKit zone is already absent."
+            Write_App.logToFile("✅ [Sync Zones] Legacy Core Data CloudKit zone already absent")
+        } catch {
+            syncStatusMessage = "Legacy Core Data CloudKit zone removal failed. Copy diagnostics."
+            Write_App.logErrorToFile("❌ [Sync Zones] Legacy Core Data CloudKit zone removal failed: \(Write_App.detailedErrorDescription(error))")
+        }
+    }
+
+    private func cloudZoneStatus(zoneName: String) async -> String {
+        let database = CKContainer(identifier: "iCloud.com.appworks.writingshedpro").privateCloudDatabase
+        let zoneID = CKRecordZone.ID(zoneName: zoneName, ownerName: CKCurrentUserDefaultName)
+        do {
+            _ = try await database.recordZone(for: zoneID)
+            return "present"
+        } catch let error as CKError where error.code == .zoneNotFound || error.code == .unknownItem {
+            return "absent"
+        } catch {
+            return "check failed: \(Write_App.detailedErrorDescription(error))"
+        }
     }
 
     private func fetchEnsemblesZoneSummary() async throws -> String {
         let database = CKContainer(identifier: "iCloud.com.appworks.writingshedpro").privateCloudDatabase
         let zoneID = CKRecordZone.ID(zoneName: "com.mentalfaculty.ensembles.zone.schema2", ownerName: CKCurrentUserDefaultName)
 
+        _ = try await database.recordZone(for: zoneID)
+
         return try await withCheckedThrowingContinuation { continuation in
             var recordTypeCounts: [String: Int] = [:]
             var deletedTypeCounts: [String: Int] = [:]
             var sampleRecordNames: [String] = []
             var sampleRecordDetails: [String] = []
+            let resumeLock = NSLock()
             var didResume = false
+
+            func claimContinuation() -> Bool {
+                resumeLock.lock()
+                defer { resumeLock.unlock() }
+                guard !didResume else { return false }
+                didResume = true
+                return true
+            }
 
             let configuration = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
             configuration.previousServerChangeToken = nil
+            configuration.desiredKeys = []
 
             let operation = CKFetchRecordZoneChangesOperation(
                 recordZoneIDs: [zoneID],
                 configurationsByRecordZoneID: [zoneID: configuration]
             )
+            operation.timeoutIntervalForRequest = 15
+            operation.timeoutIntervalForResource = 30
 
             operation.recordWasChangedBlock = { recordID, result in
                 switch result {
@@ -497,9 +615,14 @@ struct SyncDiagnosticsView: View {
                 deletedTypeCounts[recordType, default: 0] += 1
             }
 
+            operation.recordZoneFetchResultBlock = { _, result in
+                guard case .failure(let error) = result,
+                      claimContinuation() else { return }
+                continuation.resume(throwing: error)
+            }
+
             operation.fetchRecordZoneChangesResultBlock = { result in
-                guard !didResume else { return }
-                didResume = true
+                guard claimContinuation() else { return }
                 switch result {
                 case .success:
                     let totalRecords = recordTypeCounts.values.reduce(0, +)

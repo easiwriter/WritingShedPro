@@ -27,6 +27,11 @@ final class InsertImageCommand: UndoableCommand {
     
     /// Caption style name (if hasCaption is true)
     let captionStyle: String
+
+    let imageStyleName: String
+
+    let spacingAbove: CGFloat
+    let spacingBelow: CGFloat
     
     /// Original filename (if available)
     let originalFilename: String?
@@ -50,6 +55,9 @@ final class InsertImageCommand: UndoableCommand {
         hasCaption: Bool,
         captionText: String,
         captionStyle: String,
+        imageStyleName: String = "default",
+        spacingAbove: CGFloat = 0,
+        spacingBelow: CGFloat = 0,
         originalFilename: String? = nil,
         targetFile: TextFile?
     ) {
@@ -63,6 +71,9 @@ final class InsertImageCommand: UndoableCommand {
         self.hasCaption = hasCaption
         self.captionText = captionText
         self.captionStyle = captionStyle
+        self.imageStyleName = imageStyleName
+        self.spacingAbove = spacingAbove
+        self.spacingBelow = spacingBelow
         self.originalFilename = originalFilename
         self.targetFile = targetFile
     }
@@ -112,8 +123,11 @@ final class InsertImageCommand: UndoableCommand {
         // Set properties
         attachment.scale = scale
         attachment.alignment = alignment
+        attachment.imageStyleName = imageStyleName
         attachment.fileID = file.id // Set file ID for stylesheet access
         attachment.originalFilename = originalFilename // Set the original filename
+        attachment.spacingAbove = spacingAbove
+        attachment.spacingBelow = spacingBelow
         #if DEBUG
         print("🖼️💾 Set originalFilename on attachment: \(originalFilename ?? "nil")")
         #endif
@@ -127,20 +141,11 @@ final class InsertImageCommand: UndoableCommand {
         print("🖼️💾 Created attachment string, length: \(attachmentString.length)")
         #endif
         
-        // Apply paragraph alignment based on image alignment
-        let paragraphStyle = NSMutableParagraphStyle()
-        switch alignment {
-        case .left:
-            paragraphStyle.alignment = .left
-        case .center:
-            paragraphStyle.alignment = .center
-        case .right:
-            paragraphStyle.alignment = .right
-        case .inline:
-            paragraphStyle.alignment = .natural
-        }
-        
-        attachmentString.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: attachmentString.length))
+        attachmentString.addAttribute(
+            .paragraphStyle,
+            value: attachment.paragraphStyle(),
+            range: NSRange(location: 0, length: attachmentString.length)
+        )
         
         // Create mutable copy and insert
         let mutableContent = NSMutableAttributedString(attributedString: content)
@@ -278,7 +283,7 @@ final class InsertImageCommand: UndoableCommand {
     
     enum CodingKeys: String, CodingKey {
         case id, timestamp, description, position, imageData, scale, alignment
-        case hasCaption, captionText, captionStyle, originalFilename
+        case hasCaption, captionText, captionStyle, imageStyleName, spacingAbove, spacingBelow, originalFilename
     }
     
     func encode(to encoder: Encoder) throws {
@@ -293,6 +298,9 @@ final class InsertImageCommand: UndoableCommand {
         try container.encode(hasCaption, forKey: .hasCaption)
         try container.encode(captionText, forKey: .captionText)
         try container.encode(captionStyle, forKey: .captionStyle)
+        try container.encode(imageStyleName, forKey: .imageStyleName)
+        try container.encode(spacingAbove, forKey: .spacingAbove)
+        try container.encode(spacingBelow, forKey: .spacingBelow)
         try container.encodeIfPresent(originalFilename, forKey: .originalFilename)
     }
     
@@ -309,6 +317,9 @@ final class InsertImageCommand: UndoableCommand {
         hasCaption = try container.decode(Bool.self, forKey: .hasCaption)
         captionText = try container.decode(String.self, forKey: .captionText)
         captionStyle = try container.decode(String.self, forKey: .captionStyle)
+        imageStyleName = try container.decodeIfPresent(String.self, forKey: .imageStyleName) ?? "default"
+        spacingAbove = try container.decodeIfPresent(CGFloat.self, forKey: .spacingAbove) ?? 0
+        spacingBelow = try container.decodeIfPresent(CGFloat.self, forKey: .spacingBelow) ?? 0
         originalFilename = try container.decodeIfPresent(String.self, forKey: .originalFilename)
         // Note: targetFile will be set when command is deserialized
     }

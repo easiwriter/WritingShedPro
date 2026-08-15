@@ -69,6 +69,71 @@ final class ImageNavigationTests: XCTestCase {
         XCTAssertNotNil(attachment, "Position 2 should contain an attachment")
         XCTAssertTrue(attachment is ImageAttachment, "Attachment should be an ImageAttachment")
     }
+
+    func testImageBoundaryDirectlyAfterAttachment() {
+        XCTAssertTrue(
+            FormattedTextEditorImageBoundary.isImmediatelyAfterImage(
+                in: attributedText,
+                location: 3
+            )
+        )
+    }
+
+    func testImageBoundaryAfterSyntheticNewlineAndZeroWidthSpace() {
+        XCTAssertTrue(
+            FormattedTextEditorImageBoundary.isImmediatelyAfterImage(
+                in: attributedText,
+                location: 5
+            )
+        )
+    }
+
+    func testImageBoundaryDoesNotCrossOrdinaryText() {
+        XCTAssertFalse(
+            FormattedTextEditorImageBoundary.isImmediatelyAfterImage(
+                in: attributedText,
+                location: 6
+            )
+        )
+    }
+
+    func testImageBoundaryDoesNotCrossMultipleNewlines() {
+        let text = NSMutableAttributedString(attributedString: attributedText)
+        text.insert(NSAttributedString(string: "\n"), at: 4)
+
+        XCTAssertFalse(
+            FormattedTextEditorImageBoundary.isImmediatelyAfterImage(
+                in: text,
+                location: 6
+            )
+        )
+    }
+
+    func testImageBodyParagraphInsertionAnchorsBodyAlignment() {
+        let captionStyle = NSMutableParagraphStyle()
+        captionStyle.alignment = .center
+        let bodyStyle = NSMutableParagraphStyle()
+        bodyStyle.alignment = .left
+
+        let insertion = FormattedTextEditorImageBoundary.bodyParagraphInsertion(
+            currentAttributes: [.paragraphStyle: captionStyle],
+            bodyAttributes: [.paragraphStyle: bodyStyle, .textStyle: UIFont.TextStyle.body.rawValue]
+        )
+
+        XCTAssertEqual(insertion.string, "\n\u{200B}")
+        XCTAssertEqual(
+            (insertion.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)?.alignment,
+            .center
+        )
+        XCTAssertEqual(
+            (insertion.attribute(.paragraphStyle, at: 1, effectiveRange: nil) as? NSParagraphStyle)?.alignment,
+            .left
+        )
+        XCTAssertEqual(
+            insertion.attribute(.textStyle, at: 1, effectiveRange: nil) as? String,
+            UIFont.TextStyle.body.rawValue
+        )
+    }
     
     // MARK: - Text Structure Tests
     

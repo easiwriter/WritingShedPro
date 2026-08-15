@@ -341,37 +341,16 @@ class JSONImportService {
             scene.threeActStageRaw = sceneData.threeActStageRaw
             scene.project = project
             
-            // Insert into context BEFORE setting join-table relationships
-            // (join table computed setters need modelContext)
             sceneMap[sceneData.id] = scene
             modelContext.insert(scene)
             
-            // Defer join-table links to a second save phase so CloudKit can
-            // export base records before link records reference them.
-            let resolvedChapterIDs: [String]
-            if let chapterIds = sceneData.chapterIds, !chapterIds.isEmpty {
-                resolvedChapterIDs = chapterIds
-            } else if let chapterId = sceneData.chapterId {
-                resolvedChapterIDs = [chapterId]
-            } else {
-                resolvedChapterIDs = []
-            }
-            let resolvedActIDs: [String]
-            if let actIds = sceneData.actIds, !actIds.isEmpty {
-                resolvedActIDs = actIds
-            } else if let actId = sceneData.actId {
-                resolvedActIDs = [actId]
-            } else {
-                resolvedActIDs = []
-            }
-            let resolvedBookIDs: [String]
-            if let bookIds = sceneData.bookIds, !bookIds.isEmpty {
-                resolvedBookIDs = bookIds
-            } else if let bookId = sceneData.bookId {
-                resolvedBookIDs = [bookId]
-            } else {
-                resolvedBookIDs = []
-            }
+            // Retain one assignment from legacy archives that contain arrays.
+            let resolvedChapterIDs = (sceneData.chapterId
+                ?? sceneData.chapterIds?.first(where: { chapterMap[$0] != nil })).map { [$0] } ?? []
+            let resolvedActIDs = (sceneData.actId
+                ?? sceneData.actIds?.first(where: { actMap[$0] != nil })).map { [$0] } ?? []
+            let resolvedBookIDs = (sceneData.bookId
+                ?? sceneData.bookIds?.first(where: { bookMap[$0] != nil })).map { [$0] } ?? []
             deferredSceneLinks.append(
                 (sceneID: sceneData.id, chapterIDs: resolvedChapterIDs, actIDs: resolvedActIDs, bookIDs: resolvedBookIDs)
             )
@@ -449,7 +428,7 @@ class JSONImportService {
         // Save phase 1: ensure parent records exist before join links.
         try EnsemblesSaveGate.save(modelContext, reason: "json-import-wsp-phase-1")
 
-        // Save phase 2: create scene join-table links.
+        // Save phase 2: assign scene containers after their base records exist.
         for linkPlan in deferredSceneLinks {
             guard let scene = sceneMap[linkPlan.sceneID] else { continue }
 
@@ -733,6 +712,8 @@ class JSONImportService {
                             defaultAlignment: ImageAttachment.ImageAlignment(rawValue: isData.defaultAlignmentRaw) ?? .center,
                             hasCaptionByDefault: isData.hasCaptionByDefault,
                             defaultCaptionStyle: isData.defaultCaptionStyle,
+                            defaultSpacingAbove: isData.defaultSpacingAbove ?? 0,
+                            defaultSpacingBelow: isData.defaultSpacingBelow ?? 0,
                             isSystemStyle: isData.isSystemStyle
                         )
                         imageStyle.id = generateNewUUIDs ? UUID() : (UUID(uuidString: isData.id) ?? UUID())
@@ -920,34 +901,20 @@ class JSONImportService {
         textFile.poetryFormName = data.poetryFormName
         textFile.parentFolder = folder
         
-        // Insert into context BEFORE setting join-table relationships
-        // (addToSection/addToPoetryCollection create link objects that need modelContext)
         modelContext.insert(textFile)
         
-        // Link to prose sections (v1.3 array or v1.2 single)
-        if let sectionIds = data.sectionIds, !sectionIds.isEmpty {
-            for sectionId in sectionIds {
-                if let section = proseSectionMap[sectionId] {
-                    textFile.addToSection(section)
-                }
-            }
-        } else if let sectionId = data.sectionId {
-            if let section = proseSectionMap[sectionId] {
-                textFile.addToSection(section)
-            }
+        let sectionID = data.sectionId
+            ?? data.sectionIds?.first(where: { proseSectionMap[$0] != nil })
+        if let sectionID, let section = proseSectionMap[sectionID] {
+            textFile.addToSection(section)
         }
         
-        // Link to poetry collections (v1.3 array or v1.2 single)
-        if let collectionIds = data.poetryCollectionIds, !collectionIds.isEmpty {
-            for collectionId in collectionIds {
-                if let collection = poetryCollectionMap[collectionId] {
-                    textFile.addToPoetryCollection(collection)
-                }
-            }
-        } else if let collectionId = data.poetryCollectionId {
-            if let collection = poetryCollectionMap[collectionId] {
-                textFile.addToPoetryCollection(collection)
-            }
+        // Collection membership is now optional and singular. Prefer the
+        // explicit legacy singular value, then the first valid array entry.
+        let collectionID = data.poetryCollectionId
+            ?? data.poetryCollectionIds?.first(where: { poetryCollectionMap[$0] != nil })
+        if let collectionID, let collection = poetryCollectionMap[collectionID] {
+            textFile.addToPoetryCollection(collection)
         }
         
         // Set manuscript inclusion flag (default to true for backward compatibility)
@@ -984,8 +951,13 @@ class JSONImportService {
             }
         }
         
-        // Clear auto-created version
+        // TextFile creates an initial Version. Removing it from the relationship
+        // does not delete its SwiftData row, so delete it before importing the archive.
+        let autoCreatedVersions = textFile.versions ?? []
         textFile.versions = []
+        for version in autoCreatedVersions {
+            modelContext.delete(version)
+        }
         
         // Import versions
         for vData in data.versions {
@@ -2023,7 +1995,13 @@ class JSONImportService {
         let collectionSubmissions = submissionMap.values.filter { $0.isCollection && $0.project?.id == project.id }
         // Deduplicate by UUID (submissionMap caches by multiple keys)
         var seen = Set<UUID>()
-        let uniqueCollections = collectionSubmissions.filter { seen.insert($0.id).inserted }
+        let uniqueCollections = collectionSubmissions
+            .filter { seen.insert($0.id).inserted }
+            .sorted {
+                let nameComparison = ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "")
+                if nameComparison != .orderedSame { return nameComparison == .orderedAscending }
+                return $0.id.uuidString < $1.id.uuidString
+            }
         
         var createdCount = 0
         for submission in uniqueCollections {
@@ -2037,7 +2015,7 @@ class JSONImportService {
             // Link the same text files from the Submission's SubmittedFiles
             if let submittedFiles = submission.submittedFiles {
                 for submittedFile in submittedFiles {
-                    if let textFile = submittedFile.textFile {
+                    if let textFile = submittedFile.textFile, textFile.poetryCollection == nil {
                         textFile.addToPoetryCollection(poetryCollection)
                         #if DEBUG
                         print("[JSONImport]   Linked '\(textFile.name)' to PoetryCollection '\(poetryCollection.name ?? "")'")

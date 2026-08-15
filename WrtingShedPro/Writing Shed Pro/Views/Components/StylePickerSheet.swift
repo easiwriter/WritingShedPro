@@ -165,13 +165,9 @@ struct StylePickerSheet: View {
     }
 
     private func closeSheet() {
-        if let onClose {
-            DispatchQueue.main.async {
-                onClose()
-            }
-        } else {
-            dismiss()
-        }
+        onClose?()
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 }
 

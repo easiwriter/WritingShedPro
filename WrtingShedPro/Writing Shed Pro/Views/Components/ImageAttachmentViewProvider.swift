@@ -195,7 +195,6 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         let captionLabel = UILabel()
         captionLabel.numberOfLines = 0 // Allow multiple lines
         captionLabel.lineBreakMode = .byWordWrapping
-        let captionAlignment = textAlignment(for: attachment.alignment)
         
         // Get caption components
         let prefix = attachment.captionPrefix ?? ""
@@ -249,14 +248,8 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
             }
             
             let baseAttributes = captionStyle.generateAttributes()
-            let paragraphStyle = (baseAttributes[.paragraphStyle] as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle
-                ?? NSMutableParagraphStyle()
-            paragraphStyle.alignment = captionAlignment
-
-            var attributes = baseAttributes
-            attributes[.paragraphStyle] = paragraphStyle
-            captionLabel.attributedText = NSAttributedString(string: captionText, attributes: attributes)
-            captionLabel.textAlignment = captionAlignment
+            captionLabel.attributedText = NSAttributedString(string: captionText, attributes: baseAttributes)
+            captionLabel.textAlignment = captionStyle.alignment
             
             #if DEBUG
             print("📝 Applied caption style '\(captionStyleName)' - alignment: \(captionStyle.alignment.rawValue), final caption: '\(captionText)'")
@@ -267,7 +260,7 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
             captionLabel.text = captionText
             captionLabel.font = UIFont.systemFont(ofSize: 14)
             captionLabel.textColor = .secondaryLabel
-            captionLabel.textAlignment = captionAlignment
+            captionLabel.textAlignment = .center
             
             #if DEBUG
             print("⚠️ Caption style not found, using fallback")

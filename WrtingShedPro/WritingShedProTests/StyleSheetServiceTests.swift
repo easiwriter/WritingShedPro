@@ -164,7 +164,8 @@ final class StyleSheetServiceTests: XCTestCase {
         
         // Then
         XCTAssertNotNil(stylesheet)
-        XCTAssertEqual(project.styleSheet?.id, stylesheet?.id)
+        XCTAssertNil(project.styleSheet)
+        XCTAssertTrue(stylesheet?.isSystemStyleSheet ?? false)
     }
     
     func testGetStyleSheetForProjectReturnsExisting() throws {

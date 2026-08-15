@@ -138,6 +138,14 @@ struct PaginatedDocumentView: View {
             // This affects footnote rendering in pagination view
             recalculateLayout()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("StyleSheetModified"))) { notification in
+            guard let styleSheetID = notification.userInfo?["stylesheetID"] as? UUID,
+                  styleSheetID == project.styleSheet?.id else { return }
+            recalculateLayout()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .writingShedProSyncDidUpdateLocalData)) { _ in
+            recalculateLayout()
+        }
         .alert("Print Error", isPresented: $showPrintError) {
             Button("OK", role: .cancel) { }
         } message: {

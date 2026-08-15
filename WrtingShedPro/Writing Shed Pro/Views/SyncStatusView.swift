@@ -24,7 +24,10 @@ struct SyncStatusView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(monitor.healthState.displayText)
         .task {
-            monitor.checkHealth()
+            while !Task.isCancelled {
+                monitor.checkHealth()
+                try? await Task.sleep(for: .seconds(1))
+            }
         }
     }
 

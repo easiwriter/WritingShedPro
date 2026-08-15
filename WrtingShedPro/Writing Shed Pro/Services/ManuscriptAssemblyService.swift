@@ -230,20 +230,7 @@ final class ManuscriptAssemblyService {
     }
 
     private func liveCollectionFiles(for collection: PoetryCollection) -> [TextFile] {
-        let collectionID = collection.id
-        let descriptor = FetchDescriptor<TextFileCollectionLink>()
-        let links = (try? context.fetch(descriptor)) ?? []
-        let allFiles = (try? context.fetch(FetchDescriptor<TextFile>())) ?? []
-
-        var seen = Set<UUID>()
-        let files = links.compactMap { link -> TextFile? in
-            guard link.poetryCollectionID == collectionID || link.poetryCollection?.id == collectionID else { return nil }
-            let file = link.textFile ?? allFiles.first { $0.id == link.textFileID }
-            guard let file, file.trashItem == nil else { return nil }
-            guard !seen.contains(file.id) else { return nil }
-            seen.insert(file.id)
-            return file
-        }
+        let files = (collection.textFiles ?? []).filter { $0.trashItem == nil }
 
         return files.sorted {
             let order0 = $0.userOrder ?? Int.max

@@ -10,6 +10,7 @@ import XCTest
 import SwiftData
 @testable import Writing_Shed_Pro
 
+@MainActor
 final class BackMatterGeneratorTests: XCTestCase {
     
     var modelContainer: ModelContainer!
@@ -17,54 +18,9 @@ final class BackMatterGeneratorTests: XCTestCase {
     var testProject: Project!
     var generator: BackMatterGenerator!
     
-    override func setUp() {
-        super.setUp()
-        let schema = Schema([
-            Project.self,
-            Folder.self,
-            TextFile.self,
-            Version.self,
-            TrashItem.self,
-            StyleSheet.self,
-            TextStyleModel.self,
-            PageSetup.self,
-            PrinterPaper.self,
-            Publication.self,
-            Submission.self,
-            SubmittedFile.self,
-            CommentModel.self,
-            FootnoteModel.self,
-            PoetryFormModel.self,
-            StoryScene.self,
-            Chapter.self,
-            Character.self,
-            Location.self,
-            CustomAttribute.self,
-            PlotElement.self,
-            Act.self,
-            ProseSection.self,
-            PoetryCollection.self,
-            Book.self,
-            TextFileSectionLink.self,
-            TextFileCollectionLink.self,
-            SceneChapterLink.self,
-            SceneActLink.self,
-            SceneBookLink.self,
-            ScenePlotElementLink.self,
-            SceneCharacterLink.self,
-            CharacterPlotElementLink.self,
-            LocationPlotElementLink.self,
-            SceneLocationLink.self,
-            NoteEntry.self,
-            GlossaryEntry.self,
-            ReferenceEntry.self,
-            CitationEntry.self,
-            IndexEntry.self,
-            ContributorEntry.self,
-            ImageStyle.self
-        ])
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-        modelContainer = try! ModelContainer(for: schema, configurations: [config])
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        modelContainer = try TestModelContainerFactory.make()
         modelContext = ModelContext(modelContainer)
         
         testProject = Project(name: "Test Project", type: .prose)

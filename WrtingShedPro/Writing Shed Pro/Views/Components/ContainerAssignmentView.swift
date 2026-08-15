@@ -4,7 +4,7 @@
 //
 //  Created on 28 February 2026.
 //  Generic container assignment dialog for all project types.
-//  Shows selected items with their current container, and Move/Copy actions.
+//  Shows selected items with their current container and a single Attach action.
 //
 
 import SwiftUI
@@ -51,9 +51,7 @@ struct ContainerDescriptor<Item: ContainerAssignable> {
 // MARK: - Container Assignment View
 
 /// Shows selected items with selection circles and current container labels.
-/// Move and Copy menu buttons let the user pick a destination container.
-/// Move removes existing assignments and assigns to the target.
-/// Copy adds the target while keeping existing assignments.
+/// Attach lets the user choose one destination and replaces existing assignments.
 struct ContainerAssignmentView<Item: ContainerAssignable>: View {
     
     // MARK: - Properties
@@ -170,74 +168,40 @@ struct ContainerAssignmentView<Item: ContainerAssignable>: View {
     
     private var actionBar: some View {
         HStack(spacing: 16) {
-            // Move button — removes from current containers then assigns to target
             Menu {
                 Button(NSLocalizedString("containerAssignment.unassigned", comment: "Unassigned")) {
-                    performAction(.move, targetContainerID: nil)
+                    performAttachment(targetContainerID: nil)
                 }
                 Divider()
 
                 ForEach(containers, id: \.id) { container in
                     Button(container.name) {
-                        performAction(.move, targetContainerID: container.id)
+                        performAttachment(targetContainerID: container.id)
                     }
                 }
             } label: {
-                Label(NSLocalizedString("containerAssignment.move", comment: "Move"),
-                      systemImage: "arrow.right")
+                Label(NSLocalizedString("containerAssignment.attach", comment: "Attach"),
+                      systemImage: "paperclip")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
             .disabled(dialogSelection.isEmpty)
-            
-            // Copy button — adds target while keeping existing assignments
-            Menu {
-                ForEach(containers, id: \.id) { container in
-                    Button(container.name) {
-                        performAction(.copy, targetContainerID: container.id)
-                    }
-                }
-            } label: {
-                Label(NSLocalizedString("containerAssignment.copy", comment: "Copy"),
-                      systemImage: "doc.on.doc")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .disabled(dialogSelection.isEmpty || containers.isEmpty)
         }
     }
     
     // MARK: - Actions
     
-    private enum ActionMode { case move, copy }
-    
-    private func performAction(_ mode: ActionMode, targetContainerID: UUID?) {
+    private func performAttachment(targetContainerID: UUID?) {
         for itemID in dialogSelection {
-            switch mode {
-            case .move:
-                if let targetID = targetContainerID {
-                    assignments[itemID] = [targetID]
-                } else {
-                    // Move to Unassigned = remove from all containers
-                    assignments[itemID] = []
-                }
-            case .copy:
-                if let targetID = targetContainerID {
-                    assignments[itemID, default: []].insert(targetID)
-                }
-                // Copy without a target is a no-op
+            if let targetID = targetContainerID {
+                assignments[itemID] = [targetID]
+            } else {
+                assignments[itemID] = []
             }
         }
 
-        switch mode {
-        case .move:
-            // Move is a complete action: commit immediately and close the sheet.
-            applyChanges()
-            dismiss()
-        case .copy:
-            // Keep dialog open for additional copy actions.
-            dialogSelection.removeAll()
-        }
+        applyChanges()
+        dismiss()
     }
     
     // MARK: - Helpers
@@ -309,25 +273,12 @@ extension ContainerAssignmentView where Item == TextFile {
         let descriptor = FetchDescriptor<PoetryCollection>()
         let collections = ((try? modelContext.fetch(descriptor)) ?? [])
             .filter { $0.project?.id == project.id }
-            .sorted { lhs, rhs in
-                let lhsOrder = lhs.userOrder ?? Int.max
-                let rhsOrder = rhs.userOrder ?? Int.max
-                if lhsOrder != rhsOrder { return lhsOrder < rhsOrder }
-                return (lhs.name ?? "").localizedCaseInsensitiveCompare(rhs.name ?? "") == .orderedAscending
-            }
-        let collectionLinks = (try? modelContext.fetch(FetchDescriptor<TextFileCollectionLink>())) ?? []
-        
+            .sorted(by: ContainerDisplayOrder.isOrdered)
         let descriptors = collections.map { collection in
             ContainerDescriptor<TextFile>(
                 id: collection.id,
                 name: collection.name ?? NSLocalizedString("poetry.collection.untitled", comment: "Untitled"),
-                memberIDs: Set(
-                    collectionLinks.compactMap { link in
-                        (link.poetryCollectionID == collection.id || link.poetryCollection?.id == collection.id)
-                            ? (link.textFileID ?? link.textFile?.id)
-                            : nil
-                    }
-                ),
+                memberIDs: Set((collection.textFiles ?? []).map(\.id)),
                 addItem: { file in
                     file.addToPoetryCollection(collection)
                 },
@@ -342,13 +293,7 @@ extension ContainerAssignmentView where Item == TextFile {
             selectedItems: selectedFiles,
             containers: descriptors,
             currentContainerIDs: { file in
-                Set(
-                    collectionLinks.compactMap { link in
-                        (link.textFileID == file.id || link.textFile?.id == file.id)
-                            ? (link.poetryCollectionID ?? link.poetryCollection?.id)
-                            : nil
-                    }
-                )
+                Set(file.poetryCollection.map { [$0.id] } ?? [])
             },
             onSave: {
                 WriteCoalescer.shared?.requestSave(reason: "container-assignment-poetry-save")
@@ -364,8 +309,7 @@ extension ContainerAssignmentView where Item == TextFile {
         selectedFiles: [TextFile],
         modelContext: ModelContext
     ) -> ContainerAssignmentView<TextFile> {
-        let sections = (project.sections ?? [])
-            .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        let sections = (project.sections ?? []).sorted(by: ContainerDisplayOrder.isOrdered)
         
         let descriptors = sections.map { section in
             ContainerDescriptor<TextFile>(
@@ -404,8 +348,7 @@ extension ContainerAssignmentView where Item == StoryScene {
         selectedScenes: [StoryScene],
         modelContext: ModelContext
     ) -> ContainerAssignmentView<StoryScene> {
-        let acts = (project.acts ?? [])
-            .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        let acts = (project.acts ?? []).sorted(by: ContainerDisplayOrder.isOrdered)
         
         let descriptors = acts.map { act in
             ContainerDescriptor<StoryScene>(
@@ -445,8 +388,7 @@ extension ContainerAssignmentView where Item == StoryScene {
             return forBooks(project: project, selectedScenes: selectedScenes, modelContext: modelContext)
         }
 
-        let chapters = (project.chapters ?? [])
-            .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        let chapters = (project.chapters ?? []).sorted(by: ContainerDisplayOrder.isOrdered)
         
         let fictionClass = project.fictionClass ?? .novel
         let containerName: String
@@ -493,8 +435,7 @@ extension ContainerAssignmentView where Item == StoryScene {
         selectedScenes: [StoryScene],
         modelContext: ModelContext
     ) -> ContainerAssignmentView<StoryScene> {
-        let books = (project.books ?? [])
-            .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        let books = (project.books ?? []).sorted(by: ContainerDisplayOrder.isOrdered)
         
         let descriptors = books.map { book in
             ContainerDescriptor<StoryScene>(

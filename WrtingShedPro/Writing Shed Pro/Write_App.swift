@@ -25,7 +25,9 @@ struct Write_App: App {
     static private(set) var hasObservedEnsemblesDataThisLaunch = false
     static private(set) var initialEnsemblesImportUnavailable = false
     static private(set) var hasObservedPartialEnsemblesStoreThisLaunch = false
+    static private(set) var currentEnsemblesSeedPolicy = "not initialized"
     static private(set) var ensemblesMergeSaveCooldownUntil: Date?
+    static private(set) var ensemblesMergeConflictCooldownUntil: Date?
     private static var pendingLocalChangeSyncTask: Task<Void, Never>?
     private static var localChangeSyncInProgress = false
     static let minimumEnsemblesStartupWriteDelay: TimeInterval = 15
@@ -35,6 +37,7 @@ struct Write_App: App {
     static let localRecoveryModeOnNextLaunchKey = "localRecoveryModeOnNextLaunch"
     static let resetLocalEnsemblesStoreOnNextLaunchKey = "resetLocalEnsemblesStoreOnNextLaunch"
     static let detachLocalEnsemblesBeforeResetOnNextLaunchKey = "detachLocalEnsemblesBeforeResetOnNextLaunch"
+    static let excludeLocalDataOnNextEnsemblesAttachKey = "excludeLocalDataOnNextEnsemblesAttach"
     static let ensembleIdentifier = "WritingShedProConfigurationV2"
 
     static var isLocalRecoveryModeEnabled: Bool {
@@ -61,7 +64,7 @@ struct Write_App: App {
         activeEnsemblesContainer != nil
     }
 
-    private static let modelTypes: [any PersistentModel.Type] = [
+    static let modelTypes: [any PersistentModel.Type] = [
         Project.self,
         Folder.self,
         TextFile.self,
@@ -161,6 +164,7 @@ struct Write_App: App {
             } catch {
                 let nsError = error as NSError
                 Write_App.logErrorToFile("❌ [Ensembles] Local recovery mode failed to open local store: domain=\(nsError.domain) code=\(nsError.code) \(nsError.localizedDescription)")
+                fatalError("❌ [Write_App] Local Recovery Mode cannot open the local ModelContainer: \(error)")
             }
         }
 
@@ -181,23 +185,26 @@ struct Write_App: App {
         )
         let localStoreWasMissingAtLaunch = !FileManager.default.fileExists(atPath: storeURL.path)
         if localStoreWasMissingAtLaunch {
+            UserDefaults.standard.set(true, forKey: Write_App.excludeLocalDataOnNextEnsemblesAttachKey)
             Write_App.logToFile("🛟 [Ensembles] Local store file missing; letting Ensembles create and sync the store")
         }
+        let shouldExcludeLocalData = localStoreWasMissingAtLaunch || UserDefaults.standard.bool(
+            forKey: Write_App.excludeLocalDataOnNextEnsemblesAttachKey
+        )
+        let seedPolicy: SeedPolicy = shouldExcludeLocalData ? .excludeLocalData : .mergeAllData
+        Write_App.currentEnsemblesSeedPolicy = shouldExcludeLocalData
+            ? "excludeLocalData (fresh follower)"
+            : "mergeAllData (existing store)"
+        Write_App.logToFile("☁️ [Ensembles] Seed policy: \(Write_App.currentEnsemblesSeedPolicy)")
         let configuration = EnsembleContainerConfiguration(
             autoSyncPolicy: Write_App.shouldAutoSyncEnsembles ? .all : .manual,
             timerInterval: 120,
-            seedPolicy: .mergeAllData,
+            seedPolicy: seedPolicy,
             compatibilityMode: .ensembles3,
             localDataRootDirectoryURL: eventDataDirectory
         )
 
-        let ensemblesContainer = SwiftDataEnsembleContainer(
-            name: Write_App.ensembleIdentifier,
-            storeURL: storeURL,
-            modelTypes: Write_App.modelTypes,
-            cloudFileSystem: cloudFileSystem,
-            configuration: configuration
-        ) ?? Write_App.makePreopenedEnsemblesContainer(
+        let ensemblesContainer = Write_App.makePreopenedEnsemblesContainer(
             schema: schema,
             storeURL: storeURL,
             cloudFileSystem: cloudFileSystem,
@@ -455,10 +462,30 @@ struct Write_App: App {
             }
         }
 
+        clearEnsemblesCloudKitListingCaches()
+
         DeduplicationService.clearAllTombstones()
         Write_App.logToFile("🪦 [Ensembles] Cleared tombstones during local sync reset")
 
+        UserDefaults.standard.set(true, forKey: Write_App.excludeLocalDataOnNextEnsemblesAttachKey)
         Write_App.logToFile("✅ [Ensembles] Local sync reset completed; backup=\(backupDirectory.lastPathComponent)")
+    }
+
+    static func clearEnsemblesCloudKitListingCaches() {
+        let fileManager = FileManager.default
+        guard let enumerator = fileManager.enumerator(
+            at: URL.cachesDirectory,
+            includingPropertiesForKeys: nil
+        ) else { return }
+
+        for case let url as URL in enumerator where url.lastPathComponent.hasSuffix(".cdecloudkitcache.v3") {
+            do {
+                try fileManager.removeItem(at: url)
+                Write_App.logToFile("🗑️ [Ensembles] Removed CloudKit listing cache \(url.lastPathComponent)")
+            } catch {
+                Write_App.logErrorToFile("❌ [Ensembles] Failed to remove CloudKit listing cache: \(error.localizedDescription)")
+            }
+        }
     }
 
     @MainActor
@@ -553,7 +580,11 @@ struct Write_App: App {
                     
                     // Defer iCloud status check to avoid blocking app launch
                     try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-                    checkCloudKitStatus()
+                    if Write_App.isLocalRecoveryModeEnabled {
+                        Write_App.logToFile("🛟 [Write_App] Skipping CloudKit status check in Local Recovery Mode")
+                    } else {
+                        checkCloudKitStatus()
+                    }
 
                     if Write_App.isUsingEnsemblesSync && !Write_App.shouldAutoSyncEnsembles {
                         await runManualEnsemblesSync(reason: "app launch")
@@ -721,6 +752,10 @@ struct Write_App: App {
         }
 
         hasObservedEnsemblesDataThisLaunch = true
+        if UserDefaults.standard.bool(forKey: excludeLocalDataOnNextEnsemblesAttachKey) {
+            UserDefaults.standard.removeObject(forKey: excludeLocalDataOnNextEnsemblesAttachKey)
+            logToFile("✅ [Ensembles] Fresh-follower seed policy cleared after synced project data was observed")
+        }
         logToFile("✅ [Ensembles] Synced data observed locally (reason=\(reason), projects=\(projectCount), folders=\(folderCount), files=\(fileCount), versions=\(versionCount), publications=\(publicationCount), scenes=\(sceneCount))")
         return true
     }
@@ -749,15 +784,27 @@ struct Write_App: App {
         let nsError = error as NSError
         let description = detailedErrorDescription(error)
         guard nsError.code == 207 || description.contains("saveOccurredDuringMerge") else { return }
+        ensemblesMergeConflictCooldownUntil = Date().addingTimeInterval(ensemblesMergeConflictSaveCooldown)
         deferLocalSavesForEnsemblesMerge(
             reason: "saveOccurredDuringMerge",
             duration: ensemblesMergeConflictSaveCooldown
         )
     }
 
+    static func isInEnsemblesMergeConflictCooldown() -> Bool {
+        guard let ensemblesMergeConflictCooldownUntil else { return false }
+        if ensemblesMergeConflictCooldownUntil > Date() {
+            return true
+        }
+        self.ensemblesMergeConflictCooldownUntil = nil
+        return false
+    }
+
     @MainActor
     static func scheduleEnsemblesSyncAfterLocalSave(reason: String) {
-        guard shouldAutoSyncEnsembles,
+        // Auto-sync observes store saves itself. Calling sync() as an additional
+        // nudge can overlap an automatic merge and cause CDE error 206/207.
+        guard !shouldAutoSyncEnsembles,
               let ensemblesContainer = activeEnsemblesContainer else {
             return
         }
@@ -814,8 +861,7 @@ struct Write_App: App {
             return false
         }
 
-        recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: "\(reason) attached idle store populated")
-        logToFile("✅ [Ensembles] Attached idle store observed (reason=\(reason))")
+        logToFile("ℹ️ [Ensembles] Attached idle populated store observed without treating it as sync success (reason=\(reason))")
         return true
     }
 

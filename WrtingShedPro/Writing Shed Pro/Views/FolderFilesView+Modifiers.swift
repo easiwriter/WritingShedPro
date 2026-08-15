@@ -22,7 +22,9 @@ extension FolderFilesView {
         content
             .sheet(isPresented: $showMoveDestinationPicker) { moveDestinationSheet }
             .sheet(isPresented: $showSearchView) { searchSheet }
-            .sheet(isPresented: $showAddFileSheet) { addFileSheetContent }
+            .sheet(isPresented: $showAddFileSheet, onDismiss: {
+                scheduleDeferredFileListLoad()
+            }) { addFileSheetContent }
             .sheet(isPresented: $showAddFolderSheet) { addFolderSheet }
             .sheet(isPresented: $showRenamePicker) { renamePickerSheet }
             .sheet(isPresented: $showFolderMoveDestinationPicker) { folderMoveDestinationSheet }
@@ -120,7 +122,7 @@ extension FolderFilesView {
     
     func applyAlertModifiers<V: View>(_ content: V) -> some View {
         content
-            .alert("Import Failed", isPresented: $showImportError) {
+            .alert(NSLocalizedString("error.title", comment: "Error"), isPresented: $showImportError) {
                 Button("OK", role: .cancel) {}
             } message: { Text(importErrorMessage) }
 

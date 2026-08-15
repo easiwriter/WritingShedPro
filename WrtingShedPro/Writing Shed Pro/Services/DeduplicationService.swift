@@ -847,8 +847,8 @@ class DeduplicationService {
     }
 
     private static func shouldPreferTextFile(_ lhs: TextFile, _ rhs: TextFile) -> Bool {
-        let lhsScore = (lhs.versions?.count ?? 0) + (lhs.submittedFiles?.count ?? 0) + (lhs.sectionLinks?.count ?? 0) + (lhs.poetryCollectionLinks?.count ?? 0) + (lhs.parentFolder == nil ? 0 : 1) + (lhs.scene == nil ? 0 : 1)
-        let rhsScore = (rhs.versions?.count ?? 0) + (rhs.submittedFiles?.count ?? 0) + (rhs.sectionLinks?.count ?? 0) + (rhs.poetryCollectionLinks?.count ?? 0) + (rhs.parentFolder == nil ? 0 : 1) + (rhs.scene == nil ? 0 : 1)
+        let lhsScore = (lhs.versions?.count ?? 0) + (lhs.submittedFiles?.count ?? 0) + (lhs.section == nil ? 0 : 1) + (lhs.poetryCollection == nil ? 0 : 1) + (lhs.parentFolder == nil ? 0 : 1) + (lhs.scene == nil ? 0 : 1)
+        let rhsScore = (rhs.versions?.count ?? 0) + (rhs.submittedFiles?.count ?? 0) + (rhs.section == nil ? 0 : 1) + (rhs.poetryCollection == nil ? 0 : 1) + (rhs.parentFolder == nil ? 0 : 1) + (rhs.scene == nil ? 0 : 1)
         if lhsScore != rhsScore { return lhsScore > rhsScore }
         if lhs.modifiedDate != rhs.modifiedDate { return lhs.modifiedDate > rhs.modifiedDate }
         if lhs.createdDate != rhs.createdDate { return lhs.createdDate < rhs.createdDate }
@@ -921,9 +921,9 @@ class DeduplicationService {
         var score = 0
         if scene.textFile != nil { score += 1 }
         if scene.project != nil { score += 1 }
-        score += scene.chapterLinks?.count ?? 0
-        score += scene.actLinks?.count ?? 0
-        score += scene.bookLinks?.count ?? 0
+        score += scene.chapter == nil ? 0 : 1
+        score += scene.act == nil ? 0 : 1
+        score += scene.book == nil ? 0 : 1
         score += scene.plotElementLinks?.count ?? 0
         score += scene.characterLinks?.count ?? 0
         score += scene.locationLinks?.count ?? 0

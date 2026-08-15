@@ -1,6 +1,29 @@
 import SwiftUI
 import UIKit
 
+enum ImageScaleInput {
+    static func scale(from text: String) -> CGFloat? {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard let percentage = Int(trimmed), (10...200).contains(percentage) else {
+            return nil
+        }
+        return CGFloat(percentage) / 100.0
+    }
+}
+
+struct ImageStyleEditorValues {
+    let imageData: Data?
+    let imageStyleName: String
+    let scale: CGFloat
+    let alignment: ImageAttachment.ImageAlignment
+    let hasCaption: Bool
+    let captionPrefix: String
+    let captionText: String
+    let captionStyle: String
+    let spacingAbove: CGFloat
+    let spacingBelow: CGFloat
+}
+
 /// SwiftUI view for editing image properties (scale, alignment, caption)
 /// Presented as a sheet when inserting or editing images
 struct ImageStyleEditorView: View {
@@ -18,15 +41,20 @@ struct ImageStyleEditorView: View {
     @State private var captionPrefix: String
     @State private var captionText: String
     @State private var captionStyle: String
+    @State private var imageStyleName: String
+    @State private var spacingAboveText: String
+    @State private var spacingBelowText: String
     
     // Available caption styles from stylesheet
     let availableCaptionStyles: [String]
+    let availableImageStyles: [ImageStyle]
     
     // Optional stylesheet for editing styles
     let styleSheet: StyleSheet?
     
     // Callback when user applies changes
-    let onApply: (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String, String) -> Void
+    let onApply: (ImageStyleEditorValues) -> Void
+    let onUpdateStyle: ((ImageStyleEditorValues) -> Void)?
     let onCancel: () -> Void
     
     init(
@@ -37,9 +65,14 @@ struct ImageStyleEditorView: View {
         captionPrefix: String = "Figure",
         captionText: String = "",
         captionStyle: String = "UICTFontTextStyleCaption1",
+        imageStyleName: String = "default",
+        spacingAbove: CGFloat = 0,
+        spacingBelow: CGFloat = 0,
         availableCaptionStyles: [String] = ["UICTFontTextStyleCaption1", "UICTFontTextStyleCaption2"],
+        availableImageStyles: [ImageStyle] = [],
         styleSheet: StyleSheet? = nil,
-        onApply: @escaping (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String, String) -> Void,
+        onApply: @escaping (ImageStyleEditorValues) -> Void,
+        onUpdateStyle: ((ImageStyleEditorValues) -> Void)? = nil,
         onCancel: @escaping () -> Void = {}
     ) {
         #if DEBUG
@@ -52,12 +85,23 @@ struct ImageStyleEditorView: View {
         self._hasCaption = State(initialValue: hasCaption)
         self._captionPrefix = State(initialValue: captionPrefix)
         self._captionText = State(initialValue: captionText)
+        self._spacingAboveText = State(initialValue: Self.spacingText(spacingAbove))
+        self._spacingBelowText = State(initialValue: Self.spacingText(spacingBelow))
         // Normalize caption style to match available styles (handles legacy values like "caption1")
         let normalizedStyle = Self.normalizedCaptionStyle(captionStyle, availableStyles: availableCaptionStyles)
         self._captionStyle = State(initialValue: normalizedStyle)
+        let selectedImageStyleName = availableImageStyles.contains(where: { $0.name == imageStyleName })
+            ? imageStyleName
+            : availableImageStyles.first?.name ?? imageStyleName
+        self._imageStyleName = State(initialValue: selectedImageStyleName)
         self.availableCaptionStyles = availableCaptionStyles
+        self.availableImageStyles = availableImageStyles.sorted {
+            if $0.displayOrder != $1.displayOrder { return $0.displayOrder < $1.displayOrder }
+            return $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+        }
         self.styleSheet = styleSheet
         self.onApply = onApply
+        self.onUpdateStyle = onUpdateStyle
         self.onCancel = onCancel
     }
     
@@ -98,6 +142,33 @@ struct ImageStyleEditorView: View {
         
         NavigationStack {
             Form {
+                if !availableImageStyles.isEmpty {
+                    Section("imageStyleEditor.imageStyle") {
+                        if availableImageStyles.count > 1 {
+                            Picker("imageStyleEditor.imageStyle", selection: $imageStyleName) {
+                                ForEach(availableImageStyles, id: \.id) { imageStyle in
+                                    Text(imageStyle.displayName).tag(imageStyle.name)
+                                }
+                            }
+                            .onChange(of: imageStyleName) { _, _ in
+                                resetToSelectedStyle()
+                            }
+                        } else if let imageStyle = availableImageStyles.first {
+                            LabeledContent("imageStyleEditor.imageStyle", value: imageStyle.displayName)
+                        }
+
+                        Button("imageStyleEditor.resetToStyle") {
+                            resetToSelectedStyle()
+                        }
+
+                        if onUpdateStyle != nil {
+                            Button("imageStyleEditor.updateStyle") {
+                                commitValues(using: onUpdateStyle)
+                            }
+                        }
+                    }
+                }
+
                 // Scale Section
                 Section {
                     HStack(spacing: 6) {
@@ -143,6 +214,11 @@ struct ImageStyleEditorView: View {
                     }
                 } header: {
                     Text("imageStyleEditor.scale")
+                }
+
+                Section("imageStyleEditor.spacing") {
+                    spacingField("imageStyleEditor.spacingAbove", text: $spacingAboveText)
+                    spacingField("imageStyleEditor.spacingBelow", text: $spacingBelowText)
                 }
                 
                 // Alignment Section
@@ -246,8 +322,7 @@ struct ImageStyleEditorView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(NSLocalizedString("imageStyleEditor.apply", comment: "")) {
-                        onApply(imageData, scale, alignment, hasCaption, captionPrefix, captionText, captionStyle)
-                        dismissSheet()
+                        commitValues(using: onApply)
                     }
                     .disabled(imageData == nil)
                 }
@@ -267,6 +342,67 @@ struct ImageStyleEditorView: View {
     }
     
     // MARK: - Helper Methods
+
+    private func spacingField(_ title: LocalizedStringKey, text: Binding<String>) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            TextField("0", text: text)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 64)
+            Text("imageStyleEditor.points")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private static func spacingValue(_ text: String) -> CGFloat {
+        let normalized = text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
+        return max(0, CGFloat(Double(normalized) ?? 0))
+    }
+
+    private static func spacingText(_ value: CGFloat) -> String {
+        value.rounded() == value ? String(Int(value)) : String(Double(value))
+    }
+
+    private func resetToSelectedStyle() {
+        guard let imageStyle = availableImageStyles.first(where: { $0.name == imageStyleName }) else {
+            return
+        }
+        scale = imageStyle.defaultScale
+        scaleText = "\(Int(imageStyle.defaultScale * 100))"
+        alignment = imageStyle.defaultAlignment
+        hasCaption = imageStyle.hasCaptionByDefault
+        captionStyle = Self.normalizedCaptionStyle(
+            imageStyle.defaultCaptionStyle,
+            availableStyles: availableCaptionStyles
+        )
+        spacingAboveText = Self.spacingText(imageStyle.defaultSpacingAbove)
+        spacingBelowText = Self.spacingText(imageStyle.defaultSpacingBelow)
+    }
+
+    private func commitValues(using action: ((ImageStyleEditorValues) -> Void)?) {
+        guard let action else { return }
+        guard let committedScale = ImageScaleInput.scale(from: scaleText) else {
+            showInvalidScaleAlert = true
+            return
+        }
+        scale = committedScale
+        scaleText = "\(Int(committedScale * 100))"
+        action(ImageStyleEditorValues(
+            imageData: imageData,
+            imageStyleName: imageStyleName,
+            scale: committedScale,
+            alignment: alignment,
+            hasCaption: hasCaption,
+            captionPrefix: captionPrefix,
+            captionText: captionText,
+            captionStyle: captionStyle,
+            spacingAbove: Self.spacingValue(spacingAboveText),
+            spacingBelow: Self.spacingValue(spacingBelowText)
+        ))
+        dismissSheet()
+    }
     
     private func dismissSheet() {
         onCancel()
@@ -289,27 +425,10 @@ struct ImageStyleEditorView: View {
     }
     
     private func commitScaleFromText() {
-        // Trim whitespace
-        let trimmed = scaleText.trimmingCharacters(in: .whitespaces)
-        
-        // Empty string is invalid - show alert
-        if trimmed.isEmpty {
-            showInvalidScaleAlert = true
-            return
-        }
-        
-        // Try to parse as integer
-        if let percentage = Int(trimmed) {
-            // Check if in valid range (10-200%)
-            if percentage >= 10 && percentage <= 200 {
-                scale = CGFloat(percentage) / 100.0
-                scaleText = "\(percentage)"
-            } else {
-                // Out of range - show alert
-                showInvalidScaleAlert = true
-            }
+        if let committedScale = ImageScaleInput.scale(from: scaleText) {
+            scale = committedScale
+            scaleText = "\(Int(committedScale * 100))"
         } else {
-            // Not a valid number - show alert
             showInvalidScaleAlert = true
         }
     }

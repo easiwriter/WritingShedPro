@@ -6,18 +6,38 @@ import SwiftData
 import UIKit
 #endif
 
+extension Notification.Name {
+    static let writeCoalescerDidFinishSave = Notification.Name("WriteCoalescerDidFinishSave")
+}
+
 enum EnsemblesSaveGateError: LocalizedError {
     case syncBusy(reason: String, attached: Bool, activity: String)
 
     var errorDescription: String? {
         switch self {
-        case let .syncBusy(reason, attached, activity):
-            return "Save deferred because Ensembles is not idle (reason=\(reason), attached=\(attached), activity=\(activity))"
+        case let .syncBusy(_, _, activity):
+            if activity.lowercased() == "none" {
+                return "Sync is temporarily finishing an update. Please try again in a few seconds."
+            }
+            return "Sync is currently active. Please try again when it has finished."
         }
     }
 }
 
 enum EnsemblesSaveGate {
+    private static func isExplicitUserAction(reason: String) -> Bool {
+        let normalizedReason = reason.lowercased()
+        let userInitiatedActions = [
+            "file-move-permanent-delete",
+            "project-list-trash",
+            "project-detail-trash",
+            "project-editable-list-permanent-delete",
+            "project-trash-bin-delete",
+            "project-trash-restore"
+        ]
+        return userInitiatedActions.contains(where: { normalizedReason.hasPrefix($0) })
+    }
+
     private static func canBypassForUserImport(reason: String, attached: Bool, activity: String) -> Bool {
         guard reason.hasPrefix("json-import-") else { return false }
         let normalizedActivity = activity.lowercased()
@@ -57,14 +77,7 @@ enum EnsemblesSaveGate {
             return false
         }
 
-        let userInitiatedProjectActions = [
-            "project-list-trash",
-            "project-detail-trash",
-            "project-editable-list-permanent-delete",
-            "project-trash-bin-delete",
-            "project-trash-restore"
-        ]
-        if userInitiatedProjectActions.contains(where: { normalizedReason.hasPrefix($0) }) {
+        if isExplicitUserAction(reason: reason) {
             return true
         }
 
@@ -84,13 +97,29 @@ enum EnsemblesSaveGate {
         return Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch
     }
 
-    static func canSaveNow(reason: String) -> Bool {
+    static func canSaveNow(reason: String, context: ModelContext? = nil) -> Bool {
         guard let ensemblesContainer = Write_App.activeEnsemblesContainer else {
+            return true
+        }
+        if let context, context.container !== ensemblesContainer.modelContainer {
             return true
         }
 
         let activity = String(describing: ensemblesContainer.currentActivity)
         if Write_App.isInEnsemblesMergeSaveCooldown() {
+            if !Write_App.hasObservedEnsemblesDataThisLaunch {
+                _ = Write_App.recordFirstEnsemblesDataAvailableIfNeeded(
+                    modelContainer: ensemblesContainer.modelContainer,
+                    reason: "save gate merge cooldown check"
+                )
+            }
+            if isEnsemblesIdle(ensemblesContainer),
+               isExplicitUserAction(reason: reason),
+               Write_App.hasObservedEnsemblesDataThisLaunch,
+               !isInStartupAttachGracePeriod(),
+               !Write_App.isInEnsemblesMergeConflictCooldown() {
+                return true
+            }
             let message = "⏳ [EnsemblesSaveGate] Blocked save during Ensembles merge cooldown reason=\(reason) attached=\(ensemblesContainer.isAttached) activity=\(activity)"
             #if DEBUG
             print(message)
@@ -155,7 +184,8 @@ enum EnsemblesSaveGate {
     }
 
     static func save(_ context: ModelContext, reason: String) throws {
-        if let ensemblesContainer = Write_App.activeEnsemblesContainer, !canSaveNow(reason: reason) {
+        if let ensemblesContainer = Write_App.activeEnsemblesContainer,
+           !canSaveNow(reason: reason, context: context) {
             throw EnsemblesSaveGateError.syncBusy(
                 reason: reason,
                 attached: ensemblesContainer.isAttached,
@@ -364,7 +394,7 @@ final class WriteCoalescer {
     func requestSaveAndFlush(reason: String = "requestSaveAndFlush") throws {
         if requiresImmediateSaveConfirmation(reason: reason),
            let ensemblesContainer = Write_App.activeEnsemblesContainer,
-           !EnsemblesSaveGate.canSaveNow(reason: reason) {
+           !EnsemblesSaveGate.canSaveNow(reason: reason, context: modelContext) {
             throw EnsemblesSaveGateError.syncBusy(
                 reason: reason,
                 attached: ensemblesContainer.isAttached,
@@ -375,7 +405,7 @@ final class WriteCoalescer {
         requestSave(reason: reason)
 
         if let ensemblesContainer = Write_App.activeEnsemblesContainer,
-           !EnsemblesSaveGate.canSaveNow(reason: reason),
+              !EnsemblesSaveGate.canSaveNow(reason: reason, context: modelContext),
            !requiresImmediateSaveConfirmation(reason: reason) {
             #if DEBUG
             print("⏳ [WriteCoalescer] Deferring non-destructive save source=\(reason) attached=\(ensemblesContainer.isAttached) activity=\(String(describing: ensemblesContainer.currentActivity))")
@@ -393,7 +423,7 @@ final class WriteCoalescer {
         flushTimer = nil
 
         if let ensemblesContainer = Write_App.activeEnsemblesContainer,
-           !EnsemblesSaveGate.canSaveNow(reason: reason) {
+              !EnsemblesSaveGate.canSaveNow(reason: reason, context: modelContext) {
             throw EnsemblesSaveGateError.syncBusy(
                 reason: reason,
                 attached: ensemblesContainer.isAttached,
@@ -404,6 +434,7 @@ final class WriteCoalescer {
         resetSyncDeferralDelay()
         pendingSave = false
         guard modelContext.hasChanges else {
+            NotificationCenter.default.post(name: .writeCoalescerDidFinishSave, object: self)
             return
         }
 
@@ -411,6 +442,7 @@ final class WriteCoalescer {
         saveCount += 1
         lastFlushTime = Date()
         syncHealthMonitor?.recordLocalChange()
+        NotificationCenter.default.post(name: .writeCoalescerDidFinishSave, object: self)
         Write_App.scheduleEnsemblesSyncAfterLocalSave(reason: reason)
         #if DEBUG
         let now = Date()
@@ -510,6 +542,7 @@ final class WriteCoalescer {
         resetSyncDeferralDelay()
         pendingSave = false
         guard modelContext.hasChanges else {
+            NotificationCenter.default.post(name: .writeCoalescerDidFinishSave, object: self)
             return
         }
         do {
@@ -517,6 +550,7 @@ final class WriteCoalescer {
             saveCount += 1
             lastFlushTime = Date()
             syncHealthMonitor?.recordLocalChange()
+            NotificationCenter.default.post(name: .writeCoalescerDidFinishSave, object: self)
             Write_App.scheduleEnsemblesSyncAfterLocalSave(reason: lastSaveRequestSource ?? "write-coalescer")
             #if DEBUG
             let now = Date()
@@ -539,7 +573,10 @@ final class WriteCoalescer {
         }
 
         let activity = String(describing: ensemblesContainer.currentActivity)
-        guard !EnsemblesSaveGate.canSaveNow(reason: lastSaveRequestSource ?? "write-coalescer") else {
+        guard !EnsemblesSaveGate.canSaveNow(
+            reason: lastSaveRequestSource ?? "write-coalescer",
+            context: modelContext
+        ) else {
             return false
         }
 

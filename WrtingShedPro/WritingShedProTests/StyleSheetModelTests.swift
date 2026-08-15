@@ -63,6 +63,49 @@ final class StyleSheetModelTests: XCTestCase {
         XCTAssertNotNil(stylesheet.textStyles)
         XCTAssertEqual(stylesheet.textStyles?.count, 0)
     }
+
+    func testImageStyleSpacingDefaultsAndOverrides() {
+        let defaultStyle = ImageStyle(name: "default", displayName: "Default")
+        XCTAssertEqual(defaultStyle.defaultSpacingAbove, 0)
+        XCTAssertEqual(defaultStyle.defaultSpacingBelow, 0)
+
+        let spacedStyle = ImageStyle(
+            name: "figure",
+            displayName: "Figure",
+            defaultSpacingAbove: 12,
+            defaultSpacingBelow: 8
+        )
+        XCTAssertEqual(spacedStyle.defaultSpacingAbove, 12)
+        XCTAssertEqual(spacedStyle.defaultSpacingBelow, 8)
+    }
+
+    func testImageStyleAppliesDefaultsAndPreservesCaptionContent() {
+        let imageStyle = ImageStyle(
+            name: "figure",
+            displayName: "Figure",
+            defaultScale: 0.75,
+            defaultAlignment: .right,
+            hasCaptionByDefault: true,
+            defaultCaptionStyle: "caption2",
+            defaultSpacingAbove: 12,
+            defaultSpacingBelow: 8
+        )
+        let attachment = ImageAttachment()
+        attachment.captionPrefix = "Figure"
+        attachment.captionText = "A retained caption"
+
+        imageStyle.apply(to: attachment)
+
+        XCTAssertEqual(attachment.imageStyleName, "figure")
+        XCTAssertEqual(attachment.scale, 0.75)
+        XCTAssertEqual(attachment.alignment, .right)
+        XCTAssertTrue(attachment.hasCaption)
+        XCTAssertEqual(attachment.captionStyle, "caption2")
+        XCTAssertEqual(attachment.captionPrefix, "Figure")
+        XCTAssertEqual(attachment.captionText, "A retained caption")
+        XCTAssertEqual(attachment.spacingAbove, 12)
+        XCTAssertEqual(attachment.spacingBelow, 8)
+    }
     
     func testStyleSheetTextStyleRelationship() throws {
         // Given
@@ -106,6 +149,37 @@ final class StyleSheetModelTests: XCTestCase {
         XCTAssertNotNil(foundTitle)
         XCTAssertEqual(foundTitle?.displayName, "Title 1")
         XCTAssertNil(notFound)
+    }
+
+    func testStyleSheetStyleLookupPrefersMostRecentlyModifiedDuplicate() throws {
+        let stylesheet = StyleSheet(name: "Test")
+        let staleStyle = TextStyleModel(name: "body", displayName: "Body", fontSize: 17)
+        let editedStyle = TextStyleModel(name: "body", displayName: "Body", fontSize: 21)
+        staleStyle.modifiedDate = Date(timeIntervalSinceReferenceDate: 100)
+        editedStyle.modifiedDate = Date(timeIntervalSinceReferenceDate: 200)
+        staleStyle.styleSheet = stylesheet
+        editedStyle.styleSheet = stylesheet
+
+        context.insert(stylesheet)
+        try context.save()
+
+        XCTAssertEqual(stylesheet.style(named: "body")?.fontSize, 21)
+    }
+
+    func testLatestStyleModifiedDateIncludesChildStyleChanges() throws {
+        let stylesheet = StyleSheet(name: "Test")
+        let bodyStyle = TextStyleModel(name: "body", displayName: "Body")
+        stylesheet.modifiedDate = Date(timeIntervalSinceReferenceDate: 100)
+        bodyStyle.modifiedDate = Date(timeIntervalSinceReferenceDate: 200)
+        bodyStyle.styleSheet = stylesheet
+
+        context.insert(stylesheet)
+        try context.save()
+
+        XCTAssertEqual(
+            stylesheet.latestStyleModifiedDate,
+            Date(timeIntervalSinceReferenceDate: 200)
+        )
     }
     
     func testStyleSheetSortedStyles() throws {

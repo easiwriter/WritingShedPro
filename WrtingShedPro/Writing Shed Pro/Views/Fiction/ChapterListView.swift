@@ -48,11 +48,11 @@ struct ChapterListView: View {
     }
     
     private var sortedChapters: [Chapter] {
-        (project.chapters ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        (project.chapters ?? []).sorted(by: ContainerDisplayOrder.isOrdered)
     }
 
     private var sortedBooks: [Book] {
-        (project.books ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        (project.books ?? []).sorted(by: ContainerDisplayOrder.isOrdered)
     }
     
     private var isEditMode: Bool {

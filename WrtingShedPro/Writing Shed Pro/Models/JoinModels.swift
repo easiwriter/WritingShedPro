@@ -2,9 +2,9 @@
 //  JoinModels.swift
 //  Writing Shed Pro
 //
-//  CloudKit does not support many-to-many relationships.
-//  Each join model below converts a many-to-many into two one-to-many
-//  relationships, which CloudKit can sync.
+//  Join models retained for legacy-store migration and relationships that
+//  remain many-to-many. Container assignment joins are no longer created by
+//  normal app operations.
 //
 //  Pattern:  SideA  1──*  JoinRecord  *──1  SideB
 //

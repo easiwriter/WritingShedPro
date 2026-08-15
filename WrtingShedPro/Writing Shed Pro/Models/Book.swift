@@ -31,21 +31,9 @@ final class Book {
     
     @Relationship(deleteRule: .nullify, inverse: \SceneBookLink.book)
     var sceneLinks: [SceneBookLink]? = []
-    
-    /// Scenes in this book (derived from join table)
-    var scenes: [StoryScene]? {
-        get { sceneLinks?.compactMap(\.scene) }
-        set {
-            for link in sceneLinks ?? [] { modelContext?.delete(link) }
-            sceneLinks = []
-            for scene in newValue ?? [] {
-                let link = SceneBookLink(scene: scene, book: self)
-                modelContext?.insert(link)
-                if sceneLinks == nil { sceneLinks = [] }
-                sceneLinks?.append(link)
-            }
-        }
-    }
+
+    @Relationship(deleteRule: .nullify)
+    var scenes: [StoryScene]? = []
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {
         self.name = name

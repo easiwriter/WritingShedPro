@@ -117,7 +117,20 @@ final class SyncHealthMonitor {
 
     /// Evaluate current sync health.
     func checkHealth() {
-        if let currentActivity = Write_App.activeEnsemblesContainer?.currentActivity,
+          if modelContainer != nil,
+              Write_App.isInEnsemblesMergeConflictCooldown() {
+                transition(to: .recovering)
+                return
+          }
+
+          if modelContainer != nil,
+              Write_App.isInEnsemblesMergeSaveCooldown() {
+                transition(to: .syncing)
+                return
+          }
+
+          if modelContainer != nil,
+              let currentActivity = Write_App.activeEnsemblesContainer?.currentActivity,
            String(describing: currentActivity) != "none" {
             transition(to: .syncing)
             return
@@ -130,7 +143,8 @@ final class SyncHealthMonitor {
             )
         }
 
-        if Write_App.activeEnsemblesContainer != nil,
+          if modelContainer != nil,
+              Write_App.activeEnsemblesContainer != nil,
            !Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch {
             if let modelContainer,
                Write_App.canProceedWithStartupMaintenanceAfterIdle(
