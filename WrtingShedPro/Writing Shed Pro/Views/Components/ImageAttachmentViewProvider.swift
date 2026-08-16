@@ -8,6 +8,22 @@
 
 import UIKit
 
+enum ImageCaptionAttributes {
+    static func attributes(for style: TextStyleModel) -> [NSAttributedString.Key: Any] {
+        var attributes = style.generateAttributes()
+        guard style.numberFormat != .none,
+              let paragraphStyle = attributes[.paragraphStyle] as? NSParagraphStyle else {
+            return attributes
+        }
+
+        let captionParagraphStyle = paragraphStyle.mutableCopy() as? NSMutableParagraphStyle
+            ?? NSMutableParagraphStyle()
+        captionParagraphStyle.firstLineHeadIndent = style.firstLineIndent
+        attributes[.paragraphStyle] = captionParagraphStyle
+        return attributes
+    }
+}
+
 /// View provider that renders ImageAttachment with optional caption below
 @available(iOS 15.0, *)
 class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
@@ -25,12 +41,14 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
     /// Parent text view (if available) for fallback width resolution when
     /// TextKit's textContainer hasn't been sized yet.
     private weak var parentTextView: UITextView?
+    private weak var parentContainerView: UIView?
     
     // MARK: - Initialization
     
     override init(textAttachment: NSTextAttachment, parentView: UIView?, textLayoutManager: NSTextLayoutManager?, location: NSTextLocation) {
         super.init(textAttachment: textAttachment, parentView: parentView, textLayoutManager: textLayoutManager, location: location)
 
+        self.parentContainerView = parentView
         self.parentTextView = parentView as? UITextView
         
         // Listen for stylesheet changes to refresh caption styling
@@ -45,6 +63,13 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
             self,
             selector: #selector(handleProjectStyleSheetChanged(_:)),
             name: NSNotification.Name("ProjectStyleSheetChanged"),
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleFileStyleSheetRegistered(_:)),
+            name: NSNotification.Name("FileStyleSheetRegistered"),
             object: nil
         )
         
@@ -99,18 +124,18 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
     /// Width of the live text column on the current device, used to size the image
     /// so it fits the editor's text container instead of using the raw pixel size.
     private var availableColumnWidth: CGFloat {
-        if let container = textLayoutManager?.textContainer {
-            let usable = container.size.width - container.lineFragmentPadding * 2
+        if let textView = containingTextView {
+            let usable = textView.bounds.width
+                - textView.textContainerInset.left
+                - textView.textContainerInset.right
+                - textView.textContainer.lineFragmentPadding * 2
             if usable.isFinite && usable > 1 {
                 return usable
             }
         }
 
-        if let textView = parentTextView {
-            let usable = textView.bounds.width
-                - textView.textContainerInset.left
-                - textView.textContainerInset.right
-                - textView.textContainer.lineFragmentPadding * 2
+        if let container = textLayoutManager?.textContainer {
+            let usable = container.size.width - container.lineFragmentPadding * 2
             if usable.isFinite && usable > 1 {
                 return usable
             }
@@ -122,7 +147,7 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
     private func createContainerView(for attachment: ImageAttachment) -> UIView {
         let container = UIStackView()
         container.axis = .vertical
-        container.alignment = .fill
+        container.alignment = .center
         container.spacing = 4 // Small gap between image and caption
         container.distribution = .fill
         
@@ -208,9 +233,16 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         if let styleSheet = findStyleSheet(),
            let captionStyleName = attachment.captionStyle,
            let captionStyle = styleSheet.style(named: captionStyleName) {
+            let resolvedCaptionNumber = containingTextView.flatMap {
+                ImageAttachment.captionNumber(
+                    for: attachment.imageID,
+                    in: $0.textStorage,
+                    styleSheet: styleSheet
+                )
+            } ?? attachment.captionNumber
             
             #if DEBUG
-            print("📝 Found caption style '\(captionStyleName)' - numberFormat=\(captionStyle.numberFormat), captionNumber=\(attachment.captionNumber)")
+            print("📝 Found caption style '\(captionStyleName)' - numberFormat=\(captionStyle.numberFormat), captionNumber=\(resolvedCaptionNumber)")
             #endif
             
             // Build caption: prefix + number + caption text
@@ -222,9 +254,9 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
             }
             
             // Add number if style has numbering enabled
-            if captionStyle.numberFormat != .none && attachment.captionNumber > 0 {
+            if captionStyle.numberFormat != .none && resolvedCaptionNumber > 0 {
                 let formattedNumber = buildFormattedCaptionNumber(
-                    for: attachment,
+                    captionNumber: resolvedCaptionNumber,
                     style: captionStyle,
                     styleSheet: styleSheet
                 )
@@ -247,12 +279,12 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
                 }
             }
             
-            let baseAttributes = captionStyle.generateAttributes()
+            let baseAttributes = ImageCaptionAttributes.attributes(for: captionStyle)
             captionLabel.attributedText = NSAttributedString(string: captionText, attributes: baseAttributes)
             captionLabel.textAlignment = captionStyle.alignment
             
             #if DEBUG
-            print("📝 Applied caption style '\(captionStyleName)' - alignment: \(captionStyle.alignment.rawValue), final caption: '\(captionText)'")
+            print("📝 Applied caption style '\(captionStyleName)' - alignment: \(captionLabel.textAlignment.rawValue), final caption: '\(captionText)'")
             #endif
         } else {
             // Fallback to simple styling if no style found
@@ -342,9 +374,7 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
     // MARK: - Caption Numbering
     
     /// Build the formatted caption number string with optional parent prefix
-    private func buildFormattedCaptionNumber(for attachment: ImageAttachment, style: TextStyleModel, styleSheet: StyleSheet) -> String {
-        let captionNumber = attachment.captionNumber
-        
+    private func buildFormattedCaptionNumber(captionNumber: Int, style: TextStyleModel, styleSheet: StyleSheet) -> String {
         // Check if this style has a parent for hierarchical numbering
         if let parentStyleName = style.parentStyleName,
            let parentStyle = styleSheet.style(named: parentStyleName),
@@ -372,8 +402,7 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
             return styleSheet
         }
         
-        // Fallback: try to get any active stylesheet
-        return StyleSheetProvider.shared.anyActiveStyleSheet()
+        return nil
     }
     
     /// Set the file ID for accessing the correct stylesheet
@@ -405,6 +434,15 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         // Refresh the view to apply new styles
         refreshView()
     }
+
+    @objc private func handleFileStyleSheetRegistered(_ notification: Notification) {
+        guard let registeredFileID = notification.userInfo?["fileID"] as? UUID,
+              registeredFileID == (fileID ?? imageAttachment?.fileID) else {
+            return
+        }
+
+        refreshView()
+    }
     
     @objc private func handleImagePropertiesChanged(_ notification: Notification) {
         // Check if this notification is for our attachment
@@ -423,9 +461,30 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         #if DEBUG
         print("   hasCaption: \(attachment.hasCaption), captionText: \(attachment.captionText ?? "nil")")
         #endif
+
+        if let captionNumber = notification.userInfo?["captionNumber"] as? Int {
+            attachment.captionNumber = captionNumber
+        }
         
         // Refresh the view to reflect new properties
         refreshView()
+    }
+
+    private var containingTextView: UITextView? {
+        if let parentTextView {
+            return parentTextView
+        }
+
+        var candidate = parentContainerView ?? view
+        while let current = candidate {
+            if let textView = current as? UITextView {
+                parentTextView = textView
+                return textView
+            }
+            candidate = current.superview
+        }
+
+        return nil
     }
     
     private func refreshView() {
@@ -452,7 +511,7 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         #endif
         
         // Notify text view that layout needs update
-        if let textView = view?.superview as? UITextView {
+        if let textView = containingTextView {
             #if DEBUG
             print("   Notifying text view to layout")
             #endif

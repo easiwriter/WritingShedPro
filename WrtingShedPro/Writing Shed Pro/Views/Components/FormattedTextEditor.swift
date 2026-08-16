@@ -12,6 +12,33 @@ struct TextEditorChange {
     let replacementText: String?
 }
 
+enum FormattedTextEditorImageClipboard {
+    static let pasteboardType = "com.appworks.writingshedpro.image-attachment"
+
+    static func selectedAttachment(in attributedString: NSAttributedString, range: NSRange) -> ImageAttachment? {
+        guard range.length == 1,
+              range.location >= 0,
+              NSMaxRange(range) <= attributedString.length else {
+            return nil
+        }
+
+        return attributedString.attribute(.attachment, at: range.location, effectiveRange: nil) as? ImageAttachment
+    }
+
+    static func encode(_ attachment: ImageAttachment) -> Data? {
+        try? NSKeyedArchiver.archivedData(withRootObject: attachment, requiringSecureCoding: true)
+    }
+
+    static func decode(_ data: Data) -> ImageAttachment? {
+        guard let attachment = try? NSKeyedUnarchiver.unarchivedObject(ofClass: ImageAttachment.self, from: data) else {
+            return nil
+        }
+
+        attachment.imageID = UUID()
+        return attachment
+    }
+}
+
 enum FormattedTextEditorAttachmentComparison {
     static func attachmentsMatch(_ first: NSAttributedString, _ second: NSAttributedString, includeLocation: Bool = true) -> Bool {
         attachmentSignature(in: first, includeLocation: includeLocation) == attachmentSignature(in: second, includeLocation: includeLocation)
@@ -112,6 +139,8 @@ struct FormattedTextEditor: View {
     var onSelectionChange: ((NSRange) -> Void)?
     var onImageTapped: ((ImageAttachment, CGRect, Int) -> Void)?
     var onClearImageSelection: (() -> Void)?
+    var onImageCutRequested: ((ImageAttachment, Int) -> Void)?
+    var onImagePasteRequested: ((ImageAttachment, Int) -> Void)?
     var onCommentTapped: ((CommentAttachment, Int) -> Void)?
     var onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)?
     var onReferenceTapped: ((ReferenceAttachment, Int) -> Void)?
@@ -153,6 +182,8 @@ struct FormattedTextEditor: View {
         onSelectionChange: ((NSRange) -> Void)? = nil,
         onImageTapped: ((ImageAttachment, CGRect, Int) -> Void)? = nil,
         onClearImageSelection: (() -> Void)? = nil,
+        onImageCutRequested: ((ImageAttachment, Int) -> Void)? = nil,
+        onImagePasteRequested: ((ImageAttachment, Int) -> Void)? = nil,
         onCommentTapped: ((CommentAttachment, Int) -> Void)? = nil,
         onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)? = nil,
         onReferenceTapped: ((ReferenceAttachment, Int) -> Void)? = nil,
@@ -183,6 +214,8 @@ struct FormattedTextEditor: View {
         self.onSelectionChange = onSelectionChange
         self.onImageTapped = onImageTapped
         self.onClearImageSelection = onClearImageSelection
+        self.onImageCutRequested = onImageCutRequested
+        self.onImagePasteRequested = onImagePasteRequested
         self.onCommentTapped = onCommentTapped
         self.onFootnoteTapped = onFootnoteTapped
         self.onReferenceTapped = onReferenceTapped
@@ -220,6 +253,8 @@ struct FormattedTextEditor: View {
             onSelectionChange: onSelectionChange,
             onImageTapped: onImageTapped,
             onClearImageSelection: onClearImageSelection,
+            onImageCutRequested: onImageCutRequested,
+            onImagePasteRequested: onImagePasteRequested,
             onCommentTapped: onCommentTapped,
             onFootnoteTapped: onFootnoteTapped,
             onReferenceTapped: onReferenceTapped,
@@ -261,6 +296,10 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
     
     /// Optional callback when image selection should be cleared (cursor moved away)
     var onClearImageSelection: (() -> Void)?
+
+    /// Clipboard image operations are executed by FileEditView so they use its custom undo stack.
+    var onImageCutRequested: ((ImageAttachment, Int) -> Void)?
+    var onImagePasteRequested: ((ImageAttachment, Int) -> Void)?
     
     /// Optional callback when user taps on a comment
     var onCommentTapped: ((CommentAttachment, Int) -> Void)?
@@ -354,6 +393,8 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         onSelectionChange: ((NSRange) -> Void)? = nil,
         onImageTapped: ((ImageAttachment, CGRect, Int) -> Void)? = nil,
         onClearImageSelection: (() -> Void)? = nil,
+        onImageCutRequested: ((ImageAttachment, Int) -> Void)? = nil,
+        onImagePasteRequested: ((ImageAttachment, Int) -> Void)? = nil,
         onCommentTapped: ((CommentAttachment, Int) -> Void)? = nil,
         onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)? = nil,
         onReferenceTapped: ((ReferenceAttachment, Int) -> Void)? = nil,
@@ -384,6 +425,8 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         self.onSelectionChange = onSelectionChange
         self.onImageTapped = onImageTapped
         self.onClearImageSelection = onClearImageSelection
+        self.onImageCutRequested = onImageCutRequested
+        self.onImagePasteRequested = onImagePasteRequested
         self.onCommentTapped = onCommentTapped
         self.onFootnoteTapped = onFootnoteTapped
         self.onReferenceTapped = onReferenceTapped
@@ -440,6 +483,13 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         // Wire up reference tap callback (Feature 029)
         textView.onReferenceTapped = { [weak coordinator] attachment, position in
             coordinator?.parent.onReferenceTapped?(attachment, position)
+        }
+
+        textView.onImageCutRequested = { [weak coordinator] attachment, position in
+            coordinator?.parent.onImageCutRequested?(attachment, position)
+        }
+        textView.onImagePasteRequested = { [weak coordinator] attachment, position in
+            coordinator?.parent.onImagePasteRequested?(attachment, position)
         }
         
         // Wire up glossary/index callbacks only when enabled by the parent.
@@ -576,14 +626,11 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         
         // Set initial content - this should be done AFTER layout configuration
         textView.attributedText = attributedText
+        ImageAttachment.updateCaptionNumbers(in: textView.textStorage, styleSheet: project?.styleSheet)
         context.coordinator.lastObservedAttributedText = attributedText
         
         // Initialize previousTextLength for paste detection
         context.coordinator.previousTextLength = attributedText.length
-        
-        // Update caption numbers for image attachments (Feature 016)
-        // This must be done after setting the attributed text
-        ImageAttachment.updateCaptionNumbers(in: textView.textStorage, styleSheet: project?.styleSheet)
         
         // Set typing attributes to match the content
         // This ensures that when typing in an empty document or at the end,
@@ -1206,6 +1253,18 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             pendingChangeRange = range
             pendingReplacementText = text
             isLiveTypingSimpleInsertion = isSimpleCharacterInsertion(range: range, replacementText: text)
+
+            if text.isEmpty,
+               let attachment = FormattedTextEditorImageClipboard.selectedAttachment(
+                   in: textView.attributedText,
+                   range: range
+               ) {
+                pendingChangeRange = nil
+                pendingReplacementText = nil
+                isLiveTypingSimpleInsertion = false
+                parent.onImageCutRequested?(attachment, range.location)
+                return false
+            }
 
             #if targetEnvironment(macCatalyst)
             if isLiveTypingSimpleInsertion {
@@ -2293,6 +2352,8 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     var onCommentTapped: ((CommentAttachment, Int) -> Void)?
     var onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)?
     var onReferenceTapped: ((ReferenceAttachment, Int) -> Void)?
+    var onImageCutRequested: ((ImageAttachment, Int) -> Void)?
+    var onImagePasteRequested: ((ImageAttachment, Int) -> Void)?
     var onGlossaryAddRequested: ((String) -> Void)?  // Called with selected text when user selects "Add to Glossary"
     var onIndexAddRequested: ((String) -> Void)?  // Called with selected text when user selects "Add to Index" (Feature 033)
     
@@ -2692,14 +2753,20 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
            action == #selector(handleTab) || action == #selector(handleShiftTab) {
             return true
         }
-        
-        // Disable selection actions when image is selected (except cut/delete for removal)
-        if isImageSelected {
-            if action == #selector(UIResponderStandardEditActions.delete(_:)) ||
-               action == #selector(UIResponderStandardEditActions.cut(_:)) {
-                return true
+
+        if action == #selector(UIResponderStandardEditActions.paste(_:)) {
+            let pasteboard = UIPasteboard.general
+            if pasteboard.data(forPasteboardType: FormattedTextEditorImageClipboard.pasteboardType) != nil || pasteboard.hasImages {
+                return isEditable
             }
-            return false
+        }
+        
+        // Image selections use custom clipboard handling below.
+        if isImageSelected {
+            return action == #selector(UIResponderStandardEditActions.delete(_:)) ||
+                action == #selector(UIResponderStandardEditActions.cut(_:)) ||
+                action == #selector(UIResponderStandardEditActions.copy(_:)) ||
+                action == #selector(UIResponderStandardEditActions.paste(_:))
         }
         
         // Fast Set lookup instead of linear scan
@@ -2720,11 +2787,16 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     
     // MARK: - Copy with Reference Stripping
     
-    /// Override copy to strip reference attachments and inform user
+    /// Override copy to preserve image attachments and strip reference attachments.
     @objc override func copy(_ sender: Any?) {
         let nsRange = selectedRange
         guard nsRange.length > 0 else {
             super.copy(sender)
+            return
+        }
+
+        if let attachment = FormattedTextEditorImageClipboard.selectedAttachment(in: attributedText, range: nsRange),
+           copyImageAttachmentToPasteboard(attachment) {
             return
         }
         
@@ -2767,7 +2839,61 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             super.copy(sender)
         }
     }
-    
+
+    @objc override func cut(_ sender: Any?) {
+        let range = selectedRange
+        guard let attachment = FormattedTextEditorImageClipboard.selectedAttachment(in: attributedText, range: range),
+              copyImageAttachmentToPasteboard(attachment) else {
+            super.cut(sender)
+            return
+        }
+
+        onImageCutRequested?(attachment, range.location)
+    }
+
+    @objc override func paste(_ sender: Any?) {
+        let pasteboard = UIPasteboard.general
+        let attachment: ImageAttachment?
+
+        if let data = pasteboard.data(forPasteboardType: FormattedTextEditorImageClipboard.pasteboardType) {
+            attachment = FormattedTextEditorImageClipboard.decode(data)
+        } else if let image = pasteboard.image,
+                  let imageData = ImageAttachment.compressImage(image) {
+            let externalAttachment = ImageAttachment()
+            externalAttachment.imageData = imageData
+            externalAttachment.image = UIImage(data: imageData)
+            externalAttachment.alignment = .center
+            externalAttachment.updateBounds()
+            attachment = externalAttachment
+        } else {
+            super.paste(sender)
+            return
+        }
+
+        guard let attachment else {
+            super.paste(sender)
+            return
+        }
+
+        onImagePasteRequested?(attachment, selectedRange.location)
+    }
+
+    private func copyImageAttachmentToPasteboard(_ attachment: ImageAttachment) -> Bool {
+        guard let encodedAttachment = FormattedTextEditorImageClipboard.encode(attachment) else {
+            return false
+        }
+
+        var item: [String: Any] = [
+            FormattedTextEditorImageClipboard.pasteboardType: encodedAttachment
+        ]
+        if let image = attachment.image ?? attachment.imageData.flatMap(UIImage.init(data:)),
+           let pngData = image.pngData() {
+            item["public.png"] = pngData
+        }
+        UIPasteboard.general.items = [item]
+        return true
+    }
+
     // iOS 16+ Edit Menu Customization
     @available(iOS 16.0, *)
     override func editMenu(for textRange: UITextRange, suggestedActions: [UIMenuElement]) -> UIMenu? {

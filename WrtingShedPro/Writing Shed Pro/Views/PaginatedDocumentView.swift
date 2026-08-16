@@ -11,6 +11,7 @@ import SwiftData
 
 /// Main paginated document view
 struct PaginatedDocumentView: View {
+    private let styleSheetRegistrationOwnerID = UUID()
     
     // MARK: - Properties
     
@@ -93,7 +94,11 @@ struct PaginatedDocumentView: View {
             
             // Register stylesheet with provider so ImageAttachment can access it
             if let styleSheet = project.styleSheet {
-                StyleSheetProvider.shared.register(styleSheet: styleSheet, for: textFile.id)
+                StyleSheetProvider.shared.register(
+                    styleSheet: styleSheet,
+                    for: textFile.id,
+                    ownerID: styleSheetRegistrationOwnerID
+                )
             }
             
             // Always recalculate on appear in case version changed while in edit mode
@@ -108,7 +113,10 @@ struct PaginatedDocumentView: View {
         }
         .onDisappear {
             // Unregister stylesheet when leaving paginated view
-            StyleSheetProvider.shared.unregister(fileID: textFile.id)
+            StyleSheetProvider.shared.unregister(
+                fileID: textFile.id,
+                ownerID: styleSheetRegistrationOwnerID
+            )
         }
         .onChange(of: textFile.currentVersionIndex) { oldValue, newValue in
             #if DEBUG

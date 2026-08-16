@@ -22,7 +22,12 @@ class StyleSheetProvider {
     // MARK: - Properties
     
     /// Currently active stylesheet (per-file)
-    private var activeStyleSheets: [UUID: StyleSheet] = [:]
+    private struct Registration {
+        let styleSheet: StyleSheet
+        let ownerID: UUID
+    }
+
+    private var activeStyleSheets: [UUID: Registration] = [:]
     
     /// Default lock for thread safety
     private let lock = NSLock()
@@ -30,22 +35,32 @@ class StyleSheetProvider {
     // MARK: - Public Interface
     
     /// Register a stylesheet for a specific file
-    func register(styleSheet: StyleSheet, for fileID: UUID) {
+    func register(styleSheet: StyleSheet, for fileID: UUID, ownerID: UUID = UUID()) -> UUID {
         lock.lock()
-        defer { lock.unlock() }
-        
-        activeStyleSheets[fileID] = styleSheet
+        activeStyleSheets[fileID] = Registration(styleSheet: styleSheet, ownerID: ownerID)
+        lock.unlock()
         
         #if DEBUG
         print("📋 StyleSheetProvider: Registered stylesheet '\(styleSheet.name)' for file \(fileID)")
         #endif
+
+        NotificationCenter.default.post(
+            name: NSNotification.Name("FileStyleSheetRegistered"),
+            object: nil,
+            userInfo: ["fileID": fileID]
+        )
+
+        return ownerID
     }
     
     /// Unregister a stylesheet for a specific file
-    func unregister(fileID: UUID) {
+    func unregister(fileID: UUID, ownerID: UUID? = nil) {
         lock.lock()
         defer { lock.unlock() }
-        
+
+        if let ownerID, activeStyleSheets[fileID]?.ownerID != ownerID {
+            return
+        }
         activeStyleSheets.removeValue(forKey: fileID)
         
         #if DEBUG
@@ -58,16 +73,7 @@ class StyleSheetProvider {
         lock.lock()
         defer { lock.unlock() }
         
-        return activeStyleSheets[fileID]
-    }
-    
-    /// Get any active stylesheet (fallback when file ID not available)
-    /// This is a last resort and should be avoided if possible
-    func anyActiveStyleSheet() -> StyleSheet? {
-        lock.lock()
-        defer { lock.unlock() }
-        
-        return activeStyleSheets.values.first
+        return activeStyleSheets[fileID]?.styleSheet
     }
     
     // MARK: - Notifications

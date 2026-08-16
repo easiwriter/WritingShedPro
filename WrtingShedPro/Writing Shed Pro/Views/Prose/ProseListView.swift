@@ -223,11 +223,14 @@ struct ProseListView: View {
             filesBySectionID[sectionID, default: []].append(file)
         }
 
-        var result = sections.map { section in
-            SectionGroup(
+        var result: [SectionGroup] = sections.compactMap { section -> SectionGroup? in
+            let files = filesBySectionID[section.id] ?? []
+            guard !files.isEmpty else { return nil }
+
+            return SectionGroup(
                 id: section.id.uuidString,
                 name: section.name ?? NSLocalizedString("prose.untitled", comment: "Untitled"),
-                files: filesBySectionID[section.id] ?? []
+                files: files
             )
         }
 

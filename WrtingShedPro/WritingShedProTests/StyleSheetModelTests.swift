@@ -290,14 +290,18 @@ final class StyleSheetModelTests: XCTestCase {
     func testTextStyleModelComputedProperties() throws {
         // Given
         let style = TextStyleModel(name: "test", displayName: "Test", displayOrder: 0)
+        let originalModifiedDate = Date(timeIntervalSinceReferenceDate: 100)
+        style.modifiedDate = originalModifiedDate
         
         // When
         style.alignment = .center
+        let alignmentModifiedDate = style.modifiedDate
         style.numberFormat = .decimal
         style.styleCategory = .heading
         
         // Then
         XCTAssertEqual(style.alignmentRaw, NSTextAlignment.center.rawValue)
+        XCTAssertGreaterThan(alignmentModifiedDate, originalModifiedDate)
         XCTAssertEqual(style.numberFormatRaw, "decimal")
         XCTAssertEqual(style.styleCategoryRaw, "heading")
         
@@ -305,6 +309,30 @@ final class StyleSheetModelTests: XCTestCase {
         XCTAssertEqual(style.alignment, .center)
         XCTAssertEqual(style.numberFormat, .decimal)
         XCTAssertEqual(style.styleCategory, .heading)
+
+        style.alignment = .center
+        XCTAssertEqual(style.modifiedDate, alignmentModifiedDate)
+    }
+
+    func testNumberedImageCaptionRemovesGeneratedNumberIndent() throws {
+        let style = TextStyleModel(
+            name: "caption",
+            displayName: "Caption",
+            alignment: .center,
+            numberFormat: .decimal
+        )
+        style.firstLineIndent = 3
+
+        let generatedParagraphStyle = try XCTUnwrap(
+            style.generateAttributes()[.paragraphStyle] as? NSParagraphStyle
+        )
+        let captionParagraphStyle = try XCTUnwrap(
+            ImageCaptionAttributes.attributes(for: style)[.paragraphStyle] as? NSParagraphStyle
+        )
+
+        XCTAssertGreaterThan(generatedParagraphStyle.firstLineHeadIndent, style.firstLineIndent)
+        XCTAssertEqual(captionParagraphStyle.firstLineHeadIndent, style.firstLineIndent)
+        XCTAssertEqual(captionParagraphStyle.alignment, .center)
     }
     
     func testTextStyleModelTextColor() throws {

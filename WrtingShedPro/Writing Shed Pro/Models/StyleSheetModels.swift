@@ -219,7 +219,11 @@ final class TextStyleModel {
     
     var alignment: NSTextAlignment {
         get { NSTextAlignment(rawValue: alignmentRaw) ?? .natural }
-        set { alignmentRaw = newValue.rawValue }
+        set {
+            guard alignmentRaw != newValue.rawValue else { return }
+            alignmentRaw = newValue.rawValue
+            modifiedDate = Date()
+        }
     }
     
     var numberFormat: NumberFormat {

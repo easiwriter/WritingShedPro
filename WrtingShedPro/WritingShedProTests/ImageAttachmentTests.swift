@@ -35,6 +35,7 @@ final class ImageAttachmentTests: XCTestCase {
         attachment.spacingAbove = 12
         attachment.spacingBelow = 8
         attachment.captionPrefix = "Figure"
+        attachment.captionNumber = 3
 
         let data = try NSKeyedArchiver.archivedData(
             withRootObject: attachment,
@@ -47,6 +48,7 @@ final class ImageAttachmentTests: XCTestCase {
         XCTAssertEqual(decoded.spacingAbove, 12)
         XCTAssertEqual(decoded.spacingBelow, 8)
         XCTAssertEqual(decoded.captionPrefix, "Figure")
+        XCTAssertEqual(decoded.captionNumber, 3)
     }
 
     func testImageSpacingProducesParagraphLayoutAttributes() {
@@ -60,6 +62,116 @@ final class ImageAttachmentTests: XCTestCase {
         XCTAssertEqual(paragraphStyle.alignment, .center)
         XCTAssertEqual(paragraphStyle.paragraphSpacingBefore, 12)
         XCTAssertEqual(paragraphStyle.paragraphSpacing, 8)
+    }
+
+    func testPreLayoutCaptionNumberingStartsFirstImageAtOne() {
+        let styleSheet = StyleSheet(name: "Test")
+        let captionStyle = TextStyleModel(
+            name: "caption",
+            displayName: "Caption",
+            numberFormat: .decimal
+        )
+        captionStyle.styleSheet = styleSheet
+
+        let firstAttachment = ImageAttachment()
+        firstAttachment.setCaption(text: "First", style: "caption")
+
+        let secondAttachment = ImageAttachment()
+        secondAttachment.setCaption(text: "Second", style: "caption")
+
+        let content = NSMutableAttributedString(attachment: firstAttachment)
+        content.append(NSAttributedString(string: "\n"))
+        content.append(NSAttributedString(attachment: secondAttachment))
+
+        ImageAttachment.updateCaptionNumbersInAttributedString(content, styleSheet: styleSheet)
+
+        XCTAssertEqual(firstAttachment.captionNumber, 1)
+        XCTAssertEqual(secondAttachment.captionNumber, 2)
+
+        firstAttachment.setCaptionEnabled(false)
+        ImageAttachment.updateCaptionNumbersInAttributedString(content, styleSheet: styleSheet)
+
+        XCTAssertEqual(firstAttachment.captionNumber, 0)
+        XCTAssertEqual(secondAttachment.captionNumber, 1)
+
+        firstAttachment.setCaptionEnabled(true)
+        ImageAttachment.updateCaptionNumbersInAttributedString(content, styleSheet: styleSheet)
+
+        XCTAssertEqual(firstAttachment.captionNumber, 1)
+        XCTAssertEqual(secondAttachment.captionNumber, 2)
+    }
+
+    func testTextStorageCaptionNumberingRefreshesFirstImageProvider() throws {
+        let styleSheet = StyleSheet(name: "Test")
+        let captionStyle = TextStyleModel(
+            name: "caption",
+            displayName: "Caption",
+            numberFormat: .decimal
+        )
+        captionStyle.styleSheet = styleSheet
+
+        let firstAttachment = ImageAttachment()
+        firstAttachment.setCaption(text: "First", style: "caption")
+        let content = NSTextStorage(attributedString: NSAttributedString(attachment: firstAttachment))
+        let storedAttachment = try XCTUnwrap(
+            content.attribute(.attachment, at: 0, effectiveRange: nil) as? ImageAttachment
+        )
+
+        var refreshedCaptionNumbers: [UUID: Int] = [:]
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("ImageAttachmentPropertiesChanged"),
+            object: nil,
+            queue: nil
+        ) { notification in
+            if let imageID = notification.userInfo?["imageID"] as? UUID,
+               let captionNumber = notification.userInfo?["captionNumber"] as? Int {
+                refreshedCaptionNumbers[imageID] = captionNumber
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        ImageAttachment.updateCaptionNumbers(in: content, styleSheet: styleSheet)
+
+        XCTAssertEqual(storedAttachment.captionNumber, 1)
+        XCTAssertEqual(refreshedCaptionNumbers[storedAttachment.imageID], 1)
+    }
+
+    func testDocumentOrderLookupDoesNotDependOnTransientCaptionNumber() {
+        let styleSheet = StyleSheet(name: "Test")
+        let captionStyle = TextStyleModel(
+            name: "caption",
+            displayName: "Caption",
+            numberFormat: .decimal
+        )
+        captionStyle.styleSheet = styleSheet
+
+        let firstAttachment = ImageAttachment()
+        firstAttachment.setCaption(text: "First", style: "caption")
+        let secondAttachment = ImageAttachment()
+        secondAttachment.setCaption(text: "Second", style: "caption")
+
+        let content = NSMutableAttributedString(attachment: firstAttachment)
+        content.append(NSAttributedString(string: "\n"))
+        content.append(NSAttributedString(attachment: secondAttachment))
+
+        XCTAssertEqual(firstAttachment.captionNumber, 0)
+        XCTAssertEqual(secondAttachment.captionNumber, 0)
+        XCTAssertEqual(
+            ImageAttachment.captionNumber(
+                for: firstAttachment.imageID,
+                in: content,
+                styleSheet: styleSheet
+            ),
+            1
+        )
+        XCTAssertEqual(
+            ImageAttachment.captionNumber(
+                for: secondAttachment.imageID,
+                in: content,
+                styleSheet: styleSheet
+            ),
+            2
+        )
     }
     
     func testFileIDProperty() {

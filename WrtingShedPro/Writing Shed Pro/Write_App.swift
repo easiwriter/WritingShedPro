@@ -38,6 +38,7 @@ struct Write_App: App {
     static let resetLocalEnsemblesStoreOnNextLaunchKey = "resetLocalEnsemblesStoreOnNextLaunch"
     static let detachLocalEnsemblesBeforeResetOnNextLaunchKey = "detachLocalEnsemblesBeforeResetOnNextLaunch"
     static let excludeLocalDataOnNextEnsemblesAttachKey = "excludeLocalDataOnNextEnsemblesAttach"
+    static let refreshEnsemblesCloudListingOnNextLaunchKey = "refreshEnsemblesCloudListingOnNextLaunch"
     static let ensembleIdentifier = "WritingShedProConfigurationV2"
 
     static var isLocalRecoveryModeEnabled: Bool {
@@ -168,6 +169,15 @@ struct Write_App: App {
             }
         }
 
+        if UserDefaults.standard.bool(forKey: Write_App.refreshEnsemblesCloudListingOnNextLaunchKey) {
+            if Write_App.clearEnsemblesCloudKitListingCaches() {
+                UserDefaults.standard.removeObject(forKey: Write_App.refreshEnsemblesCloudListingOnNextLaunchKey)
+                Write_App.logToFile("✅ [Ensembles] Cleared CloudKit listing cache before container initialization")
+            } else {
+                Write_App.logErrorToFile("⚠️ [Ensembles] CloudKit listing cache refresh remains queued after a deletion failure")
+            }
+        }
+
         #if DEBUG
         print("☁️ [Write_App] Initializing SwiftDataEnsembleContainer with CloudKit backend")
         #endif
@@ -275,11 +285,6 @@ struct Write_App: App {
 
         Write_App.logErrorToFile("⚠️ [Ensembles] SwiftDataEnsembleContainer initialization failed; opening local store without sync")
         if localStoreWasMissingAtLaunch {
-            Write_App.logFreshStoreEnsembleConstructionDiagnostic(
-                storeURL: storeURL,
-                cloudFileSystem: cloudFileSystem,
-                eventDataDirectory: eventDataDirectory
-            )
             Write_App.initialEnsemblesImportUnavailable = true
             Write_App.logErrorToFile("⚠️ [Ensembles] Initial sync import unavailable; suppressing local seed data until sync attach is fixed")
         }
@@ -348,28 +353,6 @@ struct Write_App: App {
         let container = try ModelContainer(for: schema, configurations: [configuration])
         container.mainContext.autosaveEnabled = true
         return container
-    }
-
-    private static func logFreshStoreEnsembleConstructionDiagnostic(
-        storeURL: URL,
-        cloudFileSystem: CloudFileSystem,
-        eventDataDirectory: URL
-    ) {
-        let storeExists = FileManager.default.fileExists(atPath: storeURL.path)
-        let eventDataExists = FileManager.default.fileExists(atPath: eventDataDirectory.path)
-        let diagnosticEnsemble = SwiftDataEnsemble(
-            ensembleIdentifier: Write_App.ensembleIdentifier,
-            persistentStoreURL: storeURL,
-            modelTypes: Write_App.modelTypes,
-            cloudFileSystem: cloudFileSystem,
-            localDataRootDirectoryURL: eventDataDirectory
-        )
-
-        if diagnosticEnsemble == nil {
-            Write_App.logErrorToFile("❌ [Ensembles] Lower-level SwiftDataEnsemble construction also failed (storeExists=\(storeExists), eventDataExists=\(eventDataExists), storeURL=\(storeURL.path), eventDataURL=\(eventDataDirectory.path))")
-        } else {
-            Write_App.logToFile("ℹ️ [Ensembles] Lower-level SwiftDataEnsemble construction succeeded; failure is in SwiftDataEnsembleContainer wrapper setup (storeExists=\(storeExists), eventDataExists=\(eventDataExists))")
-        }
     }
 
     private static func makePreopenedEnsemblesContainer(
@@ -471,21 +454,33 @@ struct Write_App: App {
         Write_App.logToFile("✅ [Ensembles] Local sync reset completed; backup=\(backupDirectory.lastPathComponent)")
     }
 
-    static func clearEnsemblesCloudKitListingCaches() {
+    @discardableResult
+    static func clearEnsemblesCloudKitListingCaches() -> Bool {
         let fileManager = FileManager.default
-        guard let enumerator = fileManager.enumerator(
-            at: URL.cachesDirectory,
-            includingPropertiesForKeys: nil
-        ) else { return }
+        let searchRoots = [
+            URL.cachesDirectory,
+            URL.documentsDirectory.appending(path: "EnsemblesEventData", directoryHint: .isDirectory)
+        ]
+        var succeeded = true
 
-        for case let url as URL in enumerator where url.lastPathComponent.hasSuffix(".cdecloudkitcache.v3") {
-            do {
-                try fileManager.removeItem(at: url)
-                Write_App.logToFile("🗑️ [Ensembles] Removed CloudKit listing cache \(url.lastPathComponent)")
-            } catch {
-                Write_App.logErrorToFile("❌ [Ensembles] Failed to remove CloudKit listing cache: \(error.localizedDescription)")
+        for searchRoot in searchRoots {
+            guard let enumerator = fileManager.enumerator(
+                at: searchRoot,
+                includingPropertiesForKeys: nil
+            ) else { continue }
+
+            for case let url as URL in enumerator where url.lastPathComponent.hasSuffix(".cdecloudkitcache.v3") {
+                do {
+                    try fileManager.removeItem(at: url)
+                    Write_App.logToFile("🗑️ [Ensembles] Removed CloudKit listing cache \(url.lastPathComponent)")
+                } catch {
+                    succeeded = false
+                    Write_App.logErrorToFile("❌ [Ensembles] Failed to remove CloudKit listing cache: \(error.localizedDescription)")
+                }
             }
         }
+
+        return succeeded
     }
 
     @MainActor

@@ -90,6 +90,7 @@ final class ImageSerializationTests: XCTestCase {
         }
         
         attachment.setCaption(text: "My caption", style: "caption1")
+        attachment.alignment = .right
         
         // Insert attachment
         let attachmentString = NSAttributedString(attachment: attachment)
@@ -106,6 +107,7 @@ final class ImageSerializationTests: XCTestCase {
         XCTAssertTrue(restoredAttachment?.hasCaption ?? false, "Caption should be enabled")
         XCTAssertEqual(restoredAttachment?.captionText, "My caption")
         XCTAssertEqual(restoredAttachment?.captionStyle, "caption1")
+        XCTAssertEqual(restoredAttachment?.alignment, .right)
     }
     
     func testEncodeImageWithoutCaption() {

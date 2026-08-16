@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import SwiftData
 @testable import Writing_Shed_Pro
 
 class ImageCopyPasteTests: XCTestCase {
@@ -280,7 +281,109 @@ class ImageCopyPasteTests: XCTestCase {
         XCTAssertEqual(Double(foundAttachment?.scale ?? 0), 0.7, accuracy: 0.001)
         XCTAssertEqual(foundAttachment?.alignment, .right)
     }
-    
+
+    func testClipboardCodecPreservesImagePropertiesAndCreatesNewIdentity() throws {
+        let original = ImageAttachment()
+        original.imageData = testImageData
+        original.scale = 0.65
+        original.alignment = .center
+        original.hasCaption = true
+        original.captionText = "Clipboard caption"
+        let originalID = original.imageID
+
+        let data = try XCTUnwrap(FormattedTextEditorImageClipboard.encode(original))
+        let pasted = try XCTUnwrap(FormattedTextEditorImageClipboard.decode(data))
+
+        XCTAssertNotEqual(pasted.imageID, originalID)
+        XCTAssertEqual(pasted.imageData, testImageData)
+        XCTAssertEqual(Double(pasted.scale), 0.65, accuracy: 0.001)
+        XCTAssertEqual(pasted.alignment, .center)
+        XCTAssertTrue(pasted.hasCaption)
+        XCTAssertEqual(pasted.captionText, "Clipboard caption")
+    }
+
+    func testClipboardSelectionFindsOnlyExactlySelectedImage() {
+        let attachment = ImageAttachment()
+        attachment.imageData = testImageData
+        let content = NSMutableAttributedString(string: "A")
+        content.append(NSAttributedString(attachment: attachment))
+        content.append(NSAttributedString(string: "B"))
+
+        XCTAssertTrue(
+            FormattedTextEditorImageClipboard.selectedAttachment(
+                in: content,
+                range: NSRange(location: 1, length: 1)
+            ) === attachment
+        )
+        XCTAssertNil(
+            FormattedTextEditorImageClipboard.selectedAttachment(
+                in: content,
+                range: NSRange(location: 0, length: 2)
+            )
+        )
+    }
+
+    @MainActor
+    func testCutImageCommandSupportsUndoAndRedo() throws {
+        let schema = Schema([Project.self, Folder.self, TextFile.self, Version.self])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = ModelContext(container)
+        let file = TextFile(name: "Clipboard Test", initialContent: "")
+        context.insert(file)
+
+        let attachment = ImageAttachment()
+        attachment.imageData = testImageData
+        attachment.scale = 0.6
+        attachment.alignment = .right
+        attachment.captionText = "Restored caption"
+        attachment.hasCaption = true
+
+        let content = NSMutableAttributedString(string: "A")
+        content.append(NSAttributedString(attachment: attachment))
+        content.append(NSAttributedString(string: "B"))
+        file.currentVersion?.attributedContent = content
+
+        let manager = TextFileUndoManager(file: file)
+        let command = try XCTUnwrap(DeleteImageCommand(position: 1, attachment: attachment, targetFile: file))
+        let restorationExpectation = expectation(description: "Image command restores content in place")
+        restorationExpectation.expectedFulfillmentCount = 3
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("UndoRedoContentRestored"),
+            object: file,
+            queue: .main
+        ) { notification in
+            XCTAssertEqual(notification.userInfo?["updateEditorInPlace"] as? Bool, true)
+            XCTAssertEqual(notification.userInfo?["caretPosition"] as? Int, 1)
+            restorationExpectation.fulfill()
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        manager.execute(command)
+
+        XCTAssertTrue(manager.canUndo)
+        XCTAssertEqual(file.currentVersion?.attributedContent?.string, "AB")
+
+        manager.undo()
+
+        XCTAssertTrue(manager.canRedo)
+        let restoredContent = try XCTUnwrap(file.currentVersion?.attributedContent)
+        let restoredAttachment = try XCTUnwrap(
+            restoredContent.attribute(.attachment, at: 1, effectiveRange: nil) as? ImageAttachment
+        )
+        XCTAssertTrue(restoredAttachment === attachment)
+        XCTAssertEqual(restoredAttachment.imageData, testImageData)
+        XCTAssertEqual(Double(restoredAttachment.scale), 0.6, accuracy: 0.001)
+        XCTAssertEqual(restoredAttachment.alignment, .right)
+        XCTAssertEqual(restoredAttachment.captionText, "Restored caption")
+
+        manager.redo()
+
+        XCTAssertTrue(manager.canUndo)
+        XCTAssertEqual(file.currentVersion?.attributedContent?.string, "AB")
+        wait(for: [restorationExpectation], timeout: 1)
+    }
+
     // Note: RTFD copy/paste tests are not included because:
     // 1. RTFD encoding/decoding behavior is complex and platform-specific
     // 2. NSAttributedString RTFD serialization may not preserve custom attachment subclasses

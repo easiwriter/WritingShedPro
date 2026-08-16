@@ -116,6 +116,12 @@ struct SyncDiagnosticsView: View {
             .disabled(Write_App.activeEnsemblesContainer == nil)
 
             Button {
+                queueCloudListingRefresh()
+            } label: {
+                Label("Refresh Cloud Listing on Next Launch", systemImage: "icloud.and.arrow.down")
+            }
+
+            Button {
                 Task { await verifyEnsemblesZoneContent() }
             } label: {
                 Label("Verify Sync Zones", systemImage: "icloud.and.arrow.down")
@@ -312,6 +318,13 @@ struct SyncDiagnosticsView: View {
         return container.isAttached && String(describing: container.currentActivity) == "none"
     }
 
+    @MainActor
+    private func queueCloudListingRefresh() {
+        UserDefaults.standard.set(true, forKey: Write_App.refreshEnsemblesCloudListingOnNextLaunchKey)
+        syncStatusMessage = "Cloud listing refresh queued. Fully quit and relaunch the app. Local projects and event history will be preserved."
+        Write_App.logToFile("🔄 [Ensembles] CloudKit listing cache refresh queued for next launch")
+    }
+
     @ViewBuilder
     private func removeCloudDataDialogActions() -> some View {
         Button("Remove Both Sync Zones", role: .destructive) {
@@ -342,12 +355,6 @@ struct SyncDiagnosticsView: View {
 
     @MainActor
     private func detachAndQueueLocalReset() async {
-        if projectCount > 0, activeEventStoreObjectChangeCount() == 0 {
-            syncStatusMessage = "Local reset blocked: this device has projects, but the active Ensembles event store has no object changes. Create/verify a cloud seed or restore from backup first."
-            Write_App.logErrorToFile("⚠️ [Ensembles] Local reset blocked because local projects exist but active event store has zero object changes")
-            return
-        }
-
         if let container = Write_App.activeEnsemblesContainer, container.isAttached {
             let activity = String(describing: container.currentActivity)
             guard activity == "none" else {
@@ -373,12 +380,6 @@ struct SyncDiagnosticsView: View {
         UserDefaults.standard.set(true, forKey: Write_App.resetLocalEnsemblesStoreOnNextLaunchKey)
         localResetQueued = true
         syncStatusMessage = "Local reset queued. Quit and relaunch this Mac app."
-    }
-
-    @MainActor
-    private func activeEventStoreObjectChangeCount() -> Int? {
-        guard let container = Write_App.activeEnsemblesContainer else { return nil }
-        return try? container.ensemble.coreDataEnsemble.eventStore.countAllObjectChanges()
     }
 
     @MainActor

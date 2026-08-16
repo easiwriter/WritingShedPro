@@ -56,6 +56,7 @@ struct NewIndexEntryData: Identifiable {
 struct FileEditView: View {
     private static let editorZoomScaleDefaultsKey = "editorZoomScale"
     private static let showLineNumbersDefaultsKey = "showDocumentLineNumbers"
+    private let styleSheetRegistrationOwnerID = UUID()
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -253,7 +254,7 @@ struct FileEditView: View {
             SUIToolbarItem(
                 icon: "plus.circle",
                 title: "Duplicate this version",
-                disabled: false
+                disabled: isFormattedContentSyncIncomplete
             ),
             SUIToolbarItem(
                 icon: "trash.circle",
@@ -366,6 +367,12 @@ struct FileEditView: View {
                                     selectedImageFrame = .zero
                                     selectedImagePosition = -1
                                 },
+                                onImageCutRequested: { attachment, position in
+                                    handleImageCutRequested(attachment: attachment, position: position)
+                                },
+                                onImagePasteRequested: { attachment, position in
+                                    handleImagePasteRequested(attachment: attachment, position: position)
+                                },
                                 onCommentTapped: { attachment, position in
                                     handleCommentTap(attachment: attachment, position: position)
                                 },
@@ -435,6 +442,12 @@ struct FileEditView: View {
                                     selectedImage = nil
                                     selectedImageFrame = .zero
                                     selectedImagePosition = -1
+                                },
+                                onImageCutRequested: { attachment, position in
+                                    handleImageCutRequested(attachment: attachment, position: position)
+                                },
+                                onImagePasteRequested: { attachment, position in
+                                    handleImagePasteRequested(attachment: attachment, position: position)
                                 },
                                 onCommentTapped: { attachment, position in
                                     handleCommentTap(attachment: attachment, position: position)
@@ -513,6 +526,12 @@ struct FileEditView: View {
                                     selectedImageFrame = .zero
                                     selectedImagePosition = -1
                                 },
+                                onImageCutRequested: { attachment, position in
+                                    handleImageCutRequested(attachment: attachment, position: position)
+                                },
+                                onImagePasteRequested: { attachment, position in
+                                    handleImagePasteRequested(attachment: attachment, position: position)
+                                },
                                 onCommentTapped: { attachment, position in
                                     handleCommentTap(attachment: attachment, position: position)
                                 },
@@ -579,6 +598,12 @@ struct FileEditView: View {
                                     selectedImage = nil
                                     selectedImageFrame = .zero
                                     selectedImagePosition = -1
+                                },
+                                onImageCutRequested: { attachment, position in
+                                    handleImageCutRequested(attachment: attachment, position: position)
+                                },
+                                onImagePasteRequested: { attachment, position in
+                                    handleImagePasteRequested(attachment: attachment, position: position)
                                 },
                                 onCommentTapped: { attachment, position in
                                     handleCommentTap(attachment: attachment, position: position)
@@ -1746,13 +1771,15 @@ struct FileEditView: View {
     
     private var mainContent: some View {
         VStack(spacing: 0) {
-            // Version toolbar and scaling controls (only shown in edit mode and not for back matter files)
-            if !isPaginationMode && isFileEditable {
+            // Version navigation remains available when sync protection makes content read-only.
+            if !isPaginationMode && !file.isBackMatterFile && !file.isTOCFile {
                 HStack(spacing: 0) {
                     versionToolbar()
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    editorScalingControls()
+                    if isFileEditable {
+                        editorScalingControls()
+                    }
                 }
             }
 
@@ -1994,7 +2021,10 @@ struct FileEditView: View {
             .upgradePrompt(reason: $upgradePromptReason)
             .onDisappear {
                 // Unregister stylesheet from provider
-                StyleSheetProvider.shared.unregister(fileID: file.id)
+                StyleSheetProvider.shared.unregister(
+                    fileID: file.id,
+                    ownerID: styleSheetRegistrationOwnerID
+                )
                 
                 // Disconnect search manager to clean up highlights and observers
                 searchManager.disconnect()
@@ -2770,7 +2800,11 @@ struct FileEditView: View {
 
         // Register stylesheet with provider for image caption rendering
         if let styleSheet = file.project?.styleSheet {
-            StyleSheetProvider.shared.register(styleSheet: styleSheet, for: file.id)
+            StyleSheetProvider.shared.register(
+                styleSheet: styleSheet,
+                for: file.id,
+                ownerID: styleSheetRegistrationOwnerID
+            )
         }
         
         // Open the latest usable version without saving just because the file was selected.
@@ -3373,6 +3407,48 @@ struct FileEditView: View {
         // Update the UI with restored content
         attributedContent = restoredContent
         previousContent = restoredContent.string
+        previousAttributedContent = restoredContent
+
+        if notification.userInfo?["rebuildEditor"] as? Bool == true {
+            selectedImage = nil
+            selectedImageFrame = .zero
+            selectedImagePosition = -1
+            selectedRange = NSRange(
+                location: min(selectedRange.location, restoredContent.length),
+                length: 0
+            )
+            forceRefresh.toggle()
+            refreshTrigger = UUID()
+            searchManager.notifyTextChanged()
+            return
+        }
+
+        if notification.userInfo?["updateEditorInPlace"] as? Bool == true,
+           let textView = textViewCoordinator.textView {
+            let currentSelection = textView.selectedRange
+            textView.textStorage.setAttributedString(restoredContent)
+            if let caretPosition = notification.userInfo?["caretPosition"] as? Int {
+                let location = min(caretPosition, restoredContent.length)
+                selectedRange = NSRange(location: location, length: 0)
+                textView.selectedRange = selectedRange
+                textView.tintColor = .systemBlue
+            } else if currentSelection.location <= restoredContent.length {
+                textView.selectedRange = NSRange(
+                    location: currentSelection.location,
+                    length: min(currentSelection.length, restoredContent.length - currentSelection.location)
+                )
+            }
+            textView.layoutManager.invalidateLayout(
+                forCharacterRange: NSRange(location: 0, length: restoredContent.length),
+                actualCharacterRange: nil
+            )
+            textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: restoredContent.length))
+            textView.layoutManager.ensureLayout(for: textView.textContainer)
+            textView.setNeedsLayout()
+            textView.setNeedsDisplay()
+            searchManager.notifyTextChanged()
+            return
+        }
         
         // Only position cursor at end if selection wasn't already set to an image position
         // This preserves image selection when Apply is clicked in image properties dialog
@@ -3636,7 +3712,6 @@ struct FileEditView: View {
             return
         }
 
-        
         // Clear image selection when text changes
         selectedImage = nil
         selectedImageFrame = .zero
@@ -3698,6 +3773,50 @@ struct FileEditView: View {
     }
     
     // MARK: - Image Selection
+
+    private func handleImageCutRequested(attachment: ImageAttachment, position: Int) {
+        textViewCoordinator.flushPendingTyping?()
+        guard let command = DeleteImageCommand(position: position, attachment: attachment, targetFile: file) else {
+            return
+        }
+
+        selectedImage = nil
+        selectedImageFrame = .zero
+        selectedImagePosition = -1
+        selectedRange = NSRange(location: position, length: 0)
+        undoManager.execute(command)
+    }
+
+    private func handleImagePasteRequested(attachment: ImageAttachment, position: Int) {
+        textViewCoordinator.flushPendingTyping?()
+        guard let imageData = attachment.imageData ?? attachment.image?.pngData() else {
+            return
+        }
+
+        let command = InsertImageCommand(
+            description: "Paste Image",
+            position: position,
+            imageData: imageData,
+            scale: attachment.scale,
+            alignment: attachment.alignment,
+            hasCaption: attachment.hasCaption,
+            captionText: attachment.captionText ?? "",
+            captionStyle: attachment.captionStyle ?? "UICTFontTextStyleCaption1",
+            captionPrefix: attachment.captionPrefix,
+            imageStyleName: attachment.imageStyleName,
+            spacingAbove: attachment.spacingAbove,
+            spacingBelow: attachment.spacingBelow,
+            originalFilename: attachment.originalFilename,
+            targetFile: file
+        )
+        undoManager.execute(command)
+
+        let imagePosition = command.insertedImagePosition ?? position
+        selectedRange = NSRange(location: imagePosition + 1, length: 0)
+        selectedImage = nil
+        selectedImageFrame = .zero
+        selectedImagePosition = -1
+    }
     
     private func handleImageTap(attachment: ImageAttachment, frame: CGRect, position: Int) {
         #if DEBUG
@@ -9457,14 +9576,19 @@ struct FileEditView: View {
         if let textView = textViewCoordinator.textView {
             textView.textStorage.setAttributedString(mutableContent)
             let attachmentRange = NSRange(location: position, length: 1)
+            let fullRange = NSRange(location: 0, length: textView.textStorage.length)
             textView.textStorage.addAttribute(.attachment, value: storedAttachment, range: attachmentRange)
-            textView.textStorage.edited(.editedAttributes, range: attachmentRange, changeInLength: 0)
+            ImageAttachment.updateCaptionNumbers(
+                in: textView.textStorage,
+                styleSheet: file.project?.styleSheet
+            )
+            textView.textStorage.edited(.editedAttributes, range: fullRange, changeInLength: 0)
             textView.selectedRange = NSRange(location: position, length: 1)
             textView.layoutManager.invalidateLayout(
-                forCharacterRange: attachmentRange,
+                forCharacterRange: fullRange,
                 actualCharacterRange: nil
             )
-            textView.layoutManager.invalidateDisplay(forCharacterRange: attachmentRange)
+            textView.layoutManager.invalidateDisplay(forCharacterRange: fullRange)
             textView.layoutManager.ensureLayout(for: textView.textContainer)
             textView.setNeedsDisplay()
             textView.setNeedsLayout()

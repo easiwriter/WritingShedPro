@@ -326,6 +326,8 @@ struct SceneListView: View {
         
         for chapter in chapters {
             let chapterScenes = getScenesForChapter(chapter, currentSceneIDs: currentSceneIDs)
+            guard !chapterScenes.isEmpty else { continue }
+
             groups.append(SceneChapterGroup(
                 id: chapter.id.uuidString,
                 name: chapter.name ?? fictionClass.chapterSingularName,
@@ -391,6 +393,8 @@ struct SceneListView: View {
         
         for a in acts {
             let actScenes = getScenesForAct(a, currentSceneIDs: currentSceneIDs)
+            guard !actScenes.isEmpty else { continue }
+
             groups.append(SceneActGroup(
                 id: a.id.uuidString,
                 name: a.name ?? NSLocalizedString("drama.act", comment: "Act"),
@@ -449,6 +453,8 @@ struct SceneListView: View {
         
         for book in books {
             let bookScenes = getScenesForBook(book, currentSceneIDs: currentSceneIDs)
+            guard !bookScenes.isEmpty else { continue }
+
             groups.append(SceneChapterGroup(
                 id: book.id.uuidString,
                 name: book.name ?? fictionClass.chapterSingularName,

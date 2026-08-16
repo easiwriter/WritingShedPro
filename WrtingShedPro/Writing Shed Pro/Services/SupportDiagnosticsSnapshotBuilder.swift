@@ -190,12 +190,6 @@ enum SupportDiagnosticsSnapshotBuilder {
         }
 
         lines.append("")
-        lines.append("Ensembles Event Store")
-        for eventStoreLine in ensemblesEventStoreLines() {
-            lines.append(eventStoreLine)
-        }
-
-        lines.append("")
         lines.append("Zone Verification Log")
         for logLine in recentZoneVerificationLines(limit: 10) {
             lines.append(logLine)
@@ -333,46 +327,6 @@ enum SupportDiagnosticsSnapshotBuilder {
             "- directories=\(directoryCount) files=\(fileCount) bytes=\(totalBytes)",
             "- samples=\(samples.isEmpty ? "none" : samples.joined(separator: ", "))"
         ]
-    }
-
-    @MainActor
-    private static func ensemblesEventStoreLines() -> [String] {
-        guard let ensemblesContainer = Write_App.activeEnsemblesContainer else {
-            return ["- unavailable: no active Ensembles container"]
-        }
-
-        let eventStore = ensemblesContainer.ensemble.coreDataEnsemble.eventStore
-        var lines: [String] = []
-        lines.append("- containsEventData: \(eventStore.containsEventData)")
-        lines.append("- needsFullIntegration: \(eventStore.needsFullIntegration)")
-        lines.append("- lastMergeRevisionSaved: \(String(describing: eventStore.lastMergeRevisionSaved))")
-        lines.append("- lastSaveRevisionSaved: \(String(describing: eventStore.lastSaveRevisionSaved))")
-        lines.append("- lastRevisionSaved: \(String(describing: eventStore.lastRevisionSaved))")
-        lines.append("- currentBaselineIdentifier: \(eventStore.currentBaselineIdentifier ?? "nil")")
-        lines.append("- identifierOfBaselineUsedToConstructStore: \(eventStore.identifierOfBaselineUsedToConstructStore ?? "nil")")
-        lines.append("- persistentStoreIdentifier: \(eventStore.persistentStoreIdentifier ?? "nil")")
-        lines.append("- incompleteMandatoryEventIdentifiers: \(eventStore.incompleteMandatoryEventIdentifiers.count)")
-        lines.append("- allDataFilenames: \(eventStore.allDataFilenames.count)")
-        lines.append("- newlyImportedDataFilenames: \(eventStore.newlyImportedDataFilenames.count)")
-        lines.append("- previouslyReferencedDataFilenames: \(eventStore.previouslyReferencedDataFilenames.count)")
-        lines.append("- pathToEventStoreRootDirectory: \(eventStore.pathToEventStoreRootDirectory)")
-        do {
-            lines.append("- eventCountAll: \(try eventStore.countAllEvents())")
-            lines.append("- eventCountBaseline: \(try eventStore.countEvents(type: .baseline))")
-            lines.append("- eventCountSave: \(try eventStore.countEvents(type: .save))")
-            lines.append("- eventCountMerge: \(try eventStore.countEvents(type: .merge))")
-            lines.append("- objectChangeCountAll: \(try eventStore.countAllObjectChanges())")
-            lines.append("- objectChangeCountBaseline: \(try eventStore.countObjectChanges(eventType: .baseline))")
-            lines.append("- objectChangeCountSave: \(try eventStore.countObjectChanges(eventType: .save))")
-            lines.append("- objectChangeCountMerge: \(try eventStore.countObjectChanges(eventType: .merge))")
-            lines.append("- objectChangeCountInsert: \(try eventStore.countNonBaselineObjectChanges(changeType: .insert))")
-            lines.append("- objectChangeCountUpdate: \(try eventStore.countNonBaselineObjectChanges(changeType: .update))")
-            lines.append("- objectChangeCountDelete: \(try eventStore.countNonBaselineObjectChanges(changeType: .delete))")
-            lines.append("- persistentStoreIdentifiers: \(try eventStore.fetchPersistentStoreIdentifiers().sorted().joined(separator: ","))")
-        } catch {
-            lines.append("- eventStoreCountsError: \(error.localizedDescription)")
-        }
-        return lines
     }
 
     private static func recentZoneVerificationLines(limit: Int) -> [String] {

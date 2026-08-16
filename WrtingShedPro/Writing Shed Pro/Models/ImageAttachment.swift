@@ -235,6 +235,7 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         }
         
         self.hasCaption = coder.decodeBool(forKey: "hasCaption")
+        self.captionNumber = coder.decodeInteger(forKey: "captionNumber")
         self.spacingAbove = max(0, CGFloat(coder.decodeDouble(forKey: "spacingAbove")))
         self.spacingBelow = max(0, CGFloat(coder.decodeDouble(forKey: "spacingBelow")))
         
@@ -273,6 +274,7 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         coder.encode(Double(scale), forKey: "scale")
         coder.encode(alignment.rawValue, forKey: "alignment")
         coder.encode(hasCaption, forKey: "hasCaption")
+        coder.encode(captionNumber, forKey: "captionNumber")
         coder.encode(Double(spacingAbove), forKey: "spacingAbove")
         coder.encode(Double(spacingBelow), forKey: "spacingBelow")
         coder.encode(imageStyleName, forKey: "imageStyleName") // Not optional
@@ -605,6 +607,43 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     #endif
     
     // MARK: - Caption Numbering
+
+    /// Resolve an image's caption number directly from document order.
+    /// This avoids relying on the transient captionNumber property surviving TextKit copies.
+    static func captionNumber(
+        for imageID: UUID,
+        in attributedString: NSAttributedString,
+        styleSheet: StyleSheet?
+    ) -> Int? {
+        guard let styleSheet else { return nil }
+
+        var captionCounters: [String: Int] = [:]
+        var resolvedNumber: Int?
+
+        attributedString.enumerateAttribute(
+            .attachment,
+            in: NSRange(location: 0, length: attributedString.length),
+            options: []
+        ) { value, _, stop in
+            guard let attachment = value as? ImageAttachment,
+                  attachment.hasCaption,
+                  let captionStyleName = attachment.captionStyle,
+                  let captionStyle = styleSheet.style(named: captionStyleName),
+                  captionStyle.numberFormat != .none else {
+                return
+            }
+
+            let number = (captionCounters[captionStyleName] ?? 0) + 1
+            captionCounters[captionStyleName] = number
+
+            if attachment.imageID == imageID {
+                resolvedNumber = number
+                stop.pointee = true
+            }
+        }
+
+        return resolvedNumber
+    }
     
     /// Update caption numbers for all ImageAttachments in a text storage
     /// Call this after document loads or when attachments change
@@ -616,6 +655,13 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         
         // Track caption counts per style
         var captionCounters: [String: Int] = [:]
+        var previousNumbers: [(attachment: ImageAttachment, number: Int)] = []
+
+        textStorage.enumerateAttribute(.attachment, in: NSRange(location: 0, length: textStorage.length), options: []) { value, _, _ in
+            guard let attachment = value as? ImageAttachment else { return }
+            previousNumbers.append((attachment, attachment.captionNumber))
+            attachment.captionNumber = 0
+        }
         
         // Enumerate all attachments in document order
         textStorage.enumerateAttribute(.attachment, in: NSRange(location: 0, length: textStorage.length), options: []) { value, _, _ in
@@ -638,6 +684,21 @@ class ImageAttachment: NSTextAttachment, Identifiable {
             print("📷 Updated caption number: \(imageAttachment.imageID) -> \(counter) (style: \(captionStyleName))")
             #endif
         }
+
+        let changedImageIDs = Set(previousNumbers.compactMap { item in
+            item.number == item.attachment.captionNumber ? nil : item.attachment.imageID
+        })
+        for imageID in changedImageIDs {
+            let captionNumber = previousNumbers.first(where: { $0.attachment.imageID == imageID })?.attachment.captionNumber ?? 0
+            NotificationCenter.default.post(
+                name: NSNotification.Name("ImageAttachmentPropertiesChanged"),
+                object: nil,
+                userInfo: [
+                    "imageID": imageID,
+                    "captionNumber": captionNumber
+                ]
+            )
+        }
     }
     
     /// Update caption numbers for all ImageAttachments in an attributed string
@@ -652,6 +713,10 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         
         // Track caption counts per style
         var captionCounters: [String: Int] = [:]
+
+        attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length), options: []) { value, _, _ in
+            (value as? ImageAttachment)?.captionNumber = 0
+        }
         
         // Enumerate all attachments in document order
         attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length), options: []) { value, range, _ in

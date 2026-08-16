@@ -28,6 +28,8 @@ final class InsertImageCommand: UndoableCommand {
     /// Caption style name (if hasCaption is true)
     let captionStyle: String
 
+    let captionPrefix: String?
+
     let imageStyleName: String
 
     let spacingAbove: CGFloat
@@ -55,6 +57,7 @@ final class InsertImageCommand: UndoableCommand {
         hasCaption: Bool,
         captionText: String,
         captionStyle: String,
+        captionPrefix: String? = nil,
         imageStyleName: String = "default",
         spacingAbove: CGFloat = 0,
         spacingBelow: CGFloat = 0,
@@ -71,6 +74,7 @@ final class InsertImageCommand: UndoableCommand {
         self.hasCaption = hasCaption
         self.captionText = captionText
         self.captionStyle = captionStyle
+        self.captionPrefix = captionPrefix
         self.imageStyleName = imageStyleName
         self.spacingAbove = spacingAbove
         self.spacingBelow = spacingBelow
@@ -133,6 +137,7 @@ final class InsertImageCommand: UndoableCommand {
         #endif
         if hasCaption {
             attachment.setCaption(text: captionText, style: captionStyle)
+            attachment.captionPrefix = captionPrefix
         }
         
         // Create attributed string with the attachment
@@ -230,6 +235,7 @@ final class InsertImageCommand: UndoableCommand {
         
         // Update the version's content
         currentVersion.attributedContent = mutableContent
+        notifyContentRestored(mutableContent)
         #if DEBUG
         print("🖼️💾 Set currentVersion.attributedContent")
         #endif
@@ -273,6 +279,7 @@ final class InsertImageCommand: UndoableCommand {
         
         // Update the version's content
         currentVersion.attributedContent = mutableContent
+        notifyContentRestored(mutableContent)
         file.modifiedDate = Date()
         Task { @MainActor in
             try? WriteCoalescer.shared?.requestSaveAndFlush(reason: "insert-image-command-undo")
@@ -283,7 +290,7 @@ final class InsertImageCommand: UndoableCommand {
     
     enum CodingKeys: String, CodingKey {
         case id, timestamp, description, position, imageData, scale, alignment
-        case hasCaption, captionText, captionStyle, imageStyleName, spacingAbove, spacingBelow, originalFilename
+        case hasCaption, captionText, captionStyle, captionPrefix, imageStyleName, spacingAbove, spacingBelow, originalFilename
     }
     
     func encode(to encoder: Encoder) throws {
@@ -298,6 +305,7 @@ final class InsertImageCommand: UndoableCommand {
         try container.encode(hasCaption, forKey: .hasCaption)
         try container.encode(captionText, forKey: .captionText)
         try container.encode(captionStyle, forKey: .captionStyle)
+        try container.encodeIfPresent(captionPrefix, forKey: .captionPrefix)
         try container.encode(imageStyleName, forKey: .imageStyleName)
         try container.encode(spacingAbove, forKey: .spacingAbove)
         try container.encode(spacingBelow, forKey: .spacingBelow)
@@ -317,10 +325,139 @@ final class InsertImageCommand: UndoableCommand {
         hasCaption = try container.decode(Bool.self, forKey: .hasCaption)
         captionText = try container.decode(String.self, forKey: .captionText)
         captionStyle = try container.decode(String.self, forKey: .captionStyle)
+        captionPrefix = try container.decodeIfPresent(String.self, forKey: .captionPrefix)
         imageStyleName = try container.decodeIfPresent(String.self, forKey: .imageStyleName) ?? "default"
         spacingAbove = try container.decodeIfPresent(CGFloat.self, forKey: .spacingAbove) ?? 0
         spacingBelow = try container.decodeIfPresent(CGFloat.self, forKey: .spacingBelow) ?? 0
         originalFilename = try container.decodeIfPresent(String.self, forKey: .originalFilename)
         // Note: targetFile will be set when command is deserialized
+    }
+
+    private func notifyContentRestored(_ content: NSAttributedString) {
+        NotificationCenter.default.post(
+            name: NSNotification.Name("UndoRedoContentRestored"),
+            object: targetFile,
+            userInfo: [
+                "content": content,
+                "updateEditorInPlace": true
+            ]
+        )
+    }
+}
+
+/// Removes one image attachment while retaining enough data to restore it exactly on undo.
+final class DeleteImageCommand: UndoableCommand {
+    let id: UUID
+    let timestamp: Date
+    let description: String
+    let position: Int
+    let attachmentData: Data
+    weak var targetFile: TextFile?
+    private var originalAttachment: ImageAttachment?
+
+    init?(position: Int, attachment: ImageAttachment, targetFile: TextFile?) {
+        guard let attachmentData = try? NSKeyedArchiver.archivedData(
+            withRootObject: attachment,
+            requiringSecureCoding: true
+        ) else {
+            return nil
+        }
+
+        self.id = UUID()
+        self.timestamp = Date()
+        self.description = "Cut Image"
+        self.position = position
+        self.attachmentData = attachmentData
+        self.targetFile = targetFile
+        self.originalAttachment = attachment
+    }
+
+    func execute() {
+        guard let file = targetFile,
+              let currentVersion = file.currentVersion,
+              let content = currentVersion.attributedContent,
+              position >= 0,
+              position < content.length,
+              content.attribute(.attachment, at: position, effectiveRange: nil) is ImageAttachment else {
+            return
+        }
+
+        let updatedContent = NSMutableAttributedString(attributedString: content)
+          updatedContent.deleteCharacters(in: NSRange(location: position, length: 1))
+        apply(updatedContent, to: file, version: currentVersion)
+    }
+
+    func undo() {
+        guard let file = targetFile,
+              let currentVersion = file.currentVersion,
+              let content = currentVersion.attributedContent,
+              position >= 0,
+              position <= content.length else {
+            return
+        }
+
+        let attachment: ImageAttachment
+        if let originalAttachment {
+            attachment = originalAttachment
+        } else if let decodedAttachment = try? NSKeyedUnarchiver.unarchivedObject(
+            ofClass: ImageAttachment.self,
+            from: attachmentData
+        ) {
+            attachment = decodedAttachment
+            originalAttachment = decodedAttachment
+        } else {
+            return
+        }
+
+        let attachmentString = NSMutableAttributedString(attachment: attachment)
+        attachmentString.addAttribute(
+            .paragraphStyle,
+            value: attachment.paragraphStyle(),
+            range: NSRange(location: 0, length: attachmentString.length)
+        )
+        let updatedContent = NSMutableAttributedString(attributedString: content)
+        updatedContent.insert(attachmentString, at: position)
+        apply(updatedContent, to: file, version: currentVersion)
+    }
+
+    private func apply(_ content: NSAttributedString, to file: TextFile, version: Version) {
+        version.attributedContent = content
+        file.modifiedDate = Date()
+        NotificationCenter.default.post(
+            name: NSNotification.Name("UndoRedoContentRestored"),
+            object: file,
+            userInfo: [
+                "content": content,
+                "updateEditorInPlace": true,
+                "caretPosition": position
+            ]
+        )
+        Task { @MainActor in
+            WriteCoalescer.shared?.requestSave(reason: "delete-image-command")
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, timestamp, description, position, attachmentData
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(timestamp, forKey: .timestamp)
+        try container.encode(description, forKey: .description)
+        try container.encode(position, forKey: .position)
+        try container.encode(attachmentData, forKey: .attachmentData)
+    }
+
+    required init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        description = try container.decode(String.self, forKey: .description)
+        position = try container.decode(Int.self, forKey: .position)
+        attachmentData = try container.decode(Data.self, forKey: .attachmentData)
+        originalAttachment = nil
+        targetFile = nil
     }
 }

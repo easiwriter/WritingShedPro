@@ -142,6 +142,8 @@ extension FolderFilesView {
 
         for collection in sortedCollections {
             let collectionFiles = membershipByCollectionID[collection.id] ?? []
+            guard !collectionFiles.isEmpty else { continue }
+
             groups.append(CollectionGroup(
                 id: collection.id.uuidString,
                 name: collection.name ?? NSLocalizedString("poetry.collection.unnamed", comment: "Unnamed"),
