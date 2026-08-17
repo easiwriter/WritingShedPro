@@ -11,14 +11,17 @@ import UIKit
 enum ImageCaptionAttributes {
     static func attributes(for style: TextStyleModel) -> [NSAttributedString.Key: Any] {
         var attributes = style.generateAttributes()
-        guard style.numberFormat != .none,
-              let paragraphStyle = attributes[.paragraphStyle] as? NSParagraphStyle else {
+        guard let paragraphStyle = attributes[.paragraphStyle] as? NSParagraphStyle else {
             return attributes
         }
 
         let captionParagraphStyle = paragraphStyle.mutableCopy() as? NSMutableParagraphStyle
             ?? NSMutableParagraphStyle()
-        captionParagraphStyle.firstLineHeadIndent = style.firstLineIndent
+        captionParagraphStyle.firstLineHeadIndent = 0
+        captionParagraphStyle.headIndent = 0
+        captionParagraphStyle.tailIndent = 0
+        captionParagraphStyle.tabStops = []
+        captionParagraphStyle.defaultTabInterval = 0
         attributes[.paragraphStyle] = captionParagraphStyle
         return attributes
     }
@@ -233,10 +236,10 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         if let styleSheet = findStyleSheet(),
            let captionStyleName = attachment.captionStyle,
            let captionStyle = styleSheet.style(named: captionStyleName) {
-            let resolvedCaptionNumber = containingTextView.flatMap {
+            let resolvedCaptionNumber = containingAttributedString.flatMap {
                 ImageAttachment.captionNumber(
                     for: attachment.imageID,
-                    in: $0.textStorage,
+                    in: $0,
                     styleSheet: styleSheet
                 )
             } ?? attachment.captionNumber
@@ -485,6 +488,13 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         }
 
         return nil
+    }
+
+    private var containingAttributedString: NSAttributedString? {
+        if let textView = containingTextView {
+            return textView.textStorage
+        }
+        return (textLayoutManager?.textContentManager as? NSTextContentStorage)?.attributedString
     }
     
     private func refreshView() {

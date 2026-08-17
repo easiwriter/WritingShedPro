@@ -16,12 +16,14 @@ struct TextStyleEditorView: View {
     
     @State private var hasUnsavedChanges = false
     @State private var editedDisplayName: String
+    @State private var editedAlignment: NSTextAlignment
     @State private var showingFontPicker = false
     @State private var showingDeleteAlert = false
     @State private var deleteErrorMessage: String?
     @State private var showingReplacementPicker = false
     @State private var filesUsingStyle: [String] = []
     @State private var showingSaveOptionsAlert = false
+    @State private var saveErrorMessage: String?
     
     // Get the project associated with this style's stylesheet
     private var project: Project? {
@@ -40,6 +42,7 @@ struct TextStyleEditorView: View {
         self.onSave = onSave
         self.hideDeleteButton = hideDeleteButton
         _editedDisplayName = State(initialValue: style.displayName)
+        _editedAlignment = State(initialValue: style.alignment)
         
         #if DEBUG
         print("📝 TextStyleEditorView - Style: \(style.displayName)")
@@ -91,8 +94,9 @@ struct TextStyleEditorView: View {
                 Button("button.save") {
                     if isNewStyle {
                         // For new styles, just save directly
-                        saveChanges()
-                        dismiss()
+                        if saveChanges() {
+                            dismiss()
+                        }
                     } else {
                         // For existing styles, show options alert
                         showingSaveOptionsAlert = true
@@ -163,8 +167,9 @@ struct TextStyleEditorView: View {
         .alert("textStyleEditor.saveOptions.title", isPresented: $showingSaveOptionsAlert) {
             Button("textStyleEditor.saveOptions.updateStyle") {
                 // Update the existing style - changes apply to all documents automatically
-                saveChanges()
-                dismiss()
+                if saveChanges() {
+                    dismiss()
+                }
             }
             Button("textStyleEditor.saveOptions.createNewStyle") {
                 // Create a new style with asterisk suffix
@@ -174,6 +179,19 @@ struct TextStyleEditorView: View {
             Button("button.cancel", role: .cancel) { }
         } message: {
             Text("textStyleEditor.saveOptions.message")
+        }
+        .alert(
+            "textStyleEditor.saveFailed.title",
+            isPresented: Binding(
+                get: { saveErrorMessage != nil },
+                set: { if !$0 { saveErrorMessage = nil } }
+            )
+        ) {
+            Button("button.ok", role: .cancel) {
+                saveErrorMessage = nil
+            }
+        } message: {
+            Text(saveErrorMessage ?? "")
         }
     }
     
@@ -358,8 +376,8 @@ struct TextStyleEditorView: View {
                 .font(.headline)
                 
                 Picker("textStyleEditor.alignment", selection: Binding(
-                    get: { style.alignment },
-                    set: { style.alignment = $0; hasUnsavedChanges = true }
+                    get: { editedAlignment },
+                    set: { editedAlignment = $0; hasUnsavedChanges = true }
                 )) {
                     Text("textStyleEditor.alignment.left").tag(NSTextAlignment.left)
                     Text("textStyleEditor.alignment.center").tag(NSTextAlignment.center)
@@ -700,8 +718,10 @@ struct TextStyleEditorView: View {
     
     // MARK: - Save
     
-    private func saveChanges() {
+    @discardableResult
+    private func saveChanges() -> Bool {
         style.displayName = editedDisplayName
+        style.alignment = editedAlignment
         style.modifiedDate = Date()
 
         // Defend against duplicate flags from sync/artifacts by normalizing on save.
@@ -751,10 +771,14 @@ struct TextStyleEditorView: View {
                 print("⚠️ Style has no stylesheet - cannot post notification")
                 #endif
             }
+            hasUnsavedChanges = false
+            return true
         } catch {
             #if DEBUG
             print("Error saving style: \(error)")
             #endif
+            saveErrorMessage = error.localizedDescription
+            return false
         }
     }
     
@@ -878,7 +902,7 @@ struct TextStyleEditorView: View {
         newStyle.isBold = style.isBold
         newStyle.isItalic = style.isItalic
         newStyle.textColor = style.textColor
-        newStyle.alignment = style.alignment
+        newStyle.alignment = editedAlignment
         newStyle.lineSpacing = style.lineSpacing
         newStyle.paragraphSpacingBefore = style.paragraphSpacingBefore
         newStyle.paragraphSpacingAfter = style.paragraphSpacingAfter

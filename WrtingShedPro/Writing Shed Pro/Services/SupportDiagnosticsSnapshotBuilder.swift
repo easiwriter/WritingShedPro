@@ -17,6 +17,7 @@ enum SupportDiagnosticsSnapshotBuilder {
         lines.append("firstSuccessfulSyncThisLaunch: \(Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch)")
         lines.append("observedEnsemblesDataThisLaunch: \(Write_App.hasObservedEnsemblesDataThisLaunch)")
         lines.append("observedPartialEnsemblesStoreThisLaunch: \(Write_App.hasObservedPartialEnsemblesStoreThisLaunch)")
+        lines.append("observedCatastrophicEmptyEnsemblesStoreThisLaunch: \(Write_App.hasObservedCatastrophicEmptyEnsemblesStoreThisLaunch)")
         lines.append("localSyncResetQueued: \(UserDefaults.standard.bool(forKey: Write_App.resetLocalEnsemblesStoreOnNextLaunchKey))")
         if let ensemblesContainer = Write_App.activeEnsemblesContainer {
             lines.append("ensemblesIsAttached: \(ensemblesContainer.isAttached)")

@@ -314,12 +314,14 @@ final class StyleSheetModelTests: XCTestCase {
         XCTAssertEqual(style.modifiedDate, alignmentModifiedDate)
     }
 
-    func testNumberedImageCaptionRemovesGeneratedNumberIndent() throws {
+    func testImageCaptionRemovesDocumentHorizontalParagraphGeometry() throws {
         let style = TextStyleModel(
             name: "caption",
             displayName: "Caption",
             alignment: .center,
-            numberFormat: .decimal
+            numberFormat: .decimal,
+            headIndent: 12,
+            tailIndent: -9
         )
         style.firstLineIndent = 3
 
@@ -331,7 +333,11 @@ final class StyleSheetModelTests: XCTestCase {
         )
 
         XCTAssertGreaterThan(generatedParagraphStyle.firstLineHeadIndent, style.firstLineIndent)
-        XCTAssertEqual(captionParagraphStyle.firstLineHeadIndent, style.firstLineIndent)
+        XCTAssertEqual(captionParagraphStyle.firstLineHeadIndent, 0)
+        XCTAssertEqual(captionParagraphStyle.headIndent, 0)
+        XCTAssertEqual(captionParagraphStyle.tailIndent, 0)
+        XCTAssertTrue(captionParagraphStyle.tabStops.isEmpty)
+        XCTAssertEqual(captionParagraphStyle.defaultTabInterval, 0)
         XCTAssertEqual(captionParagraphStyle.alignment, .center)
     }
     

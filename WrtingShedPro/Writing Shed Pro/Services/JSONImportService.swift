@@ -961,7 +961,7 @@ class JSONImportService {
         
         // Import versions
         for vData in data.versions {
-            let version = importWSPVersion(vData)
+            let version = importWSPVersion(vData, owningFileID: textFile.id)
             version.textFile = textFile
             versionMap[vData.id] = version
             modelContext.insert(version)
@@ -971,7 +971,7 @@ class JSONImportService {
     }
     
     /// Import a version from WSP format
-    private func importWSPVersion(_ data: WSPVersionData) -> Version {
+    private func importWSPVersion(_ data: WSPVersionData, owningFileID: UUID) -> Version {
         let version = Version(
             content: data.content,
             versionNumber: data.versionNumber,
@@ -985,7 +985,15 @@ class JSONImportService {
         // Decode formatted content from base64
         if let base64 = data.formattedContentBase64,
            let rtfData = Data(base64Encoded: base64) {
-            version.setFormattedContentData(rtfData, sourceText: data.content)
+            let attributedContent = AttributedStringSerializer.decode(rtfData, text: data.content)
+            if ImageAttachment.normalizeFileIDs(in: attributedContent, to: owningFileID) {
+                version.setFormattedContentData(
+                    AttributedStringSerializer.encode(attributedContent),
+                    sourceText: data.content
+                )
+            } else {
+                version.setFormattedContentData(rtfData, sourceText: data.content)
+            }
         }
 
         if let base64 = data.notesFormattedContentBase64,

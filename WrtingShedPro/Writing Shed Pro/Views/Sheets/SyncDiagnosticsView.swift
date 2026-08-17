@@ -116,12 +116,6 @@ struct SyncDiagnosticsView: View {
             .disabled(Write_App.activeEnsemblesContainer == nil)
 
             Button {
-                queueCloudListingRefresh()
-            } label: {
-                Label("Refresh Cloud Listing on Next Launch", systemImage: "icloud.and.arrow.down")
-            }
-
-            Button {
                 Task { await verifyEnsemblesZoneContent() }
             } label: {
                 Label("Verify Sync Zones", systemImage: "icloud.and.arrow.down")
@@ -316,13 +310,6 @@ struct SyncDiagnosticsView: View {
     private var isEnsemblesIdle: Bool {
         guard let container = Write_App.activeEnsemblesContainer else { return true }
         return container.isAttached && String(describing: container.currentActivity) == "none"
-    }
-
-    @MainActor
-    private func queueCloudListingRefresh() {
-        UserDefaults.standard.set(true, forKey: Write_App.refreshEnsemblesCloudListingOnNextLaunchKey)
-        syncStatusMessage = "Cloud listing refresh queued. Fully quit and relaunch the app. Local projects and event history will be preserved."
-        Write_App.logToFile("🔄 [Ensembles] CloudKit listing cache refresh queued for next launch")
     }
 
     @ViewBuilder
@@ -809,7 +796,14 @@ struct SyncDiagnosticsView: View {
     private func detachedScenes(in context: ModelContext) -> [StoryScene] {
         let scenes = (try? context.fetch(FetchDescriptor<StoryScene>())) ?? []
         return scenes.filter { scene in
-            !scene.isTrashed && scene.textFile != nil && scene.textFile?.parentFolder == nil
+            guard !scene.isTrashed else { return false }
+            if let textFile = scene.textFile {
+                return textFile.parentFolder == nil
+            }
+            return scene.chapter == nil
+                && scene.act == nil
+                && scene.book == nil
+                && !scene.isInBodyMatter
         }
     }
 

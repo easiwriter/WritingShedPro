@@ -2328,6 +2328,7 @@
 "common.untitled" = "Untitled";
 "drama.insertCharacterLocation" = "Insert Character or Location";
 "error.saveFailed" = "Failed to save changes";
+"textStyleEditor.saveFailed.title" = "Style Not Saved";
 "export.format.finalDraft" = "Final Draft (.fdx)";
 "export.format.fountain" = "Fountain (Screenplay)";
 "export.markdown.error.conversion" = "Markdown conversion failed";

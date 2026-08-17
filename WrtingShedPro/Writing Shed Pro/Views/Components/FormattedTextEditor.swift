@@ -624,7 +624,9 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         // - Override selectionRectsForRange to hide selection UI on attachments
         // For now, drag handles remain visible but don't interfere with functionality
         
-        // Set initial content - this should be done AFTER layout configuration
+        // Number before assignment so attachment copies have valid values during
+        // TextKit's immediate provider layout, then refresh the owned copies.
+        ImageAttachment.updateCaptionNumbersInAttributedString(attributedText, styleSheet: project?.styleSheet)
         textView.attributedText = attributedText
         ImageAttachment.updateCaptionNumbers(in: textView.textStorage, styleSheet: project?.styleSheet)
         context.coordinator.lastObservedAttributedText = attributedText
@@ -698,6 +700,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         
         // Force layout before setting selection
         textView.layoutManager.ensureLayout(for: textView.textContainer)
+        ImageAttachment.refreshCaptionNumberProviders(in: textView.textStorage, styleSheet: project?.styleSheet)
         
         // Set initial selection
         if selectedRange.location != NSNotFound && selectedRange.location <= attributedText.length {
@@ -763,7 +766,9 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             defer {
                 context.coordinator.isUpdatingFromSwiftUI = false
             }
+            ImageAttachment.updateCaptionNumbersInAttributedString(attributedText, styleSheet: project?.styleSheet)
             textView.attributedText = attributedText
+            ImageAttachment.updateCaptionNumbers(in: textView.textStorage, styleSheet: project?.styleSheet)
             return
         }
         
@@ -846,6 +851,8 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                 #endif
             }
             
+            ImageAttachment.updateCaptionNumbersInAttributedString(attributedText, styleSheet: project?.styleSheet)
+
             // Update text storage directly for better control
             // This ensures attributes are properly applied
             textView.textStorage.setAttributedString(attributedText)
@@ -888,6 +895,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             
             // THEN force layout update - this makes UITextView recalculate paragraph layout
             textView.layoutManager.ensureLayout(for: textView.textContainer)
+            ImageAttachment.refreshCaptionNumberProviders(in: textView.textStorage, styleSheet: project?.styleSheet)
             
             // Force the text view itself to update its display
             textView.setNeedsDisplay()

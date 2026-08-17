@@ -136,6 +136,97 @@ final class ImageAttachmentTests: XCTestCase {
         XCTAssertEqual(refreshedCaptionNumbers[storedAttachment.imageID], 1)
     }
 
+    func testTextStorageCaptionNumberingAssignsSecondImageWithoutZeroingItFirst() {
+        let styleSheet = StyleSheet(name: "Test")
+        let captionStyle = TextStyleModel(
+            name: "caption",
+            displayName: "Caption",
+            numberFormat: .decimal
+        )
+        captionStyle.styleSheet = styleSheet
+
+        let firstAttachment = ImageAttachment()
+        firstAttachment.setCaption(text: "First", style: "caption")
+        firstAttachment.captionNumber = 1
+        let secondAttachment = ImageAttachment()
+        secondAttachment.setCaption(text: "Second", style: "caption")
+        secondAttachment.captionNumber = 2
+
+        let content = NSTextStorage(attributedString: NSAttributedString(attachment: firstAttachment))
+        content.append(NSAttributedString(string: "\n"))
+        content.append(NSAttributedString(attachment: secondAttachment))
+
+        var notifiedNumbers: [UUID: Int] = [:]
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("ImageAttachmentPropertiesChanged"),
+            object: nil,
+            queue: nil
+        ) { notification in
+            if let imageID = notification.userInfo?["imageID"] as? UUID,
+               let captionNumber = notification.userInfo?["captionNumber"] as? Int {
+                notifiedNumbers[imageID] = captionNumber
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        ImageAttachment.updateCaptionNumbers(in: content, styleSheet: styleSheet)
+
+        XCTAssertEqual(firstAttachment.captionNumber, 1)
+        XCTAssertEqual(secondAttachment.captionNumber, 2)
+        XCTAssertTrue(notifiedNumbers.isEmpty)
+    }
+
+    func testCaptionProviderRefreshBroadcastsResolvedDocumentOrder() {
+        let styleSheet = StyleSheet(name: "Test")
+        let captionStyle = TextStyleModel(
+            name: "caption",
+            displayName: "Caption",
+            numberFormat: .decimal
+        )
+        captionStyle.styleSheet = styleSheet
+
+        let firstAttachment = ImageAttachment()
+        firstAttachment.setCaption(text: "First", style: "caption")
+        firstAttachment.captionNumber = 1
+        let secondAttachment = ImageAttachment()
+        secondAttachment.setCaption(text: "Second", style: "caption")
+        secondAttachment.captionNumber = 2
+
+        let content = NSTextStorage(attributedString: NSAttributedString(attachment: firstAttachment))
+        content.append(NSAttributedString(string: "\n"))
+        content.append(NSAttributedString(attachment: secondAttachment))
+
+        var notifiedNumbers: [UUID: Int] = [:]
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("ImageAttachmentPropertiesChanged"),
+            object: nil,
+            queue: nil
+        ) { notification in
+            if let imageID = notification.userInfo?["imageID"] as? UUID,
+               let captionNumber = notification.userInfo?["captionNumber"] as? Int {
+                notifiedNumbers[imageID] = captionNumber
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        ImageAttachment.refreshCaptionNumberProviders(in: content, styleSheet: styleSheet)
+
+        XCTAssertEqual(notifiedNumbers[firstAttachment.imageID], 1)
+        XCTAssertEqual(notifiedNumbers[secondAttachment.imageID], 2)
+    }
+
+    func testNormalizeFileIDsReplacesImportedSourceFileIdentity() {
+        let sourceFileID = UUID()
+        let owningFileID = UUID()
+        let attachment = ImageAttachment()
+        attachment.fileID = sourceFileID
+        let content = NSMutableAttributedString(attachment: attachment)
+
+        XCTAssertTrue(ImageAttachment.normalizeFileIDs(in: content, to: owningFileID))
+        XCTAssertEqual(attachment.fileID, owningFileID)
+        XCTAssertFalse(ImageAttachment.normalizeFileIDs(in: content, to: owningFileID))
+    }
+
     func testDocumentOrderLookupDoesNotDependOnTransientCaptionNumber() {
         let styleSheet = StyleSheet(name: "Test")
         let captionStyle = TextStyleModel(

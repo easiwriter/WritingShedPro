@@ -25,6 +25,7 @@ struct Write_App: App {
     static private(set) var hasObservedEnsemblesDataThisLaunch = false
     static private(set) var initialEnsemblesImportUnavailable = false
     static private(set) var hasObservedPartialEnsemblesStoreThisLaunch = false
+    static private(set) var hasObservedCatastrophicEmptyEnsemblesStoreThisLaunch = false
     static private(set) var currentEnsemblesSeedPolicy = "not initialized"
     static private(set) var ensemblesMergeSaveCooldownUntil: Date?
     static private(set) var ensemblesMergeConflictCooldownUntil: Date?
@@ -38,7 +39,6 @@ struct Write_App: App {
     static let resetLocalEnsemblesStoreOnNextLaunchKey = "resetLocalEnsemblesStoreOnNextLaunch"
     static let detachLocalEnsemblesBeforeResetOnNextLaunchKey = "detachLocalEnsemblesBeforeResetOnNextLaunch"
     static let excludeLocalDataOnNextEnsemblesAttachKey = "excludeLocalDataOnNextEnsemblesAttach"
-    static let refreshEnsemblesCloudListingOnNextLaunchKey = "refreshEnsemblesCloudListingOnNextLaunch"
     static let ensembleIdentifier = "WritingShedProConfigurationV2"
 
     static var isLocalRecoveryModeEnabled: Bool {
@@ -169,14 +169,7 @@ struct Write_App: App {
             }
         }
 
-        if UserDefaults.standard.bool(forKey: Write_App.refreshEnsemblesCloudListingOnNextLaunchKey) {
-            if Write_App.clearEnsemblesCloudKitListingCaches() {
-                UserDefaults.standard.removeObject(forKey: Write_App.refreshEnsemblesCloudListingOnNextLaunchKey)
-                Write_App.logToFile("✅ [Ensembles] Cleared CloudKit listing cache before container initialization")
-            } else {
-                Write_App.logErrorToFile("⚠️ [Ensembles] CloudKit listing cache refresh remains queued after a deletion failure")
-            }
-        }
+        UserDefaults.standard.removeObject(forKey: "refreshEnsemblesCloudListingOnNextLaunch")
 
         #if DEBUG
         print("☁️ [Write_App] Initializing SwiftDataEnsembleContainer with CloudKit backend")
@@ -255,6 +248,12 @@ struct Write_App: App {
             ensemblesContainer.didSaveMergeChanges = { _ in
                 Task { @MainActor in
                     Write_App.logToFile("✅ [Ensembles] Merge changes saved")
+                    if Write_App.detectCatastrophicEmptyStoreAfterMerge(
+                        modelContainer: ensemblesContainer.modelContainer,
+                        reason: "merge changes saved"
+                    ) {
+                        return
+                    }
                     NotificationCenter.default.post(name: .writingShedProSyncDidUpdateLocalData, object: nil)
                     Write_App.deferLocalSavesForEnsemblesMerge(
                         reason: "merge changes saved",
@@ -269,6 +268,7 @@ struct Write_App: App {
             Write_App.hasObservedEnsemblesDataThisLaunch = false
             Write_App.initialEnsemblesImportUnavailable = false
             Write_App.hasObservedPartialEnsemblesStoreThisLaunch = false
+            Write_App.hasObservedCatastrophicEmptyEnsemblesStoreThisLaunch = false
             let container = ensemblesContainer.modelContainer
             container.mainContext.autosaveEnabled = false
             #if DEBUG
@@ -480,6 +480,20 @@ struct Write_App: App {
             }
         }
 
+        let transitDownloadDirectory = URL.documentsDirectory
+            .appending(path: "EnsemblesEventData/transitcache", directoryHint: .isDirectory)
+            .appending(path: ensembleIdentifier, directoryHint: .isDirectory)
+            .appending(path: "download", directoryHint: .isDirectory)
+        if fileManager.fileExists(atPath: transitDownloadDirectory.path) {
+            do {
+                try fileManager.removeItem(at: transitDownloadDirectory)
+                Write_App.logToFile("🗑️ [Ensembles] Removed stale cloud download staging")
+            } catch {
+                succeeded = false
+                Write_App.logErrorToFile("❌ [Ensembles] Failed to remove stale cloud download staging: \(error.localizedDescription)")
+            }
+        }
+
         return succeeded
     }
 
@@ -680,6 +694,10 @@ struct Write_App: App {
 
     @MainActor
     private static func canTreatAttachedIdleStoreAsStable(modelContainer: ModelContainer, reason: String) -> Bool {
+        guard !detectCatastrophicEmptyStoreAfterMerge(modelContainer: modelContainer, reason: reason) else {
+            return false
+        }
+
         let context = ModelContext(modelContainer)
         let projectCount = (try? context.fetchCount(FetchDescriptor<Project>())) ?? 0
         let folderCount = (try? context.fetchCount(FetchDescriptor<Folder>())) ?? 0
@@ -695,6 +713,34 @@ struct Write_App: App {
             return false
         }
 
+        return true
+    }
+
+    @MainActor
+    private static func detectCatastrophicEmptyStoreAfterMerge(
+        modelContainer: ModelContainer,
+        reason: String
+    ) -> Bool {
+        guard hasObservedEnsemblesDataThisLaunch else {
+            return false
+        }
+
+        let context = ModelContext(modelContainer)
+        let projectCount = (try? context.fetchCount(FetchDescriptor<Project>())) ?? 0
+        let folderCount = (try? context.fetchCount(FetchDescriptor<Folder>())) ?? 0
+        let fileCount = (try? context.fetchCount(FetchDescriptor<TextFile>())) ?? 0
+        let versionCount = (try? context.fetchCount(FetchDescriptor<Version>())) ?? 0
+        let publicationCount = (try? context.fetchCount(FetchDescriptor<Publication>())) ?? 0
+        let styleSheetCount = (try? context.fetchCount(FetchDescriptor<StyleSheet>())) ?? 0
+        let totalCount = projectCount + folderCount + fileCount + versionCount + publicationCount + styleSheetCount
+
+        guard totalCount == 0 else {
+            return false
+        }
+
+        hasObservedCatastrophicEmptyEnsemblesStoreThisLaunch = true
+        hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch = false
+        logErrorToFile("🛑 [Ensembles] Catastrophic populated-to-empty store transition detected after \(reason); refusing sync-success state")
         return true
     }
 

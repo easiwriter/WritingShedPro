@@ -2848,6 +2848,13 @@ struct FileEditView: View {
 
             // Strip adaptive colors (black/white/gray) to support dark mode properly
             var processedContent = AttributedStringSerializer.stripAdaptiveColors(from: savedContent)
+
+            if ImageAttachment.normalizeFileIDs(in: processedContent, to: file.id),
+               isFormattedPayloadComplete {
+                file.currentVersion?.attributedContent = processedContent
+                file.modifiedDate = Date()
+                WriteCoalescer.shared?.requestSave(reason: "open-image-attachment-file-id-repair")
+            }
             
             // No iPhone-specific font changes - use view scale transform instead
             
