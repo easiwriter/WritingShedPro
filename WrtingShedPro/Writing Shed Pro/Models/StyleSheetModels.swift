@@ -165,7 +165,7 @@ final class TextStyleModel {
     var textColorHex: String?  // Hex color string, nil = default
     
     // MARK: - Paragraph Attributes
-    var alignmentRaw: Int = 0  // NSTextAlignment raw value
+    var alignmentRaw: Int = 0  // Stable cross-platform value; do not persist NSTextAlignment.rawValue
     var lineSpacing: CGFloat = 0
     var paragraphSpacingBefore: CGFloat = 0
     var paragraphSpacingAfter: CGFloat = 0
@@ -216,12 +216,35 @@ final class TextStyleModel {
     var styleSheet: StyleSheet?
     
     // MARK: - Computed Properties
+
+    static func alignment(fromStorageValue value: Int) -> NSTextAlignment {
+        switch value {
+        case 0: .left
+        case 1: .center
+        case 2: .right
+        case 3: .justified
+        case 4: .natural
+        default: .natural
+        }
+    }
+
+    static func storageValue(for alignment: NSTextAlignment) -> Int {
+        switch alignment {
+        case .left: 0
+        case .center: 1
+        case .right: 2
+        case .justified: 3
+        case .natural: 4
+        @unknown default: 4
+        }
+    }
     
     var alignment: NSTextAlignment {
-        get { NSTextAlignment(rawValue: alignmentRaw) ?? .natural }
+        get { Self.alignment(fromStorageValue: alignmentRaw) }
         set {
-            guard alignmentRaw != newValue.rawValue else { return }
-            alignmentRaw = newValue.rawValue
+            let newStorageValue = Self.storageValue(for: newValue)
+            guard alignmentRaw != newStorageValue else { return }
+            alignmentRaw = newStorageValue
             modifiedDate = Date()
         }
     }
@@ -288,7 +311,7 @@ final class TextStyleModel {
         self.isUnderlined = isUnderlined
         self.isStrikethrough = isStrikethrough
         self.textColorHex = textColor?.toHex()
-        self.alignmentRaw = alignment.rawValue
+        self.alignmentRaw = Self.storageValue(for: alignment)
         self.lineSpacing = lineSpacing
         self.paragraphSpacingBefore = paragraphSpacingBefore
         self.paragraphSpacingAfter = paragraphSpacingAfter

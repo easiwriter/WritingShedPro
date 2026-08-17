@@ -672,7 +672,7 @@ class JSONImportService {
                         isItalic: tsData.isItalic,
                         isUnderlined: tsData.isUnderlined,
                         isStrikethrough: tsData.isStrikethrough,
-                        alignment: NSTextAlignment(rawValue: tsData.alignmentRaw) ?? .natural,
+                        alignment: TextStyleModel.alignment(fromStorageValue: tsData.alignmentRaw),
                         lineSpacing: tsData.lineSpacing,
                         paragraphSpacingBefore: tsData.paragraphSpacingBefore,
                         paragraphSpacingAfter: tsData.paragraphSpacingAfter,

@@ -300,7 +300,7 @@ final class StyleSheetModelTests: XCTestCase {
         style.styleCategory = .heading
         
         // Then
-        XCTAssertEqual(style.alignmentRaw, NSTextAlignment.center.rawValue)
+        XCTAssertEqual(style.alignmentRaw, 1)
         XCTAssertGreaterThan(alignmentModifiedDate, originalModifiedDate)
         XCTAssertEqual(style.numberFormatRaw, "decimal")
         XCTAssertEqual(style.styleCategoryRaw, "heading")
@@ -312,6 +312,20 @@ final class StyleSheetModelTests: XCTestCase {
 
         style.alignment = .center
         XCTAssertEqual(style.modifiedDate, alignmentModifiedDate)
+    }
+
+    func testTextAlignmentStorageIsStableAcrossPlatforms() {
+        XCTAssertEqual(TextStyleModel.storageValue(for: .left), 0)
+        XCTAssertEqual(TextStyleModel.storageValue(for: .center), 1)
+        XCTAssertEqual(TextStyleModel.storageValue(for: .right), 2)
+        XCTAssertEqual(TextStyleModel.storageValue(for: .justified), 3)
+        XCTAssertEqual(TextStyleModel.storageValue(for: .natural), 4)
+
+        XCTAssertEqual(TextStyleModel.alignment(fromStorageValue: 0), .left)
+        XCTAssertEqual(TextStyleModel.alignment(fromStorageValue: 1), .center)
+        XCTAssertEqual(TextStyleModel.alignment(fromStorageValue: 2), .right)
+        XCTAssertEqual(TextStyleModel.alignment(fromStorageValue: 3), .justified)
+        XCTAssertEqual(TextStyleModel.alignment(fromStorageValue: 4), .natural)
     }
 
     func testImageCaptionRemovesDocumentHorizontalParagraphGeometry() throws {
