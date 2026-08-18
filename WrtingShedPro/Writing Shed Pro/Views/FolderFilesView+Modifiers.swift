@@ -46,6 +46,7 @@ extension FolderFilesView {
                 }
                 selectedFileIDs.removeAll()
                 selectedFolderIDs.removeAll()
+                refreshDeferredFileList()
             }) { item in
                 if let project = folder.resolvedProject, project.type == .poetry {
                     ContainerAssignmentView.forPoetryCollections(

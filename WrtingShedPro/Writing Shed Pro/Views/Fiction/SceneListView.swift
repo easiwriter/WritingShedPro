@@ -304,12 +304,12 @@ struct SceneListView: View {
 
         let chapters = project.chapters ?? []
         guard !chapters.isEmpty else { return nil }
-        
+        let visibleScenes = sortedScenes
         let sortedChapters: [Chapter] = sortChapters(chapters)
-        let groups: [SceneChapterGroup] = buildChapterGroups(from: sortedChapters)
+        let groups: [SceneChapterGroup] = buildChapterGroups(from: sortedChapters, scenes: visibleScenes)
         
         var finalGroups = groups
-        addUnassignedChapterScenes(to: &finalGroups)
+        addUnassignedChapterScenes(to: &finalGroups, scenes: visibleScenes)
         
         return finalGroups.isEmpty ? nil : finalGroups
     }
@@ -320,12 +320,11 @@ struct SceneListView: View {
     }
     
     /// Helper: Build groups for chapters with their scenes
-    private func buildChapterGroups(from chapters: [Chapter]) -> [SceneChapterGroup] {
-        let currentSceneIDs: Set<UUID> = Set(sortedScenes.map { $0.id })
+    private func buildChapterGroups(from chapters: [Chapter], scenes: [StoryScene]) -> [SceneChapterGroup] {
         var groups: [SceneChapterGroup] = []
         
         for chapter in chapters {
-            let chapterScenes = getScenesForChapter(chapter, currentSceneIDs: currentSceneIDs)
+            let chapterScenes = scenes.filter { $0.chapter?.id == chapter.id }
             guard !chapterScenes.isEmpty else { continue }
 
             groups.append(SceneChapterGroup(
@@ -338,17 +337,10 @@ struct SceneListView: View {
         return groups
     }
     
-    /// Helper: Get scenes matching a specific chapter
-    private func getScenesForChapter(_ chapter: Chapter, currentSceneIDs: Set<UUID>) -> [StoryScene] {
-        sortedScenes.filter { scene in
-            scene.chapter?.id == chapter.id && currentSceneIDs.contains(scene.id)
-        }
-    }
-    
     /// Helper: Add unassigned scenes to groups
-    private func addUnassignedChapterScenes(to groups: inout [SceneChapterGroup]) {
+    private func addUnassignedChapterScenes(to groups: inout [SceneChapterGroup], scenes: [StoryScene]) {
         let assignedSceneIDs: Set<UUID> = Set(groups.flatMap { $0.scenes.map { $0.id } })
-        let unassignedScenes: [StoryScene] = sortedScenes.filter { scene in
+        let unassignedScenes: [StoryScene] = scenes.filter { scene in
             !assignedSceneIDs.contains(scene.id)
         }
         
@@ -371,12 +363,12 @@ struct SceneListView: View {
         
         let acts = project.acts ?? []
         guard !acts.isEmpty else { return nil }
-        
+        let visibleScenes = sortedScenes
         let sortedActs: [Act] = sortActs(acts)
-        let groups: [SceneActGroup] = buildActGroups(from: sortedActs)
+        let groups: [SceneActGroup] = buildActGroups(from: sortedActs, scenes: visibleScenes)
         
         var finalGroups = groups
-        addUnassignedActScenes(to: &finalGroups)
+        addUnassignedActScenes(to: &finalGroups, scenes: visibleScenes)
         
         return finalGroups.isEmpty ? nil : finalGroups
     }
@@ -387,12 +379,11 @@ struct SceneListView: View {
     }
     
     /// Helper: Build groups for acts with their scenes
-    private func buildActGroups(from acts: [Act]) -> [SceneActGroup] {
-        let currentSceneIDs: Set<UUID> = Set(sortedScenes.map { $0.id })
+    private func buildActGroups(from acts: [Act], scenes: [StoryScene]) -> [SceneActGroup] {
         var groups: [SceneActGroup] = []
         
         for a in acts {
-            let actScenes = getScenesForAct(a, currentSceneIDs: currentSceneIDs)
+            let actScenes = scenes.filter { $0.act?.id == a.id }
             guard !actScenes.isEmpty else { continue }
 
             groups.append(SceneActGroup(
@@ -405,17 +396,10 @@ struct SceneListView: View {
         return groups
     }
     
-    /// Helper: Get scenes matching a specific act
-    private func getScenesForAct(_ act: Act, currentSceneIDs: Set<UUID>) -> [StoryScene] {
-        sortedScenes.filter { scene in
-            scene.act?.id == act.id && currentSceneIDs.contains(scene.id)
-        }
-    }
-    
     /// Helper: Add unassigned scenes to act groups
-    private func addUnassignedActScenes(to groups: inout [SceneActGroup]) {
+    private func addUnassignedActScenes(to groups: inout [SceneActGroup], scenes: [StoryScene]) {
         let assignedSceneIDs: Set<UUID> = Set(groups.flatMap { $0.scenes.map { $0.id } })
-        let unassignedScenes: [StoryScene] = sortedScenes.filter { scene in
+        let unassignedScenes: [StoryScene] = scenes.filter { scene in
             !assignedSceneIDs.contains(scene.id)
         }
         
@@ -432,11 +416,12 @@ struct SceneListView: View {
         let books = project.books ?? []
         guard !books.isEmpty else { return nil }
 
+        let visibleScenes = sortedScenes
         let sortedBooks: [Book] = sortBooks(books)
-        let groups: [SceneChapterGroup] = buildVerseNovelGroups(from: sortedBooks)
+        let groups: [SceneChapterGroup] = buildVerseNovelGroups(from: sortedBooks, scenes: visibleScenes)
         
         var finalGroups = groups
-        addUnassignedVerseNovelScenes(to: &finalGroups)
+        addUnassignedVerseNovelScenes(to: &finalGroups, scenes: visibleScenes)
         
         return finalGroups.isEmpty ? nil : finalGroups
     }
@@ -447,12 +432,11 @@ struct SceneListView: View {
     }
     
     /// Helper: Build groups for books with their scenes
-    private func buildVerseNovelGroups(from books: [Book]) -> [SceneChapterGroup] {
-        let currentSceneIDs: Set<UUID> = Set(sortedScenes.map { $0.id })
+    private func buildVerseNovelGroups(from books: [Book], scenes: [StoryScene]) -> [SceneChapterGroup] {
         var groups: [SceneChapterGroup] = []
         
         for book in books {
-            let bookScenes = getScenesForBook(book, currentSceneIDs: currentSceneIDs)
+            let bookScenes = scenes.filter { $0.book?.id == book.id }
             guard !bookScenes.isEmpty else { continue }
 
             groups.append(SceneChapterGroup(
@@ -465,17 +449,10 @@ struct SceneListView: View {
         return groups
     }
     
-    /// Helper: Get scenes matching a specific book
-    private func getScenesForBook(_ book: Book, currentSceneIDs: Set<UUID>) -> [StoryScene] {
-        sortedScenes.filter { scene in
-            scene.book?.id == book.id && currentSceneIDs.contains(scene.id)
-        }
-    }
-    
     /// Helper: Add unassigned scenes to verse novel groups
-    private func addUnassignedVerseNovelScenes(to groups: inout [SceneChapterGroup]) {
+    private func addUnassignedVerseNovelScenes(to groups: inout [SceneChapterGroup], scenes: [StoryScene]) {
         let assignedSceneIDs: Set<UUID> = Set(groups.flatMap { $0.scenes.map { $0.id } })
-        let unassignedScenes: [StoryScene] = sortedScenes.filter { scene in
+        let unassignedScenes: [StoryScene] = scenes.filter { scene in
             !assignedSceneIDs.contains(scene.id)
         }
         
@@ -961,13 +938,13 @@ struct SceneListView: View {
     @ViewBuilder
     private var trailingToolbarContent: some View {
         // Chapter expand/collapse button (only when chapter grouping is active)
-        if useChapterGrouping {
-            chapterExpandCollapseButton
+        if let groups = chapterGroups {
+            chapterExpandCollapseButton(groups: groups)
         }
         
         // Act expand/collapse button (only when act grouping is active)
-        if useActGrouping {
-            actExpandCollapseButton
+        if let groups = actGroups {
+            actExpandCollapseButton(groups: groups)
         }
         
         // Search button
@@ -1207,7 +1184,7 @@ struct SceneListView: View {
     
     @ViewBuilder
     private var sceneListContent: some View {
-        if useChapterGrouping, let groups = chapterGroups {
+        if let groups = chapterGroups {
                 // Show scenes grouped by chapter/story/book with disclosure sections
                 ForEach(groups) { group in
                     Section {
@@ -1230,7 +1207,7 @@ struct SceneListView: View {
                         chapterSectionHeader(for: group)
                     }
                 }
-            } else if useActGrouping, let groups = actGroups {
+            } else if let groups = actGroups {
                 // Show scenes grouped by act with disclosure sections (Drama)
                 ForEach(groups) { group in
                     Section {
@@ -1327,14 +1304,24 @@ struct SceneListView: View {
     @ViewBuilder
     private func sceneRow(for scene: StoryScene) -> some View {
         HStack {
-            // Selection circle in edit mode
             if isEditMode {
                 Image(systemName: selectedSceneIDs.contains(scene.id) ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(selectedSceneIDs.contains(scene.id) ? .blue : .gray)
                     .imageScale(.large)
+
+                SceneRowView(scene: scene)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        toggleSelection(for: scene)
+                    }
+            } else {
+                NavigationLink {
+                    sceneNavigationDestination(scene)
+                } label: {
+                    SceneRowView(scene: scene)
+                }
+                .buttonStyle(.plain)
             }
-            
-            SceneRowView(scene: scene)
             
             Spacer(minLength: 8)
             
@@ -1347,14 +1334,6 @@ struct SceneListView: View {
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture {
-            if isEditMode {
-                toggleSelection(for: scene)
-            } else {
-                // Navigate directly to file editor
-                navigateToScene = scene
-            }
-        }
         .contextMenu {
             sceneContextMenuItems(for: scene)
         }
@@ -1974,8 +1953,7 @@ struct SceneListView: View {
     // MARK: - Chapter Expand/Collapse Button
     
     @ViewBuilder
-    private var chapterExpandCollapseButton: some View {
-        let groups = chapterGroups ?? []
+    private func chapterExpandCollapseButton(groups: [SceneChapterGroup]) -> some View {
         let allExpanded = !groups.isEmpty && chapterExpandedSections.count == groups.count
         
         Button {
@@ -1998,8 +1976,7 @@ struct SceneListView: View {
     // MARK: - Act Expand/Collapse Button
     
     @ViewBuilder
-    private var actExpandCollapseButton: some View {
-        let groups = actGroups ?? []
+    private func actExpandCollapseButton(groups: [SceneActGroup]) -> some View {
         let allExpanded = !groups.isEmpty && actExpandedSections.count == groups.count
         
         Button {

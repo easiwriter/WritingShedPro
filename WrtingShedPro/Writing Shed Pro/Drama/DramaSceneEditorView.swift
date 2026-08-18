@@ -77,6 +77,9 @@ struct DramaSceneEditorView: View {
     
     /// Debounce timer for re-parsing
     @State private var parseDebounceTimer: Timer?
+
+    /// Debounce timer for persisting source edits
+    @State private var saveDebounceTimer: Timer?
     
     /// Show version delete confirmation
     @State private var showDeleteVersionAlert = false
@@ -161,6 +164,16 @@ struct DramaSceneEditorView: View {
         }
         .onChange(of: sourceText) { _, newValue in
             debounceParse(newValue)
+            debounceSave(newValue)
+        }
+        .onDisappear {
+            commitPendingSourceSave()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            commitPendingSourceSave()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
+            commitPendingSourceSave()
         }
         .onChange(of: scriptType) { _, _ in
             renderContent()
@@ -461,9 +474,6 @@ struct DramaSceneEditorView: View {
             }
         )
         .background(colorScheme == .dark ? Color(UIColor.systemBackground) : Color.white)
-        .onChange(of: sourceText) { _, newValue in
-            saveContent(newValue)
-        }
     }
     
     // MARK: - Character/Location Insert Menu
@@ -742,9 +752,19 @@ struct DramaSceneEditorView: View {
         }
     }
     
-    private func saveContent(_ text: String) {
-        // Save DML source as plain text
-        file.currentVersion?.content = text
+    private func debounceSave(_ text: String) {
+        saveDebounceTimer?.invalidate()
+        saveDebounceTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { _ in
+            commitPendingSourceSave(text)
+        }
+    }
+
+    private func commitPendingSourceSave(_ text: String? = nil) {
+        saveDebounceTimer?.invalidate()
+        saveDebounceTimer = nil
+        let content = text ?? textView?.text ?? sourceText
+        guard file.currentVersion?.content != content else { return }
+        file.currentVersion?.content = content
         file.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "drama-scene-save-content")
         WriteCoalescer.shared?.flush()

@@ -1082,14 +1082,13 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         var lastUserTextChangeTime: Date?
         var isLiveTypingSimpleInsertion = false
         fileprivate static let simpleTypingIdleDelay: TimeInterval = 1.5
+        private var pendingSimpleTypingSelectionWorkItem: DispatchWorkItem?
         #if targetEnvironment(macCatalyst)
         private var pendingSimpleTypingRange: NSRange?
         private var pendingSimpleTypingText = ""
         private var pendingSimpleTypingSelection = NSRange(location: 0, length: 0)
         private var pendingSimpleTypingWorkItem: DispatchWorkItem?
         private var pendingDecorativeRedrawWorkItem: DispatchWorkItem?
-        private var lastSimpleTypingSelectionSyncTime: CFTimeInterval = 0
-        private static let simpleTypingSelectionSyncInterval: CFTimeInterval = 0.08
         #endif
 
         private func bodyStyleAttributesFallback() -> [NSAttributedString.Key: Any] {
@@ -1164,12 +1163,22 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                 range: range,
                 replacementText: replacementText
             ))
-            parent.selectedRange = textView.selectedRange
-            parent.onSelectionChange?(textView.selectedRange)
+            scheduleSimpleTypingSelectionSync(textView.selectedRange)
             DispatchQueue.main.async { [weak self] in
                 self?.isProcessingUserTextChange = false
             }
             #endif
+        }
+
+        private func scheduleSimpleTypingSelectionSync(_ selection: NSRange) {
+            pendingSimpleTypingSelectionWorkItem?.cancel()
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                self.parent.selectedRange = selection
+                self.parent.onSelectionChange?(selection)
+            }
+            pendingSimpleTypingSelectionWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.simpleTypingIdleDelay, execute: workItem)
         }
 
         #if targetEnvironment(macCatalyst)
@@ -1206,7 +1215,6 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             }
 
             pendingSimpleTypingSelection = selection
-            syncSimpleTypingSelectionIfNeeded(selection)
             pendingSimpleTypingWorkItem?.cancel()
 
             let workItem = DispatchWorkItem { [weak self] in
@@ -1214,13 +1222,6 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             }
             pendingSimpleTypingWorkItem = workItem
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.simpleTypingIdleDelay, execute: workItem)
-        }
-
-        private func syncSimpleTypingSelectionIfNeeded(_ selection: NSRange) {
-            let now = CACurrentMediaTime()
-            guard now - lastSimpleTypingSelectionSyncTime >= Self.simpleTypingSelectionSyncInterval else { return }
-            lastSimpleTypingSelectionSyncTime = now
-            parent.selectedRange = selection
         }
 
         func flushPendingSimpleTypingChange() {
@@ -1244,9 +1245,10 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                     range: range,
                     replacementText: replacementText
                 ))
-                parent.selectedRange = selection
-                parent.onSelectionChange?(selection)
             }
+            pendingSimpleTypingSelectionWorkItem?.cancel()
+            parent.selectedRange = selection
+            parent.onSelectionChange?(selection)
 
             DispatchQueue.main.async { [weak self] in
                 self?.isProcessingUserTextChange = false

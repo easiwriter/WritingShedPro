@@ -145,7 +145,6 @@ struct FolderFilesView: View {
     @State var collectionExpandedSections: Set<String> = []
     @State var deferredSortedFiles: [TextFile]? = nil
     @State var deferredPoetryCollectionGroups: [CollectionGroup]? = nil
-    @State private var fileListRevision = UUID()
     
     /// Returns the number of TrashItem objects for this folder's project
     /// Uses the project's existing relationship instead of a broad @Query
@@ -164,6 +163,7 @@ struct FolderFilesView: View {
         FileListView(
             files: deferredSortedFiles ?? [],
             onFileSelected: handleFileSelected,
+            fileDestination: { file in destinationView(for: file) },
             onMove: (isProseProject && !isReadOnly) ? handleMove : nil,
             onDelete: isReadOnly ? { _ in } : deleteFiles,
             onExport: isReadOnly ? nil : handleExport,
@@ -180,7 +180,6 @@ struct FolderFilesView: View {
             hasAvailableCollectionsForAddToCollection: !(folder.project?.poetryCollections?.isEmpty ?? true),
             expandedCollections: $collectionExpandedSections
         )
-        .id(fileListRevision)
     }
     
     private func handleFileSelected(_ file: TextFile) {
@@ -228,22 +227,25 @@ struct FolderFilesView: View {
     @ViewBuilder
     var navigationDestinationContent: some View {
         if let file = selectedFile {
-            let isNamedCoverInMatterFolder = (folder.isFrontMatterFolder || folder.isBackMatterFolder)
-                && (file.name == FrontMatterItem.frontCover.fileName || file.name == BackMatterItem.backCover.fileName)
-            if let project = folder.resolvedProject, project.type == .drama,
-               FolderCapabilityService.isContentFolder(folder) {
-                DramaSceneEditorView(file: file, project: project)
-            } else if file.isCoverFile || isNamedCoverInMatterFolder {
-                // Cover image files (Front Cover / Back Cover)
-                CoverImageEditorView(file: file)
-            } else if let project = folder.resolvedProject,
-                      BackMatterGeneratedContentView.isGeneratedBackMatterFile(file) {
-                // Feature 029: Show generated content for back matter files
-                BackMatterGeneratedContentView(file: file, project: project)
-            } else {
-                FileEditView(file: file)
-            }
+            destinationView(for: file)
         }
+    }
+
+    func destinationView(for file: TextFile) -> AnyView {
+        let isNamedCoverInMatterFolder = (folder.isFrontMatterFolder || folder.isBackMatterFolder)
+            && (file.name == FrontMatterItem.frontCover.fileName || file.name == BackMatterItem.backCover.fileName)
+        if let project = folder.resolvedProject, project.type == .drama,
+           FolderCapabilityService.isContentFolder(folder) {
+            return AnyView(DramaSceneEditorView(file: file, project: project))
+        }
+        if file.isCoverFile || isNamedCoverInMatterFolder {
+            return AnyView(CoverImageEditorView(file: file))
+        }
+        if let project = folder.resolvedProject,
+           BackMatterGeneratedContentView.isGeneratedBackMatterFile(file) {
+            return AnyView(BackMatterGeneratedContentView(file: file, project: project))
+        }
+        return AnyView(FileEditView(file: file))
     }
     
     var body: some View {
@@ -254,7 +256,9 @@ struct FolderFilesView: View {
         let dialogs = applyDialogModifiers(alerts)
         return dialogs.onAppear {
             initializeHeaderFooterFields()
-            scheduleDeferredFileListLoad()
+            if deferredSortedFiles == nil && deferredPoetryCollectionGroups == nil {
+                scheduleDeferredFileListLoad()
+            }
         }
         .onChange(of: statusFilter) { _, _ in
             scheduleDeferredFileListLoad()
@@ -271,11 +275,14 @@ struct FolderFilesView: View {
         deferredSortedFiles = nil
         deferredPoetryCollectionGroups = nil
         DispatchQueue.main.async {
-            let loadedFiles = sortedFiles
-            deferredSortedFiles = loadedFiles
-            deferredPoetryCollectionGroups = poetryCollectionGroups(for: loadedFiles)
-            fileListRevision = UUID()
+            refreshDeferredFileList()
         }
+    }
+
+    func refreshDeferredFileList() {
+        let loadedFiles = sortedFiles
+        deferredSortedFiles = loadedFiles
+        deferredPoetryCollectionGroups = poetryCollectionGroups(for: loadedFiles)
     }
     
     // MARK: - Main Content (extracted to reduce body complexity)
@@ -1062,6 +1069,7 @@ struct FolderFilesView: View {
         
         do {
             try service.deleteFiles(files)
+            refreshDeferredFileList()
         } catch {
             #if DEBUG
             print("Error deleting files: \(error)")
@@ -1082,7 +1090,6 @@ struct FolderFilesView: View {
             deferredSortedFiles = visibleFiles
             deferredPoetryCollectionGroups = poetryCollectionGroups(for: visibleFiles)
             selectedFileIDs.subtract(deletedFileIDs)
-            fileListRevision = UUID()
         } catch {
             #if DEBUG
             print("Error permanently deleting files: \(error)")
@@ -1107,6 +1114,7 @@ struct FolderFilesView: View {
         
         do {
             try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
+            refreshDeferredFileList()
         } catch {
             #if DEBUG
             print("Error changing file status: \(error)")
@@ -1151,6 +1159,7 @@ struct FolderFilesView: View {
         
         do {
             try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
+            refreshDeferredFileList()
         } catch {
             #if DEBUG
             print("Error assigning files to collection: \(error)")

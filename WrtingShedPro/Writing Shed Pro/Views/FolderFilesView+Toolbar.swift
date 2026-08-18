@@ -150,7 +150,7 @@ extension FolderFilesView {
     /// Expand/Collapse all button for collection-grouped view in Poetry content folders
     @ViewBuilder
     var collectionExpandCollapseToolbarButton: some View {
-        let groups = poetryCollectionGroups ?? []
+        let groups = deferredPoetryCollectionGroups ?? []
         let allExpanded = collectionExpandedSections.count == groups.count
         
         Button {

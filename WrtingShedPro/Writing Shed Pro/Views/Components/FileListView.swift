@@ -38,6 +38,10 @@ struct FileListView: View {
     
     /// Called when user taps a file in normal mode
     let onFileSelected: (TextFile) -> Void
+
+    /// Optional direct navigation destination. FolderFilesView supplies this so
+    /// row navigation follows the same path as the dedicated prose lists.
+    let fileDestination: ((TextFile) -> AnyView)?
     
     /// Called when user initiates move action (optional - only for Prose projects)
     let onMove: (([TextFile]) -> Void)?
@@ -470,44 +474,32 @@ struct FileListView: View {
     @ViewBuilder
     private func fileRow(for file: TextFile, collectionGroupID: String? = nil) -> some View {
         HStack {
-            // Main content area - clickable to select/navigate
-            HStack {
-                // Selection circle in edit mode
-                if isEditMode {
-                    Image(systemName: selectedFileIDs.contains(file.id) ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(selectedFileIDs.contains(file.id) ? .blue : .gray)
-                        .imageScale(.large)
-                }
-                
-                // File icon - different for markdown files
-                Image(systemName: file.isMarkdown ? "number.square" : "doc.text")
-                    .foregroundStyle(file.isMarkdown ? .orange : .secondary)
-                
-                Text(file.name)
-                    .foregroundColor(file.workflowStatus.map { Color($0.color) } ?? .primary)
-                    .opacity(file.includedInManuscript ? 1.0 : 0.5)
-                
-                // Manuscript exclusion indicator (Feature 029)
-                if !file.includedInManuscript && file.project?.folders?.contains(where: { $0.name == "Manuscript" }) == true {
-                    Image(systemName: "eye.slash")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                }
-                
-                Spacer(minLength: 8)  // Ensure some spacing before the buttons
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                if isEditMode {
+            if isEditMode {
+                fileRowLabel(for: file)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
                     // Edit mode: toggle selection
                     toggleSelection(for: file, collectionGroupID: collectionGroupID)
-                } else {
-                    // Normal mode: navigate to file
-                    onFileSelected(file)
+                    }
+            } else if let fileDestination {
+                NavigationLink {
+                    fileDestination(file)
+                } label: {
+                    fileRowLabel(for: file)
                 }
-            }
-            .contextMenu {
-                contextMenuItems(for: file)
+                .buttonStyle(.plain)
+                .contextMenu {
+                    contextMenuItems(for: file)
+                }
+            } else {
+                fileRowLabel(for: file)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        onFileSelected(file)
+                    }
+                    .contextMenu {
+                        contextMenuItems(for: file)
+                    }
             }
             
             // Submissions button and ellipsis menu (only in normal mode) - separate tap targets
@@ -520,6 +512,32 @@ struct FileListView: View {
                     fileOptionsMenu(for: file)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func fileRowLabel(for file: TextFile) -> some View {
+        HStack {
+            if isEditMode {
+                Image(systemName: selectedFileIDs.contains(file.id) ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(selectedFileIDs.contains(file.id) ? .blue : .gray)
+                    .imageScale(.large)
+            }
+
+            Image(systemName: file.isMarkdown ? "number.square" : "doc.text")
+                .foregroundStyle(file.isMarkdown ? .orange : .secondary)
+
+            Text(file.name)
+                .foregroundColor(file.workflowStatus.map { Color($0.color) } ?? .primary)
+                .opacity(file.includedInManuscript ? 1.0 : 0.5)
+
+            if !file.includedInManuscript && file.project?.folders?.contains(where: { $0.name == "Manuscript" }) == true {
+                Image(systemName: "eye.slash")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+
+            Spacer(minLength: 8)
         }
     }
     

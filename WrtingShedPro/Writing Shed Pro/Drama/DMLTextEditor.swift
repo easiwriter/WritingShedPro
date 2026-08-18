@@ -56,8 +56,10 @@ struct DMLTextEditor: UIViewRepresentable {
     }
     
     func updateUIView(_ uiView: UITextView, context: Context) {
+        context.coordinator.parent = self
+
         // Only update text if it changed externally
-        if uiView.text != text {
+        if !context.coordinator.hasPendingTextChange && uiView.text != text {
             // Preserve cursor position when possible
             let previousRange = uiView.selectedRange
             uiView.text = text
@@ -76,8 +78,11 @@ struct DMLTextEditor: UIViewRepresentable {
             layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: uiView.textStorage.length))
         }
         
-        // Update selection if it changed externally (e.g., after insertion)
-        if uiView.selectedRange != selectedRange && selectedRange.location <= text.count {
+        // UIKit owns the live caret while editing. Reapplying the slightly stale
+        // SwiftUI selection here moves the caret backwards between keystrokes.
+        if !uiView.isFirstResponder,
+           uiView.selectedRange != selectedRange,
+           selectedRange.location <= text.count {
             uiView.selectedRange = selectedRange
         }
     }
@@ -89,20 +94,43 @@ struct DMLTextEditor: UIViewRepresentable {
     class Coordinator: NSObject, UITextViewDelegate {
         var parent: DMLTextEditor
         weak var textView: UITextView?
+        private var pendingTextChangeWorkItem: DispatchWorkItem?
+
+        var hasPendingTextChange: Bool {
+            pendingTextChangeWorkItem != nil
+        }
         
         init(_ parent: DMLTextEditor) {
             self.parent = parent
         }
         
         func textViewDidChange(_ textView: UITextView) {
-            parent.text = textView.text
+            pendingTextChangeWorkItem?.cancel()
+            let updatedText = textView.text ?? ""
+            let updatedSelection = textView.selectedRange
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                self.pendingTextChangeWorkItem = nil
+                self.parent.text = updatedText
+                self.parent.selectedRange = updatedSelection
+            }
+            pendingTextChangeWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: workItem)
         }
         
         func textViewDidChangeSelection(_ textView: UITextView) {
+            guard pendingTextChangeWorkItem == nil else { return }
             // Defer state update to avoid modifying state during view update
             DispatchQueue.main.async {
                 self.parent.selectedRange = textView.selectedRange
             }
+        }
+
+        func textViewDidEndEditing(_ textView: UITextView) {
+            pendingTextChangeWorkItem?.cancel()
+            pendingTextChangeWorkItem = nil
+            parent.text = textView.text
+            parent.selectedRange = textView.selectedRange
         }
         
         // MARK: - Undo/Redo Support
