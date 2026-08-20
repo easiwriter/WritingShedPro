@@ -165,6 +165,9 @@ struct ContentView: View {
             #endif
             state.showingJSONImportPicker = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .writingShedProSyncDidUpdateLocalData)) { _ in
+            scheduleRemoteReconcile(reason: "sync-merge", forceRefresh: true)
+        }
         // Handle files opened at cold launch (URL stored by AppDelegate before this view appeared).
         .task {
             guard let delegate = UIApplication.shared.delegate as? AppDelegate,
@@ -360,7 +363,7 @@ struct ContentView: View {
     }
 
     /// Debounced reconciliation triggered by foreground/manual refresh.
-    private func scheduleRemoteReconcile(reason: String) {
+    private func scheduleRemoteReconcile(reason: String, forceRefresh: Bool = false) {
         guard scenePhase == .active else { return }
 
         remoteReconcileTask?.cancel()
@@ -378,10 +381,14 @@ struct ContentView: View {
 
                 try? await Task.sleep(nanoseconds: 5_500_000_000)
                 guard !Task.isCancelled else { return }
-                scheduleRemoteReconcile(reason: reason)
+                scheduleRemoteReconcile(reason: reason, forceRefresh: forceRefresh)
                 return
             }
-            reconcileProjectListIfNeeded()
+            if forceRefresh {
+                refreshTrigger.toggle()
+            } else {
+                reconcileProjectListIfNeeded()
+            }
 
             #if DEBUG
             let now = Date()
