@@ -1574,7 +1574,10 @@ class PrintService {
             defer { scanLocation = NSMaxRange(paragraphRange) }
             
             guard paragraphRange.location < length else { continue }
-            let attrLocation = min(paragraphRange.location, length - 1)
+            let attrLocation = NumberingLayoutManager.firstContentCharacterLocation(
+                in: paragraphRange,
+                text: text
+            )
             guard attrLocation >= 0 else { continue }
             
             let attrs = tempStorage.attributes(at: attrLocation, effectiveRange: nil)
@@ -1632,9 +1635,14 @@ class PrintService {
             }
             
             // Get line position from temp layout manager
-            let glyphRange = tempLM.glyphRange(forCharacterRange: paragraphRange, actualCharacterRange: nil)
+            let contentRange = NSRange(
+                location: attrLocation,
+                length: max(NSMaxRange(paragraphRange) - attrLocation, 0)
+            )
+            let glyphRange = tempLM.glyphRange(forCharacterRange: contentRange, actualCharacterRange: nil)
             guard glyphRange.length > 0 else { return }
             let lineFragmentRect = tempLM.lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
+            let glyphLocation = tempLM.location(forGlyphAt: glyphRange.location)
             
             let paragraphFont = attrs[.font] as? UIFont ?? style.generateFont(applyPlatformScaling: false)
             let paragraphColor = (attrs[.foregroundColor] as? UIColor)?.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light)) ?? UIColor.black
@@ -1656,9 +1664,14 @@ class PrintService {
                 numberX = drawRect.origin.x + style.firstLineIndent
             }
             
-            let baselineY = drawRect.origin.y + lineFragmentRect.origin.y + (lineFragmentRect.height - numberSize.height) / 2
+            let numberY = NumberingLayoutManager.numberDrawingY(
+                originY: drawRect.origin.y,
+                lineFragmentMinY: lineFragmentRect.minY,
+                glyphBaselineOffset: glyphLocation.y,
+                font: paragraphFont
+            )
             
-            let numberRect = CGRect(x: numberX, y: baselineY, width: numberSize.width, height: numberSize.height)
+            let numberRect = CGRect(x: numberX, y: numberY, width: numberSize.width, height: numberSize.height)
             numberString.draw(in: numberRect, withAttributes: numberAttributes)
         }
     }

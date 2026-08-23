@@ -33,6 +33,10 @@ class NumberingLayoutManager: NSLayoutManager {
     /// Whether to draw editor line numbers in the right margin
     var showDocumentLineNumbers: Bool = false
 
+    /// The editable text view needs a marker after the user presses Return.
+    /// Read-only page substrings must not treat their terminal newline as a new paragraph.
+    var drawsTrailingEmptyParagraphNumber = true
+
     private var suppressDecorativeDrawingUntil: Date?
 
     var isDecorativeDrawingSuppressed: Bool {
@@ -225,6 +229,17 @@ class NumberingLayoutManager: NSLayoutManager {
             isSystemStyle: false
         )
     }
+
+    static func firstContentCharacterLocation(in paragraphRange: NSRange, text: NSString) -> Int {
+        guard text.length > 0 else { return 0 }
+
+        var location = min(paragraphRange.location, text.length - 1)
+        let paragraphEnd = min(NSMaxRange(paragraphRange), text.length)
+        while location < paragraphEnd - 1, text.character(at: location) == 0x000C {
+            location += 1
+        }
+        return location
+    }
     
     /// Compute the paragraph numbering counter state by scanning a text storage
     /// from position 0 up to (but not including) the given character offset.
@@ -251,7 +266,7 @@ class NumberingLayoutManager: NSLayoutManager {
         
         text.enumerateSubstrings(in: scanRange, options: .byParagraphs) { _, paragraphRange, _, _ in
             guard paragraphRange.location < textStorage.length else { return }
-            let attrLocation = min(paragraphRange.location, textStorage.length - 1)
+            let attrLocation = Self.firstContentCharacterLocation(in: paragraphRange, text: text)
             guard attrLocation >= 0 else { return }
             
             let attrs = textStorage.attributes(at: attrLocation, effectiveRange: nil)
@@ -446,8 +461,10 @@ class NumberingLayoutManager: NSLayoutManager {
                 return
             }
             
-            // Get style at paragraph start (or end of text for empty last paragraph)
-            let attrLocation = min(paragraphRange.location, textStorage.length - 1)
+            // Page breaks are form-feed characters and can share a paragraph with
+            // the heading that follows. Use the heading glyph, not the page-break
+            // glyph, for both style lookup and baseline placement.
+            let attrLocation = Self.firstContentCharacterLocation(in: paragraphRange, text: text)
             guard attrLocation >= 0 else { return }
             
             let attrs = textStorage.attributes(at: attrLocation, effectiveRange: nil)
@@ -516,7 +533,11 @@ class NumberingLayoutManager: NSLayoutManager {
             let styleForDrawing = style ?? self.fallbackStyle(for: styleName, attrs: attrs, numberFormat: effectiveNumberFormat)
             
             // Get the line fragment for this paragraph
-            let glyphRange = self.glyphRange(forCharacterRange: paragraphRange, actualCharacterRange: nil)
+            let contentRange = NSRange(
+                location: attrLocation,
+                length: max(0, NSMaxRange(paragraphRange) - attrLocation)
+            )
+            let glyphRange = self.glyphRange(forCharacterRange: contentRange, actualCharacterRange: nil)
             
             // For empty paragraphs or when no glyphs, still draw at the paragraph location
             let lineFragmentRect: CGRect
@@ -541,12 +562,19 @@ class NumberingLayoutManager: NSLayoutManager {
             }
             
             // Draw with base origin; drawNumber applies lineFragmentRect.origin internally.
-            self.drawNumber(formattedNumber, at: origin, lineFragmentRect: lineFragmentRect, paragraphAttributes: attrs, with: styleForDrawing)
+            self.drawNumber(
+                formattedNumber,
+                at: origin,
+                lineFragmentRect: lineFragmentRect,
+                firstGlyphIndex: glyphRange.length > 0 ? glyphRange.location : nil,
+                paragraphAttributes: attrs,
+                with: styleForDrawing
+            )
         }
         
         // Check for empty trailing paragraph (e.g., after pressing Enter)
         // enumerateSubstrings doesn't include empty paragraphs at the end
-        if text.hasSuffix("\n") {
+        if drawsTrailingEmptyParagraphNumber && text.hasSuffix("\n") {
             // Get attributes for the empty paragraph (use last character's attributes)
             if textStorage.length > 0 {
                 let attrs = textStorage.attributes(at: textStorage.length - 1, effectiveRange: nil)
@@ -826,7 +854,14 @@ class NumberingLayoutManager: NSLayoutManager {
     ///   - lineFragmentRect: The line fragment rect for baseline calculation
     ///   - paragraphAttributes: The actual attributes from the paragraph text
     ///   - style: The TextStyleModel for fallback values
-    private func drawNumber(_ formattedNumber: String, at origin: CGPoint, lineFragmentRect: CGRect, paragraphAttributes: [NSAttributedString.Key: Any], with style: TextStyleModel) {
+    private func drawNumber(
+        _ formattedNumber: String,
+        at origin: CGPoint,
+        lineFragmentRect: CGRect,
+        firstGlyphIndex: Int? = nil,
+        paragraphAttributes: [NSAttributedString.Key: Any],
+        with style: TextStyleModel
+    ) {
         // Get font from paragraph attributes (preserves bold/italic traits)
         let paragraphFont = paragraphAttributes[.font] as? UIFont ?? style.generateFont(applyPlatformScaling: true)
         
@@ -865,18 +900,42 @@ class NumberingLayoutManager: NSLayoutManager {
         print("   🎨 drawNumber: '\(formattedNumber)' numberWidth=\(numberSize.width) numberX=\(numberX) firstLineHeadIndent=\(paragraphStyle?.firstLineHeadIndent ?? -1) style.firstLineIndent=\(style.firstLineIndent) isPaginated=\(isPaginatedView)")
         #endif
         
-        // Calculate baseline-aligned Y position: vertically center number in line fragment
-        let baselineY = origin.y + lineFragmentRect.origin.y + (lineFragmentRect.height - numberSize.height) / 2
+        let numberY: CGFloat
+        if let firstGlyphIndex {
+            let usedRect = lineFragmentUsedRect(forGlyphAt: firstGlyphIndex, effectiveRange: nil)
+            numberY = Self.numberDrawingY(
+                originY: origin.y,
+                lineFragmentUsedMinY: usedRect.minY
+            )
+        } else {
+            numberY = origin.y + lineFragmentRect.minY + (lineFragmentRect.height - numberSize.height) / 2
+        }
         
         // Draw number left-aligned at the calculated position
         let numberRect = CGRect(
             x: numberX,
-            y: baselineY,
+            y: numberY,
             width: numberSize.width,
             height: numberSize.height
         )
         
         numberString.draw(in: numberRect, withAttributes: numberAttributes)
+    }
+
+    static func numberDrawingY(
+        originY: CGFloat,
+        lineFragmentUsedMinY: CGFloat
+    ) -> CGFloat {
+        originY + lineFragmentUsedMinY
+    }
+
+    static func numberDrawingY(
+        originY: CGFloat,
+        lineFragmentMinY: CGFloat,
+        glyphBaselineOffset: CGFloat,
+        font: UIFont
+    ) -> CGFloat {
+        originY + lineFragmentMinY + glyphBaselineOffset - font.ascender
     }
     
     // MARK: - Page Break Lines

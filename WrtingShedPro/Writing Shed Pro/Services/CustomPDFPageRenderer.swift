@@ -584,7 +584,6 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             drawRect: drawRect,
             context: context
         ) {
-            drawParagraphNumbers(in: mutableString, drawRect: drawRect)
             return
         }
         
@@ -608,11 +607,28 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
                                         attributedString: NSAttributedString,
                                         drawRect: CGRect,
                                         context: CGContext) -> Bool {
-        guard pageIndex < layoutManager.layoutManager.textContainers.count else { return false }
-        let calculatedContainer = layoutManager.layoutManager.textContainers[pageIndex]
+        let containerSize: CGSize
+        if pageIndex < layoutManager.layoutManager.textContainers.count {
+            containerSize = layoutManager.layoutManager.textContainers[pageIndex].size
+        } else {
+            containerSize = drawRect.size
+        }
         let textStorage = NSTextStorage(attributedString: attributedString)
-        let nsLayoutManager = NSLayoutManager()
-        let textContainer = NSTextContainer(size: calculatedContainer.size)
+        let nsLayoutManager = NumberingLayoutManager()
+        nsLayoutManager.project = project
+        nsLayoutManager.isPaginatedView = false
+        nsLayoutManager.drawsTrailingEmptyParagraphNumber = false
+        if let styleSheet = project.styleSheet {
+            let pageStart = layoutResult.pageInfos[pageIndex].characterRange.location
+            let counterState = NumberingLayoutManager.computeCounterState(
+                upTo: pageStart,
+                in: layoutManager.textStorage,
+                styleSheet: styleSheet
+            )
+            nsLayoutManager.initialStyleCounters = counterState.styleCounters
+            nsLayoutManager.initialLastNumberForStyle = counterState.lastNumberForStyle
+        }
+        let textContainer = NSTextContainer(size: containerSize)
         textContainer.lineFragmentPadding = 0
         textStorage.addLayoutManager(nsLayoutManager)
         nsLayoutManager.addTextContainer(textContainer)

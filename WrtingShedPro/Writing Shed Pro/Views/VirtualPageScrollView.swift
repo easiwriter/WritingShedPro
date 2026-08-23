@@ -1048,6 +1048,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         numberingLayoutManager.project = project
         // Disable poetry line numbers in paginated manuscript view
         numberingLayoutManager.isPaginatedView = false
+        numberingLayoutManager.drawsTrailingEmptyParagraphNumber = false
         
         textStorage.addLayoutManager(numberingLayoutManager)
         numberingLayoutManager.addTextContainer(textContainer)

@@ -68,6 +68,93 @@ final class NumberingLayoutManagerTests: XCTestCase {
         XCTAssertEqual(lineNumbers[plainText.range(of: "Second poem line").location], 2)
         XCTAssertEqual(lineNumbers.count, 2)
     }
+
+    func testNumberDrawingYUsesGlyphBaselineRatherThanLineFragmentHeight() {
+        let font = UIFont.systemFont(ofSize: 24, weight: .bold)
+        let numberHeight: CGFloat = 28
+        let compactFragmentHeight: CGFloat = 30
+        let fragmentHeightWithSpaceAfter: CGFloat = 48
+
+        let baselineAlignedY = NumberingLayoutManager.numberDrawingY(
+            originY: 8,
+            lineFragmentMinY: 20,
+            glyphBaselineOffset: 27,
+            font: font
+        )
+        let legacyCompactY = 8 + 20 + (compactFragmentHeight - numberHeight) / 2
+        let legacySpaceAfterY = 8 + 20 + (fragmentHeightWithSpaceAfter - numberHeight) / 2
+
+        XCTAssertNotEqual(legacyCompactY, legacySpaceAfterY)
+        XCTAssertEqual(baselineAlignedY + font.ascender, 55, accuracy: 0.001)
+    }
+
+    func testOnScreenNumberDrawingYUsesUsedLineTop() {
+        let text = NSMutableAttributedString(string: "Aeroplanes\n")
+        let font = UIFont.systemFont(ofSize: 20, weight: .semibold)
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.paragraphSpacing = 12
+        paragraph.firstLineHeadIndent = 52
+        text.addAttributes(
+            [.font: font, .paragraphStyle: paragraph],
+            range: NSRange(location: 0, length: text.length)
+        )
+
+        let storage = NSTextStorage(attributedString: text)
+        let manager = NSLayoutManager()
+        let container = NSTextContainer(size: CGSize(width: 500, height: 500))
+        container.lineFragmentPadding = 0
+        storage.addLayoutManager(manager)
+        manager.addTextContainer(container)
+
+        let glyphRange = manager.glyphRange(
+            forCharacterRange: NSRange(location: 0, length: text.length),
+            actualCharacterRange: nil
+        )
+        let lineRect = manager.lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
+        let usedRect = manager.lineFragmentUsedRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
+
+        XCTAssertGreaterThan(lineRect.height, usedRect.height)
+        XCTAssertEqual(
+            NumberingLayoutManager.numberDrawingY(originY: 8, lineFragmentUsedMinY: usedRect.minY),
+            8 + usedRect.minY,
+            accuracy: 0.001
+        )
+    }
+
+    func testFirstContentCharacterLocationSkipsLeadingFormFeed() {
+        let text = "\u{000C}Aeroplanes\n" as NSString
+        let paragraphRange = text.paragraphRange(for: NSRange(location: 0, length: 0))
+
+        let location = NumberingLayoutManager.firstContentCharacterLocation(
+            in: paragraphRange,
+            text: text
+        )
+
+        XCTAssertEqual(location, 1)
+        XCTAssertEqual(text.substring(with: NSRange(location: location, length: 10)), "Aeroplanes")
+
+        let storage = NSTextStorage(string: text as String)
+        let manager = NSLayoutManager()
+        let container = NSTextContainer(size: CGSize(width: 500, height: 500))
+        container.lineFragmentPadding = 0
+        storage.addLayoutManager(manager)
+        manager.addTextContainer(container)
+
+        let pageBreakGlyph = manager.glyphIndexForCharacter(at: paragraphRange.location)
+        let headingGlyph = manager.glyphIndexForCharacter(at: location)
+        let pageBreakLine = manager.lineFragmentUsedRect(forGlyphAt: pageBreakGlyph, effectiveRange: nil)
+        let headingLine = manager.lineFragmentUsedRect(forGlyphAt: headingGlyph, effectiveRange: nil)
+
+        XCTAssertGreaterThan(headingLine.minY, pageBreakLine.minY)
+    }
+
+    func testTrailingEmptyParagraphNumberingDefaultsToEditableEditorBehavior() {
+        XCTAssertTrue(layoutManager.drawsTrailingEmptyParagraphNumber)
+
+        layoutManager.drawsTrailingEmptyParagraphNumber = false
+
+        XCTAssertFalse(layoutManager.drawsTrailingEmptyParagraphNumber)
+    }
     
     // MARK: - Helper: create a stylesheet with a hierarchy
     
