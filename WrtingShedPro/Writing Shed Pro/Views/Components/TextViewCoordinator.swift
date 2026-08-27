@@ -3,6 +3,19 @@ import Combine
 import PhotosUI
 
 extension UITextView {
+    func normalizedNavigationPosition(_ characterPosition: Int) -> Int {
+        let string = textStorage.string as NSString
+        var position = min(max(0, characterPosition), string.length)
+
+        while position < string.length,
+              let scalar = UnicodeScalar(string.character(at: position)),
+              CharacterSet.whitespacesAndNewlines.contains(scalar) {
+            position += 1
+        }
+
+        return position
+    }
+
     func scrollCharacterToTop(_ characterPosition: Int, animated: Bool = false) {
         guard textStorage.length > 0 else {
             setContentOffset(CGPoint(x: contentOffset.x, y: -adjustedContentInset.top), animated: animated)

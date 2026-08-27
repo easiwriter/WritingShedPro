@@ -775,12 +775,9 @@ struct DramaSceneEditorView: View {
         guard let initialCharacterPosition else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             guard let textView else { return }
-            let position = min(max(0, initialCharacterPosition), textView.textStorage.length)
+            let position = textView.normalizedNavigationPosition(initialCharacterPosition)
             let range = NSRange(location: position, length: 0)
             selectedRange = range
-            #if !targetEnvironment(macCatalyst)
-            textView.selectionAffinity = .forward
-            #endif
             textView.selectedRange = range
             textView.scrollCharacterToTop(position)
             textView.resignFirstResponder()

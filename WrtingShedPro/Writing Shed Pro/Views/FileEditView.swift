@@ -3254,12 +3254,11 @@ struct FileEditView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 if let textView = self.textViewCoordinator.textView {
                     let requestedPosition = self.initialCharacterPosition ?? textView.attributedText.length
-                    let position = min(max(0, requestedPosition), textView.attributedText.length)
+                    let position = self.initialCharacterPosition == nil
+                        ? min(max(0, requestedPosition), textView.attributedText.length)
+                        : textView.normalizedNavigationPosition(requestedPosition)
                     let range = NSRange(location: position, length: 0)
                     self.selectedRange = range
-                    #if !targetEnvironment(macCatalyst)
-                    textView.selectionAffinity = .forward
-                    #endif
                     textView.selectedRange = range
                     if self.initialCharacterPosition != nil {
                         textView.scrollCharacterToTop(position)
