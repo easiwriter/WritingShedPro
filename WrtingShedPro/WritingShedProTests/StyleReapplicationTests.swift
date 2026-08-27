@@ -134,6 +134,67 @@ final class StyleReapplicationTests: XCTestCase {
         XCTAssertEqual(paragraphStyle?.lineSpacing, 0)
     }
 
+    func testDetectsRepeatedShortStyleIslandsInUnstyledText() {
+        let text = NSMutableAttributedString(string: "abcdefghij klmnopqrst uvwxyz")
+        for location in stride(from: 1, through: 15, by: 2) {
+            text.addAttribute(
+                .textStyle,
+                value: UIFont.TextStyle.body.rawValue,
+                range: NSRange(location: location, length: 1)
+            )
+        }
+
+        let data = AttributedStringSerializer.encode(text)
+
+        XCTAssertTrue(
+            AttributedStringSerializer.containsFragmentedTextStyleArtifacts(
+                in: data,
+                text: text.string
+            )
+        )
+    }
+
+    func testDoesNotTreatNormalParagraphStyleRunsAsFragmentation() {
+        let text = NSMutableAttributedString(string: "First paragraph\nSecond paragraph")
+        text.addAttribute(
+            .textStyle,
+            value: UIFont.TextStyle.body.rawValue,
+            range: NSRange(location: 0, length: 16)
+        )
+
+        let data = AttributedStringSerializer.encode(text)
+
+        XCTAssertFalse(
+            AttributedStringSerializer.containsFragmentedTextStyleArtifacts(
+                in: data,
+                text: text.string
+            )
+        )
+    }
+
+    func testDecodePreservesCustomFontOnTextStyleRun() throws {
+        let source = NSMutableAttributedString(
+            string: "Papyrus body",
+            attributes: [
+                .font: UIFont(name: "Papyrus", size: 13)!,
+                .textStyle: UIFont.TextStyle.body.rawValue
+            ]
+        )
+
+        let decoded = AttributedStringSerializer.decode(
+            AttributedStringSerializer.encode(source),
+            text: source.string
+        )
+        let font = try XCTUnwrap(decoded.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+
+        XCTAssertEqual(font.fontName, "Papyrus")
+        XCTAssertEqual(font.pointSize, 13)
+        XCTAssertEqual(
+            decoded.attribute(.textStyle, at: 0, effectiveRange: nil) as? String,
+            UIFont.TextStyle.body.rawValue
+        )
+    }
+
     func testReapplicationKeepsFirstLineIndentWhenStyleRunContainsAttachment() throws {
         let style = TextStyleModel(name: "body", displayName: "Body")
         style.firstLineIndent = 16
@@ -161,6 +222,36 @@ final class StyleReapplicationTests: XCTestCase {
             (attachmentAttributes[.paragraphStyle] as? NSParagraphStyle)?.alignment,
             .center
         )
+    }
+
+    func testReapplyStylesReplacesSystemFontOnFragmentedBodyRun() throws {
+        let bodyStyle = TextStyleModel(
+            name: UIFont.TextStyle.body.rawValue,
+            displayName: "Body",
+            fontFamily: "Papyrus",
+            fontSize: 13
+        )
+        let source = NSMutableAttributedString(
+            string: "abc",
+            attributes: [.font: UIFont(name: "Papyrus", size: 13)!]
+        )
+        source.addAttributes(
+            [
+                .font: UIFont.systemFont(ofSize: 17),
+                .textStyle: UIFont.TextStyle.body.rawValue
+            ],
+            range: NSRange(location: 1, length: 1)
+        )
+
+        let repaired = StyleReapplicationAttributeMerger.reapplyStyles(in: source) { styleName in
+            styleName == bodyStyle.name ? bodyStyle : nil
+        }
+        let repairedFont = try XCTUnwrap(
+            repaired.attribute(.font, at: 1, effectiveRange: nil) as? UIFont
+        )
+
+        XCTAssertEqual(repairedFont.fontName, "Papyrus")
+        XCTAssertEqual(repairedFont.pointSize, 13)
     }
     
     func testGenerateAttributesWithCustomFont() throws {

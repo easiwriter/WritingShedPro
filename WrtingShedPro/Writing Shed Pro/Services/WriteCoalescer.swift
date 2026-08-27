@@ -33,7 +33,8 @@ enum EnsemblesSaveGate {
             "project-detail-trash",
             "project-editable-list-permanent-delete",
             "project-trash-bin-delete",
-            "project-trash-restore"
+            "project-trash-restore",
+            "stylesheet-management-delete"
         ]
         return userInitiatedActions.contains(where: { normalizedReason.hasPrefix($0) })
     }

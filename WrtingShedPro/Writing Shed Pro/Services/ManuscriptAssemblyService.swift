@@ -103,6 +103,51 @@ final class ManuscriptAssemblyService {
         
         return sections
     }
+
+    func captionNumberOffsets(for targetFile: TextFile, in project: Project) -> [String: Int] {
+        var captionCounts: [String: Int] = [:]
+
+        for file in getSections(for: project).flatMap(\.files) {
+            if file.id == targetFile.id {
+                return captionCounts
+            }
+            guard let content = file.currentVersion?.attributedContent else { continue }
+            captionCounts = ImageAttachment.captionNumberCounts(
+                after: content,
+                styleSheet: project.styleSheet,
+                startingNumbers: captionCounts
+            )
+        }
+
+        return [:]
+    }
+
+    func headingNumberCounterState(
+        for targetFile: TextFile,
+        in project: Project
+    ) -> (styleCounters: [String: Int], lastNumberForStyle: [String: Int]) {
+        guard let styleSheet = project.styleSheet else { return ([:], [:]) }
+
+        let precedingContent = NSMutableAttributedString()
+        for file in getSections(for: project).flatMap(\.files) {
+            if file.id == targetFile.id {
+                let storage = NSTextStorage(attributedString: precedingContent)
+                return NumberingLayoutManager.computeCounterState(
+                    upTo: storage.length,
+                    in: storage,
+                    styleSheet: styleSheet
+                )
+            }
+
+            guard let content = file.currentVersion?.attributedContent else { continue }
+            if precedingContent.length > 0, !precedingContent.string.hasSuffix("\n") {
+                precedingContent.append(NSAttributedString(string: "\n"))
+            }
+            precedingContent.append(content)
+        }
+
+        return ([:], [:])
+    }
     
     /// Get all body matter TextFile objects for a project, in manuscript order.
     /// Useful for submission workflows where files need to be linked.
@@ -906,7 +951,7 @@ final class ManuscriptAssemblyService {
         if let styleSheet = project.styleSheet {
             for section in sections {
                 for file in section.files {
-                    StyleSheetProvider.shared.register(styleSheet: styleSheet, for: file.id)
+                    _ = StyleSheetProvider.shared.register(styleSheet: styleSheet, for: file.id)
                 }
             }
         }

@@ -4,6 +4,7 @@ import UIKit
 
 /// Struct to hold attribute values for a range of text
 struct AttributeValues: Codable {
+    var sourceText: String?
     var sourceTextHash: String?
     var sourceTextLength: Int?
     var location: Int?
@@ -68,6 +69,17 @@ struct AttributeValues: Codable {
 /// Service for converting between NSAttributedString and storable formats
 struct AttributedStringSerializer {
 
+    private static func normalizedTextStyle(_ value: String?) -> String? {
+        guard let value else { return nil }
+        if value.hasPrefix("CTFont") && value.hasSuffix("Usage") {
+            return UIFont.TextStyle.body.rawValue
+        }
+        if value == "UICTFontTextStyleItalicBody" {
+            return UIFont.TextStyle.body.rawValue
+        }
+        return value
+    }
+
     static func sourceTextHash(for text: String) -> String {
         let digest = SHA256.hash(data: Data(text.utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
@@ -75,6 +87,25 @@ struct AttributedStringSerializer {
 
     static func sourceTextLength(for text: String) -> Int {
         (text as NSString).length
+    }
+
+    static func verifiedSourceText(in data: Data?) -> String? {
+        guard let data, !data.isEmpty,
+              let runs = try? PropertyListDecoder().decode([AttributeValues].self, from: data),
+              let sourceRun = runs.first(where: { $0.sourceText != nil }),
+              let sourceText = sourceRun.sourceText else {
+            return nil
+        }
+
+        if let expectedLength = sourceRun.sourceTextLength,
+           expectedLength != sourceTextLength(for: sourceText) {
+            return nil
+        }
+        if let expectedHash = sourceRun.sourceTextHash,
+           expectedHash != sourceTextHash(for: sourceText) {
+            return nil
+        }
+        return sourceText
     }
 
     static func hasContentFingerprintMismatch(in data: Data?, text: String) -> Bool {
@@ -133,6 +164,30 @@ struct AttributedStringSerializer {
         }
 
         return false
+    }
+
+    /// Detects legacy content where repeated one- or two-character style runs are
+    /// interleaved with unstyled text. This produces apparently random font changes
+    /// when the short runs are decoded using a system text style.
+    static func containsFragmentedTextStyleArtifacts(in data: Data, text: String) -> Bool {
+        guard !data.isEmpty, !text.isEmpty,
+              let runs = try? PropertyListDecoder().decode([AttributeValues].self, from: data),
+              runs.contains(where: { $0.textStyle == nil }) else {
+            return false
+        }
+
+        let styledRuns = Dictionary(grouping: runs.compactMap { run -> (String, Int)? in
+            guard let style = run.textStyle,
+                  let length = run.length,
+                  length > 0 else { return nil }
+            return (style, length)
+        }, by: { $0.0 })
+
+        return styledRuns.values.contains { styleRuns in
+            let shortRunCount = styleRuns.filter { $0.1 <= 2 }.count
+            return shortRunCount >= 8
+                && shortRunCount * 4 >= styleRuns.count * 3
+        }
     }
     
     // MARK: - System Font Detection
@@ -393,7 +448,7 @@ struct AttributedStringSerializer {
                         // we must not overwrite a correct .textStyle value with a degraded descriptor value.
                         if attributes.textStyle == nil,
                            let textStyleRaw = desc?.object(forKey: .textStyle) as? String {
-                            attributes.textStyle = textStyleRaw
+                            attributes.textStyle = normalizedTextStyle(textStyleRaw)
                         }
                         
                         attributes.fontSize = font?.pointSize ?? 17
@@ -465,7 +520,7 @@ struct AttributedStringSerializer {
                         // Always overwrite any value that .font descriptor may have set,
                         // since font descriptors lose textStyle after fontWithNameAndTraits round-trips.
                         if let styleValue = value as? String {
-                            attributes.textStyle = styleValue
+                            attributes.textStyle = normalizedTextStyle(styleValue)
                             // print("💾 ENCODE textStyle at \(range.location): \(styleValue)")
                         }
                     
@@ -549,10 +604,12 @@ struct AttributedStringSerializer {
             }
         }
 
-        if !allAttributes.isEmpty {
-            allAttributes[0].sourceTextHash = sourceHash
-            allAttributes[0].sourceTextLength = sourceLength
+        if allAttributes.isEmpty {
+            allAttributes.append(AttributeValues())
         }
+        allAttributes[0].sourceText = sourceText
+        allAttributes[0].sourceTextHash = sourceHash
+        allAttributes[0].sourceTextLength = sourceLength
         
         do {
             return try PropertyListEncoder().encode(allAttributes)
@@ -644,7 +701,7 @@ struct AttributedStringSerializer {
                 // Repair malformed inline heading runs (seen in legacy documents) where
                 // short words inside a body paragraph were tagged as Title styles.
                 // These render as oversized bold fragments and can reappear on reopen.
-                var effectiveTextStyle = jsonAttributes.textStyle
+                var effectiveTextStyle = normalizedTextStyle(jsonAttributes.textStyle)
                 var effectiveFontSize = jsonAttributes.fontSize
 
                 if let textStyleValue = effectiveTextStyle,
@@ -686,7 +743,8 @@ struct AttributedStringSerializer {
                     // Must check for "UICTFontTextStyle" prefix - Core Text usage constants like
                     // "CTFontObliqueUsage" are NOT valid UIKit text styles and will cause wrong sizes
                           if let textStyleValue = effectiveTextStyle,
-                       textStyleValue.hasPrefix("UICTFontTextStyle") {
+                              textStyleValue.hasPrefix("UICTFontTextStyle"),
+                              isSystemFontName(fontName) || fontName.contains("UICT") || fontName.contains("TextStyle") {
                         // Use the stored text style to get a proper preferredFont with correct descriptor
                         let textStyle = UIFont.TextStyle(rawValue: textStyleValue)
                         let baseFont = UIFont.preferredFont(forTextStyle: textStyle)

@@ -155,6 +155,9 @@ struct FormattedTextEditor: View {
     var onZoomScaleChange: ((CGFloat) -> Void)?
     var textViewCoordinator: TextViewCoordinator?
     var project: Project?
+    var captionNumberOffsets: [String: Int]
+    var headingStyleCounters: [String: Int]
+    var headingLastNumberForStyle: [String: Int]
     var showInvisibles: Bool = false
     var showLineNumbers: Bool = false
     var font: UIFont
@@ -169,6 +172,9 @@ struct FormattedTextEditor: View {
         selectedRange: Binding<NSRange> = .constant(NSRange(location: 0, length: 0)),
         textViewCoordinator: TextViewCoordinator? = nil,
         project: Project? = nil,
+        captionNumberOffsets: [String: Int] = [:],
+        headingStyleCounters: [String: Int] = [:],
+        headingLastNumberForStyle: [String: Int] = [:],
         showInvisibles: Bool = false,
         showLineNumbers: Bool = false,
         font: UIFont = .preferredFont(forTextStyle: .body),
@@ -201,6 +207,9 @@ struct FormattedTextEditor: View {
         self._selectedRange = selectedRange
         self.textViewCoordinator = textViewCoordinator
         self.project = project
+        self.captionNumberOffsets = captionNumberOffsets
+        self.headingStyleCounters = headingStyleCounters
+        self.headingLastNumberForStyle = headingLastNumberForStyle
         self.showInvisibles = showInvisibles
         self.showLineNumbers = showLineNumbers
         self.font = font
@@ -240,6 +249,9 @@ struct FormattedTextEditor: View {
             selectedRange: $selectedRange,
             textViewCoordinator: textViewCoordinator,
             project: project,
+            captionNumberOffsets: captionNumberOffsets,
+            headingStyleCounters: headingStyleCounters,
+            headingLastNumberForStyle: headingLastNumberForStyle,
             showInvisibles: showInvisibles,
             showLineNumbers: showLineNumbers,
             font: font,
@@ -343,6 +355,13 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
     
     /// Project reference for dynamic numbering (Feature 016)
     var project: Project?
+
+    /// Numbered captions in manuscript files preceding this file, keyed by style name.
+    var captionNumberOffsets: [String: Int]
+
+    /// Heading counters accumulated from manuscript files preceding this file.
+    var headingStyleCounters: [String: Int]
+    var headingLastNumberForStyle: [String: Int]
     
     /// Whether to show invisible characters (spaces, tabs, paragraph marks, page breaks)
     var showInvisibles: Bool = false
@@ -380,6 +399,9 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         selectedRange: Binding<NSRange> = .constant(NSRange(location: 0, length: 0)),
         textViewCoordinator: TextViewCoordinator? = nil,
         project: Project? = nil,
+        captionNumberOffsets: [String: Int] = [:],
+        headingStyleCounters: [String: Int] = [:],
+        headingLastNumberForStyle: [String: Int] = [:],
         showInvisibles: Bool = false,
         showLineNumbers: Bool = false,
         font: UIFont = .preferredFont(forTextStyle: .body),
@@ -412,6 +434,9 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         self._selectedRange = selectedRange
         self.textViewCoordinator = textViewCoordinator
         self.project = project
+        self.captionNumberOffsets = captionNumberOffsets
+        self.headingStyleCounters = headingStyleCounters
+        self.headingLastNumberForStyle = headingLastNumberForStyle
         self.showInvisibles = showInvisibles
         self.showLineNumbers = showLineNumbers
         self.font = font
@@ -451,6 +476,8 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         
         // Pass project reference to layout manager for style information
         layoutManager.project = project
+        layoutManager.initialStyleCounters = headingStyleCounters
+        layoutManager.initialLastNumberForStyle = headingLastNumberForStyle
         layoutManager.showInvisibles = showInvisibles
         layoutManager.showDocumentLineNumbers = showLineNumbers
         
@@ -626,9 +653,17 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         
         // Number before assignment so attachment copies have valid values during
         // TextKit's immediate provider layout, then refresh the owned copies.
-        ImageAttachment.updateCaptionNumbersInAttributedString(attributedText, styleSheet: project?.styleSheet)
+        ImageAttachment.updateCaptionNumbersInAttributedString(
+            attributedText,
+            styleSheet: project?.styleSheet,
+            startingNumbers: captionNumberOffsets
+        )
         textView.attributedText = attributedText
-        ImageAttachment.updateCaptionNumbers(in: textView.textStorage, styleSheet: project?.styleSheet)
+        ImageAttachment.updateCaptionNumbers(
+            in: textView.textStorage,
+            styleSheet: project?.styleSheet,
+            startingNumbers: captionNumberOffsets
+        )
         context.coordinator.lastObservedAttributedText = attributedText
         
         // Initialize previousTextLength for paste detection
@@ -745,9 +780,14 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             }
         }
         
-        // Update line-number/invisibles flags on layout manager
-        if let layoutManager = textView.layoutManager as? NumberingLayoutManager,
-           (layoutManager.showInvisibles != showInvisibles || layoutManager.showDocumentLineNumbers != showLineNumbers) {
+          // Update numbering state and decorative flags when manuscript order or preceding content changes.
+          if let layoutManager = textView.layoutManager as? NumberingLayoutManager,
+              (layoutManager.initialStyleCounters != headingStyleCounters
+                || layoutManager.initialLastNumberForStyle != headingLastNumberForStyle
+                || layoutManager.showInvisibles != showInvisibles
+                || layoutManager.showDocumentLineNumbers != showLineNumbers) {
+                layoutManager.initialStyleCounters = headingStyleCounters
+                layoutManager.initialLastNumberForStyle = headingLastNumberForStyle
             layoutManager.showInvisibles = showInvisibles
             layoutManager.showDocumentLineNumbers = showLineNumbers
             layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
@@ -766,9 +806,17 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             defer {
                 context.coordinator.isUpdatingFromSwiftUI = false
             }
-            ImageAttachment.updateCaptionNumbersInAttributedString(attributedText, styleSheet: project?.styleSheet)
+            ImageAttachment.updateCaptionNumbersInAttributedString(
+                attributedText,
+                styleSheet: project?.styleSheet,
+                startingNumbers: captionNumberOffsets
+            )
             textView.attributedText = attributedText
-            ImageAttachment.updateCaptionNumbers(in: textView.textStorage, styleSheet: project?.styleSheet)
+            ImageAttachment.updateCaptionNumbers(
+                in: textView.textStorage,
+                styleSheet: project?.styleSheet,
+                startingNumbers: captionNumberOffsets
+            )
             return
         }
         
@@ -851,7 +899,11 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                 #endif
             }
             
-            ImageAttachment.updateCaptionNumbersInAttributedString(attributedText, styleSheet: project?.styleSheet)
+            ImageAttachment.updateCaptionNumbersInAttributedString(
+                attributedText,
+                styleSheet: project?.styleSheet,
+                startingNumbers: captionNumberOffsets
+            )
 
             // Update text storage directly for better control
             // This ensures attributes are properly applied
@@ -862,7 +914,11 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             
             // Update caption numbers for image attachments (Feature 016)
             // This must be done after setting the attributed string
-            ImageAttachment.updateCaptionNumbers(in: textView.textStorage, styleSheet: project?.styleSheet)
+            ImageAttachment.updateCaptionNumbers(
+                in: textView.textStorage,
+                styleSheet: project?.styleSheet,
+                startingNumbers: captionNumberOffsets
+            )
             
             // CRITICAL: Restore search highlights after updating attributes
             if !searchHighlights.isEmpty {
@@ -1008,7 +1064,11 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
 
     private func configureEditorInputTraits(_ textView: UITextView) {
         textView.autocorrectionType = .no
+        #if targetEnvironment(macCatalyst)
         textView.spellCheckingType = .no
+        #else
+        textView.spellCheckingType = .yes
+        #endif
         textView.textContentType = nil
         #if targetEnvironment(macCatalyst)
         textView.textContentType = UITextContentType(rawValue: "")
@@ -1727,10 +1787,23 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                     }
                 }
                 
-                // Also ensure .textStyle is set for pasted content
+                // Preserve the insertion style when pasted content has no semantic style tag.
+                let precedingStyle: String? = if pasteRange.location > 0 {
+                    textStorage.attribute(
+                        .textStyle,
+                        at: pasteRange.location - 1,
+                        effectiveRange: nil
+                    ) as? String
+                } else {
+                    nil
+                }
+                let pasteStyle = (textView.typingAttributes[.textStyle] as? String)
+                    ?? precedingStyle
+                    ?? parent.project?.styleSheet?.firstParagraphStyle?.name
+                    ?? UIFont.TextStyle.body.rawValue
                 textStorage.enumerateAttribute(.textStyle, in: pasteRange, options: []) { value, range, _ in
                     if value == nil {
-                        textStorage.addAttribute(.textStyle, value: UIFont.TextStyle.body.rawValue, range: range)
+                        textStorage.addAttribute(.textStyle, value: pasteStyle, range: range)
                     }
                 }
             } else if currentLength > 0 && cursorPos > 0 && cursorPos <= currentLength {
@@ -1741,15 +1814,13 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                 // Only check the character just typed (at cursor - 1)
                 let checkPos = cursorPos - 1
                 if textStorage.attribute(.textStyle, at: checkPos, effectiveRange: nil) == nil {
-                    // Find style from previous character
-                    var styleToApply = (textView.typingAttributes[.textStyle] as? String)
+                    let previousStyle = checkPos > 0
+                        ? textStorage.attribute(.textStyle, at: checkPos - 1, effectiveRange: nil) as? String
+                        : nil
+                    let styleToApply = (textView.typingAttributes[.textStyle] as? String)
+                        ?? previousStyle
                         ?? parent.project?.styleSheet?.firstParagraphStyle?.name
                         ?? UIFont.TextStyle.body.rawValue
-                    if checkPos > 0 {
-                        if let prevStyle = textStorage.attribute(.textStyle, at: checkPos - 1, effectiveRange: nil) as? String {
-                            styleToApply = prevStyle
-                        }
-                    }
                     textStorage.addAttribute(.textStyle, value: styleToApply, range: NSRange(location: checkPos, length: 1))
                 }
                 
@@ -2422,9 +2493,32 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         )
     }
 
+    private func caretFont(at position: UITextPosition) -> UIFont? {
+        let offset = self.offset(from: beginningOfDocument, to: position)
+        let textLength = attributedText.length
+
+        if textLength > 0 {
+            let characterIndex = min(max(offset, 0), textLength - 1)
+            if let attributedFont = attributedText.attribute(.font, at: characterIndex, effectiveRange: nil) as? UIFont {
+                return attributedFont
+            }
+        }
+
+        return typingAttributes[.font] as? UIFont ?? font
+    }
+
     override func caretRect(for position: UITextPosition) -> CGRect {
         if let rect = validInputRect(super.caretRect(for: position)) {
-            return rect
+            guard let caretHeight = caretFont(at: position)?.lineHeight, caretHeight > 0 else {
+                return rect
+            }
+
+            return CGRect(
+                x: rect.minX,
+                y: rect.minY,
+                width: rect.width,
+                height: caretHeight
+            )
         }
 
         return fallbackInputRect()

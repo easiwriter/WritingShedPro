@@ -116,7 +116,7 @@ struct StyleSheetDetailView: View {
             Section(NSLocalizedString("styleSheetDetail.headingStyles", comment: "Heading styles section")) {
                 ForEach(headingStyles, id: \.id) { (style: TextStyleModel) in
                     NavigationLink {
-                        TextStyleEditorView(style: style, isNewStyle: false)
+                        existingStyleEditor(for: style)
                     } label: {
                         StyleListRow(style: style)
                     }
@@ -129,7 +129,7 @@ struct StyleSheetDetailView: View {
         Section(NSLocalizedString("styleSheetDetail.textStyles", comment: "Text styles section")) {
             ForEach(textStyles, id: \.id) { (style: TextStyleModel) in
                 NavigationLink {
-                    TextStyleEditorView(style: style, isNewStyle: false)
+                    existingStyleEditor(for: style)
                 } label: {
                     StyleListRow(style: style)
                 }
@@ -143,7 +143,7 @@ struct StyleSheetDetailView: View {
             Section(NSLocalizedString("styleSheetDetail.listStyles", comment: "List styles section")) {
                 ForEach(listStyles, id: \.id) { (style: TextStyleModel) in
                     NavigationLink {
-                        TextStyleEditorView(style: style, isNewStyle: false)
+                        existingStyleEditor(for: style)
                     } label: {
                         StyleListRow(style: style)
                     }
@@ -165,7 +165,7 @@ struct StyleSheetDetailView: View {
                 
                 ForEach(footnoteStyles, id: \.id) { (style: TextStyleModel) in
                     NavigationLink {
-                        TextStyleEditorView(style: style, isNewStyle: false)
+                        existingStyleEditor(for: style)
                     } label: {
                         StyleListRow(style: style)
                     }
@@ -209,6 +209,16 @@ struct StyleSheetDetailView: View {
         style.styleSheet = styleSheet
         modelContext.insert(style)
         newStyle = style
+    }
+
+    private func existingStyleEditor(for style: TextStyleModel) -> some View {
+        TextStyleEditorView(
+            style: style,
+            isNewStyle: false,
+            onSave: {
+                refreshTrigger.toggle()
+            }
+        )
     }
 }
 

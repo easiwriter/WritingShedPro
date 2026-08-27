@@ -509,6 +509,32 @@ struct TextFormatter {
         // Default to body if no close match
         return .body
     }
+
+    private static func matchFontToProjectStyle(_ font: UIFont, project: Project) -> String? {
+        guard let styles = project.styleSheet?.textStyles else { return nil }
+
+        let relevantTraits: UIFontDescriptor.SymbolicTraits = [.traitBold, .traitItalic]
+        let fontTraits = font.fontDescriptor.symbolicTraits.intersection(relevantTraits)
+        let tolerance: CGFloat = 0.1
+
+        let matches = styles.filter { style in
+            let renderedFont = style.generateFont()
+            let storedSizeFont = style.generateFont(applyPlatformScaling: false)
+            let renderedTraits = renderedFont.fontDescriptor.symbolicTraits.intersection(relevantTraits)
+            let sameFont = renderedFont.fontName.caseInsensitiveCompare(font.fontName) == .orderedSame
+                || renderedFont.familyName.caseInsensitiveCompare(font.familyName) == .orderedSame
+            let sameSize = abs(renderedFont.pointSize - font.pointSize) < tolerance
+                || abs(storedSizeFont.pointSize - font.pointSize) < tolerance
+
+            return sameFont && sameSize && renderedTraits == fontTraits
+        }
+
+                guard matches.count == 1,
+                            matches[0].numberFormat == .none else {
+                        return nil
+                }
+                return matches[0].name
+    }
     
     // MARK: - Model-Based Paragraph Formatting (Phase 5)
     
@@ -800,8 +826,24 @@ struct TextFormatter {
             return style.rawValue
         }
         
-        // Fallback: try to match font to style
+        // Legacy imports can have the correct custom font but no .textStyle tag.
+        // Match the project stylesheet before generic Dynamic Type size inference.
         if let font = attributedText.attribute(.font, at: checkLocation, effectiveRange: nil) as? UIFont {
+            if let projectStyleName = matchFontToProjectStyle(font, project: project) {
+                return projectStyleName
+            }
+            let hasMatchingNumberedStyle = project.styleSheet?.textStyles?.contains { style in
+                let renderedFont = style.generateFont()
+                let storedSizeFont = style.generateFont(applyPlatformScaling: false)
+                let sameFont = renderedFont.fontName.caseInsensitiveCompare(font.fontName) == .orderedSame
+                    || renderedFont.familyName.caseInsensitiveCompare(font.familyName) == .orderedSame
+                let sameSize = abs(renderedFont.pointSize - font.pointSize) < 0.1
+                    || abs(storedSizeFont.pointSize - font.pointSize) < 0.1
+                return sameFont && sameSize && style.numberFormat != .none
+            } ?? false
+            if hasMatchingNumberedStyle {
+                return nil
+            }
             let matchedStyle = matchFontToStyle(font)
             return matchedStyle.rawValue
         }

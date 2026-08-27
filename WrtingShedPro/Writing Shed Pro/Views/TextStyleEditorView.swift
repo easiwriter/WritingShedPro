@@ -21,6 +21,7 @@ struct TextStyleEditorView: View {
     @State private var showingDeleteAlert = false
     @State private var deleteErrorMessage: String?
     @State private var showingReplacementPicker = false
+    @State private var replacementPickerPending = false
     @State private var filesUsingStyle: [String] = []
     @State private var showingSaveOptionsAlert = false
     @State private var saveErrorMessage: String?
@@ -139,7 +140,7 @@ struct TextStyleEditorView: View {
                 Button("button.cancel", role: .cancel) { }
             } else {
                 Button("textStyleEditor.delete.replaceAndDelete", role: .destructive) {
-                    showingReplacementPicker = true
+                    replacementPickerPending = true
                 }
                 Button("button.cancel", role: .cancel) { }
             }
@@ -150,6 +151,11 @@ struct TextStyleEditorView: View {
                 let fileList = filesUsingStyle.prefix(3).joined(separator: ", ")
                 Text(String(format: NSLocalizedString("textStyleEditor.delete.inUse", comment: ""), filesUsingStyle.count, fileList))
             }
+        }
+        .onChange(of: showingDeleteAlert) { _, isShowing in
+            guard !isShowing, replacementPickerPending else { return }
+            replacementPickerPending = false
+            showingReplacementPicker = true
         }
         .sheet(isPresented: $showingReplacementPicker) {
             if let project = project {
@@ -192,6 +198,19 @@ struct TextStyleEditorView: View {
             }
         } message: {
             Text(saveErrorMessage ?? "")
+        }
+        .alert(
+            "textStyleEditor.delete.failedTitle",
+            isPresented: Binding(
+                get: { deleteErrorMessage != nil },
+                set: { if !$0 { deleteErrorMessage = nil } }
+            )
+        ) {
+            Button("button.ok", role: .cancel) {
+                deleteErrorMessage = nil
+            }
+        } message: {
+            Text(deleteErrorMessage ?? "")
         }
     }
     
@@ -1002,9 +1021,13 @@ struct TextStyleEditorView: View {
                 stylesheet.textStyles?.removeAll { $0.id == style.id }
             }
             modelContext.delete(style)
-            WriteCoalescer.shared?.requestSave()
-            onSave?()
-            dismiss()
+            do {
+                try WriteCoalescer.shared?.requestSaveAndFlush(reason: "text-style-delete")
+                onSave?()
+                dismiss()
+            } catch {
+                deleteErrorMessage = error.localizedDescription
+            }
             return
         }
         
@@ -1015,6 +1038,7 @@ struct TextStyleEditorView: View {
                 from: proj,
                 context: modelContext
             )
+            try WriteCoalescer.shared?.requestSaveAndFlush(reason: "text-style-delete")
             
             onSave?() // Notify parent that changes occurred
             dismiss()

@@ -115,18 +115,7 @@ CHAPTER_NAMES = {
 
 # Optional external links appended at the end of a chapter list in the TOC.
 # Each tuple is (label, href).
-CHAPTER_EXTRA_LINKS = {
-    "2-tutorials": [
-        (
-            "Watch the video",
-            "wspvideo:introduction",
-        ),
-        (
-            "Watch the video",
-            "wspvideo:tutorial-1",
-        )
-    ]
-}
+CHAPTER_EXTRA_LINKS = {}
 
 
 def get_section_files(chapter_dir: str) -> list[tuple[str, str]]:

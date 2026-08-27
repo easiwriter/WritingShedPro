@@ -10,6 +10,7 @@ struct ContentView: View {
     @Environment(\.modelContext) var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @Environment(WriteCoalescer.self) private var writeCoalescer
+    @Environment(SyncHealthMonitor.self) private var syncHealthMonitor
     
     /// Timestamp of the last foreground sync nudge, used to debounce rapid transitions
     @State private var lastForegroundSyncDate: Date = .distantPast
@@ -60,6 +61,7 @@ struct ContentView: View {
     var body: some View {
         ContentViewBody(
             projects: projects,
+            refreshTrigger: refreshTrigger,
             state: state,
             onInitialize: initializeUserOrderIfNeeded,
             onInitializeStyleSheets: initializeStyleSheets,
@@ -117,7 +119,6 @@ struct ContentView: View {
             }
             .padding(.top, 8)
         }
-        .id(refreshTrigger)
         .task {
             if scenePhase == .active {
                 startPeriodicSyncTimer()
@@ -405,7 +406,49 @@ struct ContentView: View {
         #if DEBUG
         print("🔄 [ContentView] Refresh requested from Settings")
         #endif
-        scheduleRemoteReconcile(reason: "sync-now")
+        Task { @MainActor in
+            guard let container = Write_App.activeEnsemblesContainer else {
+                scheduleRemoteReconcile(reason: "sync-now-no-container")
+                return
+            }
+            guard !Write_App.storeUnregisteredBlockedThisLaunch,
+                  !Write_App.partialStoreBlockedThisLaunch else {
+                syncHealthMonitor.recordExportFailure(isBlocking: true)
+                Write_App.logErrorToFile("⛔️ [Ensembles] Settings Sync Now blocked by sync quarantine")
+                return
+            }
+
+            let storeHadData = Write_App.recordFirstEnsemblesDataAvailableIfNeeded(
+                modelContainer: modelContext.container,
+                reason: "settings manual sync preflight"
+            )
+            Write_App.logToFile("🔄 [Ensembles] Manual sync started from Settings (hadLocalData=\(storeHadData), attached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+
+            do {
+                if storeHadData {
+                    try await container.sync(options: .none)
+                } else {
+                    try await container.sync(options: .suppressCloudFileDeposition)
+                }
+                if Write_App.recordFirstEnsemblesDataAvailableIfNeeded(
+                    modelContainer: modelContext.container,
+                    reason: "settings manual sync"
+                ) {
+                    Write_App.recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: "settings manual sync")
+                    syncHealthMonitor.recordExportSuccess()
+                    NotificationCenter.default.post(name: .writingShedProSyncDidUpdateLocalData, object: nil)
+                    Write_App.logToFile("✅ [Ensembles] Manual sync completed from Settings")
+                } else {
+                    syncHealthMonitor.recordExportFailure(isBlocking: false)
+                    Write_App.logToFile("⚠️ [Ensembles] Manual sync completed from Settings but local store is still empty")
+                }
+            } catch {
+                syncHealthMonitor.recordExportFailure(isBlocking: false)
+                Write_App.logErrorToFile("❌ [Ensembles] Manual sync failed from Settings: \(Write_App.detailedErrorDescription(error))")
+            }
+
+            scheduleRemoteReconcile(reason: "sync-now")
+        }
     }
 
     /// `@Query` can occasionally miss newly synced rows, or return
@@ -1103,7 +1146,7 @@ struct ContentView: View {
                     let messageKey: String
                     switch saveGateError {
                     case let .syncBusy(reason, _, _):
-                        messageKey = reason == "json-import-wsp-phase-1"
+                        messageKey = reason == "json-import-wsp-final"
                             ? "contentView.importError.syncChangedBeforeSave"
                             : "contentView.importError.syncChangedDuringImport"
                     }
@@ -1138,7 +1181,7 @@ struct ContentView: View {
         guard let ensemblesContainer = Write_App.activeEnsemblesContainer else { return true }
 
         if EnsemblesSaveGate.canSaveNow(
-            reason: "json-import-wsp-phase-1",
+            reason: "json-import-wsp-preflight",
             context: modelContext
         ) {
             return true

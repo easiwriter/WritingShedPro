@@ -43,6 +43,39 @@ enum StyleReapplicationAttributeMerger {
 
         return merged
     }
+
+    static func reapplyStyles(
+        in source: NSAttributedString,
+        resolveStyle: (String) -> TextStyleModel?
+    ) -> NSAttributedString {
+        let mutable = NSMutableAttributedString(attributedString: source)
+        var styleRuns: [(name: String, range: NSRange)] = []
+        mutable.enumerateAttribute(
+            .textStyle,
+            in: NSRange(location: 0, length: mutable.length),
+            options: []
+        ) { value, range, _ in
+            guard let name = value as? String else { return }
+            styleRuns.append((name, range))
+        }
+
+        for styleRun in styleRuns {
+            guard let style = resolveStyle(styleRun.name) else { continue }
+            let styleAttributes = style.generateAttributes()
+            var attributeRuns: [([NSAttributedString.Key: Any], NSRange)] = []
+            mutable.enumerateAttributes(in: styleRun.range, options: []) { attributes, range, _ in
+                attributeRuns.append((attributes, range))
+            }
+            for (attributes, range) in attributeRuns {
+                mutable.setAttributes(
+                    merge(styleAttributes: styleAttributes, currentAttributes: attributes),
+                    range: range
+                )
+            }
+        }
+
+        return mutable
+    }
 }
 
 /// Data for presenting the new index entry dialog
@@ -81,6 +114,7 @@ struct FileEditView: View {
     @State private var hasMissingAttachments = false
     @State private var hasMismatchedFormattedContent = false
     @State private var hasMissingSyncedBody = false
+    @State private var showMissingBodyEditConfirmation = false
     @State private var presentDeleteAlert = false
     @State private var presentClearTextAlert = false
     @State private var showClearTextToast = false
@@ -190,6 +224,8 @@ struct FileEditView: View {
     @State private var searchManager = InEditorSearchManager()
     @State private var isSimplifiedSearchMode = false  // True when opened from multi-file search with replace
     @State private var isFromMultiFileSearch = false  // True when opened from any multi-file search
+    @State private var showSpellingBar = false
+    @State private var spellingManager = DocumentSpellingManager()
     
     // Feature 031: Table of Contents
     @State private var showTOCSettings = false
@@ -333,9 +369,23 @@ struct FileEditView: View {
     private var canAddIndexMarkers: Bool {
         canInsertGlossaryAndIndexMarkers && backMatterSettings.isEnabled(.index)
     }
+
+    private var manuscriptCaptionNumberOffsets: [String: Int] {
+        guard let project = file.project else { return [:] }
+        return ManuscriptAssemblyService(context: modelContext)
+            .captionNumberOffsets(for: file, in: project)
+    }
+
+    private var manuscriptHeadingNumberState: (styleCounters: [String: Int], lastNumberForStyle: [String: Int]) {
+        guard let project = file.project else { return ([:], [:]) }
+        return ManuscriptAssemblyService(context: modelContext)
+            .headingNumberCounterState(for: file, in: project)
+    }
     
     private func textEditorSection() -> some View {
-        Group {
+        let headingNumberState = manuscriptHeadingNumberState
+
+        return Group {
             if UIDevice.current.userInterfaceIdiom == .phone {
                 // iPhone: Render at true point size so text matches native editors (e.g. Pages).
                 GeometryReader { geometry in
@@ -349,6 +399,9 @@ struct FileEditView: View {
                                 selectedRange: $selectedRange,
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
+                                captionNumberOffsets: manuscriptCaptionNumberOffsets,
+                                headingStyleCounters: headingNumberState.styleCounters,
+                                headingLastNumberForStyle: headingNumberState.lastNumberForStyle,
                                 showInvisibles: showInvisibles,
                                 showLineNumbers: showLineNumbers,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
@@ -358,6 +411,9 @@ struct FileEditView: View {
                                 },
                                 onSimpleTypingChange: { range, replacementText, selectedRange in
                                     handleSimpleTypingChange(range: range, replacementText: replacementText, selectedRange: selectedRange)
+                                },
+                                onSelectionChange: { range in
+                                    updateCurrentParagraphStyle(at: range)
                                 },
                                 onImageTapped: { attachment, frame, position in
                                     handleImageTap(attachment: attachment, frame: frame, position: position)
@@ -425,6 +481,9 @@ struct FileEditView: View {
                                 selectedRange: $selectedRange,
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
+                                captionNumberOffsets: manuscriptCaptionNumberOffsets,
+                                headingStyleCounters: headingNumberState.styleCounters,
+                                headingLastNumberForStyle: headingNumberState.lastNumberForStyle,
                                 showInvisibles: showInvisibles,
                                 showLineNumbers: showLineNumbers,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
@@ -434,6 +493,9 @@ struct FileEditView: View {
                                 },
                                 onSimpleTypingChange: { range, replacementText, selectedRange in
                                     handleSimpleTypingChange(range: range, replacementText: replacementText, selectedRange: selectedRange)
+                                },
+                                onSelectionChange: { range in
+                                    updateCurrentParagraphStyle(at: range)
                                 },
                                 onImageTapped: { attachment, frame, position in
                                     handleImageTap(attachment: attachment, frame: frame, position: position)
@@ -508,6 +570,9 @@ struct FileEditView: View {
                                 selectedRange: $selectedRange,
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
+                                captionNumberOffsets: manuscriptCaptionNumberOffsets,
+                                headingStyleCounters: headingNumberState.styleCounters,
+                                headingLastNumberForStyle: headingNumberState.lastNumberForStyle,
                                 showInvisibles: showInvisibles,
                                 showLineNumbers: showLineNumbers,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
@@ -517,6 +582,9 @@ struct FileEditView: View {
                                 },
                                 onSimpleTypingChange: { range, replacementText, selectedRange in
                                     handleSimpleTypingChange(range: range, replacementText: replacementText, selectedRange: selectedRange)
+                                },
+                                onSelectionChange: { range in
+                                    updateCurrentParagraphStyle(at: range)
                                 },
                                 onImageTapped: { attachment, frame, position in
                                     handleImageTap(attachment: attachment, frame: frame, position: position)
@@ -581,6 +649,9 @@ struct FileEditView: View {
                                 selectedRange: $selectedRange,
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
+                                captionNumberOffsets: manuscriptCaptionNumberOffsets,
+                                headingStyleCounters: headingNumberState.styleCounters,
+                                headingLastNumberForStyle: headingNumberState.lastNumberForStyle,
                                 showInvisibles: showInvisibles,
                                 showLineNumbers: showLineNumbers,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
@@ -590,6 +661,9 @@ struct FileEditView: View {
                                 },
                                 onSimpleTypingChange: { range, replacementText, selectedRange in
                                     handleSimpleTypingChange(range: range, replacementText: replacementText, selectedRange: selectedRange)
+                                },
+                                onSelectionChange: { range in
+                                    updateCurrentParagraphStyle(at: range)
                                 },
                                 onImageTapped: { attachment, frame, position in
                                     handleImageTap(attachment: attachment, frame: frame, position: position)
@@ -801,6 +875,16 @@ struct FileEditView: View {
                 systemImage: showLineNumbers ? "list.bullet.rectangle.portrait" : "list.number"
             )
         }
+
+        Button(action: {
+            startDocumentSpellingCheck()
+        }) {
+            Label(
+                NSLocalizedString("spelling.checkDocument", comment: "Check spelling throughout the document"),
+                systemImage: "text.badge.checkmark"
+            )
+        }
+        .disabled(isPaginationMode)
         
         // Content type toggle (Rich Text / Markdown) - not for poetry or drama projects
         if supportsMarkdown {
@@ -1094,6 +1178,7 @@ struct FileEditView: View {
                 if showSearchButton {
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.2)) {
+                            closeDocumentSpellingCheck()
                             showSearchBar.toggle()
                             if showSearchBar, let textView = textViewCoordinator.textView {
                                 // Connect search manager to text view when opening
@@ -1110,6 +1195,15 @@ struct FileEditView: View {
                     }
                     .accessibilityLabel("Find and Replace")
                     .keyboardShortcut("f", modifiers: .command)
+                }
+
+                if !isCompact && !isPaginationMode {
+                    Button(action: {
+                        startDocumentSpellingCheck()
+                    }) {
+                        Image(systemName: showSpellingBar ? "text.badge.checkmark.fill" : "text.badge.checkmark")
+                    }
+                    .accessibilityLabel(NSLocalizedString("spelling.checkDocument", comment: "Check spelling throughout the document"))
                 }
                 
                 // Plot elements button (only for files linked to fiction scenes with plot elements)
@@ -1790,6 +1884,15 @@ struct FileEditView: View {
                     isVisible: $showSearchBar,
                     isSimplifiedMode: isSimplifiedSearchMode
                 )
+
+                DocumentSpellingBar(
+                    manager: spellingManager,
+                    isVisible: $showSpellingBar,
+                    canReplace: isFileEditable,
+                    onReplace: replaceCurrentSpellingIssue,
+                    onRescan: scanDocumentSpelling,
+                    onClose: closeDocumentSpellingCheck
+                )
             }
             
             // Main content area - switch between edit and pagination modes
@@ -1830,6 +1933,11 @@ struct FileEditView: View {
                     }
                 }
                 .keyboardShortcut("g", modifiers: [.command, .shift])
+
+                Button("") {
+                    startDocumentSpellingCheck()
+                }
+                .keyboardShortcut(";", modifiers: .command)
                 
                 // List shortcuts: Cmd+Shift+7 for numbered, Cmd+Shift+8 for bulleted
                 Button("") {
@@ -1971,11 +2079,16 @@ struct FileEditView: View {
                 .font(.body)
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 4) {
-                Text("Content is still missing on this Mac")
+                Text(NSLocalizedString("fileEditor.missingBody.title", comment: "Missing synced file body warning title"))
                     .font(.subheadline.weight(.semibold))
-                Text("The file record has synced, but its text body has not arrived. Editing is disabled here to avoid replacing the version that is visible on your other device.")
+                Text(NSLocalizedString("fileEditor.missingBody.message", comment: "Missing synced file body warning message"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Button(NSLocalizedString("fileEditor.missingBody.editEmpty", comment: "Edit an intentionally empty file")) {
+                    showMissingBodyEditConfirmation = true
+                }
+                .font(.caption.weight(.semibold))
+                .padding(.top, 2)
             }
             Spacer(minLength: 0)
         }
@@ -1983,6 +2096,17 @@ struct FileEditView: View {
         .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
         .padding(.horizontal)
         .padding(.top, 8)
+        .alert(
+            NSLocalizedString("fileEditor.missingBody.confirmTitle", comment: "Confirm editing an intentionally empty file"),
+            isPresented: $showMissingBodyEditConfirmation
+        ) {
+            Button(NSLocalizedString("common.cancel", comment: "Cancel"), role: .cancel) {}
+            Button(NSLocalizedString("fileEditor.missingBody.confirmEdit", comment: "Confirm editing empty file")) {
+                hasMissingSyncedBody = false
+            }
+        } message: {
+            Text(NSLocalizedString("fileEditor.missingBody.confirmMessage", comment: "Warning before overriding missing body protection"))
+        }
     }
     
     var body: some View {
@@ -2028,6 +2152,7 @@ struct FileEditView: View {
                 
                 // Disconnect search manager to clean up highlights and observers
                 searchManager.disconnect()
+                spellingManager.disconnect()
 
                 flushPendingEditorChanges(reason: "editor-disappear-flush")
             }
@@ -2585,6 +2710,75 @@ struct FileEditView: View {
             }
     }
     
+    // MARK: - Document Spelling
+
+    private func startDocumentSpellingCheck() {
+        guard !isPaginationMode else { return }
+
+        showSearchBar = false
+        searchManager.disconnect()
+        showSpellingBar = true
+
+        if let textView = textViewCoordinator.textView {
+            spellingManager.connect(to: textView)
+            spellingManager.scan(text: textView.text, startingAt: textView.selectedRange.location)
+        } else {
+            DispatchQueue.main.async {
+                scanDocumentSpelling()
+            }
+        }
+    }
+
+    private func scanDocumentSpelling() {
+        guard let textView = textViewCoordinator.textView else { return }
+        spellingManager.connect(to: textView)
+        spellingManager.scan(text: textView.text, startingAt: textView.selectedRange.location)
+    }
+
+    private func closeDocumentSpellingCheck() {
+        showSpellingBar = false
+        spellingManager.disconnect()
+    }
+
+    private func replaceCurrentSpellingIssue(with replacement: String) {
+        guard isFileEditable,
+              !replacement.isEmpty,
+              let issue = spellingManager.currentIssue,
+              let textView = textViewCoordinator.textView,
+              NSMaxRange(issue.range) <= textView.textStorage.length else { return }
+
+        flushPendingEditorChanges(reason: "spelling-replacement-preflight")
+
+        let beforeContent = NSAttributedString(attributedString: textView.attributedText)
+        let replacementAttributes = beforeContent.attributes(at: issue.range.location, effectiveRange: nil)
+        let mutableContent = NSMutableAttributedString(attributedString: beforeContent)
+        mutableContent.replaceCharacters(
+            in: issue.range,
+            with: NSAttributedString(string: replacement, attributes: replacementAttributes)
+        )
+        let afterContent = NSAttributedString(attributedString: mutableContent)
+
+        textView.textStorage.setAttributedString(afterContent)
+        attributedContent = afterContent
+        previousContent = afterContent.string
+        previousAttributedContent = afterContent
+        file.currentVersion?.attributedContent = afterContent
+        file.currentVersion?.referenceMetadataData = extractReferenceMetadata(from: afterContent).encode()
+        file.modifiedDate = Date()
+
+        let command = FormatApplyCommand(
+            description: NSLocalizedString("spelling.replaceUndo", comment: "Undo description for replacing a misspelled word"),
+            range: issue.range,
+            beforeContent: beforeContent,
+            afterContent: afterContent,
+            targetFile: file
+        )
+        undoManager.execute(command)
+
+        spellingManager.didReplaceCurrentIssue(with: replacement)
+        searchManager.notifyTextChanged()
+    }
+
     // MARK: - Search Context Activation
     
     private func activateSearchFromContext(_ context: SearchContext) {
@@ -2800,7 +2994,7 @@ struct FileEditView: View {
 
         // Register stylesheet with provider for image caption rendering
         if let styleSheet = file.project?.styleSheet {
-            StyleSheetProvider.shared.register(
+            _ = StyleSheetProvider.shared.register(
                 styleSheet: styleSheet,
                 for: file.id,
                 ownerID: styleSheetRegistrationOwnerID
@@ -2816,6 +3010,15 @@ struct FileEditView: View {
         if hasMissingSyncedBody {
             #if DEBUG
             print("⚠️ [FileEditView] '\(file.name)' has a synced-empty body shell; keeping editor read-only until body data arrives")
+            #endif
+        }
+
+        if let currentVersion = file.currentVersion,
+           currentVersion.reconcileContentFromFormattedPayloadIfPossible() {
+            file.modifiedDate = Date()
+            WriteCoalescer.shared?.requestSave(reason: "reconcile-formatted-source-text")
+            #if DEBUG
+            print("🩹 [FileEditView] Recovered stale plain text from verified formatted payload")
             #endif
         }
         
@@ -2846,8 +3049,33 @@ struct FileEditView: View {
                 return AttributedStringSerializer.containsInlineHeadingStyleArtifacts(in: raw, text: file.currentVersion?.content ?? "")
             }()
 
+            let hasFragmentedTextStyleArtifacts: Bool = {
+                guard let raw = file.currentVersion?.effectiveFormattedContent else { return false }
+                return AttributedStringSerializer.containsFragmentedTextStyleArtifacts(
+                    in: raw,
+                    text: file.currentVersion?.content ?? ""
+                )
+            }()
+
             // Strip adaptive colors (black/white/gray) to support dark mode properly
             var processedContent = AttributedStringSerializer.stripAdaptiveColors(from: savedContent)
+            var shouldPersistFragmentedStyleRepair = false
+
+            if hasFragmentedTextStyleArtifacts, let project = file.project {
+                let repairedContent = StyleReapplicationAttributeMerger.reapplyStyles(
+                    in: processedContent
+                ) { styleName in
+                    StyleSheetService.resolveStyle(
+                        named: styleName,
+                        for: project,
+                        context: modelContext
+                    )
+                }
+                if !repairedContent.isEqual(to: processedContent) {
+                    processedContent = repairedContent
+                    shouldPersistFragmentedStyleRepair = true
+                }
+            }
 
             if ImageAttachment.normalizeFileIDs(in: processedContent, to: file.id),
                isFormattedPayloadComplete {
@@ -2879,6 +3107,15 @@ struct FileEditView: View {
             attributedContent = processedContent
             previousContent = attributedContent.string
             previousAttributedContent = processedContent  // Cache for undo without expensive DB fetch
+
+            if shouldPersistFragmentedStyleRepair, isFormattedPayloadComplete {
+                file.currentVersion?.attributedContent = processedContent
+                file.modifiedDate = Date()
+                WriteCoalescer.shared?.requestSave(reason: "open-fragmented-style-repair")
+                #if DEBUG
+                print("🩹 Persisted fragmented text-style repair for CloudKit sync")
+                #endif
+            }
 
             // If decode repaired malformed inline heading runs (oversized "bold" fragments),
             // persist immediately so CloudKit exports the cleaned content to other devices.
@@ -3036,7 +3273,11 @@ struct FileEditView: View {
                 // Modern JSON format documents SHOULD have styles reapplied
                 let isLegacyRTF = AttributedStringSerializer.isLegacyRTFFormat(file.currentVersion?.effectiveFormattedContent)
                 
-                if !isLegacyRTF && !hasMissingAttachments && !hasMismatchedFormattedContent && !hasMissingSyncedBody && shouldReapplyStylesOnOpen(for: project) {
+                if !isLegacyRTF
+                    && !hasMissingAttachments
+                    && !hasMismatchedFormattedContent
+                    && !hasMissingSyncedBody
+                    && shouldReapplyStylesOnOpen(for: project) {
                     #if DEBUG
                     print("📝 onAppear: Reapplying styles to pick up any changes")
                     #endif
@@ -3427,6 +3668,11 @@ struct FileEditView: View {
             forceRefresh.toggle()
             refreshTrigger = UUID()
             searchManager.notifyTextChanged()
+            if showSpellingBar {
+                DispatchQueue.main.async {
+                    scanDocumentSpelling()
+                }
+            }
             return
         }
 
@@ -3454,6 +3700,10 @@ struct FileEditView: View {
             textView.setNeedsLayout()
             textView.setNeedsDisplay()
             searchManager.notifyTextChanged()
+            if showSpellingBar {
+                spellingManager.connect(to: textView)
+                spellingManager.scan(text: textView.text, startingAt: textView.selectedRange.location)
+            }
             return
         }
         
@@ -3491,6 +3741,11 @@ struct FileEditView: View {
                     print("⚠️ No text view available to reconnect search manager")
                     #endif
                 }
+            }
+        }
+        if showSpellingBar {
+            DispatchQueue.main.async {
+                scanDocumentSpelling()
             }
         }
     }
@@ -7747,28 +8002,30 @@ struct FileEditView: View {
     }
     
     /// Update the current paragraph style state by checking the attributed content
-    private func updateCurrentParagraphStyle() {
-        if let typingStyleName = textViewCoordinator.textView?.typingAttributes[.textStyle] as? String {
-            let typingStyle = UIFont.TextStyle(rawValue: typingStyleName)
-            currentParagraphStyle = typingStyle
-            return
-        }
+    private func updateCurrentParagraphStyle(at range: NSRange? = nil) {
+        let rangeToCheck = range ?? selectedRange
 
-        // Try model-based lookup if we have a project
-        if let project = file.project,
-           let styleName = TextFormatter.getCurrentStyleName(
+        // Try model-based lookup if we have a project. An inconclusive result must
+        // remain unset rather than falling through to generic Body inference.
+        if let project = file.project {
+            let styleName = TextFormatter.getCurrentStyleName(
                in: attributedContent,
-               at: selectedRange,
+               at: rangeToCheck,
                project: project,
                context: modelContext
-           ) {
-            currentParagraphStyle = UIFont.TextStyle(rawValue: styleName)
+            )
+            currentParagraphStyle = styleName.flatMap(UIFont.TextStyle.init(rawValue:))
             return
         }
         
         // Fallback to direct UIFont.TextStyle lookup
-        if let style = TextFormatter.getCurrentStyle(in: attributedContent, at: selectedRange) {
+        if let style = TextFormatter.getCurrentStyle(in: attributedContent, at: rangeToCheck) {
             currentParagraphStyle = style
+            return
+        }
+
+        if let typingStyleName = textViewCoordinator.textView?.typingAttributes[.textStyle] as? String {
+            currentParagraphStyle = UIFont.TextStyle(rawValue: typingStyleName)
         }
     }
     
@@ -9587,7 +9844,8 @@ struct FileEditView: View {
             textView.textStorage.addAttribute(.attachment, value: storedAttachment, range: attachmentRange)
             ImageAttachment.updateCaptionNumbers(
                 in: textView.textStorage,
-                styleSheet: file.project?.styleSheet
+                styleSheet: file.project?.styleSheet,
+                startingNumbers: manuscriptCaptionNumberOffsets
             )
             textView.textStorage.edited(.editedAttributes, range: fullRange, changeInLength: 0)
             textView.selectedRange = NSRange(location: position, length: 1)

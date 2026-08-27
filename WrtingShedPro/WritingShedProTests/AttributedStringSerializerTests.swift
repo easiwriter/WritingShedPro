@@ -3,6 +3,34 @@ import UIKit
 @testable import Writing_Shed_Pro
 
 final class AttributedStringSerializerTests: XCTestCase {
+
+    func testEncodedPayloadCarriesVerifiedSourceText() {
+        let source = NSAttributedString(string: "Synced text \u{FFFC} with an attachment placeholder")
+
+        let encoded = AttributedStringSerializer.encode(source)
+
+        XCTAssertEqual(AttributedStringSerializer.verifiedSourceText(in: encoded), source.string)
+    }
+
+    func testEmptyEncodedPayloadCarriesVerifiedSourceText() {
+        let encoded = AttributedStringSerializer.encode(NSAttributedString())
+
+        XCTAssertEqual(AttributedStringSerializer.verifiedSourceText(in: encoded), "")
+    }
+
+    @MainActor
+    func testVersionReconcilesStaleContentFromVerifiedFormattedPayload() {
+        let currentText = "Current text with image \u{FFFC}"
+        let version = Version(content: "Stale text")
+        let encoded = AttributedStringSerializer.encode(NSAttributedString(string: currentText))
+        version.setFormattedContentData(encoded, sourceText: currentText)
+        version.content = "Stale text"
+
+        XCTAssertTrue(version.hasFormattedContentSyncMismatch)
+        XCTAssertTrue(version.reconcileContentFromFormattedPayloadIfPossible())
+        XCTAssertEqual(version.content, currentText)
+        XCTAssertFalse(version.hasFormattedContentSyncMismatch)
+    }
     
     // MARK: - Plain Text Round Trip
     
@@ -500,5 +528,59 @@ final class AttributedStringSerializerTests: XCTestCase {
         // Then
         XCTAssertNotNil(attachment, "Footnote should be preserved")
         XCTAssertEqual(restored.string, attributedString.string, "Text should match")
+    }
+
+    func testDecodeNormalizesDescriptorUsageStylesToBody() throws {
+        let text = "Legacy body paragraph"
+        let degradedStyles = [
+            "CTFontRegularUsage",
+            "CTFontObliqueUsage",
+            "CTFontEmphasizedUsage",
+            "UICTFontTextStyleItalicBody"
+        ]
+
+        for degradedStyle in degradedStyles {
+            let run = AttributeValues(
+                location: 0,
+                length: (text as NSString).length,
+                fontName: ".SFUI-Regular",
+                fontSize: 16,
+                bold: degradedStyle == "CTFontEmphasizedUsage",
+                italic: degradedStyle == "CTFontObliqueUsage" || degradedStyle == "UICTFontTextStyleItalicBody",
+                textStyle: degradedStyle
+            )
+            let data = try PropertyListEncoder().encode([run])
+            let restored = AttributedStringSerializer.decode(data, text: text)
+
+            XCTAssertEqual(
+                restored.attribute(.textStyle, at: 0, effectiveRange: nil) as? String,
+                UIFont.TextStyle.body.rawValue,
+                "Expected \(degradedStyle) to normalize to Body"
+            )
+            let restoredFont = try XCTUnwrap(restored.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+            XCTAssertEqual(
+                restoredFont.fontDescriptor.symbolicTraits.contains(.traitBold),
+                degradedStyle == "CTFontEmphasizedUsage"
+            )
+            XCTAssertEqual(
+                restoredFont.fontDescriptor.symbolicTraits.contains(.traitItalic),
+                degradedStyle == "CTFontObliqueUsage" || degradedStyle == "UICTFontTextStyleItalicBody"
+            )
+        }
+    }
+
+    func testEncodeDoesNotPersistCoreTextUsageAsParagraphStyle() throws {
+        let text = NSAttributedString(
+            string: "Legacy body paragraph",
+            attributes: [
+                .font: UIFont.systemFont(ofSize: 16),
+                .textStyle: "CTFontRegularUsage"
+            ]
+        )
+
+        let data = AttributedStringSerializer.encode(text)
+        let runs = try PropertyListDecoder().decode([AttributeValues].self, from: data)
+
+        XCTAssertEqual(runs.first?.textStyle, UIFont.TextStyle.body.rawValue)
     }
 }

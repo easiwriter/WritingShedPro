@@ -425,10 +425,7 @@ class JSONImportService {
             }
         }
 
-        // Save phase 1: ensure parent records exist before join links.
-        try EnsemblesSaveGate.save(modelContext, reason: "json-import-wsp-phase-1")
-
-        // Save phase 2: assign scene containers after their base records exist.
+        // Assign scene containers before the single final save so the import is atomic.
         for linkPlan in deferredSceneLinks {
             guard let scene = sceneMap[linkPlan.sceneID] else { continue }
 

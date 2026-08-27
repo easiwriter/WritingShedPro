@@ -155,6 +155,39 @@ final class NumberingLayoutManagerTests: XCTestCase {
 
         XCTAssertFalse(layoutManager.drawsTrailingEmptyParagraphNumber)
     }
+
+    func testCounterStateFromPrecedingFileContinuesHeadingNumbering() {
+        let styleSheet = makeHierarchicalStyleSheet()
+        let precedingContent = NSMutableAttributedString(string: "Chapter One\nSection One\nChapter Two\n")
+        let text = precedingContent.string as NSString
+        precedingContent.addAttribute(
+            .textStyle,
+            value: "UICTFontTextStyleTitle2",
+            range: text.range(of: "Chapter One")
+        )
+        precedingContent.addAttribute(
+            .textStyle,
+            value: "UICTFontTextStyleTitle3",
+            range: text.range(of: "Section One")
+        )
+        precedingContent.addAttribute(
+            .textStyle,
+            value: "UICTFontTextStyleTitle2",
+            range: text.range(of: "Chapter Two")
+        )
+
+        let storage = NSTextStorage(attributedString: precedingContent)
+        let state = NumberingLayoutManager.computeCounterState(
+            upTo: storage.length,
+            in: storage,
+            styleSheet: styleSheet
+        )
+
+        XCTAssertEqual(state.styleCounters["UICTFontTextStyleTitle2"], 2)
+        XCTAssertEqual(state.styleCounters["UICTFontTextStyleTitle3"], 1)
+        XCTAssertEqual(state.lastNumberForStyle["UICTFontTextStyleTitle2"], 2)
+        XCTAssertEqual(state.lastNumberForStyle["UICTFontTextStyleTitle3_parentNum"], 1)
+    }
     
     // MARK: - Helper: create a stylesheet with a hierarchy
     

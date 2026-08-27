@@ -258,6 +258,91 @@ final class TextFormatterStyleSheetTests: XCTestCase {
         XCTAssertEqual(styleAtStart, UIFont.TextStyle.body.rawValue)
         XCTAssertEqual(styleAtEnd, UIFont.TextStyle.title1.rawValue)
     }
+
+    func testGetCurrentStyleNameMatchesUntaggedCustomBodyFont() throws {
+        let stylesheet = StyleSheet(name: "Papyrus Styles")
+        let bodyStyle = TextStyleModel(
+            name: UIFont.TextStyle.body.rawValue,
+            displayName: "Body",
+            displayOrder: 0,
+            fontSize: 13,
+            fontFamily: "Papyrus",
+            fontName: "Papyrus"
+        )
+        bodyStyle.styleSheet = stylesheet
+        project.styleSheet = stylesheet
+        context.insert(stylesheet)
+        let bodyFont = try XCTUnwrap(UIFont(name: "Papyrus", size: 13))
+        let text = NSAttributedString(string: "Legacy body paragraph", attributes: [.font: bodyFont])
+
+        let styleName = TextFormatter.getCurrentStyleName(
+            in: text,
+            at: NSRange(location: 5, length: 0),
+            project: project,
+            context: context
+        )
+
+        XCTAssertEqual(styleName, UIFont.TextStyle.body.rawValue)
+    }
+
+    func testGetCurrentStyleNameDoesNotInferNumberedStyleFromFont() throws {
+        let stylesheet = StyleSheet(name: "Numbered Body Styles")
+        let bodyStyle = TextStyleModel(
+            name: UIFont.TextStyle.body.rawValue,
+            displayName: "Body",
+            displayOrder: 0,
+            fontSize: 13,
+            fontFamily: "Papyrus",
+            fontName: "Papyrus"
+        )
+        bodyStyle.numberFormat = .decimal
+        bodyStyle.styleSheet = stylesheet
+        project.styleSheet = stylesheet
+        context.insert(stylesheet)
+        let bodyFont = try XCTUnwrap(UIFont(name: "Papyrus", size: 13))
+        let text = NSAttributedString(string: "Untagged prose", attributes: [.font: bodyFont])
+
+        let styleName = TextFormatter.getCurrentStyleName(
+            in: text,
+            at: NSRange(location: 5, length: 0),
+            project: project,
+            context: context
+        )
+
+        XCTAssertNil(styleName)
+    }
+
+    func testExplicitTextStyleRemainsAuthoritativeOverFontMatch() throws {
+        let stylesheet = StyleSheet(name: "Papyrus Styles")
+        let bodyStyle = TextStyleModel(
+            name: UIFont.TextStyle.body.rawValue,
+            displayName: "Body",
+            displayOrder: 0,
+            fontSize: 13,
+            fontFamily: "Papyrus",
+            fontName: "Papyrus"
+        )
+        bodyStyle.styleSheet = stylesheet
+        project.styleSheet = stylesheet
+        context.insert(stylesheet)
+        let bodyFont = try XCTUnwrap(UIFont(name: "Papyrus", size: 13))
+        let text = NSAttributedString(
+            string: "Explicit heading",
+            attributes: [
+                .font: bodyFont,
+                .textStyle: UIFont.TextStyle.title1.rawValue
+            ]
+        )
+
+        let styleName = TextFormatter.getCurrentStyleName(
+            in: text,
+            at: NSRange(location: 5, length: 0),
+            project: project,
+            context: context
+        )
+
+        XCTAssertEqual(styleName, UIFont.TextStyle.title1.rawValue)
+    }
     
     // MARK: - Custom Stylesheet Tests
     

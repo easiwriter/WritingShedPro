@@ -19,6 +19,10 @@ struct StyleSheetManagementView: View {
     @State private var showCreateSheet = false
     @State private var showDeleteAlert = false
     @State private var sheetToDelete: StyleSheet?
+    @State private var showStylesheetInUseAlert = false
+    @State private var projectsUsingStylesheet: [String] = []
+    @State private var showDeleteErrorAlert = false
+    @State private var deleteErrorMessage = ""
     @State private var showRepairResultAlert = false
     @State private var repairResultMessage: String = ""
     @State private var showNormalizeResultAlert = false
@@ -56,6 +60,24 @@ struct StyleSheetManagementView: View {
                 if let sheet = sheetToDelete {
                     Text(String(format: NSLocalizedString("styleSheetManagement.deleteAlert.message", comment: ""), sheet.name))
                 }
+            }
+            .alert("styleSheetManagement.deleteInUse.title", isPresented: $showStylesheetInUseAlert) {
+                Button("button.ok", role: .cancel) { }
+            } message: {
+                if let sheet = sheetToDelete {
+                    Text(
+                        String(
+                            format: NSLocalizedString("styleSheetManagement.deleteInUse.message", comment: ""),
+                            sheet.name,
+                            projectsUsingStylesheet.joined(separator: ", ")
+                        )
+                    )
+                }
+            }
+            .alert("styleSheetManagement.deleteError.title", isPresented: $showDeleteErrorAlert) {
+                Button("button.ok", role: .cancel) { }
+            } message: {
+                Text(deleteErrorMessage)
             }
             .alert("styleSheetManagement.repairListStyles.resultTitle", isPresented: $showRepairResultAlert) {
                 Button("button.ok", role: .cancel) { }
@@ -140,8 +162,7 @@ struct StyleSheetManagementView: View {
             .accessibilityLabel("styleSheetManagement.duplicate.accessibility")
 
             Button(role: .destructive, action: {
-                sheetToDelete = sheet
-                showDeleteAlert = true
+                handleDeleteAttempt(for: sheet)
             }) {
                 Label("styleSheetManagement.delete", systemImage: "trash")
                     .labelStyle(.iconOnly)
@@ -166,77 +187,7 @@ struct StyleSheetManagementView: View {
     }
     
     private func duplicateStyleSheet(_ original: StyleSheet) {
-        let duplicate = StyleSheet(
-            name: "\(original.name) Copy",
-            isSystemStyleSheet: false
-        )
-        let shouldNormalizeDefaultBodySizes = original.isSystemStyleSheet
-        
-        // Copy all text styles
-        if let originalStyles = original.textStyles {
-            for style in originalStyles {
-                let newStyle = TextStyleModel(
-                    name: style.name,
-                    displayName: style.displayName,
-                    displayOrder: style.displayOrder
-                )
-                
-                // Copy all attributes
-                newStyle.fontSize = style.fontSize
-                newStyle.fontFamily = style.fontFamily
-                newStyle.fontName = style.fontName
-                newStyle.isBold = style.isBold
-                newStyle.isItalic = style.isItalic
-                newStyle.isUnderlined = style.isUnderlined
-                newStyle.isStrikethrough = style.isStrikethrough
-                newStyle.textColor = style.textColor
-                newStyle.alignment = style.alignment
-                newStyle.lineSpacing = style.lineSpacing
-                newStyle.paragraphSpacingBefore = style.paragraphSpacingBefore
-                newStyle.paragraphSpacingAfter = style.paragraphSpacingAfter
-                newStyle.firstLineIndent = style.firstLineIndent
-                newStyle.headIndent = style.headIndent
-                newStyle.tailIndent = style.tailIndent
-                newStyle.lineHeightMultiple = style.lineHeightMultiple
-                newStyle.minimumLineHeight = style.minimumLineHeight
-                newStyle.maximumLineHeight = style.maximumLineHeight
-                newStyle.numberFormat = style.numberFormat
-                newStyle.numberAdornment = style.numberAdornment
-                newStyle.styleCategory = style.styleCategory
-                newStyle.parentStyleName = style.parentStyleName
-                newStyle.followOnStyleName = style.followOnStyleName
-                newStyle.includeInTOC = style.includeInTOC
-                newStyle.tocLevel = style.tocLevel
-
-                // When duplicating the system default, enforce canonical body sizes.
-                if shouldNormalizeDefaultBodySizes {
-                    let normalizedDisplayName = newStyle.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-                    switch newStyle.name {
-                    case UIFont.TextStyle.body.rawValue:
-                        newStyle.fontSize = 12
-                    case UIFont.TextStyle.callout.rawValue:
-                        newStyle.fontSize = 11
-                    case UIFont.TextStyle.subheadline.rawValue, "UICTFontTextStyleSubheadline":
-                        newStyle.fontSize = 10
-                    default:
-                        // Fallback for legacy/misnamed rows that still have canonical display names.
-                        switch normalizedDisplayName {
-                        case "Body":
-                            newStyle.fontSize = 12
-                        case "Body 1":
-                            newStyle.fontSize = 11
-                        case "Body 2":
-                            newStyle.fontSize = 10
-                        default:
-                            break
-                        }
-                    }
-                }
-                
-                newStyle.styleSheet = duplicate
-            }
-        }
-        
+        let duplicate = StyleSheetService.duplicateStyleSheet(original)
         modelContext.insert(duplicate)
         
         do {
@@ -248,14 +199,50 @@ struct StyleSheetManagementView: View {
             #endif
         }
     }
+
+    private func handleDeleteAttempt(for sheet: StyleSheet) {
+        sheetToDelete = sheet
+
+        let sheetID = sheet.id
+        let projects = (try? modelContext.fetch(FetchDescriptor<Project>())) ?? []
+        projectsUsingStylesheet = projects
+            .filter { $0.styleSheet?.id == sheetID }
+            .map { $0.name ?? NSLocalizedString("projectItem.untitledProject", comment: "") }
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+
+        if projectsUsingStylesheet.isEmpty {
+            showDeleteAlert = true
+        } else {
+            showStylesheetInUseAlert = true
+        }
+    }
     
     private func deleteStyleSheet(_ sheet: StyleSheet) {
-        modelContext.delete(sheet)
-        
+        let sheetID = sheet.id
+        let remainingStyleSheets = styleSheets.filter { $0.id != sheetID }
+        sheetToDelete = nil
+
         do {
-            try WriteCoalescer.shared.requestSaveAndFlush(reason: "stylesheet-management-delete")
-            loadStyleSheets()
+            let deleteContext = ModelContext(modelContext.container)
+            let descriptor = FetchDescriptor<StyleSheet>(
+                predicate: #Predicate<StyleSheet> { candidate in
+                    candidate.id == sheetID
+                }
+            )
+            guard let sheetToDelete = try deleteContext.fetch(descriptor).first else {
+                loadStyleSheets()
+                self.sheetToDelete = nil
+                return
+            }
+
+            deleteContext.delete(sheetToDelete)
+            try EnsemblesSaveGate.save(deleteContext, reason: "stylesheet-management-delete")
+            withAnimation {
+                styleSheets = remainingStyleSheets
+            }
         } catch {
+            deleteErrorMessage = error.localizedDescription
+            showDeleteErrorAlert = true
             #if DEBUG
             print("❌ Error deleting stylesheet: \(error)")
             #endif

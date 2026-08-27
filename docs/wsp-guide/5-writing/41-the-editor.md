@@ -37,6 +37,10 @@ A toolbar appears above the keyboard with quick access to formatting:
 
 On iPhone in compact layouts, some actions may be grouped under a menu to keep the toolbar focused on the most common formatting controls.
 
+## Check Document Spelling
+
+Use the document-wide checker to review detected spelling issues, choose replacements, ignore intentional spellings, and select another installed spelling language. See [Check Document Spelling](48-check-document-spelling.md) for the complete workflow.
+
 ### Paragraph Style Picker
 Tap **¶** to see available paragraph styles. Tap a style to apply it to the current paragraph. Available styles include:
 - Body (default)

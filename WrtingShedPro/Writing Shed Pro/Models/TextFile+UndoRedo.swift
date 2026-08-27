@@ -2,6 +2,8 @@ import Foundation
 
 /// Extension to TextFile model for undo/redo persistence
 extension TextFile {
+    private static var maximumPersistedUndoBytes: Int { 1024 * 1024 }
+    private static var targetPersistedUndoPayloadBytes: Int { 768 * 1024 }
     
     /// Save the current undo manager state to the file
     /// - Parameter undoManager: The undo manager to save
@@ -28,20 +30,40 @@ extension TextFile {
                 return true
             }
             
-            // Convert filtered commands to serialized format
-            let undoCommands = try commandsToSave.map { command -> SerializedCommand in
-                try SerializedCommand.from(command)
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+
+            // Serialize newest commands first and keep a bounded payload. Formatting
+            // commands can contain two complete rich-document snapshots, so converting
+            // an entire stack before checking its size can exhaust memory on background.
+            var newestFirstCommands: [SerializedCommand] = []
+            var estimatedPayloadBytes = 0
+            for command in commandsToSave.reversed() {
+                let result = try autoreleasepool { () -> (SerializedCommand, Int) in
+                    let serializedCommand = try SerializedCommand.from(command)
+                    return (serializedCommand, try encoder.encode(serializedCommand).count)
+                }
+
+                guard result.1 <= Self.targetPersistedUndoPayloadBytes else {
+                    continue
+                }
+                guard estimatedPayloadBytes + result.1 <= Self.targetPersistedUndoPayloadBytes else { break }
+                newestFirstCommands.append(result.0)
+                estimatedPayloadBytes += result.1
             }
+            let undoCommands = newestFirstCommands.reversed()
             
             // Note: We intentionally do NOT save the redo stack
             // Redo commands are only valid during an active editing session
             // When reopening a file, we start fresh with no redo history
             
-            // Encode to JSON
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            
-            undoStackData = try encoder.encode(undoCommands)
+            let encodedUndoData = try encoder.encode(Array(undoCommands))
+            guard encodedUndoData.count <= Self.maximumPersistedUndoBytes else {
+                clearUndoHistory()
+                return
+            }
+
+            undoStackData = encodedUndoData
             redoStackData = nil // Clear redo stack on save
             lastUndoSaveDate = Date()
             
@@ -62,8 +84,7 @@ extension TextFile {
         // PERFORMANCE FIX: If undo data is too large (likely old format with full document snapshots),
         // skip loading it to prevent beachball/hang. Clear the problematic data.
         // 1MB is a reasonable limit - normal undo commands should be much smaller
-        let maxUndoDataSize = 1024 * 1024 // 1MB
-        if undoData.count > maxUndoDataSize {
+        if undoData.count > Self.maximumPersistedUndoBytes {
             #if DEBUG
             print("⚠️ Undo data too large (\(undoData.count) bytes) - clearing to prevent hang")
             #endif

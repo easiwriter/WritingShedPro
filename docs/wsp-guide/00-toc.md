@@ -39,6 +39,7 @@
 - [Footnotes](5-writing/45-footnotes.md)
 - [Comments](5-writing/46-comments.md)
 - [Word Count and Statistics](5-writing/47-word-count-and-statistics.md)
+- [Check Document Spelling](5-writing/48-check-document-spelling.md)
 
 ## 6. Prose Features
 - [Prose Overview](6-prose-features/51-prose-mode-overview.md)

@@ -1,5 +1,6 @@
 import XCTest
 import SwiftData
+import UIKit
 @testable import Writing_Shed_Pro
 
 final class UndoRedoTests: XCTestCase {
@@ -323,6 +324,42 @@ final class UndoRedoTests: XCTestCase {
         // Then - Redo stack should be cleared
         XCTAssertFalse(manager.canRedo)
         XCTAssertEqual(testFile.currentVersion?.content, "AC")
+    }
+
+    func testSavingFragmentedFormattingHistoryStaysWithinRestoreLimit() throws {
+        let manager = TextFileUndoManager(file: testFile)
+        let text = String(repeating: "Papyrus legacy text. ", count: 1_000)
+        let fragmentedContent = NSMutableAttributedString(
+            string: text,
+            attributes: [.font: UIFont(name: "Papyrus", size: 16) ?? UIFont.systemFont(ofSize: 16)]
+        )
+        for location in stride(from: 0, to: fragmentedContent.length, by: 50) {
+            fragmentedContent.addAttribute(
+                .font,
+                value: UIFont.systemFont(ofSize: 16),
+                range: NSRange(location: location, length: min(2, fragmentedContent.length - location))
+            )
+        }
+
+        for index in 0..<6 {
+            manager.push(FormatApplyCommand(
+                description: "Format \(index)",
+                range: NSRange(location: 0, length: 1),
+                beforeContent: fragmentedContent,
+                afterContent: fragmentedContent,
+                targetFile: testFile
+            ))
+        }
+
+        testFile.saveUndoState(manager)
+
+        let undoData = try XCTUnwrap(testFile.undoStackData)
+        XCTAssertLessThanOrEqual(undoData.count, 1024 * 1024)
+
+        let persistedCommands = try JSONDecoder().decode([SerializedCommand].self, from: undoData)
+        XCTAssertFalse(persistedCommands.isEmpty)
+        XCTAssertLessThan(persistedCommands.count, manager.undoStack.count)
+        XCTAssertEqual(persistedCommands.last?.description, "Format 5")
     }
 }
 

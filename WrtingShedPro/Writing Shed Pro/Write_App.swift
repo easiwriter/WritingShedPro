@@ -26,10 +26,13 @@ struct Write_App: App {
     static private(set) var initialEnsemblesImportUnavailable = false
     static private(set) var hasObservedPartialEnsemblesStoreThisLaunch = false
     static private(set) var hasObservedCatastrophicEmptyEnsemblesStoreThisLaunch = false
+    static private(set) var storeUnregisteredBlockedThisLaunch = false
+    static private(set) var partialStoreBlockedThisLaunch = false
     static private(set) var currentEnsemblesSeedPolicy = "not initialized"
     static private(set) var ensemblesMergeSaveCooldownUntil: Date?
     static private(set) var ensemblesMergeConflictCooldownUntil: Date?
     private static var pendingLocalChangeSyncTask: Task<Void, Never>?
+    private static var partialStoreQuarantineTask: Task<Void, Never>?
     private static var localChangeSyncInProgress = false
     static let minimumEnsemblesStartupWriteDelay: TimeInterval = 15
     static let ensemblesPostMergeSaveCooldown: TimeInterval = 10
@@ -39,7 +42,13 @@ struct Write_App: App {
     static let resetLocalEnsemblesStoreOnNextLaunchKey = "resetLocalEnsemblesStoreOnNextLaunch"
     static let detachLocalEnsemblesBeforeResetOnNextLaunchKey = "detachLocalEnsemblesBeforeResetOnNextLaunch"
     static let excludeLocalDataOnNextEnsemblesAttachKey = "excludeLocalDataOnNextEnsemblesAttach"
-    static let ensembleIdentifier = "WritingShedProConfigurationV2"
+    static let v3BaselinePublishedKey = "WritingShedProConfigurationV3BaselinePublished"
+    private static let modelConfigurationName = "WritingShedProConfigurationV2"
+    #if DEBUG
+    static let ensembleIdentifier = "WritingShedProConfigurationV3Debug"
+    #else
+    static let ensembleIdentifier = "WritingShedProConfigurationV3"
+    #endif
 
     static var isLocalRecoveryModeEnabled: Bool {
         let environment = ProcessInfo.processInfo.environment
@@ -242,7 +251,7 @@ struct Write_App: App {
             ensemblesContainer.didForceDetach = { error in
                 Task { @MainActor in
                     Write_App.logErrorToFile("⚠️ [Ensembles] Forced detach: \(Write_App.detailedErrorDescription(error))")
-                    Write_App.handleForcedEnsemblesDetach(error, modelContainer: ensemblesContainer.modelContainer)
+                    Write_App.handleForcedEnsemblesDetach(error, container: ensemblesContainer)
                 }
             }
             ensemblesContainer.didSaveMergeChanges = { _ in
@@ -269,6 +278,8 @@ struct Write_App: App {
             Write_App.initialEnsemblesImportUnavailable = false
             Write_App.hasObservedPartialEnsemblesStoreThisLaunch = false
             Write_App.hasObservedCatastrophicEmptyEnsemblesStoreThisLaunch = false
+            Write_App.storeUnregisteredBlockedThisLaunch = false
+            Write_App.partialStoreBlockedThisLaunch = false
             let container = ensemblesContainer.modelContainer
             container.mainContext.autosaveEnabled = false
             #if DEBUG
@@ -328,10 +339,6 @@ struct Write_App: App {
         #if DEBUG
         print("✅ [Ensembles Config] Database: private")
         #endif
-        #if DEBUG
-        print("✅ [CloudKit Config] aps-environment: production")
-        #endif
-        
         // Log to file for TestFlight diagnostics
         Write_App.logToFile("========================================")
         Write_App.logToFile("🚀 Writing Shed Pro APP LAUNCHED")
@@ -339,13 +346,20 @@ struct Write_App: App {
         Write_App.logToFile("🚀 App initializing...")
         Write_App.logToFile("✅ [Ensembles Config] CloudKit container: iCloud.com.appworks.writingshedpro")
         Write_App.logToFile("✅ [Ensembles Config] Database: private")
-        Write_App.logToFile("✅ [CloudKit Config] aps-environment: production")
+        #if DEBUG
+        let buildConfiguration = "Debug"
+        #else
+        let buildConfiguration = "Release"
+        #endif
+        Write_App.logToFile("✅ [App Config] Build configuration: \(buildConfiguration)")
+        Write_App.logToFile("✅ [App Config] Bundle identifier: \(Bundle.main.bundleIdentifier ?? "unknown")")
+        Write_App.logToFile("ℹ️ [CloudKit Config] Environment is selected by the installed provisioning profile")
         
     }
 
     private static func makeLocalModelContainer(schema: Schema, storeURL: URL) throws -> ModelContainer {
         let configuration = ModelConfiguration(
-            Write_App.ensembleIdentifier,
+            Write_App.modelConfigurationName,
             schema: schema,
             url: storeURL,
             cloudKitDatabase: .none
@@ -517,7 +531,7 @@ struct Write_App: App {
     }
 
     @MainActor
-    private static func handleForcedEnsemblesDetach(_ error: Error, modelContainer: ModelContainer) {
+    private static func handleForcedEnsemblesDetach(_ error: Error, container: SwiftDataEnsembleContainer) {
         hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch = false
         hasObservedEnsemblesDataThisLaunch = false
 
@@ -526,8 +540,9 @@ struct Write_App: App {
         guard nsError.code == 205 || description.contains("storeUnregistered") else {
             return
         }
+        storeUnregisteredBlockedThisLaunch = true
 
-        let context = ModelContext(modelContainer)
+        let context = ModelContext(container.modelContainer)
         let projectCount = (try? context.fetchCount(FetchDescriptor<Project>())) ?? 0
         let folderCount = (try? context.fetchCount(FetchDescriptor<Folder>())) ?? 0
         let fileCount = (try? context.fetchCount(FetchDescriptor<TextFile>())) ?? 0
@@ -536,13 +551,20 @@ struct Write_App: App {
         let sceneCount = (try? context.fetchCount(FetchDescriptor<StoryScene>())) ?? 0
         let childCount = folderCount + fileCount + versionCount + publicationCount + sceneCount
 
-        guard projectCount == 0 && childCount > 0 else {
-            Write_App.logErrorToFile("⚠️ [Ensembles] Store unregistered without partial child-only store projectCount=\(projectCount), childCount=\(childCount)")
-            return
+        if isPartialEnsemblesStore(
+            projectCount: projectCount,
+            folderCount: folderCount,
+            fileCount: fileCount,
+            versionCount: versionCount,
+            publicationCount: publicationCount,
+            sceneCount: sceneCount
+        ) {
+            hasObservedPartialEnsemblesStoreThisLaunch = true
+            Write_App.logErrorToFile("⚠️ [Ensembles] Store unregistered with partial local store (projects=\(projectCount), folders=\(folderCount), files=\(fileCount), versions=\(versionCount), publications=\(publicationCount), scenes=\(sceneCount))")
+        } else {
+            Write_App.logErrorToFile("⛔️ [Ensembles] Store unregistered; automatic reattach blocked projectCount=\(projectCount), childCount=\(childCount), seedPolicy=\(currentEnsemblesSeedPolicy)")
         }
-
-        hasObservedPartialEnsemblesStoreThisLaunch = true
-        Write_App.logErrorToFile("⚠️ [Ensembles] Store unregistered with partial local store; waiting for Ensembles self-recovery (projects=0, folders=\(folderCount), files=\(fileCount), versions=\(versionCount), publications=\(publicationCount), scenes=\(sceneCount))")
+        Write_App.logErrorToFile("⛔️ [Ensembles] Sync remains blocked for this launch to prevent a populated detached store from reseeding or merging with uncertain cloud identity. Preserve local data and diagnose before reattaching.")
     }
 
     private static func detailedNSErrorDescription(_ error: NSError, depth: Int = 0) -> String {
@@ -595,7 +617,10 @@ struct Write_App: App {
                         checkCloudKitStatus()
                     }
 
-                    if Write_App.isUsingEnsemblesSync && !Write_App.shouldAutoSyncEnsembles {
+                    let needsInitialFollowerSync = UserDefaults.standard.bool(
+                        forKey: Write_App.excludeLocalDataOnNextEnsemblesAttachKey
+                    )
+                    if Write_App.isUsingEnsemblesSync && (!Write_App.shouldAutoSyncEnsembles || needsInitialFollowerSync) {
                         await runManualEnsemblesSync(reason: "app launch")
                     }
 
@@ -642,21 +667,41 @@ struct Write_App: App {
 
     private func runManualEnsemblesSync(reason: String) async {
         guard let container = Write_App.activeEnsemblesContainer else { return }
+        guard !Write_App.storeUnregisteredBlockedThisLaunch,
+              !Write_App.partialStoreBlockedThisLaunch else {
+            syncHealthMonitor.recordExportFailure(isBlocking: true)
+            Write_App.logErrorToFile("⛔️ [Ensembles] Manual sync blocked by sync quarantine (reason=\(reason))")
+            return
+        }
 
         guard await waitForEnsemblesIdleBeforeManualSync(container, reason: reason) else {
             return
         }
 
         Write_App.logToFile("🔄 [Ensembles] Manual sync started (reason=\(reason), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
-        let didSync = await container.sync()
-        if didSync {
+        let storeHadData = Write_App.recordFirstEnsemblesDataAvailableIfNeeded(
+            modelContainer: container.modelContainer,
+            reason: "\(reason) preflight"
+        )
+        do {
+            try await container.sync(options: storeHadData ? .none : .suppressCloudFileDeposition)
+            let storeHasData = Write_App.recordFirstEnsemblesDataAvailableIfNeeded(
+                modelContainer: container.modelContainer,
+                reason: reason
+            )
+            guard storeHasData else {
+                syncHealthMonitor.recordExportFailure(isBlocking: false)
+                Write_App.logToFile("⚠️ [Ensembles] Manual sync completed but local store is still empty (reason=\(reason), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+                return
+            }
+
             Write_App.recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: reason)
             syncHealthMonitor.recordExportSuccess()
             NotificationCenter.default.post(name: .writingShedProSyncDidUpdateLocalData, object: nil)
-            Write_App.logToFile("✅ [Ensembles] Manual sync completed (reason=\(reason), didSync=true, isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
-        } else {
+            Write_App.logToFile("✅ [Ensembles] Manual sync completed (reason=\(reason), hadLocalData=\(storeHadData), isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+        } catch {
             syncHealthMonitor.recordExportFailure(isBlocking: false)
-            Write_App.logToFile("⚠️ [Ensembles] Manual sync stopped with no successful transfer (reason=\(reason), didSync=false, isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
+            Write_App.logErrorToFile("❌ [Ensembles] Manual sync failed (reason=\(reason)): \(Write_App.detailedErrorDescription(error))")
         }
     }
 
@@ -707,9 +752,16 @@ struct Write_App: App {
         let sceneCount = (try? context.fetchCount(FetchDescriptor<StoryScene>())) ?? 0
         let childCount = folderCount + fileCount + versionCount + publicationCount + sceneCount
 
-        if projectCount == 0 && childCount > 0 {
+        if isPartialEnsemblesStore(
+            projectCount: projectCount,
+            folderCount: folderCount,
+            fileCount: fileCount,
+            versionCount: versionCount,
+            publicationCount: publicationCount,
+            sceneCount: sceneCount
+        ) {
             hasObservedPartialEnsemblesStoreThisLaunch = true
-            logToFile("⚠️ [Ensembles] Refusing first-sync success for partial store reason=\(reason) projects=0 folders=\(folderCount) files=\(fileCount) versions=\(versionCount) publications=\(publicationCount) scenes=\(sceneCount)")
+            logToFile("⚠️ [Ensembles] Refusing first-sync success for partial store reason=\(reason) projects=\(projectCount) folders=\(folderCount) files=\(fileCount) versions=\(versionCount) publications=\(publicationCount) scenes=\(sceneCount)")
             return false
         }
 
@@ -768,10 +820,8 @@ struct Write_App: App {
     }
 
     static func recordFirstEnsemblesDataAvailableIfNeeded(modelContainer: ModelContainer, reason: String) -> Bool {
-        guard activeEnsemblesContainer != nil,
-              !hasObservedEnsemblesDataThisLaunch else {
-            return hasObservedEnsemblesDataThisLaunch
-        }
+        guard activeEnsemblesContainer != nil else { return false }
+        let hadAlreadyObservedData = hasObservedEnsemblesDataThisLaunch
 
         let context = ModelContext(modelContainer)
         let projectCount = (try? context.fetchCount(FetchDescriptor<Project>())) ?? 0
@@ -782,9 +832,18 @@ struct Write_App: App {
         let sceneCount = (try? context.fetchCount(FetchDescriptor<StoryScene>())) ?? 0
 
         let childCount = folderCount + fileCount + versionCount + publicationCount + sceneCount
-        if projectCount == 0 && childCount > 0 {
+        if isPartialEnsemblesStore(
+            projectCount: projectCount,
+            folderCount: folderCount,
+            fileCount: fileCount,
+            versionCount: versionCount,
+            publicationCount: publicationCount,
+            sceneCount: sceneCount
+        ) {
+            hasObservedEnsemblesDataThisLaunch = false
             hasObservedPartialEnsemblesStoreThisLaunch = true
-            logToFile("⚠️ [Ensembles] Partial store observed but not accepted as synced data (reason=\(reason), projects=0, folders=\(folderCount), files=\(fileCount), versions=\(versionCount), publications=\(publicationCount), scenes=\(sceneCount))")
+            logToFile("⚠️ [Ensembles] Partial store observed but not accepted as synced data (reason=\(reason), projects=\(projectCount), folders=\(folderCount), files=\(fileCount), versions=\(versionCount), publications=\(publicationCount), scenes=\(sceneCount))")
+            schedulePartialStoreQuarantineIfNeeded(modelContainer: modelContainer)
             return false
         }
 
@@ -797,8 +856,80 @@ struct Write_App: App {
             UserDefaults.standard.removeObject(forKey: excludeLocalDataOnNextEnsemblesAttachKey)
             logToFile("✅ [Ensembles] Fresh-follower seed policy cleared after synced project data was observed")
         }
-        logToFile("✅ [Ensembles] Synced data observed locally (reason=\(reason), projects=\(projectCount), folders=\(folderCount), files=\(fileCount), versions=\(versionCount), publications=\(publicationCount), scenes=\(sceneCount))")
+        if !hadAlreadyObservedData {
+            logToFile("✅ [Ensembles] Synced data observed locally (reason=\(reason), projects=\(projectCount), folders=\(folderCount), files=\(fileCount), versions=\(versionCount), publications=\(publicationCount), scenes=\(sceneCount))")
+        }
         return true
+    }
+
+    @MainActor
+    private static func schedulePartialStoreQuarantineIfNeeded(modelContainer: ModelContainer) {
+        guard partialStoreQuarantineTask == nil,
+              !partialStoreBlockedThisLaunch,
+              let ensemblesContainer = activeEnsemblesContainer else {
+            return
+        }
+
+        partialStoreQuarantineTask = Task { @MainActor in
+            defer { partialStoreQuarantineTask = nil }
+            try? await Task.sleep(nanoseconds: 30_000_000_000)
+            guard !Task.isCancelled,
+                  activeEnsemblesContainer === ensemblesContainer,
+                  ensemblesContainer.isAttached,
+                  String(describing: ensemblesContainer.currentActivity).lowercased() == "none" else {
+                return
+            }
+
+            let context = ModelContext(modelContainer)
+            let projectCount = (try? context.fetchCount(FetchDescriptor<Project>())) ?? 0
+            let folderCount = (try? context.fetchCount(FetchDescriptor<Folder>())) ?? 0
+            let fileCount = (try? context.fetchCount(FetchDescriptor<TextFile>())) ?? 0
+            let versionCount = (try? context.fetchCount(FetchDescriptor<Version>())) ?? 0
+            let publicationCount = (try? context.fetchCount(FetchDescriptor<Publication>())) ?? 0
+            let sceneCount = (try? context.fetchCount(FetchDescriptor<StoryScene>())) ?? 0
+            guard isPartialEnsemblesStore(
+                projectCount: projectCount,
+                folderCount: folderCount,
+                fileCount: fileCount,
+                versionCount: versionCount,
+                publicationCount: publicationCount,
+                sceneCount: sceneCount
+            ) else {
+                return
+            }
+
+            partialStoreBlockedThisLaunch = true
+            hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch = false
+            hasObservedEnsemblesDataThisLaunch = false
+            UserDefaults.standard.set(true, forKey: localRecoveryModeOnNextLaunchKey)
+            pendingLocalChangeSyncTask?.cancel()
+            logErrorToFile("🛑 [Ensembles] Persistent partial store quarantined after 30 seconds attached and idle; Local Recovery Mode enabled for next launch (projects=\(projectCount), folders=\(folderCount), files=\(fileCount), versions=\(versionCount), publications=\(publicationCount), scenes=\(sceneCount))")
+
+            do {
+                try await ensemblesContainer.detach()
+                logErrorToFile("🛑 [Ensembles] Detached quarantined partial store to prevent further synchronization")
+            } catch {
+                logErrorToFile("❌ [Ensembles] Failed to detach quarantined partial store: \(detailedErrorDescription(error))")
+            }
+        }
+    }
+
+    private static func isPartialEnsemblesStore(
+        projectCount: Int,
+        folderCount: Int,
+        fileCount: Int,
+        versionCount: Int,
+        publicationCount: Int,
+        sceneCount: Int
+    ) -> Bool {
+        let childCount = folderCount + fileCount + versionCount + publicationCount + sceneCount
+        if projectCount == 0 {
+            return childCount > 0
+        }
+        if folderCount == 0 {
+            return true
+        }
+        return projectCount > 1 && fileCount == 0 && versionCount == 0 && publicationCount == 0
     }
 
     static func isInEnsemblesMergeSaveCooldown() -> Bool {
@@ -845,7 +976,9 @@ struct Write_App: App {
     static func scheduleEnsemblesSyncAfterLocalSave(reason: String) {
         // Auto-sync observes store saves itself. Calling sync() as an additional
         // nudge can overlap an automatic merge and cause CDE error 206/207.
-        guard !shouldAutoSyncEnsembles,
+                  guard !storeUnregisteredBlockedThisLaunch,
+                      !partialStoreBlockedThisLaunch,
+                            !shouldAutoSyncEnsembles,
               let ensemblesContainer = activeEnsemblesContainer else {
             return
         }
@@ -860,6 +993,7 @@ struct Write_App: App {
 
     @MainActor
     private static func runDebouncedEnsemblesSyncAfterLocalSave(_ ensemblesContainer: SwiftDataEnsembleContainer, reason: String) async {
+        guard !storeUnregisteredBlockedThisLaunch, !partialStoreBlockedThisLaunch else { return }
         guard !localChangeSyncInProgress else { return }
         guard ensemblesContainer.isAttached else { return }
 

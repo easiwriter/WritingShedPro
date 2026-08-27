@@ -117,6 +117,11 @@ final class SyncHealthMonitor {
 
     /// Evaluate current sync health.
     func checkHealth() {
+          if Write_App.storeUnregisteredBlockedThisLaunch || Write_App.partialStoreBlockedThisLaunch {
+              transition(to: .blocked)
+              return
+          }
+
           if modelContainer != nil,
               Write_App.isInEnsemblesMergeConflictCooldown() {
                 transition(to: .recovering)
@@ -146,14 +151,6 @@ final class SyncHealthMonitor {
           if modelContainer != nil,
               Write_App.activeEnsemblesContainer != nil,
            !Write_App.hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch {
-            if let modelContainer,
-               Write_App.canProceedWithStartupMaintenanceAfterIdle(
-                   modelContainer: modelContainer,
-                   reason: "sync health idle store check"
-               ) {
-                transition(to: .healthy)
-                return
-            }
             transition(to: .degraded)
             return
         }

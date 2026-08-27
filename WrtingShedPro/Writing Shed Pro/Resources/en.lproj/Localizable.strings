@@ -14,6 +14,14 @@
 
 /* Sync Recovery */
 "sync.recovery.banner" = "Sync delayed. Go to Settings → Sync Troubleshooting before making more changes.";
+
+/* Missing File Body */
+"fileEditor.missingBody.title" = "Content is still missing on this device";
+"fileEditor.missingBody.message" = "The file record has synced, but its text body has not arrived. Editing is disabled here to avoid replacing the version that is visible on another device.";
+"fileEditor.missingBody.editEmpty" = "This file is intentionally empty";
+"fileEditor.missingBody.confirmTitle" = "Edit Empty File?";
+"fileEditor.missingBody.confirmMessage" = "Only continue if this file has never contained text. If another device has content for it, editing here may replace that content.";
+"fileEditor.missingBody.confirmEdit" = "Edit Empty File";
 /* Localization strings for Write! app */
 
 /* Project types */
@@ -1546,6 +1554,7 @@
 "textStyleEditor.preview.text" = "The quick brown fox jumps over the lazy dog";
 "textStyleEditor.preview.accessibility" = "Style preview text";
 "textStyleEditor.delete.title" = "Delete Style";
+"textStyleEditor.delete.failedTitle" = "Unable to Delete Style";
 "textStyleEditor.delete.confirm" = "Are you sure you want to delete this style? This action cannot be undone.";
 "textStyleEditor.delete.inUse" = "This style is used in %d file(s): %@. You must select a replacement style before deleting.";
 "textStyleEditor.delete.replaceAndDelete" = "Replace and Delete";
@@ -1555,6 +1564,22 @@
 "textStyleEditor.saveOptions.message" = "Do you want to update the existing style (changes will apply to all documents) or create a new style with these attributes?";
 "textStyleEditor.saveOptions.updateStyle" = "Update Existing Style";
 "textStyleEditor.saveOptions.createNewStyle" = "Create New Style";
+
+/* Document Spelling */
+"spelling.checkDocument" = "Check Document Spelling";
+"spelling.scanning" = "Checking spelling...";
+"spelling.noSuggestions" = "No suggestions";
+"spelling.suggestions" = "Suggestions";
+"spelling.replace" = "Replace";
+"spelling.ignore" = "Ignore";
+"spelling.ignoreAll" = "Ignore All";
+"spelling.noErrors" = "No spelling errors found";
+"spelling.checkAgain" = "Check Again";
+"spelling.close" = "Close spelling checker";
+"spelling.previous" = "Previous spelling error";
+"spelling.next" = "Next spelling error";
+"spelling.language" = "Spelling Language";
+"spelling.replaceUndo" = "Replace Spelling";
 
 /* ImageStyleSheetEditorView - New Keys */
 "imageStyleEditor.styleName" = "Style Name";
@@ -1639,6 +1664,7 @@
 "commentsList.confirmDeleteMultiple.message" = "This will permanently delete %d comments and remove their markers from your text. This cannot be undone.";
 
 /* StyleSheetManagementView - New Keys */
+"styleSheetManagement.deleteError.title" = "Couldn’t Delete Stylesheet";
 "styleSheetManagement.title" = "Stylesheets";
 "styleSheetManagement.stylesCount" = "%d styles";
 "styleSheetManagement.duplicate" = "Duplicate";
@@ -1648,7 +1674,9 @@
 "styleSheetManagement.newStylesheet" = "New Stylesheet";
 "styleSheetManagement.newStylesheet.accessibility" = "Create new stylesheet";
 "styleSheetManagement.deleteAlert.title" = "Delete Stylesheet";
-"styleSheetManagement.deleteAlert.message" = "Are you sure you want to delete '%@'? Projects using this stylesheet will revert to the system default.";
+"styleSheetManagement.deleteAlert.message" = "Are you sure you want to delete '%@'? This action cannot be undone.";
+"styleSheetManagement.deleteInUse.title" = "Stylesheet Is in Use";
+"styleSheetManagement.deleteInUse.message" = "'%@' is currently used by: %@. Change those projects to another stylesheet before deleting it.";
 "styleSheetManagement.repairListStyles" = "Repair Required List Styles";
 "styleSheetManagement.repairListStyles.accessibility" = "Repair required list styles";
 "styleSheetManagement.repairListStyles.resultTitle" = "List Style Repair";
