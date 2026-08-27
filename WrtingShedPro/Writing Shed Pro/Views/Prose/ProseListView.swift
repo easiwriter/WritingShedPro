@@ -123,6 +123,8 @@ struct ProseListView: View {
     
     /// Collapsible section state - tracks which sections are expanded
     @State private var expandedSections: Set<String> = []
+    @State private var subsectionsByFileID: [UUID: [DocumentSubsectionEntry]] = [:]
+    @State private var subsectionNavigationTarget: DocumentSubsectionNavigationTarget?
     
     // MARK: - Init
     
@@ -253,6 +255,12 @@ struct ProseListView: View {
     
     var body: some View {
         mainContent
+            .navigationDestination(item: $subsectionNavigationTarget) { target in
+                FileEditView(
+                    file: target.file,
+                    initialCharacterPosition: target.characterPosition
+                )
+            }
             .sheet(isPresented: $showAddFile) {
                 AddProseFileSheet(project: project)
             }
@@ -880,6 +888,10 @@ struct ProseListView: View {
             if useSections && expandedSections.isEmpty {
                 expandedSections = Set(sectionGroups.map { $0.id })
             }
+            refreshSubsectionEntries()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .writingShedProSyncDidUpdateLocalData)) { _ in
+            refreshSubsectionEntries()
         }
     }
     
@@ -957,34 +969,75 @@ struct ProseListView: View {
     
     @ViewBuilder
     private func fileRow(for file: TextFile) -> some View {
-        HStack {
-            if isEditMode {
-                Button {
-                    toggleSelection(for: file)
-                } label: {
-                    HStack {
-                        Image(systemName: selectedFileIDs.contains(file.id) ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(selectedFileIDs.contains(file.id) ? .blue : .gray)
-                            .imageScale(.large)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                if isEditMode {
+                    Button {
+                        toggleSelection(for: file)
+                    } label: {
+                        HStack {
+                            Image(systemName: selectedFileIDs.contains(file.id) ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(selectedFileIDs.contains(file.id) ? .blue : .gray)
+                                .imageScale(.large)
+                            FileRowView(file: file)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    NavigationLink {
+                        FileEditView(file: file)
+                    } label: {
                         FileRowView(file: file)
                     }
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-            } else {
-                NavigationLink {
-                    FileEditView(file: file)
-                } label: {
-                    FileRowView(file: file)
+
+                if !isEditMode {
+                    FileSubmissionsButton(file: file)
+                    fileOptionsMenu(for: file)
                 }
             }
-            
-            // Ellipsis menu (only in normal mode)
+
             if !isEditMode {
-                FileSubmissionsButton(file: file)
-                fileOptionsMenu(for: file)
+                ForEach(subsectionEntries(for: file)) { entry in
+                    Button {
+                        subsectionNavigationTarget = DocumentSubsectionNavigationTarget(
+                            file: file,
+                            characterPosition: entry.characterPosition
+                        )
+                    } label: {
+                        HStack {
+                            Label(entry.headingText, systemImage: "text.alignleft")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                            .font(.subheadline)
+                            .padding(.leading, CGFloat(entry.indentLevel + 1) * 20)
+                            .padding(.vertical, 5)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint(NSLocalizedString("prose.subsection.open.hint", comment: "Open this subsection in the editor"))
+                }
             }
         }
+    }
+
+    private func subsectionEntries(for file: TextFile) -> [DocumentSubsectionEntry] {
+        subsectionsByFileID[file.id] ?? []
+    }
+
+    private func refreshSubsectionEntries() {
+        let service = TOCGenerationService(context: modelContext)
+        subsectionsByFileID = Dictionary(uniqueKeysWithValues: sortedFiles.map { file in
+            let entries = service.subsectionEntries(
+                in: file,
+                for: project,
+                excluding: [file.section?.name ?? ""]
+            )
+            return (file.id, entries)
+        })
     }
 
     private func toggleSelection(for file: TextFile) {

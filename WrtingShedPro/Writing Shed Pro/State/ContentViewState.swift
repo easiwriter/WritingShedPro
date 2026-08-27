@@ -8,6 +8,16 @@
 import SwiftUI
 import Observation
 
+struct ProjectContentRoute: Hashable {
+    let projectID: UUID
+    let presentationID: UUID
+
+    init(projectID: UUID, presentationID: UUID = UUID()) {
+        self.projectID = projectID
+        self.presentationID = presentationID
+    }
+}
+
 @MainActor
 @Observable
 final class ContentViewState {
@@ -155,6 +165,15 @@ final class ContentViewState {
         navigationPath = newPath
 
         rememberOpenedProject(project)
+    }
+
+    func showProjectContent(_ project: Project) {
+        navigationPath = NavigationPath()
+
+        var newPath = NavigationPath()
+        newPath.append(project)
+        newPath.append(ProjectContentRoute(projectID: project.id))
+        navigationPath = newPath
     }
 
     func hideExistingProjects(from projects: [Project], excluding projectIDToKeepVisible: UUID? = nil) {

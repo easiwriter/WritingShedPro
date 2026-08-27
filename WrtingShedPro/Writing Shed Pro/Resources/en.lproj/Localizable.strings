@@ -1,3 +1,5 @@
+"prose.subsection.open.hint" = "Open this subsection in the editor";
+"folder.notFound.title" = "Folder Not Found";
 "insertMenu.endnotes" = "Endnote";
 "projectEditableList.cancel" = "Cancel";
 "projectEditableList.moveToTrash" = "Move to Trash";

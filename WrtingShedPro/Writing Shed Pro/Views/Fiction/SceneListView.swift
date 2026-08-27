@@ -144,6 +144,8 @@ struct SceneListView: View {
     
     /// Act grouping: tracks which act sections are expanded (Drama only)
     @State private var actExpandedSections: Set<String> = []
+    @State private var subsectionsByFileID: [UUID: [DocumentSubsectionEntry]] = [:]
+    @State private var subsectionNavigationTarget: DocumentSubsectionNavigationTarget?
     
     // MARK: - Init
     
@@ -662,6 +664,20 @@ struct SceneListView: View {
         .navigationDestination(item: $navigateToScene) { (scene: StoryScene) in
             sceneNavigationDestination(scene)
         }
+        .navigationDestination(item: $subsectionNavigationTarget) { target in
+            if project.type == .drama {
+                DramaSceneEditorView(
+                    file: target.file,
+                    project: project,
+                    initialCharacterPosition: target.characterPosition
+                )
+            } else {
+                FileEditView(
+                    file: target.file,
+                    initialCharacterPosition: target.characterPosition
+                )
+            }
+        }
         .confirmationDialog(
             deleteConfirmationTitle,
             isPresented: $showDeleteConfirmation,
@@ -826,6 +842,7 @@ struct SceneListView: View {
         .upgradePrompt(reason: $upgradePromptReason)
         .onAppear {
             initializeHeaderFooterFields()
+            refreshSubsectionEntries()
             
             // Expand all chapter sections by default on first appear
             if chapterExpandedSections.isEmpty, let groups = chapterGroups {
@@ -837,17 +854,27 @@ struct SceneListView: View {
                 actExpandedSections = Set(groups.map { $0.id })
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .writingShedProSyncDidUpdateLocalData)) { _ in
+            refreshSubsectionEntries()
+        }
     }
     
     // MARK: - Extracted Body Helpers
     
     @ViewBuilder
-    private func sceneNavigationDestination(_ scene: StoryScene) -> some View {
+    private func sceneNavigationDestination(
+        _ scene: StoryScene,
+        initialCharacterPosition: Int? = nil
+    ) -> some View {
         if let textFile = scene.textFile {
             if project.type == .drama {
-                DramaSceneEditorView(file: textFile, project: project)
+                DramaSceneEditorView(
+                    file: textFile,
+                    project: project,
+                    initialCharacterPosition: initialCharacterPosition
+                )
             } else {
-                FileEditView(file: textFile)
+                FileEditView(file: textFile, initialCharacterPosition: initialCharacterPosition)
             }
         } else {
             SceneDetailView(scene: scene, project: project)
@@ -1303,39 +1330,77 @@ struct SceneListView: View {
     
     @ViewBuilder
     private func sceneRow(for scene: StoryScene) -> some View {
-        HStack {
-            if isEditMode {
-                Image(systemName: selectedSceneIDs.contains(scene.id) ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(selectedSceneIDs.contains(scene.id) ? .blue : .gray)
-                    .imageScale(.large)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                if isEditMode {
+                    Image(systemName: selectedSceneIDs.contains(scene.id) ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(selectedSceneIDs.contains(scene.id) ? .blue : .gray)
+                        .imageScale(.large)
 
-                SceneRowView(scene: scene)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        toggleSelection(for: scene)
-                    }
-            } else {
-                NavigationLink {
-                    sceneNavigationDestination(scene)
-                } label: {
                     SceneRowView(scene: scene)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            toggleSelection(for: scene)
+                        }
+                } else {
+                    NavigationLink {
+                        sceneNavigationDestination(scene)
+                    } label: {
+                        SceneRowView(scene: scene)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+
+                Spacer(minLength: 8)
+
+                if !isEditMode {
+                    if let textFile = scene.textFile {
+                        FileSubmissionsButton(file: textFile)
+                    }
+                    sceneOptionsMenu(for: scene)
+                }
             }
-            
-            Spacer(minLength: 8)
-            
-            // Options menu (only in normal mode)
-            if !isEditMode {
-                if let textFile = scene.textFile {
-                    FileSubmissionsButton(file: textFile)
+
+            if !isEditMode, let textFile = scene.textFile {
+                ForEach(subsectionsByFileID[textFile.id] ?? []) { entry in
+                    Button {
+                        subsectionNavigationTarget = DocumentSubsectionNavigationTarget(
+                            file: textFile,
+                            characterPosition: entry.characterPosition
+                        )
+                    } label: {
+                        HStack {
+                            Label(entry.headingText, systemImage: "text.alignleft")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                            .font(.subheadline)
+                            .padding(.leading, CGFloat(entry.indentLevel + 1) * 20)
+                            .padding(.vertical, 5)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint(NSLocalizedString("prose.subsection.open.hint", comment: "Open this subsection in the editor"))
                 }
-                sceneOptionsMenu(for: scene)
             }
         }
         .contentShape(Rectangle())
         .contextMenu {
             sceneContextMenuItems(for: scene)
+        }
+    }
+
+    private func refreshSubsectionEntries() {
+        let service = TOCGenerationService(context: modelContext)
+        subsectionsByFileID = allScenes.reduce(into: [:]) { result, scene in
+            guard let file = scene.textFile else { return }
+            let entries = service.subsectionEntries(
+                in: file,
+                for: project,
+                excluding: [title]
+            )
+            result[file.id] = entries
         }
     }
     

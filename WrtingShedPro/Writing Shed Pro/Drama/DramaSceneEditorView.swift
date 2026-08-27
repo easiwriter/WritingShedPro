@@ -19,11 +19,13 @@ struct DramaSceneEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(ContentViewState.self) private var contentViewState
     
     // MARK: - Properties
     
     @Bindable var file: TextFile
     let project: Project
+    let initialCharacterPosition: Int?
 
     #if DEBUG
     private func logVersionDiagnostics(_ context: String) {
@@ -131,9 +133,10 @@ struct DramaSceneEditorView: View {
     
     // MARK: - Initialization
     
-    init(file: TextFile, project: Project) {
+    init(file: TextFile, project: Project, initialCharacterPosition: Int? = nil) {
         self.file = file
         self.project = project
+        self.initialCharacterPosition = initialCharacterPosition
         
         // Default to project's script type or film
         _scriptType = State(initialValue: project.dramaScriptType ?? .film)
@@ -156,11 +159,13 @@ struct DramaSceneEditorView: View {
         }
         .navigationTitle(file.name)
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(initialCharacterPosition != nil)
         .toolbar {
             navigationToolbarContent
         }
         .onAppear {
             loadContent()
+            scrollToInitialCharacterPosition()
         }
         .onChange(of: sourceText) { _, newValue in
             debounceParse(newValue)
@@ -276,6 +281,20 @@ struct DramaSceneEditorView: View {
     
     @ToolbarContentBuilder
     private var navigationToolbarContent: some ToolbarContent {
+        if initialCharacterPosition != nil {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    commitPendingSourceSave()
+                    contentViewState.showProjectContent(project)
+                } label: {
+                    Label(
+                        NSLocalizedString("navigation.back", comment: "Back"),
+                        systemImage: "chevron.left"
+                    )
+                }
+            }
+        }
+
         // Search button (only in source mode)
         if viewMode == .source {
             ToolbarItem(placement: .topBarTrailing) {
@@ -749,6 +768,22 @@ struct DramaSceneEditorView: View {
             #if DEBUG
             print("🎭 DramaSceneEditorView.loadContent: no current version!")
             #endif
+        }
+    }
+
+    private func scrollToInitialCharacterPosition() {
+        guard let initialCharacterPosition else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            guard let textView else { return }
+            let position = min(max(0, initialCharacterPosition), textView.textStorage.length)
+            let range = NSRange(location: position, length: 0)
+            selectedRange = range
+            #if !targetEnvironment(macCatalyst)
+            textView.selectionAffinity = .forward
+            #endif
+            textView.selectedRange = range
+            textView.scrollCharacterToTop(position)
+            textView.resignFirstResponder()
         }
     }
     

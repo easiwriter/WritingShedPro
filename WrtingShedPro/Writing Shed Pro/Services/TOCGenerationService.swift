@@ -62,6 +62,29 @@ struct TOCEntry: Identifiable {
     }
 }
 
+struct DocumentSubsectionEntry: Identifiable {
+    let fileID: UUID
+    let headingText: String
+    let indentLevel: Int
+    let characterPosition: Int
+
+    var id: String { "\(fileID.uuidString)-\(characterPosition)" }
+}
+
+struct DocumentSubsectionNavigationTarget: Identifiable, Hashable {
+    let id = UUID()
+    let file: TextFile
+    let characterPosition: Int
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
 /// Service for generating Table of Contents from manuscript content
 @MainActor
 final class TOCGenerationService {
@@ -402,7 +425,7 @@ final class TOCGenerationService {
         assembledFootnotes: [ManuscriptFootnote] = []
     ) async -> PaginatedTextLayoutManager.LayoutResult {
         nonisolated(unsafe) let backgroundContent = content
-        nonisolated(unsafe) let backgroundFootnotes = assembledFootnotes
+        let backgroundFootnotes = assembledFootnotes
         let paperName = pageSetup.paperName
         let orientationRaw = pageSetup.orientation
         let headers = pageSetup.hasHeaders
@@ -642,6 +665,31 @@ final class TOCGenerationService {
             return 0
         }
         return styles.filter { $0.includeInTOC }.count
+    }
+
+    /// Return navigable headings within one file using the same rules as the manuscript TOC.
+    func entries(in file: TextFile, for project: Project) -> [TOCEntry] {
+        findEntriesInFile(file, tocStyles: getTOCStyles(for: project))
+    }
+
+    func subsectionEntries(
+        in file: TextFile,
+        for project: Project,
+        excluding names: [String]
+    ) -> [DocumentSubsectionEntry] {
+        let excludedNames = Set(names.map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        })
+        return entries(in: file, for: project)
+            .filter { !excludedNames.contains($0.headingText.lowercased()) }
+            .map { entry in
+                DocumentSubsectionEntry(
+                    fileID: file.id,
+                    headingText: entry.headingText,
+                    indentLevel: entry.indentLevel,
+                    characterPosition: entry.characterPosition
+                )
+            }
     }
     
     /// Get all styles configured for TOC from project's stylesheet

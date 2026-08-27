@@ -90,6 +90,7 @@ struct FileEditView: View {
     private static let editorZoomScaleDefaultsKey = "editorZoomScale"
     private static let showLineNumbersDefaultsKey = "showDocumentLineNumbers"
     private let styleSheetRegistrationOwnerID = UUID()
+    private let initialCharacterPosition: Int?
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -240,6 +241,7 @@ struct FileEditView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(SearchContext.self) private var searchContext: SearchContext?
+    @Environment(ContentViewState.self) private var contentViewState
     
     enum VersionAction: Int {
         case previous
@@ -248,8 +250,9 @@ struct FileEditView: View {
         case delete
     }
     
-    init(file: TextFile) {
+    init(file: TextFile, initialCharacterPosition: Int? = nil) {
         self.file = file
+        self.initialCharacterPosition = initialCharacterPosition
         
         // Initialize with empty content - will load in onAppear to avoid repeated init calls
         let emptyAttributed = NSAttributedString(
@@ -1808,13 +1811,8 @@ struct FileEditView: View {
         // into the manuscript editor.
         guard project.type != .drama else { return BackMatterSettings() }
 
-        // Prefer the live model so SwiftUI observes backMatterSettingsData and rebuilds
-        // both insert menus immediately after the settings dialog saves.
-        if let backMatterFolder = project.findBackMatterFolder() {
-            return backMatterFolder.backMatterSettings
-        }
-
-        // Fall back to a fresh store fetch when synced relationships are incomplete.
+        // Fetch from the live context instead of traversing cached relationships, which
+        // Ensembles may invalidate while applying a merge.
         let projectID = project.id
         let localizedBackMatterName = NSLocalizedString("folder.backMatter", comment: "Back Matter")
         let descriptor = FetchDescriptor<Folder>(
@@ -2114,7 +2112,20 @@ struct FileEditView: View {
             // For poetry projects, hide the navigation title since we use a custom title view
             .navigationTitle(isPoetryProject ? "" : file.name)
             .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(initialCharacterPosition != nil)
             .toolbar {
+                if initialCharacterPosition != nil {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button {
+                            returnToProjectTopLevel()
+                        } label: {
+                            Label(
+                                NSLocalizedString("navigation.back", comment: "Back"),
+                                systemImage: "chevron.left"
+                            )
+                        }
+                    }
+                }
                 // Custom title with form subtitle for poetry projects
                 if isPoetryProject {
                     ToolbarItem(placement: .principal) {
@@ -3242,9 +3253,19 @@ struct FileEditView: View {
             let shouldSuppressInitialKeyboard = attributedContent.length > 0
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 if let textView = self.textViewCoordinator.textView {
-                    let endPosition = textView.attributedText.length
-                    textView.selectedRange = NSRange(location: endPosition, length: 0)
-                    textView.scrollRangeToVisible(NSRange(location: endPosition, length: 0))
+                    let requestedPosition = self.initialCharacterPosition ?? textView.attributedText.length
+                    let position = min(max(0, requestedPosition), textView.attributedText.length)
+                    let range = NSRange(location: position, length: 0)
+                    self.selectedRange = range
+                    #if !targetEnvironment(macCatalyst)
+                    textView.selectionAffinity = .forward
+                    #endif
+                    textView.selectedRange = range
+                    if self.initialCharacterPosition != nil {
+                        textView.scrollCharacterToTop(position)
+                    } else {
+                        textView.scrollRangeToVisible(range)
+                    }
                     if shouldSuppressInitialKeyboard {
                         textView.resignFirstResponder()
                     }
@@ -3337,6 +3358,15 @@ struct FileEditView: View {
         // Sync back matter settings with actual files (handles imported projects)
         syncBackMatterSettingsWithActualFiles()
         
+    }
+
+    private func returnToProjectTopLevel() {
+        flushPendingEditorChanges()
+        guard let project = file.project ?? file.parentFolder?.resolvedProject ?? findProjectInHierarchy() else {
+            dismiss()
+            return
+        }
+        contentViewState.showProjectContent(project)
     }
     
     private func selectLatestUsableVersionForEditing() {

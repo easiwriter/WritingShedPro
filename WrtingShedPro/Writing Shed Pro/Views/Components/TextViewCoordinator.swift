@@ -2,6 +2,28 @@ import UIKit
 import Combine
 import PhotosUI
 
+extension UITextView {
+    func scrollCharacterToTop(_ characterPosition: Int, animated: Bool = false) {
+        guard textStorage.length > 0 else {
+            setContentOffset(CGPoint(x: contentOffset.x, y: -adjustedContentInset.top), animated: animated)
+            return
+        }
+
+        let position = min(max(0, characterPosition), textStorage.length - 1)
+        layoutManager.ensureLayout(for: textContainer)
+        let glyphIndex = layoutManager.glyphIndexForCharacter(at: position)
+        let lineRect = layoutManager.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: nil)
+        let minimumOffsetY = -adjustedContentInset.top
+        let maximumOffsetY = max(
+            minimumOffsetY,
+            contentSize.height - bounds.height + adjustedContentInset.bottom
+        )
+        let requestedOffsetY = lineRect.minY + textContainerInset.top - adjustedContentInset.top
+        let offsetY = min(maximumOffsetY, max(minimumOffsetY, requestedOffsetY))
+        setContentOffset(CGPoint(x: contentOffset.x, y: offsetY), animated: animated)
+    }
+}
+
 /// Coordinator to manage UITextView reference and typing attributes
 class TextViewCoordinator: NSObject, ObservableObject, UIDocumentPickerDelegate, PHPickerViewControllerDelegate {
     weak var textView: UITextView?

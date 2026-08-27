@@ -35,6 +35,8 @@ struct PoetryCollectionPoemsView: View {
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
     @State private var liveCollectionFiles: [TextFile] = []
+    @State private var subsectionsByFileID: [UUID: [DocumentSubsectionEntry]] = [:]
+    @State private var subsectionNavigationTarget: DocumentSubsectionNavigationTarget?
     
     // Export state
     @State private var showExportMenu = false
@@ -90,66 +92,14 @@ struct PoetryCollectionPoemsView: View {
         }
         .navigationTitle(collection.name ?? NSLocalizedString("poetry.collection.untitled", comment: "Untitled"))
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(item: $subsectionNavigationTarget) { target in
+            FileEditView(
+                file: target.file,
+                initialCharacterPosition: target.characterPosition
+            )
+        }
         .toolbar {
-            ToolbarItemGroup(placement: .navigationBarTrailing) {
-                Button {
-                    showAddPoemsSheet = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel(NSLocalizedString("poetry.collection.addPoems", comment: "Add poems"))
-                .disabled(availablePoems.isEmpty || isEditMode)
-                
-                // Edit/Done button
-                if !sortedFiles.isEmpty {
-                    Button {
-                        withAnimation {
-                            if editMode == .active {
-                                editMode = .inactive
-                                selectedFileIDs.removeAll()
-                            } else {
-                                editMode = .active
-                            }
-                        }
-                    } label: {
-                        Text(isEditMode ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("button.edit", comment: "Edit"))
-                    }
-                }
-                
-                // More menu (export/print)
-                if !sortedFiles.isEmpty && !isEditMode {
-                    Menu {
-                        Button(action: {
-                            saveAsRequested = false
-                            showExportMenu = true
-                        }) {
-                            Label(NSLocalizedString("button.export", comment: "Export"), systemImage: "square.and.arrow.up")
-                        }
-
-                        #if os(macOS) || targetEnvironment(macCatalyst)
-                        Button(action: {
-                            saveAsRequested = true
-                            showExportMenu = true
-                        }) {
-                            Label(NSLocalizedString("manuscript.saveAs", comment: "Save As…"), systemImage: "square.and.arrow.down")
-                        }
-                        #endif
-                        
-                        Button(action: { printCollection() }) {
-                            Label(NSLocalizedString("button.print", comment: "Print"), systemImage: "printer")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                }
-            }
-            
-            // Bottom toolbar for multi-select actions
-            ToolbarItemGroup(placement: .bottomBar) {
-                if showToolbar {
-                    bottomToolbarContent
-                }
-            }
+            collectionToolbar
         }
         .sheet(isPresented: $showAddPoemsSheet) {
             addPoemsSheet
@@ -166,6 +116,9 @@ struct PoetryCollectionPoemsView: View {
             reloadCollectionFiles()
         }
         .onChange(of: collection.modifiedDate) { _, _ in
+            reloadCollectionFiles()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .writingShedProSyncDidUpdateLocalData)) { _ in
             reloadCollectionFiles()
         }
         .alert(
@@ -226,6 +179,66 @@ struct PoetryCollectionPoemsView: View {
         }
         .upgradePrompt(reason: $upgradePromptReason)
     }
+
+    @ToolbarContentBuilder
+    private var collectionToolbar: some ToolbarContent {
+        ToolbarItemGroup(placement: .navigationBarTrailing) {
+            Button {
+                showAddPoemsSheet = true
+            } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel(NSLocalizedString("poetry.collection.addPoems", comment: "Add poems"))
+            .disabled(availablePoems.isEmpty || isEditMode)
+
+            if !sortedFiles.isEmpty {
+                Button {
+                    withAnimation {
+                        if editMode == .active {
+                            editMode = .inactive
+                            selectedFileIDs.removeAll()
+                        } else {
+                            editMode = .active
+                        }
+                    }
+                } label: {
+                    Text(isEditMode ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("button.edit", comment: "Edit"))
+                }
+            }
+
+            if !sortedFiles.isEmpty && !isEditMode {
+                Menu {
+                    Button {
+                        saveAsRequested = false
+                        showExportMenu = true
+                    } label: {
+                        Label(NSLocalizedString("button.export", comment: "Export"), systemImage: "square.and.arrow.up")
+                    }
+
+                    #if os(macOS) || targetEnvironment(macCatalyst)
+                    Button {
+                        saveAsRequested = true
+                        showExportMenu = true
+                    } label: {
+                        Label(NSLocalizedString("manuscript.saveAs", comment: "Save As…"), systemImage: "square.and.arrow.down")
+                    }
+                    #endif
+
+                    Button(action: printCollection) {
+                        Label(NSLocalizedString("button.print", comment: "Print"), systemImage: "printer")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
+
+        ToolbarItemGroup(placement: .bottomBar) {
+            if showToolbar {
+                bottomToolbarContent
+            }
+        }
+    }
     
     // MARK: - Bottom Toolbar
     
@@ -250,28 +263,54 @@ struct PoetryCollectionPoemsView: View {
     private var fileList: some View {
         List {
             ForEach(sortedFiles) { file in
-                HStack {
-                    if isEditMode {
-                        Button {
-                            toggleSelection(for: file)
-                        } label: {
-                            HStack {
-                                Image(systemName: selectedFileIDs.contains(file.id) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(selectedFileIDs.contains(file.id) ? .blue : .gray)
-                                    .imageScale(.large)
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        if isEditMode {
+                            Button {
+                                toggleSelection(for: file)
+                            } label: {
+                                HStack {
+                                    Image(systemName: selectedFileIDs.contains(file.id) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(selectedFileIDs.contains(file.id) ? .blue : .gray)
+                                        .imageScale(.large)
+                                    PoemRowView(file: file)
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            NavigationLink {
+                                FileEditView(file: file)
+                            } label: {
                                 PoemRowView(file: file)
                             }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        NavigationLink {
-                            FileEditView(file: file)
-                        } label: {
-                            PoemRowView(file: file)
-                        }
 
-                        FileSubmissionsButton(file: file)
+                            FileSubmissionsButton(file: file)
+                        }
+                    }
+
+                    if !isEditMode {
+                        ForEach(subsectionsByFileID[file.id] ?? []) { entry in
+                            Button {
+                                subsectionNavigationTarget = DocumentSubsectionNavigationTarget(
+                                    file: file,
+                                    characterPosition: entry.characterPosition
+                                )
+                            } label: {
+                                HStack {
+                                    Label(entry.headingText, systemImage: "text.alignleft")
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                }
+                                    .font(.subheadline)
+                                    .padding(.leading, CGFloat(entry.indentLevel + 1) * 20)
+                                    .padding(.vertical, 5)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint(NSLocalizedString("prose.subsection.open.hint", comment: "Open this subsection in the editor"))
+                        }
                     }
                 }
             }
@@ -358,6 +397,15 @@ struct PoetryCollectionPoemsView: View {
         liveCollectionFiles = (collection.textFiles ?? [])
             .filter { $0.trashItem == nil }
             .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        let service = TOCGenerationService(context: modelContext)
+        subsectionsByFileID = Dictionary(uniqueKeysWithValues: liveCollectionFiles.map { file in
+            let entries = service.subsectionEntries(
+                in: file,
+                for: project,
+                excluding: [collection.name ?? ""]
+            )
+            return (file.id, entries)
+        })
     }
 
     private func addPoemToCollection(_ file: TextFile) {

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 import UniformTypeIdentifiers
 
 // MARK: - Custom UTTypes for Writing Shed files
@@ -74,6 +75,7 @@ struct ContentViewBody: View {
         NavigationStack(path: $state.navigationPath) {
             navigationStackContent
         }
+        .environment(state)
         .onReceive(NotificationCenter.default.publisher(for: GuideNavigationService.openGuideSectionNotification)) { notification in
             let section = notification.userInfo?["section"] as? String
             // Open in-app HTML manual sheet — uses WKWebView with JS scrollIntoView
@@ -229,6 +231,9 @@ struct ContentViewBody: View {
                         Text(NSLocalizedString("onboarding.editorIntro.body", comment: "Editor introduction body"))
                     }
             }
+            .navigationDestination(for: ProjectContentRoute.self) { route in
+                projectContentDestination(for: route)
+            }
     }
 
     private var projectListSection: some View {
@@ -318,6 +323,37 @@ struct ContentViewBody: View {
         } else {
             FileEditView(file: file)
         }
+    }
+
+    @ViewBuilder
+    private func projectContentDestination(for route: ProjectContentRoute) -> some View {
+        if let project = projects.first(where: { $0.id == route.projectID }) {
+            switch project.type {
+            case .prose:
+                ProseListView(project: project)
+            case .poetry:
+                if let poemsFolder = contentFolder(named: "Poems", for: project) {
+                    FolderFilesView(folder: poemsFolder)
+                } else {
+                    ContentUnavailableView(
+                        NSLocalizedString("folder.notFound.title", comment: "Folder not found"),
+                        systemImage: "folder.badge.questionmark"
+                    )
+                }
+            case .fiction, .drama:
+                SceneListView(project: project)
+            }
+        }
+    }
+
+    private func contentFolder(named name: String, for project: Project) -> Folder? {
+        let projectID = project.id
+        let descriptor = FetchDescriptor<Folder>(
+            predicate: #Predicate<Folder> { folder in
+                folder.name == name && folder.project?.id == projectID
+            }
+        )
+        return try? modelContext.fetch(descriptor).first
     }
 
     private func createOnboardingProjectAndFile(_ defaults: OnboardingDefaults, projectName: String, fileName: String) throws {
