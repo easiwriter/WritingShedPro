@@ -74,6 +74,7 @@ struct DocumentSubsectionEntry: Identifiable {
 struct DocumentSubsectionNavigationTarget: Identifiable, Hashable {
     let id = UUID()
     let file: TextFile
+    let headingText: String
     let characterPosition: Int
 
     static func == (lhs: Self, rhs: Self) -> Bool {

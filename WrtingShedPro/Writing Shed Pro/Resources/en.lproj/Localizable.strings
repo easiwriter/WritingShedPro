@@ -1703,6 +1703,9 @@
 "styleSheetDetail.noImageStyles" = "No image styles";
 "styleSheetDetail.newStyle" = "New Style";
 "styleSheetDetail.newStyle.accessibility" = "Create new style";
+"styleSheetDetail.newTextStyle" = "Text Style";
+"styleSheetDetail.newImageStyle" = "Image Style";
+"styleSheetDetail.newImageStyle.defaultName" = "New Image Style";
 "styleSheetDetail.bold" = "Bold";
 "styleSheetDetail.italic" = "Italic";
 "styleSheetDetail.previewText" = "Sample preview text";

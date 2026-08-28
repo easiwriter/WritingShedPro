@@ -95,7 +95,8 @@ struct PoetryCollectionPoemsView: View {
         .navigationDestination(item: $subsectionNavigationTarget) { target in
             FileEditView(
                 file: target.file,
-                initialCharacterPosition: target.characterPosition
+                initialCharacterPosition: target.characterPosition,
+                initialHeadingText: target.headingText
             )
         }
         .toolbar {
@@ -294,6 +295,7 @@ struct PoetryCollectionPoemsView: View {
                             Button {
                                 subsectionNavigationTarget = DocumentSubsectionNavigationTarget(
                                     file: file,
+                                    headingText: entry.headingText,
                                     characterPosition: entry.characterPosition
                                 )
                             } label: {

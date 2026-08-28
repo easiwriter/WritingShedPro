@@ -26,6 +26,7 @@ struct DramaSceneEditorView: View {
     @Bindable var file: TextFile
     let project: Project
     let initialCharacterPosition: Int?
+    let initialHeadingText: String?
 
     #if DEBUG
     private func logVersionDiagnostics(_ context: String) {
@@ -133,10 +134,11 @@ struct DramaSceneEditorView: View {
     
     // MARK: - Initialization
     
-    init(file: TextFile, project: Project, initialCharacterPosition: Int? = nil) {
+    init(file: TextFile, project: Project, initialCharacterPosition: Int? = nil, initialHeadingText: String? = nil) {
         self.file = file
         self.project = project
         self.initialCharacterPosition = initialCharacterPosition
+        self.initialHeadingText = initialHeadingText
         
         // Default to project's script type or film
         _scriptType = State(initialValue: project.dramaScriptType ?? .film)
@@ -775,7 +777,10 @@ struct DramaSceneEditorView: View {
         guard let initialCharacterPosition else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             guard let textView else { return }
-            let position = textView.normalizedNavigationPosition(initialCharacterPosition)
+            let position = textView.resolvedNavigationPosition(
+                initialCharacterPosition,
+                headingText: initialHeadingText
+            )
             let range = NSRange(location: position, length: 0)
             selectedRange = range
             textView.selectedRange = range

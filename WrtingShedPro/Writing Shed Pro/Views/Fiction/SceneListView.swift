@@ -669,12 +669,14 @@ struct SceneListView: View {
                 DramaSceneEditorView(
                     file: target.file,
                     project: project,
-                    initialCharacterPosition: target.characterPosition
+                    initialCharacterPosition: target.characterPosition,
+                    initialHeadingText: target.headingText
                 )
             } else {
                 FileEditView(
                     file: target.file,
-                    initialCharacterPosition: target.characterPosition
+                    initialCharacterPosition: target.characterPosition,
+                    initialHeadingText: target.headingText
                 )
             }
         }
@@ -1366,6 +1368,7 @@ struct SceneListView: View {
                     Button {
                         subsectionNavigationTarget = DocumentSubsectionNavigationTarget(
                             file: textFile,
+                            headingText: entry.headingText,
                             characterPosition: entry.characterPosition
                         )
                     } label: {

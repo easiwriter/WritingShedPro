@@ -258,7 +258,8 @@ struct ProseListView: View {
             .navigationDestination(item: $subsectionNavigationTarget) { target in
                 FileEditView(
                     file: target.file,
-                    initialCharacterPosition: target.characterPosition
+                    initialCharacterPosition: target.characterPosition,
+                    initialHeadingText: target.headingText
                 )
             }
             .sheet(isPresented: $showAddFile) {
@@ -1003,6 +1004,7 @@ struct ProseListView: View {
                     Button {
                         subsectionNavigationTarget = DocumentSubsectionNavigationTarget(
                             file: file,
+                            headingText: entry.headingText,
                             characterPosition: entry.characterPosition
                         )
                     } label: {

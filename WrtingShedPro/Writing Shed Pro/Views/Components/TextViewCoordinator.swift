@@ -3,9 +3,37 @@ import Combine
 import PhotosUI
 
 extension UITextView {
-    func normalizedNavigationPosition(_ characterPosition: Int) -> Int {
+    func resolvedNavigationPosition(_ characterPosition: Int, headingText: String?) -> Int {
         let string = textStorage.string as NSString
-        var position = min(max(0, characterPosition), string.length)
+        let expectedPosition = min(max(0, characterPosition), string.length)
+        let heading = headingText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        if !heading.isEmpty {
+            var searchRange = NSRange(location: 0, length: string.length)
+            var nearestPosition: Int?
+
+            while searchRange.length > 0 {
+                let match = string.range(of: heading, options: [], range: searchRange)
+                guard match.location != NSNotFound else { break }
+
+                if let currentNearestPosition = nearestPosition {
+                    if abs(match.location - expectedPosition) < abs(currentNearestPosition - expectedPosition) {
+                        nearestPosition = match.location
+                    }
+                } else {
+                    nearestPosition = match.location
+                }
+
+                let nextLocation = match.location + max(match.length, 1)
+                searchRange = NSRange(location: nextLocation, length: string.length - nextLocation)
+            }
+
+            if let nearestPosition {
+                return nearestPosition
+            }
+        }
+
+        var position = expectedPosition
 
         while position < string.length,
               let scalar = UnicodeScalar(string.character(at: position)),
@@ -23,16 +51,12 @@ extension UITextView {
         }
 
         let position = min(max(0, characterPosition), textStorage.length - 1)
-        layoutManager.ensureLayout(for: textContainer)
+        layoutManager.ensureLayout(forCharacterRange: NSRange(location: position, length: 1))
         let glyphIndex = layoutManager.glyphIndexForCharacter(at: position)
         let lineRect = layoutManager.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: nil)
         let minimumOffsetY = -adjustedContentInset.top
-        let maximumOffsetY = max(
-            minimumOffsetY,
-            contentSize.height - bounds.height + adjustedContentInset.bottom
-        )
         let requestedOffsetY = lineRect.minY + textContainerInset.top - adjustedContentInset.top
-        let offsetY = min(maximumOffsetY, max(minimumOffsetY, requestedOffsetY))
+        let offsetY = max(minimumOffsetY, requestedOffsetY)
         setContentOffset(CGPoint(x: contentOffset.x, y: offsetY), animated: animated)
     }
 }

@@ -14,6 +14,7 @@ struct StyleSheetDetailView: View {
     @Bindable var styleSheet: StyleSheet
     @State private var showingNewStyleEditor = false
     @State private var newStyle: TextStyleModel?
+    @State private var newImageStyle: ImageStyle?
     @State private var refreshTrigger = false
     
     private var sortedStyles: [TextStyleModel] {
@@ -65,9 +66,25 @@ struct StyleSheetDetailView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button(action: {
-                    createNewStyle()
-                }) {
+                Menu {
+                    Button {
+                        createNewStyle()
+                    } label: {
+                        Label(
+                            NSLocalizedString("styleSheetDetail.newTextStyle", comment: "New text style"),
+                            systemImage: "textformat"
+                        )
+                    }
+
+                    Button {
+                        createNewImageStyle()
+                    } label: {
+                        Label(
+                            NSLocalizedString("styleSheetDetail.newImageStyle", comment: "New image style"),
+                            systemImage: "photo"
+                        )
+                    }
+                } label: {
                     Label(NSLocalizedString("styleSheetDetail.newStyle", comment: "New style button"), systemImage: "plus")
                 }
                 .accessibilityLabel(NSLocalizedString("styleSheetDetail.newStyle.accessibility", comment: "New style accessibility"))
@@ -84,6 +101,13 @@ struct StyleSheetDetailView: View {
                         newStyle = nil
                     }
                 )
+            }
+        }
+        .sheet(item: $newImageStyle, onDismiss: {
+            newImageStyle = nil
+        }) { imageStyle in
+            NavigationStack {
+                ImageStyleSheetEditorView(imageStyle: imageStyle)
             }
         }
     }
@@ -209,6 +233,18 @@ struct StyleSheetDetailView: View {
         style.styleSheet = styleSheet
         modelContext.insert(style)
         newStyle = style
+    }
+
+    private func createNewImageStyle() {
+        let imageStyle = ImageStyle(
+            name: "custom-image-style-\(UUID().uuidString.prefix(8))",
+            displayName: NSLocalizedString("styleSheetDetail.newImageStyle.defaultName", comment: "Default new image style name"),
+            displayOrder: (sortedImageStyles.map(\.displayOrder).max() ?? -1) + 1,
+            isSystemStyle: false
+        )
+        imageStyle.styleSheet = styleSheet
+        modelContext.insert(imageStyle)
+        newImageStyle = imageStyle
     }
 
     private func existingStyleEditor(for style: TextStyleModel) -> some View {

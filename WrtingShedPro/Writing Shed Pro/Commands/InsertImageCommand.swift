@@ -43,6 +43,9 @@ final class InsertImageCommand: UndoableCommand {
 
     /// The actual attachment position after any newline wrapping has been applied.
     private(set) var insertedImagePosition: Int?
+
+    /// The image and only the wrapper newlines introduced by this command.
+    private var insertedContentRange: NSRange?
     
     // MARK: - Initialization
     
@@ -89,6 +92,7 @@ final class InsertImageCommand: UndoableCommand {
         print("🖼️💾 InsertImageCommand.execute() called")
         #endif
         insertedImagePosition = nil
+        insertedContentRange = nil
         guard let file = targetFile,
               let currentVersion = file.currentVersion else {
             #if DEBUG
@@ -171,6 +175,7 @@ final class InsertImageCommand: UndoableCommand {
                                    nsString.character(at: position) != 0x0A
             
             var insertPosition = position
+            let insertedRangeStart = position
             
             // Get the attributes from the surrounding text to preserve font, color, etc.
             var surroundingAttributes: [NSAttributedString.Key: Any] = [:]
@@ -206,11 +211,17 @@ final class InsertImageCommand: UndoableCommand {
                 let newline = NSMutableAttributedString(string: "\n", attributes: surroundingAttributes)
                 newline.addAttribute(.paragraphStyle, value: textParagraphStyle, range: NSRange(location: 0, length: 1))
                 mutableContent.insert(newline, at: insertPosition)
+                insertPosition += 1
             }
+            insertedContentRange = NSRange(
+                location: insertedRangeStart,
+                length: insertPosition - insertedRangeStart
+            )
         } else {
             // For left/inline aligned images, just insert directly
             insertedImagePosition = position
             mutableContent.insert(attachmentString, at: position)
+            insertedContentRange = NSRange(location: position, length: 1)
         }
         
         #if DEBUG
@@ -268,14 +279,15 @@ final class InsertImageCommand: UndoableCommand {
         }
         
         let content = currentVersion.attributedContent ?? NSAttributedString()
-        let removalPosition = insertedImagePosition ?? position
-        guard removalPosition >= 0, removalPosition + 1 <= content.length else {
+        let removalRange = insertedContentRange
+            ?? NSRange(location: insertedImagePosition ?? position, length: 1)
+        guard removalRange.location >= 0,
+              NSMaxRange(removalRange) <= content.length else {
             return
         }
         
-        // Remove the image (attachments take up 1 character position)
         let mutableContent = NSMutableAttributedString(attributedString: content)
-        mutableContent.deleteCharacters(in: NSRange(location: removalPosition, length: 1))
+        mutableContent.deleteCharacters(in: removalRange)
         
         // Update the version's content
         currentVersion.attributedContent = mutableContent
@@ -291,6 +303,7 @@ final class InsertImageCommand: UndoableCommand {
     enum CodingKeys: String, CodingKey {
         case id, timestamp, description, position, imageData, scale, alignment
         case hasCaption, captionText, captionStyle, captionPrefix, imageStyleName, spacingAbove, spacingBelow, originalFilename
+        case insertedImagePosition, insertedRangeLocation, insertedRangeLength
     }
     
     func encode(to encoder: Encoder) throws {
@@ -310,6 +323,9 @@ final class InsertImageCommand: UndoableCommand {
         try container.encode(spacingAbove, forKey: .spacingAbove)
         try container.encode(spacingBelow, forKey: .spacingBelow)
         try container.encodeIfPresent(originalFilename, forKey: .originalFilename)
+        try container.encodeIfPresent(insertedImagePosition, forKey: .insertedImagePosition)
+        try container.encodeIfPresent(insertedContentRange?.location, forKey: .insertedRangeLocation)
+        try container.encodeIfPresent(insertedContentRange?.length, forKey: .insertedRangeLength)
     }
     
     required init(from decoder: Decoder) throws {
@@ -330,6 +346,11 @@ final class InsertImageCommand: UndoableCommand {
         spacingAbove = try container.decodeIfPresent(CGFloat.self, forKey: .spacingAbove) ?? 0
         spacingBelow = try container.decodeIfPresent(CGFloat.self, forKey: .spacingBelow) ?? 0
         originalFilename = try container.decodeIfPresent(String.self, forKey: .originalFilename)
+        insertedImagePosition = try container.decodeIfPresent(Int.self, forKey: .insertedImagePosition)
+        if let rangeLocation = try container.decodeIfPresent(Int.self, forKey: .insertedRangeLocation),
+           let rangeLength = try container.decodeIfPresent(Int.self, forKey: .insertedRangeLength) {
+            insertedContentRange = NSRange(location: rangeLocation, length: rangeLength)
+        }
         // Note: targetFile will be set when command is deserialized
     }
 

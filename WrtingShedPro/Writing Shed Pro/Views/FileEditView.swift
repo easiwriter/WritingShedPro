@@ -91,6 +91,7 @@ struct FileEditView: View {
     private static let showLineNumbersDefaultsKey = "showDocumentLineNumbers"
     private let styleSheetRegistrationOwnerID = UUID()
     private let initialCharacterPosition: Int?
+    private let initialHeadingText: String?
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -250,9 +251,10 @@ struct FileEditView: View {
         case delete
     }
     
-    init(file: TextFile, initialCharacterPosition: Int? = nil) {
+    init(file: TextFile, initialCharacterPosition: Int? = nil, initialHeadingText: String? = nil) {
         self.file = file
         self.initialCharacterPosition = initialCharacterPosition
+        self.initialHeadingText = initialHeadingText
         
         // Initialize with empty content - will load in onAppear to avoid repeated init calls
         let emptyAttributed = NSAttributedString(
@@ -3256,7 +3258,7 @@ struct FileEditView: View {
                     let requestedPosition = self.initialCharacterPosition ?? textView.attributedText.length
                     let position = self.initialCharacterPosition == nil
                         ? min(max(0, requestedPosition), textView.attributedText.length)
-                        : textView.normalizedNavigationPosition(requestedPosition)
+                        : textView.resolvedNavigationPosition(requestedPosition, headingText: self.initialHeadingText)
                     let range = NSRange(location: position, length: 0)
                     self.selectedRange = range
                     textView.selectedRange = range
@@ -3685,6 +3687,7 @@ struct FileEditView: View {
         attributedContent = restoredContent
         previousContent = restoredContent.string
         previousAttributedContent = restoredContent
+        clearMissingImageSelection(afterRestoring: restoredContent)
 
         if notification.userInfo?["rebuildEditor"] as? Bool == true {
             selectedImage = nil
@@ -3777,6 +3780,28 @@ struct FileEditView: View {
                 scanDocumentSpelling()
             }
         }
+    }
+
+    private func clearMissingImageSelection(afterRestoring content: NSAttributedString) {
+        let restoredImage = selectedImagePosition >= 0 && selectedImagePosition < content.length
+            ? content.attribute(
+                .attachment,
+                at: selectedImagePosition,
+                effectiveRange: nil
+            ) as? ImageAttachment
+            : nil
+        let imageStillExists = if let selectedImage {
+            restoredImage?.imageID == selectedImage.imageID
+        } else {
+            restoredImage != nil
+        }
+
+        guard !imageStillExists else { return }
+
+        selectedImage = nil
+        selectedImageFrame = .zero
+        selectedImagePosition = -1
+        textViewCoordinator.textView?.clearImageSelectionOverlay()
     }
     
     // MARK: - Attributed Text Handling

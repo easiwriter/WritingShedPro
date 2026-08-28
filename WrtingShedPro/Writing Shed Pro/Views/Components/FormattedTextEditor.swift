@@ -2410,6 +2410,19 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
 
 // MARK: - Custom UITextView
 
+extension UITextView {
+    func clearImageSelectionOverlay() {
+        guard let customTextView = self as? CustomTextView else {
+            tintColor = UIColor.systemBlue
+            return
+        }
+
+        customTextView.isImageSelected = false
+        customTextView.hideSelectionBorder()
+        customTextView.tintColor = UIColor.systemBlue
+    }
+}
+
 /// Custom UITextView subclass to support inputAccessoryView
 private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     private final class FallbackSelectionRect: UITextSelectionRect {
