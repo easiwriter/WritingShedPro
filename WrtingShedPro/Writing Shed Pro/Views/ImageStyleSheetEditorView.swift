@@ -17,6 +17,7 @@ struct ImageStyleSheetEditorView: View {
     @State private var scaleText: String = ""
     @State private var spacingAboveText: String = ""
     @State private var spacingBelowText: String = ""
+    @State private var borderPaddingText: String = ""
     
     var body: some View {
         Form {
@@ -80,6 +81,15 @@ struct ImageStyleSheetEditorView: View {
             Section("imageStyleEditor.spacing") {
                 spacingField("imageStyleEditor.spacingAbove", text: $spacingAboveText)
                 spacingField("imageStyleEditor.spacingBelow", text: $spacingBelowText)
+            }
+
+            Section("imageStyleEditor.border") {
+                Picker("imageStyleEditor.borderStyle", selection: $imageStyle.defaultBorderStyleRaw) {
+                    ForEach(ImageAttachment.BorderStyle.allCases, id: \.rawValue) { borderStyle in
+                        Text(LocalizedStringKey(borderStyle.localizationKey)).tag(borderStyle.rawValue)
+                    }
+                }
+                spacingField("imageStyleEditor.borderPadding", text: $borderPaddingText)
             }
             
             // Default Alignment Section
@@ -156,6 +166,7 @@ struct ImageStyleSheetEditorView: View {
             scaleText = "\(Int(imageStyle.defaultScale * 100))"
             spacingAboveText = spacingText(imageStyle.defaultSpacingAbove)
             spacingBelowText = spacingText(imageStyle.defaultSpacingBelow)
+            borderPaddingText = spacingText(imageStyle.defaultBorderPadding)
         }
     }
     
@@ -218,6 +229,7 @@ struct ImageStyleSheetEditorView: View {
     private func saveChanges() {
         imageStyle.defaultSpacingAbove = spacingValue(spacingAboveText)
         imageStyle.defaultSpacingBelow = spacingValue(spacingBelowText)
+        imageStyle.defaultBorderPadding = spacingValue(borderPaddingText)
         imageStyle.modifiedDate = Date()
         imageStyle.styleSheet?.modifiedDate = Date()
         

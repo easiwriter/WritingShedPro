@@ -50,6 +50,8 @@ final class ImageSerializationTests: XCTestCase {
                 attachment.spacingAbove = 12
                 attachment.spacingBelow = 8
                 attachment.imageStyleName = "figure"
+                attachment.borderStyle = .medium
+                attachment.borderPadding = 8
         
         // Insert attachment
         let attachmentString = NSAttributedString(attachment: attachment)
@@ -72,6 +74,8 @@ final class ImageSerializationTests: XCTestCase {
         XCTAssertEqual(restoredAttachment?.imageStyleName, "figure", "Assigned image style should be preserved")
         XCTAssertEqual(restoredAttachment?.spacingAbove, 12, "Space above should be preserved")
         XCTAssertEqual(restoredAttachment?.spacingBelow, 8, "Space below should be preserved")
+        XCTAssertEqual(restoredAttachment?.borderStyle, .medium, "Border style should be preserved")
+        XCTAssertEqual(restoredAttachment?.borderPadding, 8, "Border padding should be preserved")
         XCTAssertNotNil(restoredAttachment?.imageData, "Image data should be preserved")
         XCTAssertNotNil(restoredAttachment?.image, "Image should be reconstructed")
     }

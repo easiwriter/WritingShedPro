@@ -2041,7 +2041,9 @@ struct FileEditView: View {
                         captionText: values.captionText,
                         captionStyle: values.captionStyle,
                         spacingAbove: values.spacingAbove,
-                        spacingBelow: values.spacingBelow
+                        spacingBelow: values.spacingBelow,
+                        borderStyle: values.borderStyle,
+                        borderPadding: values.borderPadding
                     )
                     imageToEdit = nil
                 },
@@ -4122,6 +4124,8 @@ struct FileEditView: View {
             imageStyleName: attachment.imageStyleName,
             spacingAbove: attachment.spacingAbove,
             spacingBelow: attachment.spacingBelow,
+            borderStyle: attachment.borderStyle,
+            borderPadding: attachment.borderPadding,
             originalFilename: attachment.originalFilename,
             targetFile: file
         )
@@ -8864,6 +8868,8 @@ struct FileEditView: View {
                     var imageStyleName = "default"
                     var spacingAbove: CGFloat = 0
                     var spacingBelow: CGFloat = 0
+                    var borderStyle: ImageAttachment.BorderStyle = .none
+                    var borderPadding: CGFloat = 0
                     
                     if let project = self.file.project,
                        let stylesheet = project.styleSheet,
@@ -8876,6 +8882,8 @@ struct FileEditView: View {
                         imageStyleName = defaultStyle.name
                         spacingAbove = defaultStyle.defaultSpacingAbove
                         spacingBelow = defaultStyle.defaultSpacingBelow
+                        borderStyle = defaultStyle.defaultBorderStyle
+                        borderPadding = defaultStyle.defaultBorderPadding
                         #if DEBUG
                         print("🖼️ Using image style '\(defaultStyle.displayName)': scale=\(scale), alignment=\(alignment.rawValue)")
                         #endif
@@ -8910,6 +8918,8 @@ struct FileEditView: View {
                         imageStyleName: imageStyleName,
                         spacingAbove: spacingAbove,
                         spacingBelow: spacingBelow,
+                        borderStyle: borderStyle,
+                        borderPadding: borderPadding,
                         originalFilename: filename
                     )
                 }
@@ -8940,6 +8950,8 @@ struct FileEditView: View {
         imageStyleName: String,
         spacingAbove: CGFloat,
         spacingBelow: CGFloat,
+        borderStyle: ImageAttachment.BorderStyle,
+        borderPadding: CGFloat,
         originalFilename: String? = nil
     ) {
         guard let imageData = imageData else { return }
@@ -8959,6 +8971,8 @@ struct FileEditView: View {
             imageStyleName: imageStyleName,
             spacingAbove: spacingAbove,
             spacingBelow: spacingBelow,
+            borderStyle: borderStyle,
+            borderPadding: borderPadding,
             originalFilename: originalFilename,
             targetFile: file
         )
@@ -9771,6 +9785,8 @@ struct FileEditView: View {
         imageStyle.defaultCaptionStyle = values.captionStyle
         imageStyle.defaultSpacingAbove = values.spacingAbove
         imageStyle.defaultSpacingBelow = values.spacingBelow
+        imageStyle.defaultBorderStyle = values.borderStyle
+        imageStyle.defaultBorderPadding = values.borderPadding
         imageStyle.modifiedDate = Date()
         styleSheet.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "image-style-update")
@@ -9787,7 +9803,11 @@ struct FileEditView: View {
             }
         }
 
-        let updatedFiles = StyleSheetService.reapplyUpdatedImageStyle(imageStyle, in: styleSheet)
+        let updatedFiles = StyleSheetService.reapplyUpdatedImageStyle(
+            imageStyle,
+            in: styleSheet,
+            context: modelContext
+        )
         #if DEBUG
         print("✅ Reapplied image style '\(imageStyle.name)' in \(updatedFiles) file(s)")
         #endif
@@ -9822,7 +9842,9 @@ struct FileEditView: View {
         captionText: String,
         captionStyle: String,
         spacingAbove: CGFloat,
-        spacingBelow: CGFloat
+        spacingBelow: CGFloat,
+        borderStyle: ImageAttachment.BorderStyle,
+        borderPadding: CGFloat
     ) {
         #if DEBUG
         print("🖼️ Updating image: scale=\(scale), alignment=\(alignment.rawValue)")
@@ -9866,12 +9888,16 @@ struct FileEditView: View {
         let oldImageStyleName = storedAttachment.imageStyleName
         let oldSpacingAbove = storedAttachment.spacingAbove
         let oldSpacingBelow = storedAttachment.spacingBelow
+        let oldBorderStyle = storedAttachment.borderStyle
+        let oldBorderPadding = storedAttachment.borderPadding
 
         storedAttachment.scale = scale
         storedAttachment.alignment = alignment
         storedAttachment.imageStyleName = imageStyleName
         storedAttachment.spacingAbove = max(0, spacingAbove)
         storedAttachment.spacingBelow = max(0, spacingBelow)
+        storedAttachment.borderStyle = borderStyle
+        storedAttachment.borderPadding = max(0, borderPadding)
         #if DEBUG
         print("🖼️ FileEditView.updateImage() - About to update caption")
         #endif
@@ -9931,6 +9957,8 @@ struct FileEditView: View {
             oldImageStyleName: oldImageStyleName,
             oldSpacingAbove: oldSpacingAbove,
             oldSpacingBelow: oldSpacingBelow,
+            oldBorderStyle: oldBorderStyle,
+            oldBorderPadding: oldBorderPadding,
             newScale: scale,
             newAlignment: alignment,
             newHasCaption: hasCaption,
@@ -9940,6 +9968,8 @@ struct FileEditView: View {
             newImageStyleName: imageStyleName,
             newSpacingAbove: storedAttachment.spacingAbove,
             newSpacingBelow: storedAttachment.spacingBelow,
+            newBorderStyle: storedAttachment.borderStyle,
+            newBorderPadding: storedAttachment.borderPadding,
             targetFile: file
         )
         undoManager.execute(command)
@@ -10098,6 +10128,8 @@ private struct ImageStyleEditorSheetContent: View {
             imageStyleName: imageAttachment.imageStyleName,
             spacingAbove: imageAttachment.spacingAbove,
             spacingBelow: imageAttachment.spacingBelow,
+            borderStyle: imageAttachment.borderStyle,
+            borderPadding: imageAttachment.borderPadding,
             availableCaptionStyles: captionStyles,
             availableImageStyles: imageStyles,
             styleSheet: styleSheet,

@@ -90,6 +90,95 @@ struct StyleSheetService {
     }
     
     // MARK: - Default StyleSheet Creation
+
+    static func duplicateStyleSheet(_ original: StyleSheet, name: String? = nil) -> StyleSheet {
+        let duplicate = StyleSheet(
+            name: name ?? "\(original.name) Copy",
+            isSystemStyleSheet: false
+        )
+        duplicate.footnoteMarkerStyleRaw = original.footnoteMarkerStyleRaw
+        let shouldNormalizeDefaultBodySizes = original.isSystemStyleSheet
+
+        let copiedTextStyles = (original.textStyles ?? []).map { style in
+            let copy = TextStyleModel(
+                name: style.name,
+                displayName: style.displayName,
+                displayOrder: style.displayOrder
+            )
+            copy.fontSize = style.fontSize
+            copy.fontFamily = style.fontFamily
+            copy.fontName = style.fontName
+            copy.isBold = style.isBold
+            copy.isItalic = style.isItalic
+            copy.isUnderlined = style.isUnderlined
+            copy.isStrikethrough = style.isStrikethrough
+            copy.textColor = style.textColor
+            copy.alignment = style.alignment
+            copy.lineSpacing = style.lineSpacing
+            copy.paragraphSpacingBefore = style.paragraphSpacingBefore
+            copy.paragraphSpacingAfter = style.paragraphSpacingAfter
+            copy.firstLineIndent = style.firstLineIndent
+            copy.headIndent = style.headIndent
+            copy.tailIndent = style.tailIndent
+            copy.lineHeightMultiple = style.lineHeightMultiple
+            copy.minimumLineHeight = style.minimumLineHeight
+            copy.maximumLineHeight = style.maximumLineHeight
+            copy.numberFormat = style.numberFormat
+            copy.numberAdornment = style.numberAdornment
+            copy.styleCategory = style.styleCategory
+            copy.isSystemStyle = style.isSystemStyle
+            copy.parentStyleName = style.parentStyleName
+            copy.followOnStyleName = style.followOnStyleName
+            copy.includeInTOC = style.includeInTOC
+            copy.tocLevel = style.tocLevel
+            copy.isFirstParagraphStyle = style.isFirstParagraphStyle
+
+            if shouldNormalizeDefaultBodySizes {
+                let normalizedDisplayName = copy.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+                switch copy.name {
+                case UIFont.TextStyle.body.rawValue:
+                    copy.fontSize = 12
+                case UIFont.TextStyle.callout.rawValue:
+                    copy.fontSize = 11
+                case UIFont.TextStyle.subheadline.rawValue, "UICTFontTextStyleSubheadline":
+                    copy.fontSize = 10
+                default:
+                    switch normalizedDisplayName {
+                    case "Body": copy.fontSize = 12
+                    case "Body 1": copy.fontSize = 11
+                    case "Body 2": copy.fontSize = 10
+                    default: break
+                    }
+                }
+            }
+
+            copy.styleSheet = duplicate
+            return copy
+        }
+
+        let copiedImageStyles = (original.imageStyles ?? []).map { style in
+            let copy = ImageStyle(
+                name: style.name,
+                displayName: style.displayName,
+                displayOrder: style.displayOrder,
+                defaultScale: style.defaultScale,
+                defaultAlignment: style.defaultAlignment,
+                hasCaptionByDefault: style.hasCaptionByDefault,
+                defaultCaptionStyle: style.defaultCaptionStyle,
+                defaultSpacingAbove: style.defaultSpacingAbove,
+                defaultSpacingBelow: style.defaultSpacingBelow,
+                defaultBorderStyle: style.defaultBorderStyle,
+                defaultBorderPadding: style.defaultBorderPadding,
+                isSystemStyle: style.isSystemStyle
+            )
+            copy.styleSheet = duplicate
+            return copy
+        }
+
+        duplicate.textStyles = copiedTextStyles
+        duplicate.imageStyles = copiedImageStyles
+        return duplicate
+    }
     
     /// Create the default system stylesheet with all UIFont.TextStyle equivalents
     static func createDefaultStyleSheet() -> StyleSheet {
@@ -917,11 +1006,19 @@ struct StyleSheetService {
     }
 
     @discardableResult
+    @MainActor
     static func reapplyUpdatedImageStyle(
         _ imageStyle: ImageStyle,
-        in styleSheet: StyleSheet
+        in styleSheet: StyleSheet,
+        context: ModelContext
     ) -> Int {
         var updatedFilesCount = 0
+        let availableImageStyles = (styleSheet.imageStyles ?? []).sorted {
+            if $0.displayOrder != $1.displayOrder { return $0.displayOrder < $1.displayOrder }
+            return $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+        }
+        let validStyleNames = Set(availableImageStyles.map(\.name))
+        let fallbackStyleName = availableImageStyles.first?.name
 
         func processFolder(_ folder: Folder) {
             for file in folder.textFiles ?? [] {
@@ -935,8 +1032,11 @@ struct StyleSheetService {
                     .attachment,
                     in: NSRange(location: 0, length: mutableContent.length)
                 ) { value, range, _ in
-                    guard let attachment = value as? ImageAttachment,
-                          attachment.imageStyleName == imageStyle.name else { return }
+                    guard let attachment = value as? ImageAttachment else { return }
+                    let usesUpdatedStyle = attachment.imageStyleName == imageStyle.name
+                        || (!validStyleNames.contains(attachment.imageStyleName)
+                            && fallbackStyleName == imageStyle.name)
+                    guard usesUpdatedStyle else { return }
                     matchingAttachments.append((attachment, range))
                 }
 
@@ -960,16 +1060,22 @@ struct StyleSheetService {
             }
         }
 
-        for project in styleSheet.projects ?? [] {
+        let styleSheetID = styleSheet.id
+        let descriptor = FetchDescriptor<Project>(
+            predicate: #Predicate<Project> { project in
+                project.styleSheet?.id == styleSheetID
+            }
+        )
+        let projects = (try? context.fetch(descriptor)) ?? styleSheet.projects ?? []
+
+        for project in projects {
             for folder in project.folders ?? [] {
                 processFolder(folder)
             }
         }
 
         if updatedFilesCount > 0 {
-            Task { @MainActor in
-                WriteCoalescer.shared?.requestSave(reason: "image-style-reapply")
-            }
+            try? WriteCoalescer.shared?.requestSaveAndFlush(reason: "image-style-reapply")
         }
         return updatedFilesCount
     }

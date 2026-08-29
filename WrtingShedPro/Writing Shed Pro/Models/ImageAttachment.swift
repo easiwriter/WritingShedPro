@@ -69,6 +69,10 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     /// Vertical spacing in points around this image paragraph.
     var spacingAbove: CGFloat = 0
     var spacingBelow: CGFloat = 0
+
+    /// Border preset copied from the selected image style.
+    var borderStyle: BorderStyle = .none
+    var borderPadding: CGFloat = 0
     
     /// Caption number (for numbered caption styles) - updated by document processing
     /// This is computed based on document order, not stored persistently
@@ -120,6 +124,32 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         case right
         case inline
     }
+
+    enum BorderStyle: String, Codable, CaseIterable {
+        case none
+        case thin
+        case medium
+        case thick
+
+        var width: CGFloat {
+            switch self {
+            case .none: 0
+            case .thin: 1
+            case .medium: 2
+            case .thick: 4
+            }
+        }
+
+        var localizationKey: String {
+            "imageStyleEditor.borderStyle.\(rawValue)"
+        }
+    }
+
+    func effectiveBorderPadding(for size: CGSize) -> CGFloat {
+        guard borderStyle != .none else { return 0 }
+        let maximumPadding = max(0, (min(size.width, size.height) - borderStyle.width) / 2)
+        return min(max(0, borderPadding), maximumPadding)
+    }
     
     // MARK: - Computed Properties
     
@@ -146,7 +176,24 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         guard let image = image else {
             return CGSize(width: 300, height: 200) // Default size
         }
-        
+
+        let imageSize = imageDisplaySize(forAvailableWidth: availableWidth)
+        var height = imageSize.height
+
+        // Add caption height if caption is enabled
+        if hasCaption, let captionText = captionText, !captionText.isEmpty {
+            let captionHeight = estimateCaptionHeight(for: captionText, width: imageSize.width)
+            height += captionHeight + 4 // 4pt spacing between image and caption
+        }
+
+        return CGSize(width: imageSize.width, height: height)
+    }
+
+    func imageDisplaySize(forAvailableWidth availableWidth: CGFloat) -> CGSize {
+        guard let image = image else {
+            return CGSize(width: 300, height: 200)
+        }
+
         let originalSize = image.size
         let column = (availableWidth.isFinite && availableWidth > 1)
             ? availableWidth
@@ -156,15 +203,7 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         // Apply the user's scale to the column width, but never exceed the image's
         // natural point width (no upscaling of small images).
         let width = min(column * scale, originalSize.width)
-        var height = width * aspectRatio
-        
-        // Add caption height if caption is enabled
-        if hasCaption, let captionText = captionText, !captionText.isEmpty {
-            let captionHeight = estimateCaptionHeight(for: captionText, width: width)
-            height += captionHeight + 4 // 4pt spacing between image and caption
-        }
-        
-        return CGSize(width: width, height: height)
+        return CGSize(width: width, height: width * aspectRatio)
     }
     
     /// Resolve the available text-column width from a text container, falling back
@@ -238,6 +277,10 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         self.captionNumber = coder.decodeInteger(forKey: "captionNumber")
         self.spacingAbove = max(0, CGFloat(coder.decodeDouble(forKey: "spacingAbove")))
         self.spacingBelow = max(0, CGFloat(coder.decodeDouble(forKey: "spacingBelow")))
+        if let borderStyleRaw = coder.decodeObject(of: NSString.self, forKey: "borderStyle") as? String {
+            self.borderStyle = BorderStyle(rawValue: borderStyleRaw) ?? .none
+        }
+        self.borderPadding = max(0, CGFloat(coder.decodeDouble(forKey: "borderPadding")))
         
         // Decode optional properties
         self.captionText = coder.decodeObject(of: NSString.self, forKey: "captionText") as? String
@@ -277,6 +320,8 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         coder.encode(captionNumber, forKey: "captionNumber")
         coder.encode(Double(spacingAbove), forKey: "spacingAbove")
         coder.encode(Double(spacingBelow), forKey: "spacingBelow")
+        coder.encode(borderStyle.rawValue, forKey: "borderStyle")
+        coder.encode(Double(borderPadding), forKey: "borderPadding")
         coder.encode(imageStyleName, forKey: "imageStyleName") // Not optional
         
         // Encode optional properties only if they exist
@@ -484,9 +529,9 @@ class ImageAttachment: NSTextAttachment, Identifiable {
             return nil
         }
         
-        // If no caption, return the original image
+        // If no caption, return the image with its configured border.
         guard hasCaption else {
-            return baseImage
+            return imageByApplyingBorder(to: baseImage, bounds: imageBounds)
         }
         
         // Build caption text with prefix
@@ -496,11 +541,30 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         
         // If caption is effectively empty, return the original image
         guard !fullCaptionText.isEmpty else {
-            return baseImage
+            return imageByApplyingBorder(to: baseImage, bounds: imageBounds)
         }
         
         // Create a composite image with caption below
         return createCompositeImage(baseImage: baseImage, captionText: fullCaptionText, bounds: imageBounds)
+    }
+
+    private func imageByApplyingBorder(to baseImage: UIImage, bounds: CGRect) -> UIImage {
+        guard borderStyle != .none, bounds.width > 0, bounds.height > 0 else {
+            return baseImage
+        }
+
+        UIGraphicsBeginImageContextWithOptions(bounds.size, false, 0)
+        defer { UIGraphicsEndImageContext() }
+
+        let imageRect = CGRect(origin: .zero, size: bounds.size)
+        let padding = effectiveBorderPadding(for: bounds.size)
+        baseImage.draw(in: imageRect.insetBy(dx: padding, dy: padding))
+        guard let context = UIGraphicsGetCurrentContext() else { return baseImage }
+        let lineWidth = borderStyle.width
+        context.setStrokeColor(UIColor.black.cgColor)
+        context.setLineWidth(lineWidth)
+        context.stroke(imageRect.insetBy(dx: lineWidth / 2, dy: lineWidth / 2))
+        return UIGraphicsGetImageFromCurrentImageContext() ?? baseImage
     }
     
     /// Create composite image with caption
@@ -564,7 +628,17 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         guard UIGraphicsGetCurrentContext() != nil else { return nil }
         
         // Draw the image
-        baseImage.draw(in: CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height))
+        let borderedImageRect = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height)
+        let padding = effectiveBorderPadding(for: bounds.size)
+        baseImage.draw(in: borderedImageRect.insetBy(dx: padding, dy: padding))
+        if borderStyle != .none, let context = UIGraphicsGetCurrentContext() {
+            let lineWidth = borderStyle.width
+            context.setStrokeColor(UIColor.black.cgColor)
+            context.setLineWidth(lineWidth)
+            context.stroke(
+                borderedImageRect.insetBy(dx: lineWidth / 2, dy: lineWidth / 2)
+            )
+        }
         
         // Draw the caption below
         let captionRect = CGRect(x: 0, y: bounds.height + 4, width: bounds.width, height: captionHeight)
@@ -633,6 +707,10 @@ class ImageAttachment: NSTextAttachment, Identifiable {
                 return
             }
 
+            if captionCounters[captionStyleName] == nil, attachment.captionNumber > 0 {
+                captionCounters[captionStyleName] = attachment.captionNumber - 1
+            }
+
             let number = (captionCounters[captionStyleName] ?? 0) + 1
             captionCounters[captionStyleName] = number
 
@@ -650,11 +728,16 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     /// - Parameters:
     ///   - textStorage: The text storage containing images
     ///   - styleSheet: The stylesheet to check for numbered caption styles
-    static func updateCaptionNumbers(in textStorage: NSTextStorage, styleSheet: StyleSheet?) {
+    ///   - startingNumbers: Number of preceding manuscript captions, keyed by style name
+    static func updateCaptionNumbers(
+        in textStorage: NSTextStorage,
+        styleSheet: StyleSheet?,
+        startingNumbers: [String: Int] = [:]
+    ) {
         guard let styleSheet = styleSheet else { return }
         
         // Track caption counts per style
-        var captionCounters: [String: Int] = [:]
+        var captionCounters = startingNumbers
         var previousNumbers: [(attachment: ImageAttachment, number: Int)] = []
         
         // Enumerate all attachments in document order
@@ -753,13 +836,18 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     /// - Parameters:
     ///   - attributedString: The attributed string containing images
     ///   - styleSheet: The stylesheet to check for numbered caption styles
-    static func updateCaptionNumbersInAttributedString(_ attributedString: NSAttributedString, styleSheet: StyleSheet?) {
+    ///   - startingNumbers: Number of preceding manuscript captions, keyed by style name
+    static func updateCaptionNumbersInAttributedString(
+        _ attributedString: NSAttributedString,
+        styleSheet: StyleSheet?,
+        startingNumbers: [String: Int] = [:]
+    ) {
         guard let styleSheet = styleSheet else {
             return
         }
         
         // Track caption counts per style
-        var captionCounters: [String: Int] = [:]
+        var captionCounters = startingNumbers
         
         // Enumerate all attachments in document order
         attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length), options: []) { value, range, _ in
@@ -786,6 +874,31 @@ class ImageAttachment: NSTextAttachment, Identifiable {
             // Update the attachment's caption number
             imageAttachment.captionNumber = counter
         }
+    }
+
+    static func captionNumberCounts(
+        after attributedString: NSAttributedString,
+        styleSheet: StyleSheet?,
+        startingNumbers: [String: Int] = [:]
+    ) -> [String: Int] {
+        guard let styleSheet else { return startingNumbers }
+
+        var captionCounters = startingNumbers
+        attributedString.enumerateAttribute(
+            .attachment,
+            in: NSRange(location: 0, length: attributedString.length),
+            options: []
+        ) { value, _, _ in
+            guard let attachment = value as? ImageAttachment,
+                  attachment.hasCaption,
+                  let captionStyleName = attachment.captionStyle,
+                  let captionStyle = styleSheet.style(named: captionStyleName),
+                  captionStyle.numberFormat != .none else {
+                return
+            }
+            captionCounters[captionStyleName, default: 0] += 1
+        }
+        return captionCounters
     }
 }
 

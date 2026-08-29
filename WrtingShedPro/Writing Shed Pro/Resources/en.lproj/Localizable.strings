@@ -1607,9 +1607,19 @@
 "imageStyleEditor.spacingAbove" = "Space Above";
 "imageStyleEditor.spacingBelow" = "Space Below";
 "imageStyleEditor.points" = "pt";
+"imageStyleEditor.border" = "Border";
+"imageStyleEditor.borderStyle" = "Border Style";
+"imageStyleEditor.borderStyle.none" = "None";
+"imageStyleEditor.borderStyle.thin" = "Thin";
+"imageStyleEditor.borderStyle.medium" = "Medium";
+"imageStyleEditor.borderStyle.thick" = "Thick";
+"imageStyleEditor.borderPadding" = "Border Padding";
 "imageStyleEditor.imageStyle" = "Image Style";
 "imageStyleEditor.resetToStyle" = "Reset to Style";
 "imageStyleEditor.updateStyle" = "Update Style";
+"imageStyleEditor.updateStyle.confirmation.title" = "Update Image Style?";
+"imageStyleEditor.updateStyle.confirmation.message" = "This will change the style definition and reformat every image using this style.";
+"imageStyleEditor.updateStyle.confirmation.confirm" = "Update Style";
 
 /* FootnotesListView - New Keys */
 "footnotesList.title" = "Footnotes";

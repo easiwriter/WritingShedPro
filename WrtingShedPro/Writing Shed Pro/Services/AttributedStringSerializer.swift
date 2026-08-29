@@ -37,6 +37,8 @@ struct AttributeValues: Codable {
     var imageStyleName: String?
     var imageSpacingAbove: CGFloat?
     var imageSpacingBelow: CGFloat?
+    var imageBorderStyle: String?
+    var imageBorderPadding: CGFloat?
     var hasCaption: Bool?
     var captionPrefix: String?
     var captionText: String?
@@ -541,6 +543,8 @@ struct AttributedStringSerializer {
                             attributes.imageStyleName = imageAttachment.imageStyleName
                             attributes.imageSpacingAbove = imageAttachment.spacingAbove
                             attributes.imageSpacingBelow = imageAttachment.spacingBelow
+                            attributes.imageBorderStyle = imageAttachment.borderStyle.rawValue
+                            attributes.imageBorderPadding = imageAttachment.borderPadding
                             attributes.hasCaption = imageAttachment.hasCaption
                             attributes.captionPrefix = imageAttachment.captionPrefix
                             attributes.captionText = imageAttachment.captionText
@@ -883,6 +887,10 @@ struct AttributedStringSerializer {
                     let attachment = ImageAttachment()
                     attachment.imageID = imageID
                     attachment.imageStyleName = jsonAttributes.imageStyleName ?? "default"
+                    attachment.borderStyle = ImageAttachment.BorderStyle(
+                        rawValue: jsonAttributes.imageBorderStyle ?? "none"
+                    ) ?? .none
+                    attachment.borderPadding = max(0, jsonAttributes.imageBorderPadding ?? 0)
                     
                     // Decode image data from base64
                     if let imageDataString = jsonAttributes.imageData,

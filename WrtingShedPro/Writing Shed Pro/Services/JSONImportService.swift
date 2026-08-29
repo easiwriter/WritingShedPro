@@ -711,6 +711,10 @@ class JSONImportService {
                             defaultCaptionStyle: isData.defaultCaptionStyle,
                             defaultSpacingAbove: isData.defaultSpacingAbove ?? 0,
                             defaultSpacingBelow: isData.defaultSpacingBelow ?? 0,
+                            defaultBorderStyle: ImageAttachment.BorderStyle(
+                                rawValue: isData.defaultBorderStyleRaw ?? "none"
+                            ) ?? .none,
+                            defaultBorderPadding: isData.defaultBorderPadding ?? 0,
                             isSystemStyle: isData.isSystemStyle
                         )
                         imageStyle.id = generateNewUUIDs ? UUID() : (UUID(uuidString: isData.id) ?? UUID())

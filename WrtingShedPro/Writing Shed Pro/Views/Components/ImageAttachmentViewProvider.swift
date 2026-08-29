@@ -159,6 +159,11 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         
         // Add image view
         if let image = attachment.image {
+            let borderView = UIView()
+            borderView.isUserInteractionEnabled = false
+            borderView.layer.borderWidth = attachment.borderStyle.width
+            borderView.layer.borderColor = UIColor.label.cgColor
+
             let imageView = UIImageView(image: image)
             imageView.contentMode = .scaleAspectFit
             imageView.clipsToBounds = true
@@ -166,8 +171,11 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
             
             // Set image size based on the attachment's display size for the live
             // text column width (computed per-device, not baked in at insert time).
-            let imageSize = attachment.displaySize(forAvailableWidth: availableColumnWidth)
+            let imageSize = attachment.imageDisplaySize(forAvailableWidth: availableColumnWidth)
+            borderView.translatesAutoresizingMaskIntoConstraints = false
             imageView.translatesAutoresizingMaskIntoConstraints = false
+            borderView.addSubview(imageView)
+            let padding = attachment.effectiveBorderPadding(for: imageSize)
             
             #if DEBUG
             print("📷 Image dimensions:")
@@ -186,11 +194,15 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
             #endif
             
             NSLayoutConstraint.activate([
-                imageView.widthAnchor.constraint(equalToConstant: imageSize.width),
-                imageView.heightAnchor.constraint(equalToConstant: imageSize.height)
+                borderView.widthAnchor.constraint(equalToConstant: imageSize.width),
+                borderView.heightAnchor.constraint(equalToConstant: imageSize.height),
+                imageView.leadingAnchor.constraint(equalTo: borderView.leadingAnchor, constant: padding),
+                imageView.trailingAnchor.constraint(equalTo: borderView.trailingAnchor, constant: -padding),
+                imageView.topAnchor.constraint(equalTo: borderView.topAnchor, constant: padding),
+                imageView.bottomAnchor.constraint(equalTo: borderView.bottomAnchor, constant: -padding)
             ])
             
-            container.addArrangedSubview(imageView)
+            container.addArrangedSubview(borderView)
             
             #if DEBUG
             print("📷 Added image view - size: \(imageSize)")
@@ -304,7 +316,7 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         
         // Set width to match image width
         captionLabel.translatesAutoresizingMaskIntoConstraints = false
-        let imageWidth = attachment.displaySize(forAvailableWidth: availableColumnWidth).width
+        let imageWidth = attachment.imageDisplaySize(forAvailableWidth: availableColumnWidth).width
         
         NSLayoutConstraint.activate([
             captionLabel.widthAnchor.constraint(equalToConstant: imageWidth)
@@ -327,51 +339,7 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
     }
     
     private func calculateContainerSize(for attachment: ImageAttachment) -> CGSize {
-        let displaySize = attachment.displaySize(forAvailableWidth: availableColumnWidth)
-        var height = displaySize.height
-        let width = displaySize.width
-        
-        // Add caption height if present
-        if attachment.hasCaption, let captionText = attachment.captionText, !captionText.isEmpty {
-            // Estimate caption height
-            let captionHeight = estimateCaptionHeight(
-                text: captionText,
-                width: width,
-                styleName: attachment.captionStyle
-            )
-            height += 4 + captionHeight // spacing + caption
-        }
-        
-        return CGSize(width: width, height: height)
-    }
-    
-    private func estimateCaptionHeight(text: String, width: CGFloat, styleName: String?) -> CGFloat {
-        guard let styleSheet = findStyleSheet(),
-              let styleName = styleName,
-              let style = styleSheet.style(named: styleName) else {
-            // Fallback estimation
-            let font = UIFont.systemFont(ofSize: 14)
-            let maxSize = CGSize(width: width, height: .greatestFiniteMagnitude)
-            let boundingRect = text.boundingRect(
-                with: maxSize,
-                options: [.usesLineFragmentOrigin, .usesFontLeading],
-                attributes: [.font: font],
-                context: nil
-            )
-            return ceil(boundingRect.height)
-        }
-        
-        // Use actual style font
-        let attributes = style.generateAttributes()
-        let maxSize = CGSize(width: width, height: .greatestFiniteMagnitude)
-        let boundingRect = text.boundingRect(
-            with: maxSize,
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: attributes,
-            context: nil
-        )
-        
-        return ceil(boundingRect.height)
+        attachment.displaySize(forAvailableWidth: availableColumnWidth)
     }
     
     // MARK: - Caption Numbering

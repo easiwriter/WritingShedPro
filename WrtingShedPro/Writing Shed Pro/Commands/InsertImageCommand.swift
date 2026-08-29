@@ -34,6 +34,8 @@ final class InsertImageCommand: UndoableCommand {
 
     let spacingAbove: CGFloat
     let spacingBelow: CGFloat
+    let borderStyle: ImageAttachment.BorderStyle
+    let borderPadding: CGFloat
     
     /// Original filename (if available)
     let originalFilename: String?
@@ -64,6 +66,8 @@ final class InsertImageCommand: UndoableCommand {
         imageStyleName: String = "default",
         spacingAbove: CGFloat = 0,
         spacingBelow: CGFloat = 0,
+        borderStyle: ImageAttachment.BorderStyle = .none,
+        borderPadding: CGFloat = 0,
         originalFilename: String? = nil,
         targetFile: TextFile?
     ) {
@@ -81,6 +85,8 @@ final class InsertImageCommand: UndoableCommand {
         self.imageStyleName = imageStyleName
         self.spacingAbove = spacingAbove
         self.spacingBelow = spacingBelow
+        self.borderStyle = borderStyle
+        self.borderPadding = max(0, borderPadding)
         self.originalFilename = originalFilename
         self.targetFile = targetFile
     }
@@ -136,6 +142,8 @@ final class InsertImageCommand: UndoableCommand {
         attachment.originalFilename = originalFilename // Set the original filename
         attachment.spacingAbove = spacingAbove
         attachment.spacingBelow = spacingBelow
+        attachment.borderStyle = borderStyle
+        attachment.borderPadding = borderPadding
         #if DEBUG
         print("🖼️💾 Set originalFilename on attachment: \(originalFilename ?? "nil")")
         #endif
@@ -302,7 +310,7 @@ final class InsertImageCommand: UndoableCommand {
     
     enum CodingKeys: String, CodingKey {
         case id, timestamp, description, position, imageData, scale, alignment
-        case hasCaption, captionText, captionStyle, captionPrefix, imageStyleName, spacingAbove, spacingBelow, originalFilename
+        case hasCaption, captionText, captionStyle, captionPrefix, imageStyleName, spacingAbove, spacingBelow, borderStyle, borderPadding, originalFilename
         case insertedImagePosition, insertedRangeLocation, insertedRangeLength
     }
     
@@ -322,6 +330,8 @@ final class InsertImageCommand: UndoableCommand {
         try container.encode(imageStyleName, forKey: .imageStyleName)
         try container.encode(spacingAbove, forKey: .spacingAbove)
         try container.encode(spacingBelow, forKey: .spacingBelow)
+        try container.encode(borderStyle.rawValue, forKey: .borderStyle)
+        try container.encode(borderPadding, forKey: .borderPadding)
         try container.encodeIfPresent(originalFilename, forKey: .originalFilename)
         try container.encodeIfPresent(insertedImagePosition, forKey: .insertedImagePosition)
         try container.encodeIfPresent(insertedContentRange?.location, forKey: .insertedRangeLocation)
@@ -345,6 +355,9 @@ final class InsertImageCommand: UndoableCommand {
         imageStyleName = try container.decodeIfPresent(String.self, forKey: .imageStyleName) ?? "default"
         spacingAbove = try container.decodeIfPresent(CGFloat.self, forKey: .spacingAbove) ?? 0
         spacingBelow = try container.decodeIfPresent(CGFloat.self, forKey: .spacingBelow) ?? 0
+        let borderStyleRaw = try container.decodeIfPresent(String.self, forKey: .borderStyle) ?? "none"
+        borderStyle = ImageAttachment.BorderStyle(rawValue: borderStyleRaw) ?? .none
+        borderPadding = max(0, try container.decodeIfPresent(CGFloat.self, forKey: .borderPadding) ?? 0)
         originalFilename = try container.decodeIfPresent(String.self, forKey: .originalFilename)
         insertedImagePosition = try container.decodeIfPresent(Int.self, forKey: .insertedImagePosition)
         if let rangeLocation = try container.decodeIfPresent(Int.self, forKey: .insertedRangeLocation),

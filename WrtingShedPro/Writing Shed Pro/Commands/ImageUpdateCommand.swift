@@ -26,6 +26,8 @@ final class ImageUpdateCommand: UndoableCommand {
     let oldImageStyleName: String
     let oldSpacingAbove: CGFloat
     let oldSpacingBelow: CGFloat
+    let oldBorderStyle: ImageAttachment.BorderStyle
+    let oldBorderPadding: CGFloat
     
     /// New image properties (for redo)
     let newScale: CGFloat
@@ -37,6 +39,8 @@ final class ImageUpdateCommand: UndoableCommand {
     let newImageStyleName: String
     let newSpacingAbove: CGFloat
     let newSpacingBelow: CGFloat
+    let newBorderStyle: ImageAttachment.BorderStyle
+    let newBorderPadding: CGFloat
     
     /// Reference to the target file (weak to prevent retain cycles)
     weak var targetFile: TextFile?
@@ -58,6 +62,8 @@ final class ImageUpdateCommand: UndoableCommand {
          oldImageStyleName: String,
          oldSpacingAbove: CGFloat,
          oldSpacingBelow: CGFloat,
+         oldBorderStyle: ImageAttachment.BorderStyle,
+         oldBorderPadding: CGFloat,
          newScale: CGFloat,
          newAlignment: ImageAttachment.ImageAlignment,
          newHasCaption: Bool,
@@ -67,6 +73,8 @@ final class ImageUpdateCommand: UndoableCommand {
          newImageStyleName: String,
          newSpacingAbove: CGFloat,
          newSpacingBelow: CGFloat,
+         newBorderStyle: ImageAttachment.BorderStyle,
+         newBorderPadding: CGFloat,
          targetFile: TextFile?) {
         self.id = id
         self.timestamp = timestamp
@@ -83,6 +91,8 @@ final class ImageUpdateCommand: UndoableCommand {
         self.oldImageStyleName = oldImageStyleName
         self.oldSpacingAbove = oldSpacingAbove
         self.oldSpacingBelow = oldSpacingBelow
+        self.oldBorderStyle = oldBorderStyle
+        self.oldBorderPadding = oldBorderPadding
         self.newScale = newScale
         self.newAlignment = newAlignment
         self.newHasCaption = newHasCaption
@@ -92,6 +102,8 @@ final class ImageUpdateCommand: UndoableCommand {
         self.newImageStyleName = newImageStyleName
         self.newSpacingAbove = newSpacingAbove
         self.newSpacingBelow = newSpacingBelow
+        self.newBorderStyle = newBorderStyle
+        self.newBorderPadding = newBorderPadding
         self.targetFile = targetFile
     }
     
@@ -116,6 +128,8 @@ final class ImageUpdateCommand: UndoableCommand {
         attachment?.imageStyleName = newImageStyleName
         attachment?.spacingAbove = newSpacingAbove
         attachment?.spacingBelow = newSpacingBelow
+        attachment?.borderStyle = newBorderStyle
+        attachment?.borderPadding = newBorderPadding
         attachment?.updateCaption(hasCaption: newHasCaption, prefix: newCaptionPrefix, text: newCaptionText, style: newCaptionStyle)
         
         #if DEBUG
@@ -147,6 +161,8 @@ final class ImageUpdateCommand: UndoableCommand {
         attachment?.imageStyleName = oldImageStyleName
         attachment?.spacingAbove = oldSpacingAbove
         attachment?.spacingBelow = oldSpacingBelow
+        attachment?.borderStyle = oldBorderStyle
+        attachment?.borderPadding = oldBorderPadding
         attachment?.updateCaption(hasCaption: oldHasCaption, prefix: oldCaptionPrefix, text: oldCaptionText, style: oldCaptionStyle)
         
         #if DEBUG
@@ -167,8 +183,8 @@ final class ImageUpdateCommand: UndoableCommand {
         case id, timestamp, description
         case beforeContentData, beforeContentText
         case afterContentData, afterContentText
-        case oldScale, oldAlignment, oldHasCaption, oldCaptionPrefix, oldCaptionText, oldCaptionStyle, oldImageStyleName, oldSpacingAbove, oldSpacingBelow
-        case newScale, newAlignment, newHasCaption, newCaptionPrefix, newCaptionText, newCaptionStyle, newImageStyleName, newSpacingAbove, newSpacingBelow
+        case oldScale, oldAlignment, oldHasCaption, oldCaptionPrefix, oldCaptionText, oldCaptionStyle, oldImageStyleName, oldSpacingAbove, oldSpacingBelow, oldBorderStyle, oldBorderPadding
+        case newScale, newAlignment, newHasCaption, newCaptionPrefix, newCaptionText, newCaptionStyle, newImageStyleName, newSpacingAbove, newSpacingBelow, newBorderStyle, newBorderPadding
     }
     
     required init(from decoder: Decoder) throws {
@@ -195,6 +211,9 @@ final class ImageUpdateCommand: UndoableCommand {
         self.oldImageStyleName = try container.decodeIfPresent(String.self, forKey: .oldImageStyleName) ?? "default"
         self.oldSpacingAbove = try container.decodeIfPresent(CGFloat.self, forKey: .oldSpacingAbove) ?? 0
         self.oldSpacingBelow = try container.decodeIfPresent(CGFloat.self, forKey: .oldSpacingBelow) ?? 0
+        let oldBorderStyleRaw = try container.decodeIfPresent(String.self, forKey: .oldBorderStyle) ?? "none"
+        self.oldBorderStyle = ImageAttachment.BorderStyle(rawValue: oldBorderStyleRaw) ?? .none
+        self.oldBorderPadding = max(0, try container.decodeIfPresent(CGFloat.self, forKey: .oldBorderPadding) ?? 0)
         
         // Decode new properties
         self.newScale = try container.decode(CGFloat.self, forKey: .newScale)
@@ -207,6 +226,9 @@ final class ImageUpdateCommand: UndoableCommand {
         self.newImageStyleName = try container.decodeIfPresent(String.self, forKey: .newImageStyleName) ?? "default"
         self.newSpacingAbove = try container.decodeIfPresent(CGFloat.self, forKey: .newSpacingAbove) ?? 0
         self.newSpacingBelow = try container.decodeIfPresent(CGFloat.self, forKey: .newSpacingBelow) ?? 0
+        let newBorderStyleRaw = try container.decodeIfPresent(String.self, forKey: .newBorderStyle) ?? "none"
+        self.newBorderStyle = ImageAttachment.BorderStyle(rawValue: newBorderStyleRaw) ?? .none
+        self.newBorderPadding = max(0, try container.decodeIfPresent(CGFloat.self, forKey: .newBorderPadding) ?? 0)
         
         self.attachment = nil
         self.targetFile = nil
@@ -228,6 +250,8 @@ final class ImageUpdateCommand: UndoableCommand {
         try container.encode(oldImageStyleName, forKey: .oldImageStyleName)
         try container.encode(oldSpacingAbove, forKey: .oldSpacingAbove)
         try container.encode(oldSpacingBelow, forKey: .oldSpacingBelow)
+        try container.encode(oldBorderStyle.rawValue, forKey: .oldBorderStyle)
+        try container.encode(oldBorderPadding, forKey: .oldBorderPadding)
         try container.encode(newScale, forKey: .newScale)
         try container.encode(newAlignment.rawValue, forKey: .newAlignment)
         try container.encode(newHasCaption, forKey: .newHasCaption)
@@ -237,5 +261,7 @@ final class ImageUpdateCommand: UndoableCommand {
         try container.encode(newImageStyleName, forKey: .newImageStyleName)
         try container.encode(newSpacingAbove, forKey: .newSpacingAbove)
         try container.encode(newSpacingBelow, forKey: .newSpacingBelow)
+        try container.encode(newBorderStyle.rawValue, forKey: .newBorderStyle)
+        try container.encode(newBorderPadding, forKey: .newBorderPadding)
     }
 }

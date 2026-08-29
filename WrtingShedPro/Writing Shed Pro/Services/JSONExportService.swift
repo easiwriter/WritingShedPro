@@ -778,6 +778,8 @@ class JSONExportService {
                 defaultCaptionStyle: style.defaultCaptionStyle,
                 defaultSpacingAbove: style.defaultSpacingAbove,
                 defaultSpacingBelow: style.defaultSpacingBelow,
+                defaultBorderStyleRaw: style.defaultBorderStyleRaw,
+                defaultBorderPadding: style.defaultBorderPadding,
                 isSystemStyle: style.isSystemStyle
             )
         }
@@ -1219,5 +1221,7 @@ struct WSPImageStyleData: Codable {
     var defaultCaptionStyle: String = "UICTFontTextStyleCaption1"
     var defaultSpacingAbove: CGFloat?
     var defaultSpacingBelow: CGFloat?
+    var defaultBorderStyleRaw: String?
+    var defaultBorderPadding: CGFloat?
     var isSystemStyle: Bool = false
 }

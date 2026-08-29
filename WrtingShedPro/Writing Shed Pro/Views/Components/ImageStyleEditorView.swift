@@ -22,6 +22,8 @@ struct ImageStyleEditorValues {
     let captionStyle: String
     let spacingAbove: CGFloat
     let spacingBelow: CGFloat
+    let borderStyle: ImageAttachment.BorderStyle
+    let borderPadding: CGFloat
 }
 
 /// SwiftUI view for editing image properties (scale, alignment, caption)
@@ -31,6 +33,8 @@ struct ImageStyleEditorView: View {
     @FocusState private var isScaleFieldFocused: Bool
     @State private var showInvalidScaleAlert = false
     @State private var styleToEdit: TextStyleModel?
+    @State private var showUpdateStyleConfirmation = false
+    @State private var pendingStyleUpdate: ImageStyleEditorValues?
     
     // Image data and properties
     let imageData: Data?
@@ -44,6 +48,8 @@ struct ImageStyleEditorView: View {
     @State private var imageStyleName: String
     @State private var spacingAboveText: String
     @State private var spacingBelowText: String
+    @State private var borderStyle: ImageAttachment.BorderStyle
+    @State private var borderPaddingText: String
     
     // Available caption styles from stylesheet
     let availableCaptionStyles: [String]
@@ -68,6 +74,8 @@ struct ImageStyleEditorView: View {
         imageStyleName: String = "default",
         spacingAbove: CGFloat = 0,
         spacingBelow: CGFloat = 0,
+        borderStyle: ImageAttachment.BorderStyle = .none,
+        borderPadding: CGFloat = 0,
         availableCaptionStyles: [String] = ["UICTFontTextStyleCaption1", "UICTFontTextStyleCaption2"],
         availableImageStyles: [ImageStyle] = [],
         styleSheet: StyleSheet? = nil,
@@ -87,6 +95,8 @@ struct ImageStyleEditorView: View {
         self._captionText = State(initialValue: captionText)
         self._spacingAboveText = State(initialValue: Self.spacingText(spacingAbove))
         self._spacingBelowText = State(initialValue: Self.spacingText(spacingBelow))
+        self._borderStyle = State(initialValue: borderStyle)
+        self._borderPaddingText = State(initialValue: Self.spacingText(borderPadding))
         // Normalize caption style to match available styles (handles legacy values like "caption1")
         let normalizedStyle = Self.normalizedCaptionStyle(captionStyle, availableStyles: availableCaptionStyles)
         self._captionStyle = State(initialValue: normalizedStyle)
@@ -163,7 +173,7 @@ struct ImageStyleEditorView: View {
 
                         if onUpdateStyle != nil {
                             Button("imageStyleEditor.updateStyle") {
-                                commitValues(using: onUpdateStyle)
+                                requestStyleUpdate()
                             }
                         }
                     }
@@ -219,6 +229,15 @@ struct ImageStyleEditorView: View {
                 Section("imageStyleEditor.spacing") {
                     spacingField("imageStyleEditor.spacingAbove", text: $spacingAboveText)
                     spacingField("imageStyleEditor.spacingBelow", text: $spacingBelowText)
+                }
+
+                Section("imageStyleEditor.border") {
+                    Picker("imageStyleEditor.borderStyle", selection: $borderStyle) {
+                        ForEach(ImageAttachment.BorderStyle.allCases, id: \.rawValue) { style in
+                            Text(LocalizedStringKey(style.localizationKey)).tag(style)
+                        }
+                    }
+                    spacingField("imageStyleEditor.borderPadding", text: $borderPaddingText)
                 }
                 
                 // Alignment Section
@@ -339,6 +358,23 @@ struct ImageStyleEditorView: View {
         } message: {
             Text("imageStyleEditor.invalidScale.message")
         }
+        .confirmationDialog(
+            "imageStyleEditor.updateStyle.confirmation.title",
+            isPresented: $showUpdateStyleConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("imageStyleEditor.updateStyle.confirmation.confirm") {
+                guard let values = pendingStyleUpdate, let onUpdateStyle else { return }
+                pendingStyleUpdate = nil
+                onUpdateStyle(values)
+                dismissSheet()
+            }
+            Button("button.cancel", role: .cancel) {
+                pendingStyleUpdate = nil
+            }
+        } message: {
+            Text("imageStyleEditor.updateStyle.confirmation.message")
+        }
     }
     
     // MARK: - Helper Methods
@@ -379,17 +415,31 @@ struct ImageStyleEditorView: View {
         )
         spacingAboveText = Self.spacingText(imageStyle.defaultSpacingAbove)
         spacingBelowText = Self.spacingText(imageStyle.defaultSpacingBelow)
+        borderStyle = imageStyle.defaultBorderStyle
+        borderPaddingText = Self.spacingText(imageStyle.defaultBorderPadding)
     }
 
     private func commitValues(using action: ((ImageStyleEditorValues) -> Void)?) {
         guard let action else { return }
+        guard let values = currentValues() else { return }
+        action(values)
+        dismissSheet()
+    }
+
+    private func requestStyleUpdate() {
+        guard let values = currentValues() else { return }
+        pendingStyleUpdate = values
+        showUpdateStyleConfirmation = true
+    }
+
+    private func currentValues() -> ImageStyleEditorValues? {
         guard let committedScale = ImageScaleInput.scale(from: scaleText) else {
             showInvalidScaleAlert = true
-            return
+            return nil
         }
         scale = committedScale
         scaleText = "\(Int(committedScale * 100))"
-        action(ImageStyleEditorValues(
+        return ImageStyleEditorValues(
             imageData: imageData,
             imageStyleName: imageStyleName,
             scale: committedScale,
@@ -399,9 +449,10 @@ struct ImageStyleEditorView: View {
             captionText: captionText,
             captionStyle: captionStyle,
             spacingAbove: Self.spacingValue(spacingAboveText),
-            spacingBelow: Self.spacingValue(spacingBelowText)
-        ))
-        dismissSheet()
+            spacingBelow: Self.spacingValue(spacingBelowText),
+            borderStyle: borderStyle,
+            borderPadding: Self.spacingValue(borderPaddingText)
+        )
     }
     
     private func dismissSheet() {

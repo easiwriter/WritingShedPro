@@ -535,6 +535,8 @@ final class ImageStyle {
     var defaultCaptionStyle: String = "UICTFontTextStyleCaption1"  // References a TextStyle name
     var defaultSpacingAbove: CGFloat = 0
     var defaultSpacingBelow: CGFloat = 0
+    var defaultBorderStyleRaw: String = ImageAttachment.BorderStyle.none.rawValue
+    var defaultBorderPadding: CGFloat = 0
     
     // MARK: - Metadata
     var createdDate: Date = Date()
@@ -550,6 +552,11 @@ final class ImageStyle {
         get { ImageAttachment.ImageAlignment(rawValue: defaultAlignmentRaw) ?? .center }
         set { defaultAlignmentRaw = newValue.rawValue }
     }
+
+    var defaultBorderStyle: ImageAttachment.BorderStyle {
+        get { ImageAttachment.BorderStyle(rawValue: defaultBorderStyleRaw) ?? .none }
+        set { defaultBorderStyleRaw = newValue.rawValue }
+    }
     
     // MARK: - Initialization
     
@@ -563,6 +570,8 @@ final class ImageStyle {
         defaultCaptionStyle: String = "UICTFontTextStyleCaption1",
         defaultSpacingAbove: CGFloat = 0,
         defaultSpacingBelow: CGFloat = 0,
+        defaultBorderStyle: ImageAttachment.BorderStyle = .none,
+        defaultBorderPadding: CGFloat = 0,
         isSystemStyle: Bool = false
     ) {
         self.name = name
@@ -574,6 +583,8 @@ final class ImageStyle {
         self.defaultCaptionStyle = defaultCaptionStyle
         self.defaultSpacingAbove = defaultSpacingAbove
         self.defaultSpacingBelow = defaultSpacingBelow
+        self.defaultBorderStyle = defaultBorderStyle
+        self.defaultBorderPadding = max(0, defaultBorderPadding)
         self.isSystemStyle = isSystemStyle
     }
     
@@ -597,6 +608,8 @@ final class ImageStyle {
         attachment.alignment = defaultAlignment
         attachment.spacingAbove = defaultSpacingAbove
         attachment.spacingBelow = defaultSpacingBelow
+        attachment.borderStyle = defaultBorderStyle
+        attachment.borderPadding = defaultBorderPadding
         attachment.updateCaption(
             hasCaption: hasCaptionByDefault,
             prefix: attachment.captionPrefix,

@@ -20,6 +20,7 @@ final class StyleSheetServiceTests: XCTestCase {
         let schema = Schema([
             StyleSheet.self,
             TextStyleModel.self,
+            ImageStyle.self,
             Project.self,
             Folder.self,
             TextFile.self,
@@ -114,6 +115,93 @@ final class StyleSheetServiceTests: XCTestCase {
         XCTAssertNotNil(title1Style)
         XCTAssertEqual(title1Style?.displayName, "Title 1")
         XCTAssertGreaterThan(title1Style?.fontSize ?? 0, 17) // Title should be larger than body
+    }
+
+    func testDuplicateStyleSheetPersistsCompleteGraphInFreshContext() throws {
+        let original = StyleSheetService.createDefaultStyleSheet()
+        original.footnoteMarkerStyle = .typographic
+        context.insert(original)
+        try context.save()
+
+        let duplicate = StyleSheetService.duplicateStyleSheet(original, name: "Persisted Copy")
+        let duplicateID = duplicate.id
+        let expectedTextStyleCount = original.textStyles?.count
+        let expectedImageStyleCount = original.imageStyles?.count
+        context.insert(duplicate)
+        try context.save()
+
+        let freshContext = ModelContext(container)
+        let descriptor = FetchDescriptor<StyleSheet>(
+            predicate: #Predicate { $0.id == duplicateID }
+        )
+        let reloaded = try XCTUnwrap(freshContext.fetch(descriptor).first)
+
+        XCTAssertEqual(reloaded.textStyles?.count, expectedTextStyleCount)
+        XCTAssertEqual(reloaded.imageStyles?.count, expectedImageStyleCount)
+        XCTAssertEqual(reloaded.footnoteMarkerStyle, .typographic)
+        XCTAssertTrue(reloaded.textStyles?.contains(where: { $0.isFirstParagraphStyle }) == true)
+    }
+
+    func testReapplyUpdatedImageStyleUpdatesAllProjectsUsingStyleSheet() throws {
+        let styleSheet = StyleSheet(name: "Shared")
+        let imageStyle = ImageStyle(name: "figure", displayName: "Figure")
+        imageStyle.styleSheet = styleSheet
+        styleSheet.imageStyles = [imageStyle]
+        context.insert(styleSheet)
+
+        for projectName in ["First", "Second"] {
+            let project = Project(name: projectName, styleSheet: styleSheet)
+            let folder = Folder(name: "Drafts", project: project)
+            let file = TextFile(name: "Chapter", parentFolder: folder)
+            let assignedAttachment = ImageAttachment()
+            assignedAttachment.imageStyleName = imageStyle.name
+            let legacyAttachment = ImageAttachment()
+            legacyAttachment.imageStyleName = "default"
+            let content = NSMutableAttributedString(attachment: assignedAttachment)
+            content.append(NSAttributedString(string: "\n"))
+            content.append(NSAttributedString(attachment: legacyAttachment))
+            file.currentVersion?.attributedContent = content
+            folder.textFiles = [file]
+            project.folders = [folder]
+            context.insert(project)
+        }
+        try context.save()
+
+        let freshContext = ModelContext(container)
+        let styleID = imageStyle.id
+        let reloadedStyle = try XCTUnwrap(
+            freshContext.fetch(
+                FetchDescriptor<ImageStyle>(predicate: #Predicate { $0.id == styleID })
+            ).first
+        )
+        let reloadedStyleSheet = try XCTUnwrap(reloadedStyle.styleSheet)
+        reloadedStyle.defaultBorderStyle = .thick
+        reloadedStyle.defaultBorderPadding = 12
+
+        let updatedCount = StyleSheetService.reapplyUpdatedImageStyle(
+            reloadedStyle,
+            in: reloadedStyleSheet,
+            context: freshContext
+        )
+
+        XCTAssertEqual(updatedCount, 2)
+        let files = try freshContext.fetch(FetchDescriptor<TextFile>())
+        XCTAssertEqual(files.count, 2)
+        for file in files {
+            let content = try XCTUnwrap(file.currentVersion?.attributedContent)
+            var updatedAttachments = 0
+            content.enumerateAttribute(
+                .attachment,
+                in: NSRange(location: 0, length: content.length)
+            ) { value, _, _ in
+                guard let attachment = value as? ImageAttachment else { return }
+                updatedAttachments += 1
+                XCTAssertEqual(attachment.imageStyleName, reloadedStyle.name)
+                XCTAssertEqual(attachment.borderStyle, .thick)
+                XCTAssertEqual(attachment.borderPadding, 12)
+            }
+            XCTAssertEqual(updatedAttachments, 2)
+        }
     }
 
     func testInitializeMigratesFirstParagraphStyleForExistingStylesheets() throws {

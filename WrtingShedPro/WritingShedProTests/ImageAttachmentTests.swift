@@ -28,12 +28,16 @@ final class ImageAttachmentTests: XCTestCase {
         XCTAssertNil(attachment.fileID, "File ID should be nil by default")
         XCTAssertEqual(attachment.spacingAbove, 0)
         XCTAssertEqual(attachment.spacingBelow, 0)
+        XCTAssertEqual(attachment.borderStyle, .none)
+        XCTAssertEqual(attachment.borderPadding, 0)
     }
 
     func testImageSpacingSurvivesSecureCoding() throws {
         let attachment = ImageAttachment()
         attachment.spacingAbove = 12
         attachment.spacingBelow = 8
+        attachment.borderStyle = .thick
+        attachment.borderPadding = 10
         attachment.captionPrefix = "Figure"
         attachment.captionNumber = 3
 
@@ -47,8 +51,23 @@ final class ImageAttachmentTests: XCTestCase {
 
         XCTAssertEqual(decoded.spacingAbove, 12)
         XCTAssertEqual(decoded.spacingBelow, 8)
+        XCTAssertEqual(decoded.borderStyle, .thick)
+        XCTAssertEqual(decoded.borderPadding, 10)
         XCTAssertEqual(decoded.captionPrefix, "Figure")
         XCTAssertEqual(decoded.captionNumber, 3)
+    }
+
+    func testBorderPaddingOnlyAppliesWhenBorderIsEnabledAndFitsBounds() {
+        let attachment = ImageAttachment()
+        attachment.borderPadding = 20
+
+        XCTAssertEqual(attachment.effectiveBorderPadding(for: CGSize(width: 100, height: 80)), 0)
+
+        attachment.borderStyle = .thin
+        XCTAssertEqual(attachment.effectiveBorderPadding(for: CGSize(width: 100, height: 80)), 20)
+
+        attachment.borderPadding = 100
+        XCTAssertEqual(attachment.effectiveBorderPadding(for: CGSize(width: 100, height: 80)), 39.5)
     }
 
     func testImageSpacingProducesParagraphLayoutAttributes() {
@@ -99,6 +118,41 @@ final class ImageAttachmentTests: XCTestCase {
 
         XCTAssertEqual(firstAttachment.captionNumber, 1)
         XCTAssertEqual(secondAttachment.captionNumber, 2)
+    }
+
+    func testCaptionNumberingContinuesFromEarlierManuscriptFiles() {
+        let styleSheet = StyleSheet(name: "Test")
+        let captionStyle = TextStyleModel(
+            name: "caption",
+            displayName: "Caption",
+            numberFormat: .decimal
+        )
+        captionStyle.styleSheet = styleSheet
+
+        let firstAttachment = ImageAttachment()
+        firstAttachment.setCaption(text: "Fourth", style: "caption")
+        let secondAttachment = ImageAttachment()
+        secondAttachment.setCaption(text: "Fifth", style: "caption")
+        let content = NSMutableAttributedString(attachment: firstAttachment)
+        content.append(NSAttributedString(string: "\n"))
+        content.append(NSAttributedString(attachment: secondAttachment))
+
+        ImageAttachment.updateCaptionNumbersInAttributedString(
+            content,
+            styleSheet: styleSheet,
+            startingNumbers: ["caption": 3]
+        )
+
+        XCTAssertEqual(firstAttachment.captionNumber, 4)
+        XCTAssertEqual(secondAttachment.captionNumber, 5)
+        XCTAssertEqual(
+            ImageAttachment.captionNumber(
+                for: secondAttachment.imageID,
+                in: content,
+                styleSheet: styleSheet
+            ),
+            5
+        )
     }
 
     func testTextStorageCaptionNumberingRefreshesFirstImageProvider() throws {
