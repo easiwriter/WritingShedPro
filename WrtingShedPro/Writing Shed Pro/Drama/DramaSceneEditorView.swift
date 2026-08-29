@@ -784,7 +784,11 @@ struct DramaSceneEditorView: View {
             let range = NSRange(location: position, length: 0)
             selectedRange = range
             textView.selectedRange = range
+            #if targetEnvironment(macCatalyst)
+            textView.scrollCharacterToTop(position, animated: true)
+            #else
             textView.scrollCharacterToTop(position)
+            #endif
             textView.resignFirstResponder()
         }
     }

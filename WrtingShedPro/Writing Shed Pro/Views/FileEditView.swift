@@ -3265,7 +3265,11 @@ struct FileEditView: View {
                     self.selectedRange = range
                     textView.selectedRange = range
                     if self.initialCharacterPosition != nil {
+                        #if targetEnvironment(macCatalyst)
+                        textView.scrollCharacterToTop(position, animated: true)
+                        #else
                         textView.scrollCharacterToTop(position)
+                        #endif
                     } else {
                         textView.scrollRangeToVisible(range)
                     }
@@ -9774,10 +9778,14 @@ struct FileEditView: View {
         _ values: ImageStyleEditorValues,
         attachment: ImageAttachment
     ) {
-        guard let styleSheet = file.project?.styleSheet,
-              let imageStyle = styleSheet.imageStyles?.first(where: { $0.name == values.imageStyleName }) else {
+        guard let styleSheet = file.project?.styleSheet else {
             return
         }
+        let relatedStyle = styleSheet.imageStyles?.first(where: { $0.name == values.imageStyleName })
+        let persistedStyle = (try? modelContext.fetch(FetchDescriptor<ImageStyle>()))?.first {
+            $0.name == values.imageStyleName && $0.styleSheet?.id == styleSheet.id
+        }
+        guard let imageStyle = relatedStyle ?? persistedStyle else { return }
 
         imageStyle.defaultScale = values.scale
         imageStyle.defaultAlignment = values.alignment
@@ -10079,6 +10087,8 @@ private struct NewFootnoteSheet: View {
 
 /// Helper view to encapsulate the caption style logic for ImageStyleEditorView
 private struct ImageStyleEditorSheetContent: View {
+    @Query(sort: \ImageStyle.displayOrder) private var persistedImageStyles: [ImageStyle]
+
     let imageAttachment: ImageAttachment
     let file: TextFile
     let onApply: (ImageStyleEditorValues) -> Void
@@ -10113,7 +10123,11 @@ private struct ImageStyleEditorSheetContent: View {
     }
 
     private var imageStyles: [ImageStyle] {
-        styleSheet?.imageStyles ?? []
+        if let relatedStyles = styleSheet?.imageStyles, !relatedStyles.isEmpty {
+            return relatedStyles
+        }
+        guard let styleSheetID = styleSheet?.id else { return [] }
+        return persistedImageStyles.filter { $0.styleSheet?.id == styleSheetID }
     }
     
     var body: some View {

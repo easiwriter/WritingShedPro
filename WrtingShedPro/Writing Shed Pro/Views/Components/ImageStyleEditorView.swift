@@ -237,6 +237,7 @@ struct ImageStyleEditorView: View {
                             Text(LocalizedStringKey(style.localizationKey)).tag(style)
                         }
                     }
+                    .pickerStyle(.segmented)
                     spacingField("imageStyleEditor.borderPadding", text: $borderPaddingText)
                 }
                 
