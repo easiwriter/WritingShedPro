@@ -300,6 +300,30 @@ struct StyleSheetService {
         
         return sheet
     }
+
+    @discardableResult
+    static func ensureDefaultImageStyle(in styleSheet: StyleSheet, context: ModelContext) -> ImageStyle {
+        if let existingStyle = styleSheet.imageStyles?.first {
+            return existingStyle
+        }
+
+        let persistedStyles = (try? context.fetch(FetchDescriptor<ImageStyle>())) ?? []
+        if let linkedStyle = persistedStyles.first(where: { $0.styleSheet?.id == styleSheet.id }) {
+            styleSheet.imageStyles = [linkedStyle]
+            return linkedStyle
+        }
+
+        let defaultImageStyle = ImageStyle.createDefault()
+        defaultImageStyle.isSystemStyle = styleSheet.isSystemStyleSheet
+        defaultImageStyle.styleSheet = styleSheet
+        styleSheet.imageStyles = [defaultImageStyle]
+        styleSheet.modifiedDate = Date()
+        context.insert(defaultImageStyle)
+        Task { @MainActor in
+            WriteCoalescer.shared?.requestSave(reason: "ensure-default-image-style")
+        }
+        return defaultImageStyle
+    }
     
     // MARK: - Style Category Migration
     

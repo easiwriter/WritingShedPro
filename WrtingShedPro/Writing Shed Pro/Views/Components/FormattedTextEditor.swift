@@ -12,6 +12,43 @@ struct TextEditorChange {
     let replacementText: String?
 }
 
+enum FormattedTextEditorInsertionAttributes {
+    static func merge(
+        styleAttributes: [NSAttributedString.Key: Any],
+        replacedAttributes: [NSAttributedString.Key: Any]
+    ) -> [NSAttributedString.Key: Any] {
+        var attributes = styleAttributes
+
+        if let styleFont = styleAttributes[.font] as? UIFont,
+           let replacedFont = replacedAttributes[.font] as? UIFont {
+            let preservedTraits = replacedFont.fontDescriptor.symbolicTraits
+                .intersection([.traitBold, .traitItalic])
+            let combinedTraits = styleFont.fontDescriptor.symbolicTraits.union(preservedTraits)
+            if let descriptor = styleFont.fontDescriptor.withSymbolicTraits(combinedTraits) {
+                attributes[.font] = UIFont(descriptor: descriptor, size: styleFont.pointSize)
+            } else if !preservedTraits.isEmpty {
+                attributes[.font] = UIFont.fontWithNameAndTraits(
+                    styleFont.familyName,
+                    size: styleFont.pointSize,
+                    bold: preservedTraits.contains(.traitBold),
+                    italic: preservedTraits.contains(.traitItalic)
+                )
+            }
+        }
+
+        if styleAttributes[.underlineStyle] == nil,
+           let underline = replacedAttributes[.underlineStyle] {
+            attributes[.underlineStyle] = underline
+        }
+        if styleAttributes[.strikethroughStyle] == nil,
+           let strikethrough = replacedAttributes[.strikethroughStyle] {
+            attributes[.strikethroughStyle] = strikethrough
+        }
+
+        return attributes
+    }
+}
+
 enum FormattedTextEditorImageClipboard {
     static let pasteboardType = "com.appworks.writingshedpro.image-attachment"
 
@@ -1139,6 +1176,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         var isProcessingUserTextChange = false
         var pendingChangeRange: NSRange?
         var pendingReplacementText: String?
+        var pendingInsertionAttributes: [NSAttributedString.Key: Any]?
         var lastUserTextChangeTime: Date?
         var isLiveTypingSimpleInsertion = false
         fileprivate static let simpleTypingIdleDelay: TimeInterval = 1.5
@@ -1169,6 +1207,51 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                 return style.generateAttributes()
             }
             return bodyStyleAttributesFallback()
+        }
+
+        private func insertionAttributes(in textView: UITextView, replacing range: NSRange) -> [NSAttributedString.Key: Any] {
+            let sourceAttributes: [NSAttributedString.Key: Any]
+            if range.location < textView.textStorage.length {
+                sourceAttributes = textView.textStorage.attributes(at: range.location, effectiveRange: nil)
+            } else if range.location > 0, range.location - 1 < textView.textStorage.length {
+                sourceAttributes = textView.textStorage.attributes(at: range.location - 1, effectiveRange: nil)
+            } else {
+                sourceAttributes = textView.typingAttributes
+            }
+
+            let styleName = (sourceAttributes[.textStyle] as? String)
+                ?? (textView.typingAttributes[.textStyle] as? String)
+                ?? UIFont.TextStyle.body.rawValue
+            let styleAttributes = parent.project?.styleSheet?.style(named: styleName)?.generateAttributes()
+                ?? resolvedBodyStyleAttributes()
+
+            return FormattedTextEditorInsertionAttributes.merge(
+                styleAttributes: styleAttributes,
+                replacedAttributes: sourceAttributes
+            )
+        }
+
+        private func normalizePendingInsertion(in textView: UITextView) {
+            defer { pendingInsertionAttributes = nil }
+            guard let attributes = pendingInsertionAttributes,
+                  let range = pendingChangeRange,
+                  let replacementText = pendingReplacementText,
+                  !replacementText.isEmpty else {
+                return
+            }
+
+            let replacementLength = (replacementText as NSString).length
+            guard replacementLength > 0,
+                  range.location >= 0,
+                  range.location + replacementLength <= textView.textStorage.length else {
+                return
+            }
+
+            textView.textStorage.addAttributes(
+                attributes,
+                range: NSRange(location: range.location, length: replacementLength)
+            )
+            textView.typingAttributes = attributes
         }
 
         private func refreshLineNumberDisplay(in textView: UITextView, from location: Int) {
@@ -1322,6 +1405,9 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
             pendingChangeRange = range
             pendingReplacementText = text
+            pendingInsertionAttributes = !text.isEmpty && text.rangeOfCharacter(from: .newlines) == nil
+                ? insertionAttributes(in: textView, replacing: range)
+                : nil
             isLiveTypingSimpleInsertion = isSimpleCharacterInsertion(range: range, replacementText: text)
 
             if text.isEmpty,
@@ -1727,6 +1813,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
 
             let textStorage = textView.textStorage
             let currentLength = textStorage.length
+            normalizePendingInsertion(in: textView)
 
             if isSimpleCharacterInsertion(range: pendingChangeRange, replacementText: pendingReplacementText),
                let range = pendingChangeRange,
@@ -2012,7 +2099,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                     }
                 }
             }
-            
+
             // Check if cursor moved away from an image (to clear selection)
             // Only do this if:
             // 1. The selection length is 0 (it's a cursor, not a selection)
@@ -2506,29 +2593,48 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         )
     }
 
-    private func caretFont(at position: UITextPosition) -> UIFont? {
+    private func caretCharacterIndex(at position: UITextPosition) -> Int? {
         let offset = self.offset(from: beginningOfDocument, to: position)
         let textLength = attributedText.length
 
-        if textLength > 0 {
-            let characterIndex = min(max(offset, 0), textLength - 1)
-            if let attributedFont = attributedText.attribute(.font, at: characterIndex, effectiveRange: nil) as? UIFont {
-                return attributedFont
-            }
+        guard textLength > 0 else { return nil }
+
+        let clampedOffset = min(max(offset, 0), textLength)
+        let previousCharacterIsNewline = clampedOffset > 0
+            && (attributedText.string as NSString).character(at: clampedOffset - 1) == 0x0A
+        if clampedOffset == 0 || previousCharacterIsNewline {
+            return min(clampedOffset, textLength - 1)
         }
 
-        return typingAttributes[.font] as? UIFont ?? font
+        return clampedOffset - 1
     }
 
     override func caretRect(for position: UITextPosition) -> CGRect {
         if let rect = validInputRect(super.caretRect(for: position)) {
-            guard let caretHeight = caretFont(at: position)?.lineHeight, caretHeight > 0 else {
+            guard let characterIndex = caretCharacterIndex(at: position),
+                  let caretFont = attributedText.attribute(.font, at: characterIndex, effectiveRange: nil) as? UIFont else {
                 return rect
             }
 
+            let glyphRange = layoutManager.glyphRange(
+                forCharacterRange: NSRange(location: characterIndex, length: 1),
+                actualCharacterRange: nil
+            )
+            guard glyphRange.length > 0 else { return rect }
+
+            let lineFragmentRect = layoutManager.lineFragmentRect(
+                forGlyphAt: glyphRange.location,
+                effectiveRange: nil
+            )
+            let glyphLocation = layoutManager.location(forGlyphAt: glyphRange.location)
+            let baselineY = textContainerInset.top + lineFragmentRect.minY + glyphLocation.y
+            let descenderDepth = max(0, -caretFont.descender)
+            let caretHeight = caretFont.ascender + descenderDepth
+            guard caretHeight > 0 else { return rect }
+
             return CGRect(
                 x: rect.minX,
-                y: rect.minY,
+                y: baselineY - caretFont.ascender,
                 width: rect.width,
                 height: caretHeight
             )

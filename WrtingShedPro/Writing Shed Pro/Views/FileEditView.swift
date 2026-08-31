@@ -4110,7 +4110,7 @@ struct FileEditView: View {
     }
 
     private func handleImagePasteRequested(attachment: ImageAttachment, position: Int) {
-        textViewCoordinator.flushPendingTyping?()
+        flushPendingEditorChanges(reason: "image-paste-preflight")
         guard let imageData = attachment.imageData ?? attachment.image?.pngData() else {
             return
         }
@@ -4134,6 +4134,7 @@ struct FileEditView: View {
             targetFile: file
         )
         undoManager.execute(command)
+        try? WriteCoalescer.shared?.requestSaveAndFlush(reason: "image-paste")
 
         let imagePosition = command.insertedImagePosition ?? position
         selectedRange = NSRange(location: imagePosition + 1, length: 0)
@@ -8959,6 +8960,8 @@ struct FileEditView: View {
         originalFilename: String? = nil
     ) {
         guard let imageData = imageData else { return }
+
+        flushPendingEditorChanges(reason: "image-insert-preflight")
         
         // Get the insertion point
         let insertionPoint = selectedRange.location
@@ -8982,6 +8985,7 @@ struct FileEditView: View {
         )
         
         undoManager.execute(command)
+        try? WriteCoalescer.shared?.requestSaveAndFlush(reason: "image-insert")
         let imagePosition = command.insertedImagePosition ?? insertionPoint
         
         // Mark the time of insertion to prevent immediate editor popup
@@ -9586,6 +9590,12 @@ struct FileEditView: View {
             return
         }
 
+        // Fresh validation also unlocks an editor whose previous sync snapshot
+        // was incomplete. Do this before the unchanged-content return below.
+        hasMismatchedFormattedContent = false
+        hasMissingAttachments = false
+        hasMissingSyncedBody = Self.isMissingSyncedBody(freshVersion)
+
         // Only reload if content actually differs (check attributes too — e.g. underline removal
         // changes no plain text but the formatted attributes are different).
         let plainTextSame = freshContent.string == attributedContent.string
@@ -9603,7 +9613,6 @@ struct FileEditView: View {
 
         // Strip adaptive colors for dark-mode safety (same as setupOnAppear)
         let processedContent = AttributedStringSerializer.stripAdaptiveColors(from: freshContent)
-        hasMismatchedFormattedContent = false
         hasMissingAttachments = Self.hasUnrecognizedAttachmentPlaceholders(in: processedContent)
         attributedContent = processedContent
         previousContent = processedContent.string
@@ -10087,6 +10096,7 @@ private struct NewFootnoteSheet: View {
 
 /// Helper view to encapsulate the caption style logic for ImageStyleEditorView
 private struct ImageStyleEditorSheetContent: View {
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \ImageStyle.displayOrder) private var persistedImageStyles: [ImageStyle]
 
     let imageAttachment: ImageAttachment
@@ -10151,6 +10161,10 @@ private struct ImageStyleEditorSheetContent: View {
             onUpdateStyle: onUpdateStyle,
             onCancel: onCancel
         )
+        .onAppear {
+            guard let styleSheet else { return }
+            StyleSheetService.ensureDefaultImageStyle(in: styleSheet, context: modelContext)
+        }
     }
 }
 /// Helper view to encapsulate the caption style logic for ImageStyleEditorView

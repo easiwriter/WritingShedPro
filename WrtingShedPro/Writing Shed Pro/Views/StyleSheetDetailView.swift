@@ -55,6 +55,9 @@ struct StyleSheetDetailView: View {
         .navigationTitle(styleSheet.name)
         .navigationBarTitleDisplayMode(.inline)
         .id(refreshTrigger)
+        .onAppear {
+            StyleSheetService.ensureDefaultImageStyle(in: styleSheet, context: modelContext)
+        }
         .onChange(of: styleSheet.footnoteMarkerStyleRaw) { _, _ in
             styleSheet.modifiedDate = Date()
             WriteCoalescer.shared?.requestSave()

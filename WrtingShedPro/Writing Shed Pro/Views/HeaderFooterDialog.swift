@@ -25,6 +25,15 @@ enum HeaderFooterElement: String, CaseIterable, Identifiable {
     var placeholder: String { "{{\(rawValue)}}" }
 }
 
+struct HeaderFooterValues {
+    let headerLeft: String
+    let headerCenter: String
+    let headerRight: String
+    let footerLeft: String
+    let footerCenter: String
+    let footerRight: String
+}
+
 struct HeaderFooterDialog: View {
     @Environment(\.dismiss) private var dismiss
     let headerEnabled: Bool
@@ -42,19 +51,8 @@ struct HeaderFooterDialog: View {
     @Binding var isPresented: Bool
     let headerFooterElements: [String]
     let onCancel: () -> Void
-    let onSave: () -> Void
+    let onSave: (HeaderFooterValues) -> Void
     
-    // Local editing state – avoids propagating every keystroke back to
-    // the (expensive) parent view.  Values are copied in on appear and
-    // written back only on save.
-    @State private var localHeaderLeft: String = ""
-    @State private var localHeaderCenter: String = ""
-    @State private var localHeaderRight: String = ""
-    @State private var localFooterLeft: String = ""
-    @State private var localFooterCenter: String = ""
-    @State private var localFooterRight: String = ""
-    @State private var localHeaderInsertTarget: HeaderFooterField = .left
-    @State private var localFooterInsertTarget: HeaderFooterField = .left
     @State private var headerSelectedElement: HeaderFooterElement = .date
     @State private var footerSelectedElement: HeaderFooterElement = .pageNumber
 
@@ -89,29 +87,17 @@ struct HeaderFooterDialog: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("button.save", comment: "Save")) {
-                        // Push local edits back to bindings before calling onSave
-                        headerLeft = localHeaderLeft
-                        headerCenter = localHeaderCenter
-                        headerRight = localHeaderRight
-                        footerLeft = localFooterLeft
-                        footerCenter = localFooterCenter
-                        footerRight = localFooterRight
-                        headerInsertTarget = localHeaderInsertTarget
-                        footerInsertTarget = localFooterInsertTarget
-                        onSave()
+                        onSave(HeaderFooterValues(
+                            headerLeft: headerLeft,
+                            headerCenter: headerCenter,
+                            headerRight: headerRight,
+                            footerLeft: footerLeft,
+                            footerCenter: footerCenter,
+                            footerRight: footerRight
+                        ))
                         dismissSheet()
                     }
                 }
-            }
-            .onAppear {
-                localHeaderLeft = headerLeft
-                localHeaderCenter = headerCenter
-                localHeaderRight = headerRight
-                localFooterLeft = footerLeft
-                localFooterCenter = footerCenter
-                localFooterRight = footerRight
-                localHeaderInsertTarget = headerInsertTarget
-                localFooterInsertTarget = footerInsertTarget
             }
         }
         #if os(macOS)
@@ -124,15 +110,15 @@ struct HeaderFooterDialog: View {
     private var headerSection: some View {
         Section {
             LabeledContent(NSLocalizedString("headerfooter.field.left", comment: "Left Field:")) {
-                TextField("", text: $localHeaderLeft)
+                TextField("", text: $headerLeft)
                     .textFieldStyle(.roundedBorder)
             }
             LabeledContent(NSLocalizedString("headerfooter.field.centre", comment: "Centre Field:")) {
-                TextField("", text: $localHeaderCenter)
+                TextField("", text: $headerCenter)
                     .textFieldStyle(.roundedBorder)
             }
             LabeledContent(NSLocalizedString("headerfooter.field.right", comment: "Right Field:")) {
-                TextField("", text: $localHeaderRight)
+                TextField("", text: $headerRight)
                     .textFieldStyle(.roundedBorder)
             }
             
@@ -152,7 +138,7 @@ struct HeaderFooterDialog: View {
                 
                 Text("→")
                 
-                Picker("", selection: $localHeaderInsertTarget) {
+                Picker("", selection: $headerInsertTarget) {
                     Text("Left").tag(HeaderFooterField.left)
                     Text("Centre").tag(HeaderFooterField.center)
                     Text("Right").tag(HeaderFooterField.right)
@@ -170,15 +156,15 @@ struct HeaderFooterDialog: View {
     private var footerSection: some View {
         Section {
             LabeledContent(NSLocalizedString("headerfooter.field.left", comment: "Left Field:")) {
-                TextField("", text: $localFooterLeft)
+                TextField("", text: $footerLeft)
                     .textFieldStyle(.roundedBorder)
             }
             LabeledContent(NSLocalizedString("headerfooter.field.centre", comment: "Centre Field:")) {
-                TextField("", text: $localFooterCenter)
+                TextField("", text: $footerCenter)
                     .textFieldStyle(.roundedBorder)
             }
             LabeledContent(NSLocalizedString("headerfooter.field.right", comment: "Right Field:")) {
-                TextField("", text: $localFooterRight)
+                TextField("", text: $footerRight)
                     .textFieldStyle(.roundedBorder)
             }
             
@@ -198,7 +184,7 @@ struct HeaderFooterDialog: View {
                 
                 Text("→")
                 
-                Picker("", selection: $localFooterInsertTarget) {
+                Picker("", selection: $footerInsertTarget) {
                     Text("Left").tag(HeaderFooterField.left)
                     Text("Centre").tag(HeaderFooterField.center)
                     Text("Right").tag(HeaderFooterField.right)
@@ -215,15 +201,15 @@ struct HeaderFooterDialog: View {
     
     private func insertElement(_ element: HeaderFooterElement, isHeader: Bool) {
         let placeholder = element.placeholder
-        let target = isHeader ? localHeaderInsertTarget : localFooterInsertTarget
+        let target = isHeader ? headerInsertTarget : footerInsertTarget
         
         switch target {
         case .left:
-            if isHeader { localHeaderLeft += placeholder } else { localFooterLeft += placeholder }
+            if isHeader { headerLeft += placeholder } else { footerLeft += placeholder }
         case .center:
-            if isHeader { localHeaderCenter += placeholder } else { localFooterCenter += placeholder }
+            if isHeader { headerCenter += placeholder } else { footerCenter += placeholder }
         case .right:
-            if isHeader { localHeaderRight += placeholder } else { localFooterRight += placeholder }
+            if isHeader { headerRight += placeholder } else { footerRight += placeholder }
         case .none:
             break
         }

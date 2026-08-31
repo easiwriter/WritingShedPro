@@ -380,14 +380,14 @@ extension FolderFilesView {
             isPresented: $showHeaderFooterEditor,
             headerFooterElements: headerFooterElements,
             onCancel: { showHeaderFooterEditor = false },
-            onSave: {
+            onSave: { values in
                 if let pageSetup = folder.project?.pageSetup {
-                    pageSetup.headerLeft = headerLeft
-                    pageSetup.headerCenter = headerCenter
-                    pageSetup.headerRight = headerRight
-                    pageSetup.footerLeft = footerLeft
-                    pageSetup.footerCenter = footerCenter
-                    pageSetup.footerRight = footerRight
+                    pageSetup.headerLeft = values.headerLeft
+                    pageSetup.headerCenter = values.headerCenter
+                    pageSetup.headerRight = values.headerRight
+                    pageSetup.footerLeft = values.footerLeft
+                    pageSetup.footerCenter = values.footerCenter
+                    pageSetup.footerRight = values.footerRight
                     folder.project?.modifiedDate = Date()
                     WriteCoalescer.shared?.requestSave(reason: "folder-files-header-footer-save")
                     WriteCoalescer.shared?.flush()

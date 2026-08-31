@@ -497,6 +497,7 @@ struct CreateStyleSheetView: View {
         }
         
         modelContext.insert(newSheet)
+        StyleSheetService.ensureDefaultImageStyle(in: newSheet, context: modelContext)
         
         do {
             try WriteCoalescer.shared.requestSaveAndFlush(reason: "stylesheet-management-create")

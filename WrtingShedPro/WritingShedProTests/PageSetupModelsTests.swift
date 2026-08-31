@@ -160,6 +160,34 @@ final class PageSetupModelsTests: XCTestCase {
         XCTAssertEqual(pageSetup.footers, 0, "hasFooters=false should set footers to 0")
         XCTAssertFalse(pageSetup.hasFooters, "hasFooters should return false")
     }
+
+    func testHeaderFooterFieldsPersistAcrossContexts() throws {
+        let project = Project(name: "Header Test", type: .prose)
+        let pageSetup = PageSetup()
+        let pageSetupID = pageSetup.id
+
+        project.pageSetup = pageSetup
+        pageSetup.headerLeft = "{{Project Name}}"
+        pageSetup.headerCenter = "{{Author}}"
+        pageSetup.headerRight = "{{Date}}"
+        pageSetup.footerLeft = "Left footer"
+        pageSetup.footerCenter = "{{Page Number}}"
+        pageSetup.footerRight = "Right footer"
+
+        modelContext.insert(project)
+        try modelContext.save()
+
+        let reloadedContext = ModelContext(modelContainer)
+        let pageSetups = try reloadedContext.fetch(FetchDescriptor<PageSetup>())
+        let reloadedPageSetup = try XCTUnwrap(pageSetups.first { $0.id == pageSetupID })
+
+        XCTAssertEqual(reloadedPageSetup.headerLeft, "{{Project Name}}")
+        XCTAssertEqual(reloadedPageSetup.headerCenter, "{{Author}}")
+        XCTAssertEqual(reloadedPageSetup.headerRight, "{{Date}}")
+        XCTAssertEqual(reloadedPageSetup.footerLeft, "Left footer")
+        XCTAssertEqual(reloadedPageSetup.footerCenter, "{{Page Number}}")
+        XCTAssertEqual(reloadedPageSetup.footerRight, "Right footer")
+    }
     
     // Note: testFacingPagesComputedProperty removed - facingPages property no longer exists
     

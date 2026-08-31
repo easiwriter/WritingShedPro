@@ -117,6 +117,20 @@ final class StyleSheetServiceTests: XCTestCase {
         XCTAssertGreaterThan(title1Style?.fontSize ?? 0, 17) // Title should be larger than body
     }
 
+    func testEnsureDefaultImageStyleCreatesOneStyleWithoutDuplicates() throws {
+        let styleSheet = StyleSheet(name: "Custom")
+        context.insert(styleSheet)
+
+        let firstStyle = StyleSheetService.ensureDefaultImageStyle(in: styleSheet, context: context)
+        let secondStyle = StyleSheetService.ensureDefaultImageStyle(in: styleSheet, context: context)
+
+        XCTAssertEqual(firstStyle.id, secondStyle.id)
+        XCTAssertEqual(styleSheet.imageStyles?.count, 1)
+        XCTAssertEqual(firstStyle.name, "default")
+        XCTAssertEqual(firstStyle.displayName, "Image")
+        XCTAssertFalse(firstStyle.isSystemStyle)
+    }
+
     func testDuplicateStyleSheetPersistsCompleteGraphInFreshContext() throws {
         let original = StyleSheetService.createDefaultStyleSheet()
         original.footnoteMarkerStyle = .typographic

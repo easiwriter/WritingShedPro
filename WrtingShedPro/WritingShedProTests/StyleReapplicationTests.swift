@@ -253,6 +253,54 @@ final class StyleReapplicationTests: XCTestCase {
         XCTAssertEqual(repairedFont.fontName, "Papyrus")
         XCTAssertEqual(repairedFont.pointSize, 13)
     }
+
+    func testInsertionAttributesUseCompleteNumberedBodyStyle() throws {
+        let bodyStyle = TextStyleModel(
+            name: UIFont.TextStyle.body.rawValue,
+            displayName: "Body",
+            fontFamily: "Papyrus",
+            fontSize: 13
+        )
+        bodyStyle.numberFormat = .decimal
+        bodyStyle.firstLineIndent = 19
+        bodyStyle.lineSpacing = 2
+
+        let attributes = FormattedTextEditorInsertionAttributes.merge(
+            styleAttributes: bodyStyle.generateAttributes(),
+            replacedAttributes: [.font: UIFont.systemFont(ofSize: 17)]
+        )
+        let font = try XCTUnwrap(attributes[.font] as? UIFont)
+        let paragraphStyle = try XCTUnwrap(attributes[.paragraphStyle] as? NSParagraphStyle)
+
+        XCTAssertEqual(font.fontName, "Papyrus")
+        XCTAssertEqual(font.pointSize, 13)
+        XCTAssertEqual(attributes[.textStyle] as? String, UIFont.TextStyle.body.rawValue)
+        XCTAssertEqual(paragraphStyle.firstLineHeadIndent, 19)
+        XCTAssertEqual(paragraphStyle.lineSpacing, 2)
+    }
+
+    func testInsertionAttributesPreserveDeliberateCharacterTraits() throws {
+        let bodyStyle = TextStyleModel(
+            name: UIFont.TextStyle.body.rawValue,
+            displayName: "Body",
+            fontFamily: "Papyrus",
+            fontSize: 13
+        )
+        let replacementFont = UIFont.boldSystemFont(ofSize: 17)
+
+        let attributes = FormattedTextEditorInsertionAttributes.merge(
+            styleAttributes: bodyStyle.generateAttributes(),
+            replacedAttributes: [
+                .font: replacementFont,
+                .underlineStyle: NSUnderlineStyle.single.rawValue
+            ]
+        )
+        let font = try XCTUnwrap(attributes[.font] as? UIFont)
+
+        XCTAssertEqual(font.familyName, "Papyrus")
+        XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitBold))
+        XCTAssertEqual(attributes[.underlineStyle] as? Int, NSUnderlineStyle.single.rawValue)
+    }
     
     func testGenerateAttributesWithCustomFont() throws {
         // Given - A style with custom font family

@@ -503,6 +503,7 @@ struct ProseListView: View {
         if !isEditMode {
             Button {
                 if headersOrFootersEnabled {
+                    initializeHeaderFooterFields()
                     showHeaderFooterEditor = true
                 } else {
                     showHeaderFooterWarning = true
@@ -555,6 +556,7 @@ struct ProseListView: View {
                 }
                 Button {
                     if headersOrFootersEnabled {
+                        initializeHeaderFooterFields()
                         showHeaderFooterEditor = true
                     } else {
                         showHeaderFooterWarning = true
@@ -644,14 +646,14 @@ struct ProseListView: View {
             isPresented: $showHeaderFooterEditor,
             headerFooterElements: headerFooterElements,
             onCancel: { showHeaderFooterEditor = false },
-            onSave: {
+            onSave: { values in
                 if let pageSetup = project.pageSetup {
-                    pageSetup.headerLeft = headerLeft
-                    pageSetup.headerCenter = headerCenter
-                    pageSetup.headerRight = headerRight
-                    pageSetup.footerLeft = footerLeft
-                    pageSetup.footerCenter = footerCenter
-                    pageSetup.footerRight = footerRight
+                    pageSetup.headerLeft = values.headerLeft
+                    pageSetup.headerCenter = values.headerCenter
+                    pageSetup.headerRight = values.headerRight
+                    pageSetup.footerLeft = values.footerLeft
+                    pageSetup.footerCenter = values.footerCenter
+                    pageSetup.footerRight = values.footerRight
                     project.modifiedDate = Date()
                     WriteCoalescer.shared?.requestSave(reason: "prose-list-header-footer-save")
                     WriteCoalescer.shared?.flush()
@@ -659,9 +661,6 @@ struct ProseListView: View {
                 showHeaderFooterEditor = false
             }
         )
-        .onAppear {
-            initializeHeaderFooterFields()
-        }
     }
     
     // MARK: - Dialog Content

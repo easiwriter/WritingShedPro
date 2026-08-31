@@ -510,14 +510,14 @@ struct SceneListView: View {
             isPresented: $showHeaderFooterEditor,
             headerFooterElements: [],
             onCancel: { showHeaderFooterEditor = false },
-            onSave: {
+            onSave: { values in
                 if let pageSetup = project.pageSetup {
-                    pageSetup.headerLeft = headerLeft
-                    pageSetup.headerCenter = headerCenter
-                    pageSetup.headerRight = headerRight
-                    pageSetup.footerLeft = footerLeft
-                    pageSetup.footerCenter = footerCenter
-                    pageSetup.footerRight = footerRight
+                    pageSetup.headerLeft = values.headerLeft
+                    pageSetup.headerCenter = values.headerCenter
+                    pageSetup.headerRight = values.headerRight
+                    pageSetup.footerLeft = values.footerLeft
+                    pageSetup.footerCenter = values.footerCenter
+                    pageSetup.footerRight = values.footerRight
                     WriteCoalescer.shared?.requestSave(reason: "scene-list-header-footer-save")
                     WriteCoalescer.shared?.flush()
                 }

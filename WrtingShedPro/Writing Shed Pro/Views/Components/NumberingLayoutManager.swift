@@ -450,14 +450,20 @@ class NumberingLayoutManager: NSLayoutManager {
             return
         }
         
-        // Enumerate ALL paragraphs from the beginning to get correct counts
-        // but only DRAW numbers for paragraphs in the visible charRange
+        // Enumerate from the beginning to preserve correct counters, then stop
+        // once paragraphs move beyond the visible character range.
         let text = textStorage.string as NSString
         let fullRange = NSRange(location: 0, length: textStorage.length)
         
-        text.enumerateSubstrings(in: fullRange, options: .byParagraphs) { [weak self] _, paragraphRange, _, _ in
+        text.enumerateSubstrings(in: fullRange, options: .byParagraphs) { [weak self] _, paragraphRange, _, stop in
             guard let self = self,
                   paragraphRange.location < textStorage.length else {
+                return
+            }
+
+            let charRangeEnd = NSMaxRange(charRange)
+            if paragraphRange.location >= charRangeEnd {
+                stop.pointee = true
                 return
             }
             
@@ -509,7 +515,6 @@ class NumberingLayoutManager: NSLayoutManager {
             // Only DRAW if this paragraph is within the visible range
             // Check if paragraph overlaps with visible charRange
             let paragraphEnd = paragraphRange.location + paragraphRange.length
-            let charRangeEnd = charRange.location + charRange.length
             let isVisible = (paragraphRange.location < charRangeEnd) && (paragraphEnd > charRange.location)
             
             guard isVisible else {

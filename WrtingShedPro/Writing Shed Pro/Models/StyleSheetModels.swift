@@ -592,7 +592,7 @@ final class ImageStyle {
     static func createDefault() -> ImageStyle {
         return ImageStyle(
             name: "default",
-            displayName: "Default",
+            displayName: "Image",
             displayOrder: 0,
             defaultScale: 1.0,
             defaultAlignment: .center,
