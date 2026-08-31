@@ -13,13 +13,35 @@ struct TextEditorChange {
 }
 
 enum FormattedTextEditorInsertionAttributes {
+    static func sourceAttributes(
+        in attributedText: NSAttributedString,
+        typingAttributes: [NSAttributedString.Key: Any],
+        replacing range: NSRange
+    ) -> [NSAttributedString.Key: Any] {
+        if range.length == 0,
+           range.location > 0,
+           range.location - 1 < attributedText.length {
+            return attributedText.attributes(at: range.location - 1, effectiveRange: nil)
+        }
+        if range.location < attributedText.length {
+            return attributedText.attributes(at: range.location, effectiveRange: nil)
+        }
+        return typingAttributes
+    }
+
     static func merge(
         styleAttributes: [NSAttributedString.Key: Any],
         replacedAttributes: [NSAttributedString.Key: Any]
     ) -> [NSAttributedString.Key: Any] {
         var attributes = styleAttributes
+        let targetStyle = styleAttributes[.textStyle] as? String
+        let replacedStyle = replacedAttributes[.textStyle] as? String
+        let preservesCharacterTraits = targetStyle == nil
+            || replacedStyle == nil
+            || targetStyle == replacedStyle
 
-        if let styleFont = styleAttributes[.font] as? UIFont,
+        if preservesCharacterTraits,
+           let styleFont = styleAttributes[.font] as? UIFont,
            let replacedFont = replacedAttributes[.font] as? UIFont {
             let preservedTraits = replacedFont.fontDescriptor.symbolicTraits
                 .intersection([.traitBold, .traitItalic])
@@ -36,11 +58,13 @@ enum FormattedTextEditorInsertionAttributes {
             }
         }
 
-        if styleAttributes[.underlineStyle] == nil,
+          if preservesCharacterTraits,
+              styleAttributes[.underlineStyle] == nil,
            let underline = replacedAttributes[.underlineStyle] {
             attributes[.underlineStyle] = underline
         }
-        if styleAttributes[.strikethroughStyle] == nil,
+          if preservesCharacterTraits,
+              styleAttributes[.strikethroughStyle] == nil,
            let strikethrough = replacedAttributes[.strikethroughStyle] {
             attributes[.strikethroughStyle] = strikethrough
         }
@@ -1210,14 +1234,11 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         }
 
         private func insertionAttributes(in textView: UITextView, replacing range: NSRange) -> [NSAttributedString.Key: Any] {
-            let sourceAttributes: [NSAttributedString.Key: Any]
-            if range.location < textView.textStorage.length {
-                sourceAttributes = textView.textStorage.attributes(at: range.location, effectiveRange: nil)
-            } else if range.location > 0, range.location - 1 < textView.textStorage.length {
-                sourceAttributes = textView.textStorage.attributes(at: range.location - 1, effectiveRange: nil)
-            } else {
-                sourceAttributes = textView.typingAttributes
-            }
+            let sourceAttributes = FormattedTextEditorInsertionAttributes.sourceAttributes(
+                in: textView.textStorage,
+                typingAttributes: textView.typingAttributes,
+                replacing: range
+            )
 
             let styleName = (sourceAttributes[.textStyle] as? String)
                 ?? (textView.typingAttributes[.textStyle] as? String)

@@ -292,6 +292,7 @@ final class StyleReapplicationTests: XCTestCase {
             styleAttributes: bodyStyle.generateAttributes(),
             replacedAttributes: [
                 .font: replacementFont,
+                .textStyle: UIFont.TextStyle.body.rawValue,
                 .underlineStyle: NSUnderlineStyle.single.rawValue
             ]
         )
@@ -300,6 +301,59 @@ final class StyleReapplicationTests: XCTestCase {
         XCTAssertEqual(font.familyName, "Papyrus")
         XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitBold))
         XCTAssertEqual(attributes[.underlineStyle] as? Int, NSUnderlineStyle.single.rawValue)
+    }
+
+    func testInsertionAttributesDoNotCarryHeadingBoldIntoFollowOnBody() throws {
+        let bodyStyle = TextStyleModel(
+            name: UIFont.TextStyle.body.rawValue,
+            displayName: "Body",
+            fontFamily: "Papyrus",
+            fontSize: 13
+        )
+
+        let attributes = FormattedTextEditorInsertionAttributes.merge(
+            styleAttributes: bodyStyle.generateAttributes(),
+            replacedAttributes: [
+                .font: UIFont.boldSystemFont(ofSize: 19),
+                .textStyle: UIFont.TextStyle.headline.rawValue,
+                .underlineStyle: NSUnderlineStyle.single.rawValue
+            ]
+        )
+        let font = try XCTUnwrap(attributes[.font] as? UIFont)
+
+        XCTAssertEqual(font.fontName, "Papyrus")
+        XCTAssertFalse(font.fontDescriptor.symbolicTraits.contains(.traitBold))
+        XCTAssertNil(attributes[.underlineStyle])
+        XCTAssertEqual(attributes[.textStyle] as? String, UIFont.TextStyle.body.rawValue)
+    }
+
+    func testInsertionContinuesBodyBeforeStaleBoldBoundary() throws {
+        let regularBodyFont = try XCTUnwrap(UIFont(name: "HelveticaNeue-Light", size: 17))
+        let boldBodyFont = try XCTUnwrap(UIFont(name: "HelveticaNeue-Bold", size: 17))
+        let source = NSAttributedString(
+            string: "n\n",
+            attributes: [
+                .font: regularBodyFont,
+                .textStyle: UIFont.TextStyle.body.rawValue
+            ]
+        ).mutableCopy() as! NSMutableAttributedString
+        source.setAttributes(
+            [
+                .font: boldBodyFont,
+                .textStyle: UIFont.TextStyle.body.rawValue
+            ],
+            range: NSRange(location: 1, length: 1)
+        )
+
+        let attributes = FormattedTextEditorInsertionAttributes.sourceAttributes(
+            in: source,
+            typingAttributes: [:],
+            replacing: NSRange(location: 1, length: 0)
+        )
+        let font = try XCTUnwrap(attributes[.font] as? UIFont)
+
+        XCTAssertEqual(font.fontName, "HelveticaNeue-Light")
+        XCTAssertFalse(font.fontDescriptor.symbolicTraits.contains(.traitBold))
     }
     
     func testGenerateAttributesWithCustomFont() throws {
