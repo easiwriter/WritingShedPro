@@ -333,9 +333,9 @@ final class StyleSheetModelTests: XCTestCase {
             name: "caption",
             displayName: "Caption",
             alignment: .center,
-            numberFormat: .decimal,
             headIndent: 12,
-            tailIndent: -9
+            tailIndent: -9,
+            numberFormat: .decimal
         )
         style.firstLineIndent = 3
 
@@ -444,6 +444,89 @@ final class StyleSheetModelTests: XCTestCase {
         // Then
         XCTAssertTrue(font.familyName.contains("Helvetica"))
         XCTAssertEqual(font.pointSize, 16)
+    }
+
+    func testSelectingExplicitFontFaceSynchronizesTraitControls() {
+        let style = TextStyleModel(name: "test", displayName: "Test")
+
+        style.selectFontFace("HelveticaNeue-BoldItalic")
+
+        XCTAssertEqual(style.fontName, "HelveticaNeue-BoldItalic")
+        XCTAssertTrue(style.isBold)
+        XCTAssertTrue(style.isItalic)
+
+        style.selectFontFace("HelveticaNeue-Light")
+        XCTAssertFalse(style.isBold)
+        XCTAssertFalse(style.isItalic)
+    }
+
+    func testNewStyleDefaultsToHelveticaNeueRegular() {
+        let style = TextStyleModel(name: "test", displayName: "Test")
+
+        XCTAssertEqual(style.fontFamily, FontFaceResolver.defaultFamilyName)
+        XCTAssertEqual(style.fontName, FontFaceResolver.defaultFontName)
+        XCTAssertEqual(style.generateFont(applyPlatformScaling: false).fontName, FontFaceResolver.defaultFontName)
+    }
+
+    func testLegacyNilFontSelectionResolvesToHelveticaNeue() {
+        let style = TextStyleModel(name: "test", displayName: "Test")
+        style.fontFamily = nil
+        style.fontName = nil
+
+        XCTAssertEqual(style.fontSelectionDisplayName, FontFaceResolver.defaultFamilyName)
+        XCTAssertEqual(style.generateFont(applyPlatformScaling: false).fontName, FontFaceResolver.defaultFontName)
+    }
+
+    func testStyleTraitControlsSelectMatchingFontFace() {
+        let style = TextStyleModel(
+            name: "test",
+            displayName: "Test",
+            fontFamily: "Helvetica Neue",
+            fontSize: 17
+        )
+        style.selectFontFace("HelveticaNeue-Light")
+
+        style.selectFontTraits(bold: true, italic: true)
+
+        XCTAssertEqual(style.fontName, "HelveticaNeue-BoldItalic")
+        XCTAssertTrue(style.isBold)
+        XCTAssertTrue(style.isItalic)
+    }
+
+    func testFontSelectionDisplayNameQualifiesNonRegularFace() {
+        let style = TextStyleModel(name: "test", displayName: "Test")
+
+        style.fontName = "HelveticaNeue-Light"
+        XCTAssertEqual(style.fontSelectionDisplayName, "HelveticaNeue.Light")
+
+        style.fontName = "HelveticaNeue-BoldItalic"
+        XCTAssertEqual(style.fontSelectionDisplayName, "HelveticaNeue.BoldItalic")
+
+        style.fontName = "AvenirNext-Regular"
+        XCTAssertEqual(style.fontSelectionDisplayName, "AvenirNext")
+    }
+
+    func testFontFaceResolverSelectsHelveticaNeueFacesForTraits() throws {
+        let regular = FontFaceResolver.resolvedFont(
+            familyName: "Helvetica Neue",
+            currentFontName: "HelveticaNeue-Light",
+            size: 17,
+            bold: false,
+            italic: false
+        )
+        XCTAssertEqual(regular.fontName, "HelveticaNeue-Light")
+
+        let boldItalic = FontFaceResolver.resolvedFont(
+            familyName: "Helvetica Neue",
+            currentFontName: regular.fontName,
+            size: 17,
+            bold: true,
+            italic: true
+        )
+        let traits = FontFaceResolver.traits(of: boldItalic)
+        XCTAssertTrue(traits.bold)
+        XCTAssertTrue(traits.italic)
+        XCTAssertEqual(boldItalic.fontName, "HelveticaNeue-BoldItalic")
     }
 
     func testDefaultListStyleMatchesBodyDisplaySize() {

@@ -339,6 +339,10 @@ private struct StyleListRow: View {
             
             HStack(spacing: 12) {
                 // Font info
+                Text(style.fontSelectionDisplayName ?? FontFaceResolver.defaultFamilyName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 Text(String(format: "%.0f pt", style.fontSize))
                     .font(.caption)
                     .foregroundStyle(.secondary)

@@ -90,29 +90,20 @@ struct TextFormatter {
                 #endif
                 // Apply body style with trait as fallback
                 let bodyFont = UIFont.preferredFont(forTextStyle: .body)
-                if let descriptor = bodyFont.fontDescriptor.withSymbolicTraits(hasBold ? [] : .traitBold) {
-                    let newFont = UIFont(descriptor: descriptor, size: bodyFont.pointSize)
-                    mutableText.addAttribute(.font, value: newFont, range: subrange)
-                }
+                let newFont = FontFaceResolver.resolvedFont(from: bodyFont, bold: !hasBold, italic: false)
+                mutableText.addAttribute(.font, value: newFont, range: subrange)
+                mutableText.addAttribute(.explicitBold, value: !hasBold, range: subrange)
                 return
             }
-            
-            // Get current traits and preserve them (except bold which we're toggling)
-            let currentTraits = currentFont.fontDescriptor.symbolicTraits
-            
-            // Create new traits by toggling bold while preserving font family and size
-            var newTraits = currentTraits
-            if !hasBold {
-                newTraits.insert(.traitBold)
-            } else {
-                newTraits.remove(.traitBold)
-            }
-            
-            // Apply new traits - this preserves the font family and size
-            if let newDescriptor = currentFont.fontDescriptor.withSymbolicTraits(newTraits) {
-                let newFont = UIFont(descriptor: newDescriptor, size: currentFont.pointSize)
-                mutableText.addAttribute(.font, value: newFont, range: subrange)
-            }
+
+            let currentTraits = FontFaceResolver.traits(of: currentFont)
+            let newFont = FontFaceResolver.resolvedFont(
+                from: currentFont,
+                bold: !hasBold,
+                italic: currentTraits.italic
+            )
+            mutableText.addAttribute(.font, value: newFont, range: subrange)
+            mutableText.addAttribute(.explicitBold, value: !hasBold, range: subrange)
         }
         
         return mutableText
@@ -138,29 +129,20 @@ struct TextFormatter {
                 #endif
                 // Apply body style with trait as fallback
                 let bodyFont = UIFont.preferredFont(forTextStyle: .body)
-                if let descriptor = bodyFont.fontDescriptor.withSymbolicTraits(hasItalic ? [] : .traitItalic) {
-                    let newFont = UIFont(descriptor: descriptor, size: bodyFont.pointSize)
-                    mutableText.addAttribute(.font, value: newFont, range: subrange)
-                }
+                let newFont = FontFaceResolver.resolvedFont(from: bodyFont, bold: false, italic: !hasItalic)
+                mutableText.addAttribute(.font, value: newFont, range: subrange)
+                mutableText.addAttribute(.explicitItalic, value: !hasItalic, range: subrange)
                 return
             }
-            
-            // Get current traits and preserve them (except italic which we're toggling)
-            let currentTraits = currentFont.fontDescriptor.symbolicTraits
-            
-            // Create new traits by toggling italic while preserving font family and size
-            var newTraits = currentTraits
-            if !hasItalic {
-                newTraits.insert(.traitItalic)
-            } else {
-                newTraits.remove(.traitItalic)
-            }
-            
-            // Apply new traits - this preserves the font family and size
-            if let newDescriptor = currentFont.fontDescriptor.withSymbolicTraits(newTraits) {
-                let newFont = UIFont(descriptor: newDescriptor, size: currentFont.pointSize)
-                mutableText.addAttribute(.font, value: newFont, range: subrange)
-            }
+
+            let currentTraits = FontFaceResolver.traits(of: currentFont)
+            let newFont = FontFaceResolver.resolvedFont(
+                from: currentFont,
+                bold: currentTraits.bold,
+                italic: !hasItalic
+            )
+            mutableText.addAttribute(.font, value: newFont, range: subrange)
+            mutableText.addAttribute(.explicitItalic, value: !hasItalic, range: subrange)
         }
         
         return mutableText

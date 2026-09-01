@@ -356,7 +356,9 @@ final class UndoRedoTests: XCTestCase {
         let undoData = try XCTUnwrap(testFile.undoStackData)
         XCTAssertLessThanOrEqual(undoData.count, 1024 * 1024)
 
-        let persistedCommands = try JSONDecoder().decode([SerializedCommand].self, from: undoData)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let persistedCommands = try decoder.decode([SerializedCommand].self, from: undoData)
         XCTAssertFalse(persistedCommands.isEmpty)
         XCTAssertLessThan(persistedCommands.count, manager.undoStack.count)
         XCTAssertEqual(persistedCommands.last?.description, "Format 5")

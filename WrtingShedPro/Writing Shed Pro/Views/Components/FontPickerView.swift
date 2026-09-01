@@ -16,9 +16,6 @@ struct FontPickerView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var searchText = ""
-    @State private var showingVariantPicker = false
-    @State private var selectedFamily: String?
-    @State private var availableVariants: [String] = []
     
     // Get all available font families
     private var fontFamilies: [String] {
@@ -35,7 +32,7 @@ struct FontPickerView: View {
     // Helper to check if any variant of this family is selected
     private func isFamilySelected(_ family: String) -> Bool {
         // Check if the selected font name belongs to this family
-        guard let fontName = selectedFontName else { return false }
+        let fontName = selectedFontName ?? FontFaceResolver.defaultFontName
         let variants = UIFont.fontNames(forFamilyName: family)
         return variants.contains(fontName)
     }
@@ -43,70 +40,34 @@ struct FontPickerView: View {
     var body: some View {
         NavigationStack {
             List {
-                // System Font option at the top
-                Button(action: {
-                    selectedFontFamily = nil
-                    selectedFontName = nil
-                    onFontSelected?()
-                    dismiss()
-                }) {
-                    HStack {
-                        Text("System Font")
-                            .foregroundColor(.primary)
-                        
-                        Spacer()
-                        
-                        // Checkmark if system font is selected
-                        if selectedFontFamily == nil && selectedFontName == nil {
-                            Image(systemName: "checkmark")
-                                .foregroundColor(.accentColor)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                
-                Divider()
-                
                 ForEach(filteredFamilies, id: \.self) { family in
-                    Button(action: {
-                        selectedFamily = family
-                        availableVariants = UIFont.fontNames(forFamilyName: family).sorted()
-                        if availableVariants.count > 1 {
-                            showingVariantPicker = true
-                        } else {
-                            // Only one variant, select it directly
-                            if let variantName = availableVariants.first {
-                                selectedFontFamily = family
-                                selectedFontName = variantName
-                                onFontSelected?()
+                    let variants = UIFont.fontNames(forFamilyName: family).sorted()
+                    if variants.count > 1 {
+                        Menu {
+                            ForEach(variants, id: \.self) { variant in
+                                Button {
+                                    selectFont(family: family, face: variant)
+                                } label: {
+                                    if selectedFontName == variant {
+                                        Label(variantDisplayName(variant), systemImage: "checkmark")
+                                    } else {
+                                        Text(variantDisplayName(variant))
+                                    }
+                                }
                             }
-                            dismiss()
+                        } label: {
+                            familyRow(family, showsFaceMenu: true)
                         }
-                    }) {
-                        HStack {
-                            // Font name in its own typeface
-                            Text(family)
-                                .font(Font(UIFont(name: UIFont.fontNames(forFamilyName: family).first ?? family, size: 17) ?? UIFont.systemFont(ofSize: 17)))
-                                .foregroundColor(.primary)
-                            
-                            Spacer()
-                            
-                            // Checkmark if this family is selected
-                            if isFamilySelected(family) {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(.accentColor)
+                    } else {
+                        Button {
+                            if let variant = variants.first {
+                                selectFont(family: family, face: variant)
                             }
-                            
-                            // Show more button if multiple variants
-                            if UIFont.fontNames(forFamilyName: family).count > 1 {
-                                Image(systemName: "ellipsis.circle")
-                                    .foregroundColor(.secondary)
-                            }
+                        } label: {
+                            familyRow(family, showsFaceMenu: false)
                         }
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .searchable(text: $searchText, prompt: "Search fonts")
@@ -119,72 +80,35 @@ struct FontPickerView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingVariantPicker) {
-                if let family = selectedFamily {
-                    FontVariantPickerView(
-                        fontFamily: family,
-                        variants: availableVariants,
-                        selectedFontName: $selectedFontName,
-                        onFontSelected: {
-                            selectedFontFamily = family
-                            onFontSelected?()
-                        }
-                    )
-                }
-            }
         }
     }
-}
 
-// MARK: - Font Variant Picker
+    private func selectFont(family: String, face: String) {
+        selectedFontFamily = family
+        selectedFontName = face
+        onFontSelected?()
+        dismiss()
+    }
 
-struct FontVariantPickerView: View {
-    let fontFamily: String
-    let variants: [String]
-    @Binding var selectedFontName: String?
-    var onFontSelected: (() -> Void)?
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        NavigationStack {
-            List {
-                ForEach(variants, id: \.self) { variant in
-                    Button(action: {
-                        selectedFontName = variant
-                        onFontSelected?()
-                        dismiss()
-                    }) {
-                        HStack {
-                            // Variant name (extract style from full name)
-                            Text(variantDisplayName(variant))
-                                .font(Font(UIFont(name: variant, size: 17) ?? UIFont.systemFont(ofSize: 17)))
-                                .foregroundColor(.primary)
-                            
-                            Spacer()
-                            
-                            // Checkmark if THIS SPECIFIC variant is selected
-                            if selectedFontName == variant {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(.accentColor)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
+    private func familyRow(_ family: String, showsFaceMenu: Bool) -> some View {
+        HStack {
+            Text(family)
+                .font(Font(UIFont(name: UIFont.fontNames(forFamilyName: family).first ?? family, size: 17) ?? UIFont.systemFont(ofSize: 17)))
+                .foregroundColor(.primary)
+            Spacer()
+            if isFamilySelected(family) {
+                Image(systemName: "checkmark")
+                    .foregroundColor(.accentColor)
             }
-            .navigationTitle(fontFamily)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Back") {
-                        dismiss()
-                    }
-                }
+            if showsFaceMenu {
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
+        .contentShape(Rectangle())
     }
-    
+
     private func variantDisplayName(_ fullName: String) -> String {
         // Extract variant name (e.g., "Helvetica-Bold" -> "Bold")
         let components = fullName.components(separatedBy: "-")

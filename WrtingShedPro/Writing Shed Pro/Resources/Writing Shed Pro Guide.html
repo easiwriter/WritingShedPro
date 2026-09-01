@@ -4876,6 +4876,7 @@ Set Aside
 - <strong><em>Bold italic</em></strong>
 - <strong>Bold with ~~strikethrough~~</strong>
 - Any combination you need</p>
+<p>The <strong>B</strong> and <em>I</em> buttons show the effective formatting at the insertion point or across the selected text. When you apply bold or italic, Writing Shed Pro uses the corresponding installed face from the current font family when available. If the family has no matching face, the requested trait is simulated. This formatting is retained when you save and reopen the document.</p>
 <h2 id="paragraph-formatting">Paragraph Formatting</h2>
 <p>Paragraph formatting applies to entire paragraphs. Tap the <strong>¶</strong> button to see paragraph styles.</p>
 <h3 id="available-paragraph-styles">Available Paragraph Styles</h3>
@@ -5257,8 +5258,10 @@ Set Aside
 <ol>
 <li>Select text with the style you want to edit</li>
 <li>Tap <strong>Edit Style</strong> from the selection menu</li>
-<li>Adjust settings:</li>
-<li>Font family and size</li>
+<li>Adjust settings:<ul>
+<li>Font family, face, and size</li>
+</ul>
+</li>
 <li>Bold, italic, underline</li>
 <li>Text color</li>
 <li>Alignment</li>
@@ -11615,16 +11618,23 @@ Hi.
 <p>Tap a style to modify it:</p>
 <h3 id="font-settings">Font Settings</h3>
 <ul>
-<li><strong>Font Family</strong>: Choose from available fonts</li>
-<li><strong>Font Size</strong>: Set the size in points</li>
-<li><strong>Bold</strong>: Make text bold</li>
-<li><strong>Italic</strong>: Make text italic</li>
+<li><strong>Default Font</strong>: New styles use Helvetica Neue Regular</li>
+<li><strong>Font Family</strong>: Choose an installed font family from the first menu</li>
+<li><strong>Font Face</strong>: Choose a specific family face, such as Regular, Light, Bold, Italic, or Bold Italic</li>
+<li><strong>Font Size</strong>: Use the point-size control beside the face menu</li>
+<li><strong>Bold, Italic, Underline, and Strikethrough</strong>: Use the grouped buttons below the font menus. Active buttons have a filled highlight.</li>
+</ul>
+<p>The font face and the <strong>B</strong> and <em>I</em> buttons stay synchronized:</p>
+<ul>
+<li>Choosing a Bold, Italic, or Bold Italic face activates the corresponding buttons.</li>
+<li>Choosing a face such as Regular or Light deactivates <strong>B</strong> and <em>I</em> when that face does not contain those traits.</li>
+<li>Tapping <strong>B</strong> or <em>I</em> selects the matching installed face from the current family when one is available.</li>
+<li>If the family does not provide the requested face, Writing Shed Pro applies the bold or italic trait to the selected face.</li>
 </ul>
 <h3 id="text-appearance">Text Appearance</h3>
 <ul>
 <li><strong>Text Color</strong>: Choose a color</li>
-<li><strong>Underline</strong>: Add underline</li>
-<li><strong>Strikethrough</strong>: Add strikethrough</li>
+<li><strong>Underline</strong> and <strong>Strikethrough</strong>: Set with the grouped font buttons</li>
 </ul>
 <h3 id="paragraph-settings">Paragraph Settings</h3>
 <ul>

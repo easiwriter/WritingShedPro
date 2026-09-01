@@ -25,8 +25,8 @@ struct StylePickerSheet: View {
     /// The project to get stylesheet from (optional)
     var project: Project?
     
-    /// Callback to reapply all styles in the document
-    var onReapplyStyles: (() -> Void)?
+    /// Callback to refresh the open document after a style definition is saved.
+    var onStyleDefinitionSaved: ((String) -> Void)?
     
     @State private var showingStyleEditor = false
     @State private var styleToEdit: TextStyleModel?
@@ -150,10 +150,9 @@ struct StylePickerSheet: View {
                         style: style,
                         isNewStyle: false,
                         onSave: {
-                            // Reapply all styles to update existing text with the new style settings
-                            onReapplyStyles?()
                             styleToEdit = nil
-                        }
+                        },
+                        onStyleDefinitionSaved: onStyleDefinitionSaved
                     )
                 }
                 .navigationViewStyle(.stack)

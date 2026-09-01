@@ -83,7 +83,7 @@ You can modify any style to match your preferences:
 1. Select text with the style you want to edit
 2. Tap **Edit Style** from the selection menu
 3. Adjust settings:
-   - Font family and size
+    - Font family, face, and size
    - Bold, italic, underline
    - Text color
    - Alignment

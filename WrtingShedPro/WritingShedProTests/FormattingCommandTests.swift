@@ -614,6 +614,23 @@ final class FormattingCommandTests: XCTestCase {
         XCTAssertEqual(resultFont!.pointSize, 17, "Font size should be preserved")
         XCTAssertTrue(isBold(in: result, range: range), "Text should be bold")
     }
+
+    func testToolbarBoldItalicSelectsMatchingFontFace() throws {
+        let lightFont = try XCTUnwrap(UIFont(name: "HelveticaNeue-Light", size: 17))
+        let originalContent = NSAttributedString(
+            string: "Hello",
+            attributes: [.font: lightFont]
+        )
+        let range = NSRange(location: 0, length: originalContent.length)
+
+        let boldContent = TextFormatter.toggleBold(in: originalContent, range: range)
+        let boldItalicContent = TextFormatter.toggleItalic(in: boldContent, range: range)
+        let font = try XCTUnwrap(boldItalicContent.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+
+        XCTAssertEqual(font.fontName, "HelveticaNeue-BoldItalic")
+        XCTAssertEqual(boldItalicContent.attribute(.explicitBold, at: 0, effectiveRange: nil) as? Bool, true)
+        XCTAssertEqual(boldItalicContent.attribute(.explicitItalic, at: 0, effectiveRange: nil) as? Bool, true)
+    }
     
     func testFormatApplyCommand_PreservesFontSize() {
         // Given: Text with size 24

@@ -13,6 +13,8 @@ extension NSAttributedString.Key {
     /// Custom attribute key for text style
     /// Used to store UIFont.TextStyle.rawValue as part of paragraph formatting
     static let textStyle = NSAttributedString.Key("WritingShedPro.TextStyle")
+    static let explicitBold = NSAttributedString.Key("WritingShedPro.ExplicitBold")
+    static let explicitItalic = NSAttributedString.Key("WritingShedPro.ExplicitItalic")
 }
 
 extension UIFont.TextStyle {

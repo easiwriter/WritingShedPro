@@ -31,6 +31,8 @@ You can combine formats:
 - **Bold with ~~strikethrough~~**
 - Any combination you need
 
+The **B** and *I* buttons show the effective formatting at the insertion point or across the selected text. When you apply bold or italic, Writing Shed Pro uses the corresponding installed face from the current font family when available. If the family has no matching face, the requested trait is simulated. This formatting is retained when you save and reopen the document.
+
 ## Paragraph Formatting
 
 Paragraph formatting applies to entire paragraphs. Tap the **¶** button to see paragraph styles.

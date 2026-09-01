@@ -1037,65 +1037,59 @@ struct StyleSheetService {
         context: ModelContext
     ) -> Int {
         var updatedFilesCount = 0
-        let availableImageStyles = (styleSheet.imageStyles ?? []).sorted {
+        var relatedImageStyles = styleSheet.imageStyles ?? []
+        if !relatedImageStyles.contains(where: { $0.id == imageStyle.id }) {
+            relatedImageStyles.append(imageStyle)
+        }
+        let availableImageStyles = relatedImageStyles.sorted {
             if $0.displayOrder != $1.displayOrder { return $0.displayOrder < $1.displayOrder }
             return $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
         }
         let validStyleNames = Set(availableImageStyles.map(\.name))
         let fallbackStyleName = availableImageStyles.first?.name
 
-        func processFolder(_ folder: Folder) {
-            for file in folder.textFiles ?? [] {
-                guard let version = file.currentVersion,
-                      let content = version.attributedContent,
-                      content.length > 0 else { continue }
+        func processFile(_ file: TextFile) {
+            guard let version = file.currentVersion,
+                  let content = version.attributedContent,
+                  content.length > 0 else { return }
 
-                let mutableContent = NSMutableAttributedString(attributedString: content)
-                var matchingAttachments: [(ImageAttachment, NSRange)] = []
-                mutableContent.enumerateAttribute(
-                    .attachment,
-                    in: NSRange(location: 0, length: mutableContent.length)
-                ) { value, range, _ in
-                    guard let attachment = value as? ImageAttachment else { return }
-                    let usesUpdatedStyle = attachment.imageStyleName == imageStyle.name
-                        || (!validStyleNames.contains(attachment.imageStyleName)
-                            && fallbackStyleName == imageStyle.name)
-                    guard usesUpdatedStyle else { return }
-                    matchingAttachments.append((attachment, range))
-                }
-
-                guard !matchingAttachments.isEmpty else { continue }
-                for (attachment, range) in matchingAttachments {
-                    imageStyle.apply(to: attachment)
-                    mutableContent.addAttribute(
-                        .paragraphStyle,
-                        value: attachment.paragraphStyle(),
-                        range: range
-                    )
-                }
-
-                version.attributedContent = mutableContent
-                file.modifiedDate = Date()
-                updatedFilesCount += 1
+            let mutableContent = NSMutableAttributedString(attributedString: content)
+            var matchingAttachments: [(ImageAttachment, NSRange)] = []
+            mutableContent.enumerateAttribute(
+                .attachment,
+                in: NSRange(location: 0, length: mutableContent.length)
+            ) { value, range, _ in
+                guard let attachment = value as? ImageAttachment else { return }
+                let usesUpdatedStyle = attachment.imageStyleName == imageStyle.name
+                    || (!validStyleNames.contains(attachment.imageStyleName)
+                        && fallbackStyleName == imageStyle.name)
+                guard usesUpdatedStyle else { return }
+                matchingAttachments.append((attachment, range))
             }
 
-            for subfolder in folder.folders ?? [] {
-                processFolder(subfolder)
+            guard !matchingAttachments.isEmpty else { return }
+            for (attachment, range) in matchingAttachments {
+                imageStyle.apply(to: attachment)
+                mutableContent.addAttribute(
+                    .paragraphStyle,
+                    value: attachment.paragraphStyle(),
+                    range: range
+                )
             }
+
+            version.attributedContent = mutableContent
+            file.modifiedDate = Date()
+            updatedFilesCount += 1
         }
 
         let styleSheetID = styleSheet.id
-        let descriptor = FetchDescriptor<Project>(
-            predicate: #Predicate<Project> { project in
-                project.styleSheet?.id == styleSheetID
-            }
-        )
-        let projects = (try? context.fetch(descriptor)) ?? styleSheet.projects ?? []
+        let fetchedProjects = (try? context.fetch(FetchDescriptor<Project>())) ?? []
+        let matchingProjects = fetchedProjects.filter { $0.styleSheet?.id == styleSheetID }
+        let projectIDs = Set((matchingProjects.isEmpty ? styleSheet.projects ?? [] : matchingProjects).map(\.id))
+        let files = (try? context.fetch(FetchDescriptor<TextFile>())) ?? []
 
-        for project in projects {
-            for folder in project.folders ?? [] {
-                processFolder(folder)
-            }
+        for file in files where file.parentFolder?.resolvedProject.map({ projectIDs.contains($0.id) }) == true {
+            processFile(file)
         }
 
         if updatedFilesCount > 0 {
@@ -1171,14 +1165,12 @@ struct StyleSheetService {
             mutable.enumerateAttributes(in: styleRange, options: []) { currentAttrs, subrange, _ in
                 var newAttrs = updatedAttributes
 
-                let existingFont = currentAttrs[.font] as? UIFont ?? updatedBaseFont
-                let existingTraits = existingFont.fontDescriptor.symbolicTraits
-                if !existingTraits.isEmpty,
-                   let descriptor = updatedBaseFont.fontDescriptor.withSymbolicTraits(existingTraits) {
-                    newAttrs[.font] = UIFont(descriptor: descriptor, size: updatedBaseFont.pointSize)
-                } else {
-                    newAttrs[.font] = updatedBaseFont
-                }
+                let baseTraits = FontFaceResolver.traits(of: updatedBaseFont)
+                let bold = currentAttrs[.explicitBold] as? Bool ?? baseTraits.bold
+                let italic = currentAttrs[.explicitItalic] as? Bool ?? baseTraits.italic
+                newAttrs[.font] = FontFaceResolver.resolvedFont(from: updatedBaseFont, bold: bold, italic: italic)
+                if let explicitBold = currentAttrs[.explicitBold] { newAttrs[.explicitBold] = explicitBold }
+                if let explicitItalic = currentAttrs[.explicitItalic] { newAttrs[.explicitItalic] = explicitItalic }
 
                 newAttrs[.textStyle] = styleName
 

@@ -8,6 +8,89 @@
 
 import SwiftUI
 
+enum FontFaceResolver {
+    static let defaultFamilyName = "Helvetica Neue"
+    static let defaultFontName = "HelveticaNeue"
+
+    private static let relevantTraits: UIFontDescriptor.SymbolicTraits = [.traitBold, .traitItalic]
+
+    static func traits(of font: UIFont) -> (bold: Bool, italic: Bool) {
+        let traits = font.fontDescriptor.symbolicTraits
+        return (traits.contains(.traitBold), traits.contains(.traitItalic))
+    }
+
+    static func resolvedFont(
+        familyName: String?,
+        currentFontName: String?,
+        size: CGFloat,
+        bold: Bool,
+        italic: Bool
+    ) -> UIFont {
+        let familyName = familyName?.isEmpty == false ? familyName! : defaultFamilyName
+        let currentFontName = currentFontName ?? (familyName == defaultFamilyName ? defaultFontName : nil)
+
+        if let currentFontName,
+           let currentFont = UIFont(name: currentFontName, size: size) {
+            let currentTraits = traits(of: currentFont)
+            if currentTraits.bold == bold && currentTraits.italic == italic {
+                return currentFont
+            }
+        }
+
+        let variants = UIFont.fontNames(forFamilyName: familyName)
+        let matchingFonts = variants.compactMap { UIFont(name: $0, size: size) }.filter {
+            let candidateTraits = traits(of: $0)
+            return candidateTraits.bold == bold && candidateTraits.italic == italic
+        }
+
+        if !matchingFonts.isEmpty {
+            if !bold && !italic,
+               let regular = matchingFonts.first(where: { isRegularFaceName($0.fontName) }) {
+                return regular
+            }
+            return matchingFonts.sorted { $0.fontName < $1.fontName }.first!
+        }
+
+        let baseFont = currentFontName.flatMap { UIFont(name: $0, size: size) }
+            ?? variants.compactMap { UIFont(name: $0, size: size) }.first
+            ?? UIFont(name: familyName, size: size)
+            ?? UIFont.systemFont(ofSize: size)
+        return applyingSymbolicTraits(to: baseFont, bold: bold, italic: italic)
+    }
+
+    static func resolvedFont(from font: UIFont, bold: Bool, italic: Bool) -> UIFont {
+        resolvedFont(
+            familyName: font.familyName,
+            currentFontName: font.fontName,
+            size: font.pointSize,
+            bold: bold,
+            italic: italic
+        )
+    }
+
+    private static func applyingSymbolicTraits(to font: UIFont, bold: Bool, italic: Bool) -> UIFont {
+        var traits = font.fontDescriptor.symbolicTraits.subtracting(relevantTraits)
+        if bold { traits.insert(.traitBold) }
+        if italic { traits.insert(.traitItalic) }
+        if let descriptor = font.fontDescriptor.withSymbolicTraits(traits) {
+            return UIFont(descriptor: descriptor, size: font.pointSize)
+        }
+
+        let descriptor = font.fontDescriptor.addingAttributes([
+            .traits: [UIFontDescriptor.TraitKey.symbolic: traits.rawValue]
+        ])
+        return UIFont(descriptor: descriptor, size: font.pointSize)
+    }
+
+    private static func isRegularFaceName(_ fontName: String) -> Bool {
+        let lowercased = fontName.lowercased()
+        return lowercased.hasSuffix("-regular")
+            || lowercased.hasSuffix("-roman")
+            || lowercased.hasSuffix("-book")
+            || !lowercased.contains("-")
+    }
+}
+
 @Observable class FontArray {
     var fontItems = [FontItem]()
     var fontItem: FontItem?

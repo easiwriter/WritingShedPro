@@ -12,14 +12,12 @@ enum StyleReapplicationAttributeMerger {
         var merged = styleAttributes
 
         if let newFont = styleAttributes[.font] as? UIFont {
-            let existingFont = currentAttributes[.font] as? UIFont ?? newFont
-            let existingTraits = existingFont.fontDescriptor.symbolicTraits
-            if !existingTraits.isEmpty,
-               let descriptor = newFont.fontDescriptor.withSymbolicTraits(existingTraits) {
-                merged[.font] = UIFont(descriptor: descriptor, size: newFont.pointSize)
-            } else {
-                merged[.font] = newFont
-            }
+            let baseTraits = FontFaceResolver.traits(of: newFont)
+            let bold = currentAttributes[.explicitBold] as? Bool ?? baseTraits.bold
+            let italic = currentAttributes[.explicitItalic] as? Bool ?? baseTraits.italic
+            merged[.font] = FontFaceResolver.resolvedFont(from: newFont, bold: bold, italic: italic)
+            if let explicitBold = currentAttributes[.explicitBold] { merged[.explicitBold] = explicitBold }
+            if let explicitItalic = currentAttributes[.explicitItalic] { merged[.explicitItalic] = explicitItalic }
         }
 
         if let attachment = currentAttributes[.attachment] {
@@ -127,6 +125,7 @@ struct FileEditView: View {
     @State private var showStylePicker = false
     @State private var needsStyleReapplyAfterPickerDismiss = false
     @State private var hasPendingStyleReapply = false
+    @State private var allowsLegacyStyleReapply = false
     @State private var isReapplyingStyles = false
     @State private var hasPendingRemoteRefresh = false
     @State private var showImageEditor = false
@@ -2019,10 +2018,9 @@ struct FileEditView: View {
                     showStylePicker = false
                 },
                 project: file.project,
-                onReapplyStyles: {
-                    // Style definition updates should not create document undo steps.
+                onStyleDefinitionSaved: { styleName in
                     needsStyleReapplyAfterPickerDismiss = true
-                    requestStyleReapply()
+                    requestStyleDefinitionReapply(styleName: styleName)
                 }
             )
         }
@@ -3575,7 +3573,11 @@ struct FileEditView: View {
             #if DEBUG
             print("📝 Reapplying all styles due to style modification")
             #endif
-            requestStyleReapply()
+            if let styleName = notification.userInfo?["styleName"] as? String {
+                requestStyleDefinitionReapply(styleName: styleName)
+            } else {
+                requestStyleReapply()
+            }
         } else {
             #if DEBUG
             print("📝 Document is empty, skipping reapply")
@@ -7297,18 +7299,11 @@ struct FileEditView: View {
     }
 
     private func formattingState(from attributes: [NSAttributedString.Key: Any]) -> (bold: Bool, italic: Bool, underline: Bool, strikethrough: Bool) {
-        var bold = false
-        var italic = false
-
-        if let font = attributes[.font] as? UIFont {
-            let traits = font.fontDescriptor.symbolicTraits
-            bold = traits.contains(.traitBold)
-            italic = traits.contains(.traitItalic)
-        }
+        let fontTraits = (attributes[.font] as? UIFont).map(FontFaceResolver.traits)
 
         let underline = styleValueIsNonZero(attributes[.underlineStyle])
         let strikethrough = styleValueIsNonZero(attributes[.strikethroughStyle])
-        return (bold, italic, underline, strikethrough)
+        return (fontTraits?.bold ?? false, fontTraits?.italic ?? false, underline, strikethrough)
     }
 
     private func formattingState(in range: NSRange) -> (bold: Bool, italic: Bool, underline: Bool, strikethrough: Bool) {
@@ -7323,9 +7318,9 @@ struct FileEditView: View {
 
         attributedContent.enumerateAttributes(in: range, options: []) { attrs, _, _ in
             if let font = attrs[.font] as? UIFont {
-                let traits = font.fontDescriptor.symbolicTraits
-                if traits.contains(.traitBold) { bold = true }
-                if traits.contains(.traitItalic) { italic = true }
+                let traits = FontFaceResolver.traits(of: font)
+                if traits.bold { bold = true }
+                if traits.italic { italic = true }
             }
 
             if styleValueIsNonZero(attrs[.underlineStyle]) {
@@ -7472,24 +7467,22 @@ struct FileEditView: View {
             // Modify based on format type
             switch formatType {
             case .bold:
-                let traits = currentFont.fontDescriptor.symbolicTraits
-                let newTraits = traits.contains(.traitBold) ?
-                    traits.subtracting(.traitBold) :
-                    traits.union(.traitBold)
-                
-                if let descriptor = currentFont.fontDescriptor.withSymbolicTraits(newTraits) {
-                    typingAttributes[.font] = UIFont(descriptor: descriptor, size: currentFont.pointSize)
-                }
+                let traits = FontFaceResolver.traits(of: currentFont)
+                typingAttributes[.font] = FontFaceResolver.resolvedFont(
+                    from: currentFont,
+                    bold: !traits.bold,
+                    italic: traits.italic
+                )
+                typingAttributes[.explicitBold] = !traits.bold
                 
             case .italic:
-                let traits = currentFont.fontDescriptor.symbolicTraits
-                let newTraits = traits.contains(.traitItalic) ?
-                    traits.subtracting(.traitItalic) :
-                    traits.union(.traitItalic)
-                
-                if let descriptor = currentFont.fontDescriptor.withSymbolicTraits(newTraits) {
-                    typingAttributes[.font] = UIFont(descriptor: descriptor, size: currentFont.pointSize)
-                }
+                let traits = FontFaceResolver.traits(of: currentFont)
+                typingAttributes[.font] = FontFaceResolver.resolvedFont(
+                    from: currentFont,
+                    bold: traits.bold,
+                    italic: !traits.italic
+                )
+                typingAttributes[.explicitItalic] = !traits.italic
                 
             case .underline:
                 if let currentStyle = typingAttributes[.underlineStyle] as? Int, currentStyle != 0 {
@@ -8378,6 +8371,18 @@ struct FileEditView: View {
         attemptPendingStyleReapply()
     }
 
+    private func requestStyleDefinitionReapply(styleName: String) {
+        allowsLegacyStyleReapply = true
+        requestStyleReapply()
+        if hasPendingStyleReapply && (
+            saveDebounceTimer != nil ||
+            pendingDebouncedAttributedContent != nil ||
+            pendingDebouncedSaveNeedsTextViewSnapshot
+        ) {
+            _ = commitPendingEditorSave(reason: "style-definition-change-preflight")
+        }
+    }
+
     private func attemptPendingStyleReapply() {
         guard hasPendingStyleReapply,
               !isReapplyingStyles,
@@ -8388,7 +8393,8 @@ struct FileEditView: View {
               !hasMismatchedFormattedContent,
               !hasMissingSyncedBody,
               attributedContent.length > 0,
-              !AttributedStringSerializer.isLegacyRTFFormat(file.currentVersion?.effectiveFormattedContent) else {
+                            !AttributedStringSerializer.isLegacyRTFFormat(file.currentVersion?.effectiveFormattedContent)
+                                || allowsLegacyStyleReapply else {
             return
         }
 
@@ -8398,6 +8404,7 @@ struct FileEditView: View {
 
         guard completed else { return }
         hasPendingStyleReapply = false
+        allowsLegacyStyleReapply = false
         if let project = file.project {
             markStylesReappliedOnOpen(for: project)
         }

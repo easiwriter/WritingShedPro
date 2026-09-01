@@ -155,7 +155,7 @@ final class TextStyleModel {
     var displayOrder: Int = 0  // For sorting in UI
     
     // MARK: - Font Attributes
-    var fontFamily: String?  // nil = use system font
+    var fontFamily: String?  // Optional for CloudKit compatibility; nil renders as Helvetica Neue
     var fontName: String?  // Full font name (e.g., "Helvetica-Bold"), nil = derive from family + traits
     var fontSize: CGFloat = 17
     var isBold: Bool = false
@@ -280,7 +280,7 @@ final class TextStyleModel {
         name: String,
         displayName: String,
         displayOrder: Int = 0,
-        fontFamily: String? = nil,
+        fontFamily: String? = FontFaceResolver.defaultFamilyName,
         fontSize: CGFloat = 17,
         isBold: Bool = false,
         isItalic: Bool = false,
@@ -304,10 +304,18 @@ final class TextStyleModel {
         self.name = name
         self.displayName = displayName
         self.displayOrder = displayOrder
-        self.fontFamily = fontFamily
+        let resolvedFamily = fontFamily?.isEmpty == false ? fontFamily! : FontFaceResolver.defaultFamilyName
+        self.fontFamily = resolvedFamily
         self.fontSize = fontSize
         self.isBold = isBold
         self.isItalic = isItalic
+        self.fontName = FontFaceResolver.resolvedFont(
+            familyName: resolvedFamily,
+            currentFontName: nil,
+            size: fontSize,
+            bold: isBold,
+            italic: isItalic
+        ).fontName
         self.isUnderlined = isUnderlined
         self.isStrikethrough = isStrikethrough
         self.textColorHex = textColor?.toHex()
@@ -328,18 +336,44 @@ final class TextStyleModel {
     
     // MARK: - Font Generation
     
-    /// Update bold/italic flags based on the current font name
-    func updateTraitsFromFontName() {
-        guard let fontName = fontName else { return }
-        
-        let lowercased = fontName.lowercased()
-        
-        // Check for bold
-        isBold = lowercased.contains("bold") || lowercased.contains("-b-") || lowercased.hasSuffix("-b")
-        
-        // Check for italic
-        isItalic = lowercased.contains("italic") || lowercased.contains("oblique") || 
-                   lowercased.contains("-i-") || lowercased.hasSuffix("-i")
+    func selectFontFace(_ fontName: String) {
+        self.fontName = fontName
+        guard let font = UIFont(name: fontName, size: fontSize) else { return }
+        fontFamily = font.familyName
+        let traits = FontFaceResolver.traits(of: font)
+        isBold = traits.bold
+        isItalic = traits.italic
+    }
+
+    func selectFontTraits(bold: Bool, italic: Bool) {
+        let familyName = fontFamily?.isEmpty == false ? fontFamily : FontFaceResolver.defaultFamilyName
+        let font = FontFaceResolver.resolvedFont(
+            familyName: familyName,
+            currentFontName: fontName,
+            size: fontSize,
+            bold: bold,
+            italic: italic
+        )
+        fontFamily = familyName
+        fontName = font.fontName
+        let traits = FontFaceResolver.traits(of: font)
+        isBold = traits.bold
+        isItalic = traits.italic
+    }
+
+    var fontSelectionDisplayName: String? {
+        guard let fontName, !fontName.isEmpty else {
+            return fontFamily ?? FontFaceResolver.defaultFamilyName
+        }
+        guard let separator = fontName.lastIndex(of: "-") else { return fontName }
+
+        let baseName = String(fontName[..<separator])
+        let faceName = String(fontName[fontName.index(after: separator)...])
+        let regularFaceNames = ["regular", "roman", "book", "normal"]
+        if regularFaceNames.contains(faceName.lowercased()) {
+            return baseName
+        }
+        return "\(baseName).\(faceName)"
     }
     
     /// Generate a UIFont from this style's attributes
@@ -384,36 +418,13 @@ final class TextStyleModel {
             baseSize = fontSize * platformScaleFactor
         }
         
-        // If a specific font name is set (e.g., "Helvetica-Bold"), use it directly
-        if let specificFontName = fontName, !specificFontName.isEmpty {
-            if let font = UIFont(name: specificFontName, size: baseSize) {
-                return font
-            }
-            // Fall through if font name is invalid
-        }
-        
-        // Start with either custom font family or system font
-        var font: UIFont
-        if let family = fontFamily, !family.isEmpty {
-            font = UIFont(name: family, size: baseSize) ?? UIFont.systemFont(ofSize: baseSize)
-        } else {
-            font = UIFont.systemFont(ofSize: baseSize)
-        }
-        
-        // Apply traits (bold, italic) only if no specific font name was set
-        if fontName == nil {
-            var traits: UIFontDescriptor.SymbolicTraits = []
-            if isBold { traits.insert(.traitBold) }
-            if isItalic { traits.insert(.traitItalic) }
-            
-            if !traits.isEmpty {
-                if let descriptor = font.fontDescriptor.withSymbolicTraits(traits) {
-                    font = UIFont(descriptor: descriptor, size: 0) // 0 = use descriptor's size
-                }
-            }
-        }
-        
-        return font
+        return FontFaceResolver.resolvedFont(
+            familyName: fontFamily,
+            currentFontName: fontName,
+            size: baseSize,
+            bold: isBold,
+            italic: isItalic
+        )
     }
     
     /// Generate full NSAttributedString attributes from this style

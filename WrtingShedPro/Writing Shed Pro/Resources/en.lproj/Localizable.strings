@@ -1418,7 +1418,7 @@
 "textStyleEditor.fontSettings" = "Font Settings";
 "textStyleEditor.fontTypeface" = "Font-Typeface";
 "textStyleEditor.fontTypeface.accessibility" = "Select font typeface";
-"textStyleEditor.fontSystem" = "System";
+"textStyleEditor.fontFace.accessibility" = "Font face";
 "textStyleEditor.fontSize" = "Size";
 "textStyleEditor.decreaseFontSize.accessibility" = "Decrease font size";
 "textStyleEditor.increaseFontSize.accessibility" = "Increase font size";

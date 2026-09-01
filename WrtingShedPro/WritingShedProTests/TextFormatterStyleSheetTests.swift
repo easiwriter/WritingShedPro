@@ -265,10 +265,10 @@ final class TextFormatterStyleSheetTests: XCTestCase {
             name: UIFont.TextStyle.body.rawValue,
             displayName: "Body",
             displayOrder: 0,
-            fontSize: 13,
             fontFamily: "Papyrus",
-            fontName: "Papyrus"
+            fontSize: 13
         )
+        bodyStyle.selectFontFace("Papyrus")
         bodyStyle.styleSheet = stylesheet
         project.styleSheet = stylesheet
         context.insert(stylesheet)
@@ -291,10 +291,10 @@ final class TextFormatterStyleSheetTests: XCTestCase {
             name: UIFont.TextStyle.body.rawValue,
             displayName: "Body",
             displayOrder: 0,
-            fontSize: 13,
             fontFamily: "Papyrus",
-            fontName: "Papyrus"
+            fontSize: 13
         )
+        bodyStyle.selectFontFace("Papyrus")
         bodyStyle.numberFormat = .decimal
         bodyStyle.styleSheet = stylesheet
         project.styleSheet = stylesheet
@@ -318,10 +318,10 @@ final class TextFormatterStyleSheetTests: XCTestCase {
             name: UIFont.TextStyle.body.rawValue,
             displayName: "Body",
             displayOrder: 0,
-            fontSize: 13,
             fontFamily: "Papyrus",
-            fontName: "Papyrus"
+            fontSize: 13
         )
+        bodyStyle.selectFontFace("Papyrus")
         bodyStyle.styleSheet = stylesheet
         project.styleSheet = stylesheet
         context.insert(stylesheet)

@@ -274,6 +274,7 @@ final class Project {
         self.details = details
         self.notes = notes
         self.userOrder = userOrder
+        self.styleSheet = styleSheet
         
         // Note: Page setup is now global (stored in UserDefaults), not per-project
     }

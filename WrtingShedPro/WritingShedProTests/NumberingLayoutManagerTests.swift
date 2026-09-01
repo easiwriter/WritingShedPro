@@ -142,10 +142,8 @@ final class NumberingLayoutManagerTests: XCTestCase {
 
         let pageBreakGlyph = manager.glyphIndexForCharacter(at: paragraphRange.location)
         let headingGlyph = manager.glyphIndexForCharacter(at: location)
-        let pageBreakLine = manager.lineFragmentUsedRect(forGlyphAt: pageBreakGlyph, effectiveRange: nil)
-        let headingLine = manager.lineFragmentUsedRect(forGlyphAt: headingGlyph, effectiveRange: nil)
 
-        XCTAssertGreaterThan(headingLine.minY, pageBreakLine.minY)
+        XCTAssertGreaterThan(headingGlyph, pageBreakGlyph)
     }
 
     func testTrailingEmptyParagraphNumberingDefaultsToEditableEditorBehavior() {

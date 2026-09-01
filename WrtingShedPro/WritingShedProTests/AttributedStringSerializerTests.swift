@@ -583,4 +583,52 @@ final class AttributedStringSerializerTests: XCTestCase {
 
         XCTAssertEqual(runs.first?.textStyle, UIFont.TextStyle.body.rawValue)
     }
+
+    func testRoundTripPreservesHelveticaNeueLightForBodyStyle() throws {
+        let lightFont = try XCTUnwrap(UIFont(name: "HelveticaNeue-Light", size: 17))
+        let text = NSAttributedString(
+            string: "Light body paragraph",
+            attributes: [
+                .font: lightFont,
+                .textStyle: UIFont.TextStyle.body.rawValue
+            ]
+        )
+
+        let data = AttributedStringSerializer.encode(text)
+        let restored = AttributedStringSerializer.decode(data, text: text.string)
+        let restoredFont = try XCTUnwrap(restored.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+
+        XCTAssertEqual(restoredFont.fontName, "HelveticaNeue-Light")
+    }
+
+    func testRoundTripPreservesExplicitFontTraitOverrides() throws {
+        let text = NSAttributedString(
+            string: "Explicit formatting",
+            attributes: [
+                .font: try XCTUnwrap(UIFont(name: "HelveticaNeue-Bold", size: 17)),
+                .textStyle: UIFont.TextStyle.body.rawValue,
+                .explicitBold: true,
+                .explicitItalic: false
+            ]
+        )
+
+        let data = AttributedStringSerializer.encode(text)
+        let restored = AttributedStringSerializer.decode(data, text: text.string)
+
+        XCTAssertEqual(restored.attribute(.explicitBold, at: 0, effectiveRange: nil) as? Bool, true)
+        XCTAssertEqual(restored.attribute(.explicitItalic, at: 0, effectiveRange: nil) as? Bool, false)
+    }
+
+    func testRoundTripPreservesCustomSystemFontSize() throws {
+        let text = NSAttributedString(
+            string: "Large system text",
+            attributes: [.font: UIFont.systemFont(ofSize: 24)]
+        )
+
+        let data = AttributedStringSerializer.encode(text)
+        let restored = AttributedStringSerializer.decode(data, text: text.string)
+        let restoredFont = try XCTUnwrap(restored.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+
+        XCTAssertEqual(restoredFont.pointSize, 24)
+    }
 }

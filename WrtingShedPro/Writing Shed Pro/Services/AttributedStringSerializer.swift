@@ -13,6 +13,8 @@ struct AttributeValues: Codable {
     var fontSize: CGFloat?
     var bold: Bool?
     var italic: Bool?
+    var explicitBold: Bool?
+    var explicitItalic: Bool?
     var underline: CGFloat?
     var strikethrough: CGFloat?
     var textAlignment: Int?
@@ -215,7 +217,6 @@ struct AttributedStringSerializer {
             "SFMono",         // SF Mono (monospace system font)
             "NewYork",        // New York (serif system font)
             "SystemFont",     // Generic system font reference
-            "HelveticaNeue",  // Legacy system font fallback
         ]
         
         for pattern in systemFontPatterns {
@@ -525,6 +526,12 @@ struct AttributedStringSerializer {
                             attributes.textStyle = normalizedTextStyle(styleValue)
                             // print("💾 ENCODE textStyle at \(range.location): \(styleValue)")
                         }
+
+                    case .explicitBold:
+                        attributes.explicitBold = value as? Bool
+
+                    case .explicitItalic:
+                        attributes.explicitItalic = value as? Bool
                     
                     case .attachment:
                         // Handle image and comment attachments
@@ -752,6 +759,9 @@ struct AttributedStringSerializer {
                         // Use the stored text style to get a proper preferredFont with correct descriptor
                         let textStyle = UIFont.TextStyle(rawValue: textStyleValue)
                         let baseFont = UIFont.preferredFont(forTextStyle: textStyle)
+                        let sizedBaseFont = abs(baseFont.pointSize - fontSize) > 0.5
+                            ? UIFont(descriptor: baseFont.fontDescriptor, size: fontSize)
+                            : baseFont
                         // Apply traits (bold/italic) if needed
                         // CRITICAL: Use descriptor-based trait application instead of fontWithNameAndTraits
                         // fontWithNameAndTraits uses UIFont(name:size:) which loses the textStyle
@@ -760,14 +770,14 @@ struct AttributedStringSerializer {
                             var traits: UIFontDescriptor.SymbolicTraits = []
                             if isBold { traits.insert(.traitBold) }
                             if isItalic { traits.insert(.traitItalic) }
-                            if let traitDescriptor = baseFont.fontDescriptor.withSymbolicTraits(traits) {
-                                font = UIFont(descriptor: traitDescriptor, size: baseFont.pointSize)
+                            if let traitDescriptor = sizedBaseFont.fontDescriptor.withSymbolicTraits(traits) {
+                                font = UIFont(descriptor: traitDescriptor, size: fontSize)
                             } else {
                                 // Fallback: use fontWithNameAndTraits if descriptor approach fails
-                                font = UIFont.fontWithNameAndTraits(baseFont.familyName, size: baseFont.pointSize, bold: isBold, italic: isItalic)
+                                font = UIFont.fontWithNameAndTraits(sizedBaseFont.familyName, size: fontSize, bold: isBold, italic: isItalic)
                             }
                         } else {
-                            font = baseFont
+                            font = sizedBaseFont
                         }
                     } else if fontName.contains("UICT") || fontName.contains("TextStyle") {
                         // Use dynamic type font - preserves size category preferences
@@ -826,6 +836,12 @@ struct AttributedStringSerializer {
                 // Text style - restore the stored style name
                 if let textStyleValue = effectiveTextStyle {
                     attributes[.textStyle] = textStyleValue
+                }
+                if let explicitBold = jsonAttributes.explicitBold {
+                    attributes[.explicitBold] = explicitBold
+                }
+                if let explicitItalic = jsonAttributes.explicitItalic {
+                    attributes[.explicitItalic] = explicitItalic
                 }
                 
                 // Paragraph style - only add if we have non-default values

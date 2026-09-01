@@ -10,6 +10,7 @@ struct TextStyleEditorView: View {
     @Bindable var style: TextStyleModel
     let isNewStyle: Bool
     let onSave: (() -> Void)?
+    let onStyleDefinitionSaved: ((String) -> Void)?
     let hideDeleteButton: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -17,7 +18,6 @@ struct TextStyleEditorView: View {
     @State private var hasUnsavedChanges = false
     @State private var editedDisplayName: String
     @State private var editedAlignment: NSTextAlignment
-    @State private var showingFontPicker = false
     @State private var showingDeleteAlert = false
     @State private var deleteErrorMessage: String?
     @State private var showingReplacementPicker = false
@@ -37,10 +37,17 @@ struct TextStyleEditorView: View {
         style.styleCategory == .list || style.name.hasPrefix("list-")
     }
     
-    init(style: TextStyleModel, isNewStyle: Bool = false, onSave: (() -> Void)? = nil, hideDeleteButton: Bool = false) {
+    init(
+        style: TextStyleModel,
+        isNewStyle: Bool = false,
+        onSave: (() -> Void)? = nil,
+        onStyleDefinitionSaved: ((String) -> Void)? = nil,
+        hideDeleteButton: Bool = false
+    ) {
         self.style = style
         self.isNewStyle = isNewStyle
         self.onSave = onSave
+        self.onStyleDefinitionSaved = onStyleDefinitionSaved
         self.hideDeleteButton = hideDeleteButton
         _editedDisplayName = State(initialValue: style.displayName)
         _editedAlignment = State(initialValue: style.alignment)
@@ -105,32 +112,6 @@ struct TextStyleEditorView: View {
                 }
                 .disabled(!hasUnsavedChanges || editedDisplayName.isEmpty)
             }
-        }
-        .sheet(isPresented: $showingFontPicker) {
-            FontPickerView(
-                selectedFontFamily: Binding(
-                    get: { style.fontFamily },
-                    set: { newValue in
-                        style.fontFamily = newValue
-                        hasUnsavedChanges = true
-                    }
-                ),
-                selectedFontName: Binding(
-                    get: { style.fontName },
-                    set: { newValue in
-                        style.fontName = newValue
-                        // Update bold/italic flags based on font name
-                        if newValue != nil {
-                            style.updateTraitsFromFontName()
-                        }
-                        hasUnsavedChanges = true
-                    }
-                ),
-                onFontSelected: {
-                    // Font changed, mark as unsaved
-                    hasUnsavedChanges = true
-                }
-            )
         }
         .alert("textStyleEditor.delete.title", isPresented: $showingDeleteAlert) {
             if filesUsingStyle.isEmpty {
@@ -231,141 +212,195 @@ struct TextStyleEditorView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("textStyleEditor.fontSettings")
                 .font(.headline)
-                
-                // Font Family Picker Button
-                Button(action: {
-                    showingFontPicker = true
-                }) {
-                    HStack {
-                        Text("textStyleEditor.fontTypeface")
-                            .foregroundColor(.accentColor)
-                        Spacer()
-                        Text(style.fontFamily ?? NSLocalizedString("textStyleEditor.fontSystem", comment: "System"))
-                            .foregroundColor(.primary)
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+
+            Menu {
+                ForEach(UIFont.familyNames.sorted(), id: \.self) { family in
+                    Button(family) {
+                        selectFontFamily(family)
                     }
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("textStyleEditor.fontTypeface.accessibility")
-                
-                // Font Size
-                HStack {
-                    Text("textStyleEditor.fontSize")
-                    Spacer()
-                    Button(action: {
-                        style.fontSize = max(8, style.fontSize - 1)
-                        hasUnsavedChanges = true
-                    }) {
-                        Image(systemName: "minus")
-                            .frame(width: 44, height: 32)
-                            .background(Color.secondary.opacity(0.2))
-                            .cornerRadius(8)
+            } label: {
+                fontMenuLabel(style.fontFamily ?? FontFaceResolver.defaultFamilyName)
+            }
+            .accessibilityLabel("textStyleEditor.fontTypeface.accessibility")
+
+            HStack(spacing: 8) {
+                Menu {
+                    ForEach(availableFontFaces, id: \.self) { fontName in
+                        Button(fontFaceDisplayName(fontName)) {
+                            style.selectFontFace(fontName)
+                            hasUnsavedChanges = true
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("textStyleEditor.decreaseFontSize.accessibility")
-                    
-                    Text("\(Int(style.fontSize)) pt")
-                        .frame(width: 60)
-                        .accessibilityLabel(String(format: NSLocalizedString("textStyleEditor.fontSizeValue.accessibility", comment: "Font size"), Int(style.fontSize)))
-                    
-                    Button(action: {
-                        style.fontSize = min(96, style.fontSize + 1)
-                        hasUnsavedChanges = true
-                    }) {
-                        Image(systemName: "plus")
-                            .frame(width: 44, height: 32)
-                            .background(Color.secondary.opacity(0.2))
-                            .cornerRadius(8)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("textStyleEditor.increaseFontSize.accessibility")
-                }
-                
-                Divider()
-                
-                // Bold, Italic, Underline, Strikethrough buttons in a row
-                HStack(spacing: 20) {
-                    Button(action: {
-                        style.isBold.toggle()
-                        updateFontVariant()
-                        hasUnsavedChanges = true
-                    }) {
-                        Text("B")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(style.isBold ? .white : .accentColor)
-                            .frame(width: 50, height: 44)
-                            .background(style.isBold ? Color.accentColor : Color.clear)
-                            .cornerRadius(8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.accentColor, lineWidth: 2)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("textStyleEditor.bold.accessibility")
-                    
-                    Button(action: {
-                        style.isItalic.toggle()
-                        updateFontVariant()
-                        hasUnsavedChanges = true
-                    }) {
-                        Text("I")
-                            .font(.system(size: 20, weight: .regular))
-                            .italic()
-                            .foregroundColor(style.isItalic ? .white : .accentColor)
-                            .frame(width: 50, height: 44)
-                            .background(style.isItalic ? Color.accentColor : Color.clear)
-                            .cornerRadius(8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.accentColor, lineWidth: 2)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("textStyleEditor.italic.accessibility")
-                    
-                    Button(action: {
-                        style.isUnderlined.toggle()
-                        hasUnsavedChanges = true
-                    }) {
-                        Text("U")
-                            .font(.system(size: 20))
-                            .underline()
-                            .foregroundColor(style.isUnderlined ? .white : .accentColor)
-                            .frame(width: 50, height: 44)
-                            .background(style.isUnderlined ? Color.accentColor : Color.clear)
-                            .cornerRadius(8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.accentColor, lineWidth: 2)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("textStyleEditor.underline.accessibility")
-                    
-                    Button(action: {
-                        style.isStrikethrough.toggle()
-                        hasUnsavedChanges = true
-                    }) {
-                        Text("S")
-                            .font(.system(size: 20))
-                            .strikethrough()
-                            .foregroundColor(style.isStrikethrough ? .white : .accentColor)
-                            .frame(width: 50, height: 44)
-                            .background(style.isStrikethrough ? Color.accentColor : Color.clear)
-                            .cornerRadius(8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.accentColor, lineWidth: 2)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("textStyleEditor.strikethrough.accessibility")
+                } label: {
+                    fontMenuLabel(selectedFontFaceDisplayName)
                 }
                 .frame(maxWidth: .infinity)
+                .disabled(availableFontFaces.isEmpty)
+                .accessibilityLabel("textStyleEditor.fontFace.accessibility")
+
+                HStack(spacing: 0) {
+                    Text("\(Int(style.fontSize)) pt")
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel(String(format: NSLocalizedString("textStyleEditor.fontSizeValue.accessibility", comment: "Font size"), Int(style.fontSize)))
+
+                    Divider()
+
+                    VStack(spacing: 0) {
+                        Button {
+                            style.fontSize = min(96, style.fontSize + 1)
+                            hasUnsavedChanges = true
+                        } label: {
+                            Image(systemName: "chevron.up")
+                                .font(.caption.bold())
+                                .frame(width: 26, height: 17)
+                        }
+                        .accessibilityLabel("textStyleEditor.increaseFontSize.accessibility")
+
+                        Divider()
+
+                        Button {
+                            style.fontSize = max(8, style.fontSize - 1)
+                            hasUnsavedChanges = true
+                        } label: {
+                            Image(systemName: "chevron.down")
+                                .font(.caption.bold())
+                                .frame(width: 26, height: 17)
+                        }
+                        .accessibilityLabel("textStyleEditor.decreaseFontSize.accessibility")
+                    }
+                    .buttonStyle(.plain)
+                }
+                .frame(width: 112, height: 36)
+                .background(.background)
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 7)
+                        .stroke(Color.secondary.opacity(0.35))
+                }
+            }
+
+            HStack(spacing: 0) {
+                fontTraitButton(
+                    label: Text("B").font(.system(size: 20, weight: .bold)),
+                    isActive: style.isBold,
+                    accessibilityLabel: "textStyleEditor.bold.accessibility"
+                ) {
+                    style.selectFontTraits(bold: !style.isBold, italic: style.isItalic)
+                    hasUnsavedChanges = true
+                }
+
+                Divider().frame(height: 24)
+
+                fontTraitButton(
+                    label: Text("I").font(.system(size: 20)).italic(),
+                    isActive: style.isItalic,
+                    accessibilityLabel: "textStyleEditor.italic.accessibility"
+                ) {
+                    style.selectFontTraits(bold: style.isBold, italic: !style.isItalic)
+                    hasUnsavedChanges = true
+                }
+
+                Divider().frame(height: 24)
+
+                fontTraitButton(
+                    label: Text("U").font(.system(size: 20)).underline(),
+                    isActive: style.isUnderlined,
+                    accessibilityLabel: "textStyleEditor.underline.accessibility"
+                ) {
+                    style.isUnderlined.toggle()
+                    hasUnsavedChanges = true
+                }
+
+                Divider().frame(height: 24)
+
+                fontTraitButton(
+                    label: Text("S").font(.system(size: 20)).strikethrough(),
+                    isActive: style.isStrikethrough,
+                    accessibilityLabel: "textStyleEditor.strikethrough.accessibility"
+                ) {
+                    style.isStrikethrough.toggle()
+                    hasUnsavedChanges = true
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 40)
+            .background(.background)
+            .clipShape(RoundedRectangle(cornerRadius: 7))
+            .overlay {
+                RoundedRectangle(cornerRadius: 7)
+                    .stroke(Color.secondary.opacity(0.35))
+            }
         }
+    }
+
+    private var availableFontFaces: [String] {
+        let family = style.fontFamily ?? FontFaceResolver.defaultFamilyName
+        return UIFont.fontNames(forFamilyName: family).sorted {
+            fontFaceDisplayName($0).localizedCaseInsensitiveCompare(fontFaceDisplayName($1)) == .orderedAscending
+        }
+    }
+
+    private var selectedFontFaceDisplayName: String {
+        guard let fontName = style.fontName else {
+            return fontFaceDisplayName(FontFaceResolver.defaultFontName)
+        }
+        return fontFaceDisplayName(fontName)
+    }
+
+    private func fontFaceDisplayName(_ fontName: String) -> String {
+        guard let font = UIFont(name: fontName, size: style.fontSize) else { return fontName }
+        return font.fontDescriptor.object(forKey: .face) as? String ?? "Regular"
+    }
+
+    private func selectFontFamily(_ family: String) {
+        style.fontFamily = family
+        let resolved = FontFaceResolver.resolvedFont(
+            familyName: family,
+            currentFontName: nil,
+            size: style.fontSize,
+            bold: style.isBold,
+            italic: style.isItalic
+        )
+        style.fontName = resolved.fontName
+        hasUnsavedChanges = true
+    }
+
+    private func fontMenuLabel(_ title: String) -> some View {
+        HStack {
+            Text(title)
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, minHeight: 36)
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: 7))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(Color.secondary.opacity(0.35))
+        }
+        .contentShape(Rectangle())
+    }
+
+    private func fontTraitButton<Label: View>(
+        label: Label,
+        isActive: Bool,
+        accessibilityLabel: LocalizedStringKey,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            label
+                .foregroundStyle(isActive ? Color.white : Color.primary)
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .background(isActive ? Color.accentColor : Color.clear)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
     }
     
     private var textColourSection: some View {
@@ -696,45 +731,6 @@ struct TextStyleEditorView: View {
         NumberingAdornment.allCases
     }
     
-    // MARK: - Font Variant Helpers
-    
-    /// Find and select the appropriate font variant when bold/italic are toggled
-    private func updateFontVariant() {
-        guard let family = style.fontFamily else {
-            // No custom font family, just toggle the flags
-            return
-        }
-        
-        let variants = UIFont.fontNames(forFamilyName: family)
-        
-        // Try to find a variant that matches the bold/italic state
-        let targetVariant = variants.first { variantName in
-            let lowercased = variantName.lowercased()
-            let hasBold = lowercased.contains("bold")
-            let hasItalic = lowercased.contains("italic") || lowercased.contains("oblique")
-            
-            if style.isBold && style.isItalic {
-                return hasBold && hasItalic
-            } else if style.isBold {
-                return hasBold && !hasItalic
-            } else if style.isItalic {
-                return hasItalic && !hasBold
-            } else {
-                // Neither bold nor italic - find "Regular" or the base variant
-                return !hasBold && !hasItalic
-            }
-        }
-        
-        // If we found a matching variant, use it
-        if let variant = targetVariant {
-            style.fontName = variant
-        } else if !style.isBold && !style.isItalic {
-            // If we're trying to go to regular but can't find it, use the first variant
-            style.fontName = variants.first
-        }
-        // Otherwise keep the current fontName and rely on symbolic traits
-    }
-    
     // MARK: - Save
     
     @discardableResult
@@ -767,6 +763,7 @@ struct TextStyleEditorView: View {
                 #endif
             }
 
+            onStyleDefinitionSaved?(style.name)
             onSave?() // Notify that changes were saved
             
             // Notify that a style in the stylesheet has been modified
@@ -777,7 +774,10 @@ struct TextStyleEditorView: View {
                 NotificationCenter.default.post(
                     name: NSNotification.Name("StyleSheetModified"),
                     object: nil,
-                    userInfo: ["stylesheetID": stylesheetID]
+                    userInfo: [
+                        "stylesheetID": stylesheetID,
+                        "styleName": style.name
+                    ]
                 )
                 #if DEBUG
                 print("✅ StyleSheetModified notification posted")

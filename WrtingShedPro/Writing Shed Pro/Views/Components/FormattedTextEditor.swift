@@ -40,22 +40,14 @@ enum FormattedTextEditorInsertionAttributes {
             || replacedStyle == nil
             || targetStyle == replacedStyle
 
-        if preservesCharacterTraits,
-           let styleFont = styleAttributes[.font] as? UIFont,
-           let replacedFont = replacedAttributes[.font] as? UIFont {
-            let preservedTraits = replacedFont.fontDescriptor.symbolicTraits
-                .intersection([.traitBold, .traitItalic])
-            let combinedTraits = styleFont.fontDescriptor.symbolicTraits.union(preservedTraits)
-            if let descriptor = styleFont.fontDescriptor.withSymbolicTraits(combinedTraits) {
-                attributes[.font] = UIFont(descriptor: descriptor, size: styleFont.pointSize)
-            } else if !preservedTraits.isEmpty {
-                attributes[.font] = UIFont.fontWithNameAndTraits(
-                    styleFont.familyName,
-                    size: styleFont.pointSize,
-                    bold: preservedTraits.contains(.traitBold),
-                    italic: preservedTraits.contains(.traitItalic)
-                )
-            }
+          if preservesCharacterTraits,
+              let styleFont = styleAttributes[.font] as? UIFont {
+                let styleTraits = FontFaceResolver.traits(of: styleFont)
+                let bold = replacedAttributes[.explicitBold] as? Bool ?? styleTraits.bold
+                let italic = replacedAttributes[.explicitItalic] as? Bool ?? styleTraits.italic
+            attributes[.font] = FontFaceResolver.resolvedFont(from: styleFont, bold: bold, italic: italic)
+            if let explicitBold = replacedAttributes[.explicitBold] { attributes[.explicitBold] = explicitBold }
+            if let explicitItalic = replacedAttributes[.explicitItalic] { attributes[.explicitItalic] = explicitItalic }
         }
 
           if preservesCharacterTraits,

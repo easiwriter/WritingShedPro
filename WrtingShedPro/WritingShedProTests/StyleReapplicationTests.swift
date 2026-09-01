@@ -254,6 +254,77 @@ final class StyleReapplicationTests: XCTestCase {
         XCTAssertEqual(repairedFont.pointSize, 13)
     }
 
+    func testReapplyChangingBoldItalicFaceToLightRemovesOldFaceTraits() throws {
+        let oldFont = try XCTUnwrap(UIFont(name: "HelveticaNeue-BoldItalic", size: 17))
+        let lightStyle = TextStyleModel(
+            name: UIFont.TextStyle.body.rawValue,
+            displayName: "Body",
+            fontFamily: "Helvetica Neue",
+            fontSize: 17
+        )
+        lightStyle.selectFontFace("HelveticaNeue-Light")
+
+        let merged = StyleReapplicationAttributeMerger.merge(
+            styleAttributes: lightStyle.generateAttributes(),
+            currentAttributes: [
+                .font: oldFont,
+                .textStyle: UIFont.TextStyle.body.rawValue
+            ]
+        )
+        let font = try XCTUnwrap(merged[.font] as? UIFont)
+
+        XCTAssertEqual(font.fontName, "HelveticaNeue-Light")
+        XCTAssertFalse(font.fontDescriptor.symbolicTraits.contains(.traitBold))
+        XCTAssertFalse(font.fontDescriptor.symbolicTraits.contains(.traitItalic))
+    }
+
+    func testReapplyReplacesStaleFontFromDifferentStyleFamily() throws {
+        let staleFont = try XCTUnwrap(UIFont(name: "HelveticaNeue-BoldItalic", size: 17))
+        let avenirStyle = TextStyleModel(
+            name: UIFont.TextStyle.body.rawValue,
+            displayName: "Body",
+            fontFamily: "Avenir",
+            fontSize: 17
+        )
+        avenirStyle.selectFontFace("Avenir-Light")
+
+        let merged = StyleReapplicationAttributeMerger.merge(
+            styleAttributes: avenirStyle.generateAttributes(),
+            currentAttributes: [
+                .font: staleFont,
+                .textStyle: UIFont.TextStyle.body.rawValue
+            ]
+        )
+        let font = try XCTUnwrap(merged[.font] as? UIFont)
+
+        XCTAssertEqual(font.fontName, "Avenir-Light")
+        XCTAssertFalse(font.fontDescriptor.symbolicTraits.contains(.traitBold))
+        XCTAssertFalse(font.fontDescriptor.symbolicTraits.contains(.traitItalic))
+    }
+
+    func testReapplyPreservesExplicitBoldOverrideUsingNewFamilyFace() throws {
+        let avenirStyle = TextStyleModel(
+            name: UIFont.TextStyle.body.rawValue,
+            displayName: "Body",
+            fontFamily: "Avenir",
+            fontSize: 17
+        )
+        avenirStyle.selectFontFace("Avenir-Light")
+
+        let merged = StyleReapplicationAttributeMerger.merge(
+            styleAttributes: avenirStyle.generateAttributes(),
+            currentAttributes: [
+                .font: UIFont.systemFont(ofSize: 17),
+                .textStyle: UIFont.TextStyle.body.rawValue,
+                .explicitBold: true
+            ]
+        )
+        let font = try XCTUnwrap(merged[.font] as? UIFont)
+
+        XCTAssertTrue(FontFaceResolver.traits(of: font).bold)
+        XCTAssertEqual(merged[.explicitBold] as? Bool, true)
+    }
+
     func testInsertionAttributesUseCompleteNumberedBodyStyle() throws {
         let bodyStyle = TextStyleModel(
             name: UIFont.TextStyle.body.rawValue,
@@ -275,7 +346,14 @@ final class StyleReapplicationTests: XCTestCase {
         XCTAssertEqual(font.fontName, "Papyrus")
         XCTAssertEqual(font.pointSize, 13)
         XCTAssertEqual(attributes[.textStyle] as? String, UIFont.TextStyle.body.rawValue)
-        XCTAssertEqual(paragraphStyle.firstLineHeadIndent, 19)
+        let expectedFirstLineIndent = bodyStyle.firstLineIndent
+            + bodyStyle.numberFormat.estimatedWidth(
+                for: bodyStyle.generateFont(),
+                adornment: bodyStyle.numberAdornment,
+                ancestorDepth: 0
+            )
+            + 4
+        XCTAssertEqual(paragraphStyle.firstLineHeadIndent, expectedFirstLineIndent)
         XCTAssertEqual(paragraphStyle.lineSpacing, 2)
     }
 
@@ -293,13 +371,14 @@ final class StyleReapplicationTests: XCTestCase {
             replacedAttributes: [
                 .font: replacementFont,
                 .textStyle: UIFont.TextStyle.body.rawValue,
+                .explicitBold: true,
                 .underlineStyle: NSUnderlineStyle.single.rawValue
             ]
         )
         let font = try XCTUnwrap(attributes[.font] as? UIFont)
 
         XCTAssertEqual(font.familyName, "Papyrus")
-        XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitBold))
+        XCTAssertEqual(attributes[.explicitBold] as? Bool, true)
         XCTAssertEqual(attributes[.underlineStyle] as? Int, NSUnderlineStyle.single.rawValue)
     }
 

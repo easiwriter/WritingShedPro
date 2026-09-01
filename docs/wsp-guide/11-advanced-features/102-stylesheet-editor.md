@@ -44,15 +44,22 @@ Tap any style to edit it.
 Tap a style to modify it:
 
 ### Font Settings
-- **Font Family**: Choose from available fonts
-- **Font Size**: Set the size in points
-- **Bold**: Make text bold
-- **Italic**: Make text italic
+- **Default Font**: New styles use Helvetica Neue Regular
+- **Font Family**: Choose an installed font family from the first menu
+- **Font Face**: Choose a specific family face, such as Regular, Light, Bold, Italic, or Bold Italic
+- **Font Size**: Use the point-size control beside the face menu
+- **Bold, Italic, Underline, and Strikethrough**: Use the grouped buttons below the font menus. Active buttons have a filled highlight.
+
+The font face and the **B** and *I* buttons stay synchronized:
+
+- Choosing a Bold, Italic, or Bold Italic face activates the corresponding buttons.
+- Choosing a face such as Regular or Light deactivates **B** and *I* when that face does not contain those traits.
+- Tapping **B** or *I* selects the matching installed face from the current family when one is available.
+- If the family does not provide the requested face, Writing Shed Pro applies the bold or italic trait to the selected face.
 
 ### Text Appearance
 - **Text Color**: Choose a color
-- **Underline**: Add underline
-- **Strikethrough**: Add strikethrough
+- **Underline** and **Strikethrough**: Set with the grouped font buttons
 
 ### Paragraph Settings
 - **Alignment**: Left, Center, Right, Justified
