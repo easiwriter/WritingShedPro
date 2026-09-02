@@ -684,12 +684,26 @@ struct TextFormatter {
             // CRITICAL: Add the TextStyle attribute so reapplyAllStyles() can find it
             newAttributes[.textStyle] = styleName
             
-            // Get existing font to check for traits
+            // Preserve inferred font traits only when reapplying the same semantic style.
+            // When changing styles, the old font's built-in traits must not override the
+            // new style's face or size. Explicit user bold/italic overrides still carry over.
             let existingFont = attributes[.font] as? UIFont ?? baseFont
             let existingTraits = existingFont.fontDescriptor.symbolicTraits
-            
-            // If there were existing traits (bold, italic), preserve them
-            if !existingTraits.isEmpty {
+            let existingStyleName = attributes[.textStyle] as? String
+            let explicitBold = attributes[.explicitBold] as? Bool
+            let explicitItalic = attributes[.explicitItalic] as? Bool
+
+            if explicitBold != nil || explicitItalic != nil {
+                let baseTraits = FontFaceResolver.traits(of: baseFont)
+                newAttributes[.font] = FontFaceResolver.resolvedFont(
+                    from: baseFont,
+                    bold: explicitBold ?? baseTraits.bold,
+                    italic: explicitItalic ?? baseTraits.italic
+                )
+                if let explicitBold { newAttributes[.explicitBold] = explicitBold }
+                if let explicitItalic { newAttributes[.explicitItalic] = explicitItalic }
+            } else if existingStyleName == nil || existingStyleName == styleName,
+                      !existingTraits.isEmpty {
                 if let descriptor = baseFont.fontDescriptor.withSymbolicTraits(existingTraits) {
                     newAttributes[.font] = UIFont(descriptor: descriptor, size: 0) // 0 means use descriptor's size
                 } else {

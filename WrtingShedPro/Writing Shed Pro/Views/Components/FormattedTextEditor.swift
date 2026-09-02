@@ -65,6 +65,18 @@ enum FormattedTextEditorInsertionAttributes {
     }
 }
 
+enum FormattedTextEditorParagraphBreak {
+    static func attributedString(
+        currentParagraphAttributes: [NSAttributedString.Key: Any],
+        newParagraphAttributes: [NSAttributedString.Key: Any]
+    ) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        result.append(NSAttributedString(string: "\n", attributes: currentParagraphAttributes))
+        result.append(NSAttributedString(string: "\u{200B}", attributes: newParagraphAttributes))
+        return result
+    }
+}
+
 enum FormattedTextEditorImageClipboard {
     static let pasteboardType = "com.appworks.writingshedpro.image-attachment"
 
@@ -1202,7 +1214,6 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         private var pendingSimpleTypingText = ""
         private var pendingSimpleTypingSelection = NSRange(location: 0, length: 0)
         private var pendingSimpleTypingWorkItem: DispatchWorkItem?
-        private var pendingDecorativeRedrawWorkItem: DispatchWorkItem?
         #endif
 
         private func bodyStyleAttributesFallback() -> [NSAttributedString.Key: Any] {
@@ -1288,7 +1299,6 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         deinit {
             #if targetEnvironment(macCatalyst)
             pendingSimpleTypingWorkItem?.cancel()
-            pendingDecorativeRedrawWorkItem?.cancel()
             #endif
             NotificationCenter.default.removeObserver(self)
         }
@@ -1338,28 +1348,6 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         }
 
         #if targetEnvironment(macCatalyst)
-        private func suppressDecorativeDrawingDuringLiveTyping(in textView: UITextView) {
-            guard let layoutManager = textView.layoutManager as? NumberingLayoutManager else { return }
-
-            layoutManager.suppressDecorativeDrawing(for: Self.simpleTypingIdleDelay)
-            pendingDecorativeRedrawWorkItem?.cancel()
-
-            let workItem = DispatchWorkItem { [weak textView] in
-                guard let textView else { return }
-                let visibleBounds = CGRect(origin: textView.contentOffset, size: textView.bounds.size)
-                    .insetBy(dx: -40, dy: -40)
-                    .offsetBy(dx: -textView.textContainerInset.left, dy: -textView.textContainerInset.top)
-                let glyphRange = textView.layoutManager.glyphRange(forBoundingRect: visibleBounds, in: textView.textContainer)
-                let characterRange = textView.layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
-                if characterRange.length > 0 {
-                    textView.layoutManager.invalidateDisplay(forCharacterRange: characterRange)
-                }
-                textView.setNeedsDisplay()
-            }
-            pendingDecorativeRedrawWorkItem = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.simpleTypingIdleDelay, execute: workItem)
-        }
-
         private func appendPendingSimpleTypingChange(range: NSRange, replacementText: String, selection: NSRange) {
             if let pendingRange = pendingSimpleTypingRange,
                pendingRange.location + (pendingSimpleTypingText as NSString).length == range.location {
@@ -1438,7 +1426,6 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
             #if targetEnvironment(macCatalyst)
             if isLiveTypingSimpleInsertion {
                 lastUserTextChangeTime = Date()
-                suppressDecorativeDrawingDuringLiveTyping(in: textView)
             }
             #endif
 
@@ -1515,14 +1502,13 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                         // Insert newline with CURRENT style (end of current paragraph)
                         let currentAttrs = attrText.attributes(at: range.location > 0 ? range.location - 1 : 0, effectiveRange: nil)
                         
-                        // Create attributed string: newline (with current style) + zero-width space (with follow-on style)
-                        // The zero-width space anchors the new paragraph's style
-                        let mutableString = NSMutableAttributedString()
-                        mutableString.append(NSAttributedString(string: "\n", attributes: currentAttrs))
-                        mutableString.append(NSAttributedString(string: "\u{200B}", attributes: attrs)) // Zero-width space with follow-on style
+                        let paragraphBreak = FormattedTextEditorParagraphBreak.attributedString(
+                            currentParagraphAttributes: currentAttrs,
+                            newParagraphAttributes: attrs
+                        )
                         
                         // Insert at the specified range
-                        textView.textStorage.replaceCharacters(in: range, with: mutableString)
+                        textView.textStorage.replaceCharacters(in: range, with: paragraphBreak)
                         
                         // Move cursor to after the zero-width space (so user types after it)
                         let newCursorPosition = range.location + 2
@@ -1530,17 +1516,6 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                         
                         // Set typingAttributes to follow-on style for continued typing
                         textView.typingAttributes = attrs
-                        
-                        // Fix stale .textStyle on the character now after the insertion
-                        // (e.g., an old \n that still carries a different numbered style)
-                        if let followOnStyleName = attrs[.textStyle] as? String,
-                           newCursorPosition < textView.textStorage.length {
-                            let nextAttrs = textView.textStorage.attributes(at: newCursorPosition, effectiveRange: nil)
-                            if let nextStyle = nextAttrs[.textStyle] as? String,
-                               nextStyle != followOnStyleName {
-                                textView.textStorage.addAttribute(.textStyle, value: followOnStyleName, range: NSRange(location: newCursorPosition, length: 1))
-                            }
-                        }
                         
                         refreshLineNumberDisplay(in: textView, from: range.location - 1)
                         
@@ -1565,25 +1540,16 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                         // Insert newline with CURRENT style + ZWS with same style
                         let currentAttrs = attrText.attributes(at: range.location > 0 ? range.location - 1 : 0, effectiveRange: nil)
                         
-                        let mutableString = NSMutableAttributedString()
-                        mutableString.append(NSAttributedString(string: "\n", attributes: currentAttrs))
-                        mutableString.append(NSAttributedString(string: "\u{200B}", attributes: attrs)) // ZWS anchors the style
+                        let paragraphBreak = FormattedTextEditorParagraphBreak.attributedString(
+                            currentParagraphAttributes: currentAttrs,
+                            newParagraphAttributes: attrs
+                        )
                         
-                        textView.textStorage.replaceCharacters(in: range, with: mutableString)
+                        textView.textStorage.replaceCharacters(in: range, with: paragraphBreak)
                         
                         let newCursorPosition = range.location + 2
                         textView.selectedRange = NSRange(location: newCursorPosition, length: 0)
                         textView.typingAttributes = attrs
-                        
-                        // Fix stale .textStyle on the character now after the insertion
-                        if let numberedStyleName = attrs[.textStyle] as? String,
-                           newCursorPosition < textView.textStorage.length {
-                            let nextAttrs = textView.textStorage.attributes(at: newCursorPosition, effectiveRange: nil)
-                            if let nextStyle = nextAttrs[.textStyle] as? String,
-                               nextStyle != numberedStyleName {
-                                textView.textStorage.addAttribute(.textStyle, value: numberedStyleName, range: NSRange(location: newCursorPosition, length: 1))
-                            }
-                        }
                         
                         refreshLineNumberDisplay(in: textView, from: range.location - 1)
                         
@@ -1593,34 +1559,22 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                         return false
                     }
                     
-                    // No follow-on style and no numbering - handle insertion manually
-                    // to ensure correct .textStyle on the newline and fix stale styles
-                    // on any existing \n that follows (which could cause ghost numbers)
+                    // Anchor the new paragraph independently so typing cannot inherit the
+                    // physical font or semantic style of an existing following paragraph.
+                    let paragraphBreak = FormattedTextEditorParagraphBreak.attributedString(
+                        currentParagraphAttributes: attrs,
+                        newParagraphAttributes: attrs
+                    )
+                    textView.textStorage.replaceCharacters(in: range, with: paragraphBreak)
                     
-                    // Insert newline with current paragraph's attributes
-                    let newlineString = NSAttributedString(string: "\n", attributes: attrs)
-                    textView.textStorage.replaceCharacters(in: range, with: newlineString)
-                    
-                    // Move cursor after the new \n
-                    let newCursorPosition = range.location + 1
+                    let newCursorPosition = range.location + 2
                     textView.selectedRange = NSRange(location: newCursorPosition, length: 0)
                     textView.typingAttributes = attrs
-                    
-                    // Fix stale .textStyle on the character now at the cursor position
-                    // (e.g., an old \n from a follow-on that still carries a numbered style)
-                    if let currentStyle = attrs[.textStyle] as? String,
-                       newCursorPosition < textView.textStorage.length {
-                        let nextAttrs = textView.textStorage.attributes(at: newCursorPosition, effectiveRange: nil)
-                        if let nextStyle = nextAttrs[.textStyle] as? String,
-                           nextStyle != currentStyle {
-                            textView.textStorage.addAttribute(.textStyle, value: currentStyle, range: NSRange(location: newCursorPosition, length: 1))
-                        }
-                    }
                     
                     refreshLineNumberDisplay(in: textView, from: range.location - 1)
                     
                     pendingChangeRange = range
-                    pendingReplacementText = "\n"
+                    pendingReplacementText = "\n\u{200B}"
                     self.textViewDidChange(textView)
                     return false
                 }
@@ -3210,7 +3164,7 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             return
         }
         
-        guard let numberingLayoutManager = layoutManager as? NumberingLayoutManager,
+            guard let numberingLayoutManager = layoutManager as? NumberingLayoutManager,
               !numberingLayoutManager.isDecorativeDrawingSuppressed,
               let project = numberingLayoutManager.project,
               let styleSheet = project.styleSheet else {

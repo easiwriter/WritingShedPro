@@ -254,6 +254,101 @@ final class StyleReapplicationTests: XCTestCase {
         XCTAssertEqual(repairedFont.pointSize, 13)
     }
 
+    func testStyleReapplicationDetectsStaleFontForCurrentSemanticStyle() throws {
+        let titleStyle = TextStyleModel(
+            name: UIFont.TextStyle.title3.rawValue,
+            displayName: "Title 3",
+            fontFamily: "Helvetica Neue",
+            fontSize: 19,
+            isBold: true
+        )
+        titleStyle.selectFontFace("HelveticaNeue-Bold")
+        let staleFont = try XCTUnwrap(UIFont(name: "HelveticaNeue-Bold", size: 20))
+        let staleText = NSAttributedString(
+            string: "Aeroplanes",
+            attributes: [
+                .font: staleFont,
+                .textStyle: UIFont.TextStyle.title3.rawValue
+            ]
+        )
+
+        XCTAssertTrue(
+            StyleReapplicationAttributeMerger.hasFontMismatch(in: staleText) { styleName in
+                styleName == titleStyle.name ? titleStyle : nil
+            }
+        )
+
+        let currentText = StyleReapplicationAttributeMerger.reapplyStyles(in: staleText) { styleName in
+            styleName == titleStyle.name ? titleStyle : nil
+        }
+        XCTAssertFalse(
+            StyleReapplicationAttributeMerger.hasFontMismatch(in: currentText) { styleName in
+                styleName == titleStyle.name ? titleStyle : nil
+            }
+        )
+    }
+
+    func testReapplyingDocumentStylesNormalizesEverySemanticStyle() throws {
+        let titleStyle = TextStyleModel(
+            name: UIFont.TextStyle.title3.rawValue,
+            displayName: "Title 3",
+            fontFamily: "Helvetica Neue",
+            fontSize: 19,
+            isBold: true
+        )
+        titleStyle.selectFontFace("HelveticaNeue-Bold")
+        let bodyStyle = TextStyleModel(
+            name: UIFont.TextStyle.body.rawValue,
+            displayName: "Body",
+            fontFamily: "Helvetica Neue",
+            fontSize: 17
+        )
+        bodyStyle.selectFontFace("HelveticaNeue-Regular")
+        let expectedTitleFont = titleStyle.generateFont()
+        let staleTitleFont = try XCTUnwrap(UIFont(name: "HelveticaNeue-Medium", size: 20))
+        let expectedBodyFont = bodyStyle.generateFont()
+        let staleBodyFont = try XCTUnwrap(UIFont(name: "Courier", size: 13))
+        let source = NSMutableAttributedString(
+            string: "New\n",
+            attributes: [
+                .font: expectedTitleFont,
+                .textStyle: titleStyle.name
+            ]
+        )
+        source.append(NSAttributedString(
+            string: "Old\n",
+            attributes: [
+                .font: staleTitleFont,
+                .textStyle: titleStyle.name
+            ]
+        ))
+        source.append(NSAttributedString(
+            string: "Body",
+            attributes: [
+                .font: staleBodyFont,
+                .textStyle: bodyStyle.name
+            ]
+        ))
+
+        let normalized = StyleReapplicationAttributeMerger.reapplyStyles(in: source) { styleName in
+            switch styleName {
+            case titleStyle.name: titleStyle
+            case bodyStyle.name: bodyStyle
+            default: nil
+            }
+        }
+        let firstTitleFont = try XCTUnwrap(normalized.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+        let secondTitleFont = try XCTUnwrap(normalized.attribute(.font, at: 4, effectiveRange: nil) as? UIFont)
+        let normalizedBodyFont = try XCTUnwrap(normalized.attribute(.font, at: 8, effectiveRange: nil) as? UIFont)
+
+        XCTAssertEqual(firstTitleFont.fontName, expectedTitleFont.fontName)
+        XCTAssertEqual(secondTitleFont.fontName, expectedTitleFont.fontName)
+        XCTAssertEqual(firstTitleFont.pointSize, expectedTitleFont.pointSize, accuracy: 0.01)
+        XCTAssertEqual(secondTitleFont.pointSize, expectedTitleFont.pointSize, accuracy: 0.01)
+        XCTAssertEqual(normalizedBodyFont.fontName, expectedBodyFont.fontName)
+        XCTAssertEqual(normalizedBodyFont.pointSize, expectedBodyFont.pointSize, accuracy: 0.01)
+    }
+
     func testReapplyChangingBoldItalicFaceToLightRemovesOldFaceTraits() throws {
         let oldFont = try XCTUnwrap(UIFont(name: "HelveticaNeue-BoldItalic", size: 17))
         let lightStyle = TextStyleModel(
@@ -433,6 +528,36 @@ final class StyleReapplicationTests: XCTestCase {
 
         XCTAssertEqual(font.fontName, "HelveticaNeue-Light")
         XCTAssertFalse(font.fontDescriptor.symbolicTraits.contains(.traitBold))
+    }
+
+    func testReturnBetweenBodyAndTitle3AnchorsBodyWithoutMutatingHeading() throws {
+        let bodyAttributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 17),
+            .textStyle: UIFont.TextStyle.body.rawValue,
+            .paragraphStyle: NSMutableParagraphStyle()
+        ]
+        let titleAttributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.boldSystemFont(ofSize: 20),
+            .textStyle: UIFont.TextStyle.title3.rawValue,
+            .paragraphStyle: NSMutableParagraphStyle()
+        ]
+        let text = NSMutableAttributedString(string: "Body\n", attributes: bodyAttributes)
+        text.append(NSAttributedString(string: "Aeroplanes\n", attributes: titleAttributes))
+        let paragraphBreak = FormattedTextEditorParagraphBreak.attributedString(
+            currentParagraphAttributes: bodyAttributes,
+            newParagraphAttributes: bodyAttributes
+        )
+
+        text.replaceCharacters(in: NSRange(location: 4, length: 0), with: paragraphBreak)
+
+        XCTAssertEqual(text.string, "Body\n\u{200B}\nAeroplanes\n")
+        let anchorFont = try XCTUnwrap(text.attribute(.font, at: 5, effectiveRange: nil) as? UIFont)
+        XCTAssertEqual(text.attribute(.textStyle, at: 5, effectiveRange: nil) as? String, UIFont.TextStyle.body.rawValue)
+        XCTAssertEqual(anchorFont.pointSize, 17)
+        let headingFont = try XCTUnwrap(text.attribute(.font, at: 7, effectiveRange: nil) as? UIFont)
+        XCTAssertEqual(text.attribute(.textStyle, at: 7, effectiveRange: nil) as? String, UIFont.TextStyle.title3.rawValue)
+        XCTAssertEqual(headingFont.pointSize, 20)
+        XCTAssertTrue(headingFont.fontDescriptor.symbolicTraits.contains(.traitBold))
     }
     
     func testGenerateAttributesWithCustomFont() throws {

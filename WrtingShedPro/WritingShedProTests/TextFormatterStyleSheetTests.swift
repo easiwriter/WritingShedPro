@@ -126,6 +126,62 @@ final class TextFormatterStyleSheetTests: XCTestCase {
         let textStyle = result.attribute(.textStyle, at: 0, effectiveRange: nil)
         XCTAssertNotNil(textStyle)
     }
+
+    func testCurrentStyleAtBodyAnchorBeforeTitle3UsesAnchor() {
+        let bodyAttributes = TextFormatter.getTypingAttributes(
+            forStyleNamed: UIFont.TextStyle.body.rawValue,
+            project: project,
+            context: context
+        )
+        let titleAttributes = TextFormatter.getTypingAttributes(
+            forStyleNamed: UIFont.TextStyle.title3.rawValue,
+            project: project,
+            context: context
+        )
+        let text = NSMutableAttributedString(string: "Body\n", attributes: bodyAttributes)
+        text.append(NSAttributedString(string: "\u{200B}\n", attributes: bodyAttributes))
+        text.append(NSAttributedString(string: "Aeroplanes", attributes: titleAttributes))
+
+        let styleName = TextFormatter.getCurrentStyleName(
+            in: text,
+            at: NSRange(location: 6, length: 0),
+            project: project,
+            context: context
+        )
+
+        XCTAssertEqual(styleName, UIFont.TextStyle.body.rawValue)
+    }
+
+    func testApplyingTitle3ToBodyAnchorUsesCompleteTitle3Font() throws {
+        let bodyAttributes = TextFormatter.getTypingAttributes(
+            forStyleNamed: UIFont.TextStyle.body.rawValue,
+            project: project,
+            context: context
+        )
+        let titleAttributes = TextFormatter.getTypingAttributes(
+            forStyleNamed: UIFont.TextStyle.title3.rawValue,
+            project: project,
+            context: context
+        )
+        let expectedFont = try XCTUnwrap(titleAttributes[.font] as? UIFont)
+        let text = NSMutableAttributedString(string: "Body\n", attributes: bodyAttributes)
+        text.append(NSAttributedString(string: "\u{200B}\n", attributes: bodyAttributes))
+        text.append(NSAttributedString(string: "Aeroplanes", attributes: titleAttributes))
+
+        let result = TextFormatter.applyStyle(
+            named: UIFont.TextStyle.title3.rawValue,
+            to: text,
+            range: NSRange(location: 6, length: 0),
+            project: project,
+            context: context
+        )
+
+        let anchorFont = try XCTUnwrap(result.attribute(.font, at: 5, effectiveRange: nil) as? UIFont)
+        XCTAssertEqual(result.attribute(.textStyle, at: 5, effectiveRange: nil) as? String, UIFont.TextStyle.title3.rawValue)
+        XCTAssertEqual(anchorFont.fontName, expectedFont.fontName)
+        XCTAssertEqual(anchorFont.pointSize, expectedFont.pointSize, accuracy: 0.01)
+        XCTAssertEqual(result.attribute(.textStyle, at: 7, effectiveRange: nil) as? String, UIFont.TextStyle.title3.rawValue)
+    }
     
     func testApplyStylePreservesCharacterFormatting() throws {
         // Given

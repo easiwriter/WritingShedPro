@@ -74,6 +74,38 @@ enum StyleReapplicationAttributeMerger {
 
         return mutable
     }
+
+    static func hasFontMismatch(
+        in source: NSAttributedString,
+        resolveStyle: (String) -> TextStyleModel?
+    ) -> Bool {
+        guard source.length > 0 else { return false }
+
+        var hasMismatch = false
+        source.enumerateAttributes(
+            in: NSRange(location: 0, length: source.length),
+            options: []
+        ) { attributes, _, stop in
+            guard let styleName = attributes[.textStyle] as? String,
+                  let style = resolveStyle(styleName),
+                  let expectedFont = merge(
+                    styleAttributes: style.generateAttributes(),
+                    currentAttributes: attributes
+                  )[.font] as? UIFont else {
+                return
+            }
+
+            guard let currentFont = attributes[.font] as? UIFont,
+                  currentFont.fontName.caseInsensitiveCompare(expectedFont.fontName) == .orderedSame,
+                  abs(currentFont.pointSize - expectedFont.pointSize) < 0.01 else {
+                hasMismatch = true
+                stop.pointee = true
+                return
+            }
+        }
+
+        return hasMismatch
+    }
 }
 
 /// Data for presenting the new index entry dialog
@@ -8060,12 +8092,13 @@ struct FileEditView: View {
     /// Update the current paragraph style state by checking the attributed content
     private func updateCurrentParagraphStyle(at range: NSRange? = nil) {
         let rangeToCheck = range ?? selectedRange
+        let contentToCheck = textViewCoordinator.textView?.attributedText ?? attributedContent
 
         // Try model-based lookup if we have a project. An inconclusive result must
         // remain unset rather than falling through to generic Body inference.
         if let project = file.project {
             let styleName = TextFormatter.getCurrentStyleName(
-               in: attributedContent,
+               in: contentToCheck,
                at: rangeToCheck,
                project: project,
                context: modelContext
@@ -8075,7 +8108,7 @@ struct FileEditView: View {
         }
         
         // Fallback to direct UIFont.TextStyle lookup
-        if let style = TextFormatter.getCurrentStyle(in: attributedContent, at: rangeToCheck) {
+        if let style = TextFormatter.getCurrentStyle(in: contentToCheck, at: rangeToCheck) {
             currentParagraphStyle = style
             return
         }
@@ -8424,11 +8457,16 @@ struct FileEditView: View {
         let styleModifiedDate = styleSheet.latestStyleModifiedDate
         let styleModified = styleModifiedDate.timeIntervalSinceReferenceDate
         let lastApplied = UserDefaults.standard.double(forKey: cacheKey)
-        if lastApplied >= styleModified {
-            return false
+        if lastApplied < styleModified {
+            return true
         }
 
-        return true
+        let sourceContent = textViewCoordinator.textView.map {
+            NSAttributedString(attributedString: $0.attributedText)
+        } ?? attributedContent
+        return StyleReapplicationAttributeMerger.hasFontMismatch(in: sourceContent) { styleName in
+            styleSheet.style(named: styleName)
+        }
     }
 
     private func markStylesReappliedOnOpen(for project: Project) {
@@ -8536,14 +8574,24 @@ struct FileEditView: View {
             // Store before state for undo
             let beforeContent = sourceContent
             
-            // Apply the style using model-based TextFormatter
-            newAttributedContent = TextFormatter.applyStyle(
+            // Apply the selected style, then normalize every semantic style run
+            // so legacy physical fonts cannot render differently from the stylesheet.
+            let styledSelection = TextFormatter.applyStyle(
                 named: style.rawValue,
                 to: sourceContent,
                 range: activeRange,
                 project: project,
                 context: modelContext
             )
+            newAttributedContent = StyleReapplicationAttributeMerger.reapplyStyles(
+                in: styledSelection
+            ) { styleName in
+                StyleSheetService.resolveStyle(
+                    named: styleName,
+                    for: project,
+                    context: modelContext
+                )
+            }
             
             #if DEBUG
             print("📝 Paragraph style applied successfully (model-based)")
