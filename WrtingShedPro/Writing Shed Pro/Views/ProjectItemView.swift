@@ -5,6 +5,7 @@ struct ProjectItemView: View {
     let project: Project
     let onOpenTapped: () -> Void
     let onInfoTapped: () -> Void
+    let onPublicationHistoryTapped: () -> Void
     let onPageSetupTapped: () -> Void
     var onManageFormsTapped: (() -> Void)? = nil
     var onPoetrySettingsTapped: (() -> Void)? = nil
@@ -104,6 +105,10 @@ struct ProjectItemView: View {
         Menu {
                 Button(action: onInfoTapped) {
                     Label(NSLocalizedString("projectItem.projectDetails", comment: "Show project details"), systemImage: "info.circle")
+                }
+
+                Button(action: onPublicationHistoryTapped) {
+                    Label(NSLocalizedString("publicationHistory.menuTitle", comment: "Show Publication History"), systemImage: "clock.arrow.circlepath")
                 }
                 
                 Button(action: onPageSetupTapped) {

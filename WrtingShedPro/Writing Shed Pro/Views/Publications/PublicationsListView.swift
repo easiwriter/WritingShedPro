@@ -101,7 +101,9 @@ struct PublicationsListView: View {
             PublicationFormView(project: project, publication: nil)
         }
         .sheet(item: $selectedPublication) { publication in
-            PublicationDetailView(publication: publication)
+            PublicationDetailView(publication: publication) {
+                selectedPublication = nil
+            }
         }
         .alert(
             "Delete \(publicationsToDelete.count) \(publicationsToDelete.count == 1 ? "publication" : "publications")?",

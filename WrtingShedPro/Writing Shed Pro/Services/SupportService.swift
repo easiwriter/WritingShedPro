@@ -16,7 +16,7 @@ class SupportService {
     var errorMessage: String?
 
     // Cloudflare Worker endpoint
-    private let endpoint = URL(string: "https://wsp-support.writingshedpro.workers.dev")!
+    private let endpoint = URL(string: "https://wsp-support.wsp-support.workers.dev")!
 
     func submitQuery(reportType: String, subject: String, details: String,
                      stepsToReproduce: String, deviceInfo: String, appVersion: String,

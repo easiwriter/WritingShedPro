@@ -13,12 +13,18 @@ struct PublicationDetailView: View {
     @Environment(\.dismiss) private var dismiss
     
     @Bindable var publication: Publication
+    let onDismiss: (() -> Void)?
     
     @State private var showingEditSheet = false
     @State private var showingAddSubmissionSheet = false
     @State private var showReminderPicker = false
     @State private var reminderDate = Date()
     @State private var showReminderPermissionAlert = false
+
+    init(publication: Publication, onDismiss: (() -> Void)? = nil) {
+        self.publication = publication
+        self.onDismiss = onDismiss
+    }
     
     var body: some View {
         NavigationStack {
@@ -166,7 +172,7 @@ struct PublicationDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("button.done") {
-                        dismiss()
+                        closeView()
                     }
                 }
                 
@@ -197,6 +203,14 @@ struct PublicationDetailView: View {
     }
     
     // MARK: - Reminders
+
+    private func closeView() {
+        onDismiss?()
+        dismiss()
+        if onDismiss != nil {
+            dismissPresentedSheetOnCatalyst()
+        }
+    }
     
     private func scheduleDeadlineReminder() {
         Task {

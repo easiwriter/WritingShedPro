@@ -15,6 +15,7 @@ struct ProjectEditableList: View {
     @Binding var isEditMode: Bool
     let onOpenProject: (Project) -> Void
     @State private var selectedProjectForInfo: Project?
+    @State private var selectedProjectForPublicationHistory: Project?
     @State private var selectedProjectForPageSetup: Project?
     @State private var showingManageForms = false
     @State private var showingPoetrySettings = false
@@ -55,6 +56,9 @@ struct ProjectEditableList: View {
         projectListView
             .navigationDestination(for: Project.self) { project in
                 ProjectDetailView(project: project)
+            }
+            .navigationDestination(item: $selectedProjectForPublicationHistory) { project in
+                PublicationHistoryView(project: project)
             }
             .onChange(of: projects.isEmpty) { _, isEmpty in
                 if isEmpty && isEditMode {
@@ -172,6 +176,9 @@ struct ProjectEditableList: View {
             },
             onInfoTapped: {
                 selectedProjectForInfo = project
+            },
+            onPublicationHistoryTapped: {
+                selectedProjectForPublicationHistory = project
             },
             onPageSetupTapped: {
                 selectedProjectForPageSetup = project

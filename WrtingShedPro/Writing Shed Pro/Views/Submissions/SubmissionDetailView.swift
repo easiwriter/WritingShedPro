@@ -42,6 +42,8 @@ struct SubmissionDetailView: View {
     @State private var copyResultMessage = ""
     @State private var copyResultIsError = false
     @State private var showEditDates = false
+    @State private var showStatusSaveError = false
+    @State private var statusSaveErrorMessage = ""
 
     private var submissionFiles: [SubmittedFile] {
         submission.submittedFiles ?? []
@@ -105,6 +107,11 @@ struct SubmissionDetailView: View {
             Button(NSLocalizedString("button.ok", comment: "OK")) { }
         } message: {
             Text(copyResultMessage)
+        }
+        .alert(NSLocalizedString("submissions.status.saveError.title", comment: "Status save error title"), isPresented: $showStatusSaveError) {
+            Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) { }
+        } message: {
+            Text(statusSaveErrorMessage)
         }
         .confirmationDialog(
             NSLocalizedString("submissions.delete.title", comment: "Delete submission"),
@@ -674,13 +681,23 @@ struct SubmissionDetailView: View {
     }
     
     private func updateStatus(_ submittedFile: SubmittedFile, to status: SubmissionStatus) {
+        let now = Date()
         submittedFile.submissionStatus = status
-        submittedFile.statusDate = Date()
+        submittedFile.statusDate = now
+        submittedFile.modifiedDate = now
+        submission.modifiedDate = now
         
         // If accepted, update file's workflow status to published
         if status == .accepted, let file = submittedFile.textFile {
             file.workflowStatus = .published
-            file.modifiedDate = Date()
+            file.modifiedDate = now
+        }
+
+        do {
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "submission-status-change")
+        } catch {
+            statusSaveErrorMessage = error.localizedDescription
+            showStatusSaveError = true
         }
     }
 }

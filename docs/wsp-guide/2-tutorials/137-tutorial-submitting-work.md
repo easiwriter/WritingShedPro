@@ -150,14 +150,21 @@ If a publication accepts work that you also submitted elsewhere:
 
 ## Step 7: View Your Submission History
 
-To see all submissions at a glance:
+To see all publication submissions for the project at a glance:
 
-1. Open the **Submissions** folder
-2. See all submissions listed with:
+1. Return to the project list
+2. Open the project's **Details** menu (the ellipsis button)
+3. Choose **Show Publication History**
+4. Review the table, which shows:
+   - Text file name
+   - Date submitted
+   - Publication type
    - Publication name
-   - Submission date
-   - Current status
-   - Number of files included
+   - Current status: Waiting, Accepted, or Rejected
+
+Entries are sorted newest first. Tap or click a row to open its Submission Details. Use the **Print** button to print the complete history as a landscape table.
+
+On iPhone and Mac Catalyst, start your gesture in the direction you want to move: horizontally to reveal more columns, or vertically to move through the list.
 
 ### Filtering by Status
 You can see:

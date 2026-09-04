@@ -1156,6 +1156,7 @@
 "submissions.status.pending" = "Pending";
 "submissions.status.accepted" = "Accepted";
 "submissions.status.rejected" = "Rejected";
+"submissions.status.saveError.title" = "Unable to Save Status";
 "submissions.status.mixed" = "Mixed";
 "submissions.unknownPublication" = "Unknown Publication";
 "submissions.collected.on" = "Collected on %@";
@@ -1261,6 +1262,20 @@
 "submissions.file.history.title" = "Submission History";
 "submissions.status.updated.on" = "Updated: %@";
 "submissions.response.time" = "Response: %@";
+
+/* Publication History */
+"publicationHistory.menuTitle" = "Show Publication History";
+"publicationHistory.title" = "Publication History";
+"publicationHistory.emptyTitle" = "No Publication History";
+"publicationHistory.emptyMessage" = "No text files in this project have been submitted to a publication.";
+"publicationHistory.column.name" = "Name";
+"publicationHistory.column.submittedDate" = "Date Submitted";
+"publicationHistory.column.publicationType" = "Publication Type";
+"publicationHistory.column.publicationName" = "Publication Name";
+"publicationHistory.column.status" = "Status";
+"publicationHistory.status.waiting" = "Waiting";
+"publicationHistory.printErrorTitle" = "Unable to Print";
+"publicationHistory.printJobName" = "%@ Publication History";
 
 /* Version Locking */
 "version.locked.warning.title" = "This Version Has Been Submitted";

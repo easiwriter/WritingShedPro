@@ -128,6 +128,21 @@ function isRateLimited(ip) {
     return false;
 }
 
+function publicationHistoryResponse(query) {
+    const normalizedQuery = query.toLowerCase();
+    const asksForPublicationHistory = /\bpublications?\s+history\b/.test(normalizedQuery)
+        || /\bview\s+all\s+publication\s+submissions\b/.test(normalizedQuery);
+
+    if (!asksForPublicationHistory) return null;
+
+    return `To view Publication History:
+1. Return to the project list.
+2. Tap or click the ellipsis button for the project.
+3. Choose Show Publication History.
+4. Review the submitted file name, date submitted, publication type, publication name, and status.
+5. Tap or click a row to open Submission Details, or use Print to print the complete history.`;
+}
+
 export default {
     async fetch(request, env) {
         // CORS preflight
@@ -517,6 +532,11 @@ async function handleSupport(request, env) {
     }
 
     const trimmedQuery = query.slice(0, MAX_QUERY_LENGTH);
+    const commandResponse = publicationHistoryResponse(trimmedQuery);
+    if (commandResponse) {
+        return jsonResponse({ response: commandResponse }, 200);
+    }
+
     const safeDiagnostics = typeof diagnosticsSnapshot === "string"
         ? diagnosticsSnapshot.slice(0, MAX_DIAGNOSTICS_LENGTH)
         : "";

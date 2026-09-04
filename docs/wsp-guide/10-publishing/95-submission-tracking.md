@@ -81,6 +81,30 @@ Track the lifecycle of each submission:
 
 ## Viewing Submissions
 
+### Publication History
+Publication History gives you a project-wide table of every text file submitted to a publication. Internal Collections are not included.
+
+To open it:
+1. Return to the project list
+2. Open the project's **Details** menu (the ellipsis button)
+3. Choose **Show Publication History**
+
+The table shows:
+
+| Column | Description |
+|--------|-------------|
+| **Name** | Name of the submitted text file |
+| **Date Submitted** | Date the submission was made |
+| **Publication Type** | Magazine, Competition, Publisher, Agent, or Other |
+| **Publication Name** | Name of the destination publication |
+| **Status** | Waiting, Accepted, or Rejected |
+
+Entries are sorted with the newest submissions first. Tap or click a row to open its Submission Details, where you can review the submission and update individual file statuses.
+
+On iPhone and Mac Catalyst, the table scrolls in one direction at a time. Begin a gesture horizontally to view columns that are off-screen, or vertically to move through the submission list.
+
+To print the complete table, select the **Print** button in the toolbar. Publication History prints as a bordered landscape table containing the same five columns shown on screen.
+
 ### Submissions Folder
 All submissions appear here:
 - Grouped by status

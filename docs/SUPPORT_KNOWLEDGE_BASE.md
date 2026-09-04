@@ -442,13 +442,27 @@ Page Break, Section Mark, Double Space, None
 
 ### Submissions
 - Link collection/files to a publication
-- Statuses: Pending → Accepted / Rejected / Withdrawn
+- Statuses: Pending (shown as Waiting in Publication History), Accepted, or Rejected
 - Records: which files (and versions) were submitted, date, publication
 - Follow-up reminders (notification at chosen date)
-- Simultaneous submissions: create separate submissions per publication; withdraw others when one accepts
+- Simultaneous submissions: create separate submissions per publication and update each status independently
 
-### Reports
-- Total submissions, pending vs. completed, acceptance rate, response times
+### Publication History
+- Project-wide table of text files submitted to publications; internal Collections are excluded
+- Open from the project list: tap or click the project's ellipsis button, then choose **Show Publication History**
+- Columns: Name, Date Submitted, Publication Type, Publication Name, Status
+- Status displays Waiting, Accepted, or Rejected
+- Newest submissions appear first
+- Tap or click a row to open Submission Details
+- The Print button produces a bordered landscape table with the same five columns
+- On iPhone and Mac Catalyst, scrolling locks to one direction per gesture: horizontal for off-screen columns or vertical for the list
+
+### Canonical Support Wording for "How Do I View Publication History?"
+1. Return to the project list.
+2. Tap or click the ellipsis button for the project.
+3. Choose **Show Publication History**.
+4. Review the table of submitted file names, submission dates, publication types, publication names, and statuses.
+5. Tap or click a row to open its Submission Details, or use **Print** to print the complete history.
 
 ---
 
