@@ -81,10 +81,10 @@ struct TextFormatter {
         let hasBold = checkForBold(in: cleanedText, range: range)
         
         // Apply or remove bold using font traits
-        mutableText.enumerateAttribute(.font, in: range, options: []) { value, subrange, _ in
+        mutableText.enumerateAttributes(in: range, options: []) { attributes, subrange, _ in
             // Every paragraph MUST have a font attribute (text style)
             // If missing, it's a bug - but we handle it gracefully with .body default
-            guard let currentFont = value as? UIFont else {
+            guard let currentFont = attributes[.font] as? UIFont else {
                 #if DEBUG
                 print("⚠️ TextFormatter.toggleBold: Missing font attribute at range \(subrange) - using .body as fallback")
                 #endif
@@ -97,13 +97,15 @@ struct TextFormatter {
             }
 
             let currentTraits = FontFaceResolver.traits(of: currentFont)
+            let baseFont = inlineFormattingBaseFont(from: attributes, fallback: currentFont)
             let newFont = FontFaceResolver.resolvedFont(
-                from: currentFont,
+                from: baseFont,
                 bold: !hasBold,
                 italic: currentTraits.italic
             )
             mutableText.addAttribute(.font, value: newFont, range: subrange)
             mutableText.addAttribute(.explicitBold, value: !hasBold, range: subrange)
+            mutableText.addAttribute(.inlineFormattingBaseFontName, value: baseFont.fontName, range: subrange)
         }
         
         return mutableText
@@ -120,10 +122,10 @@ struct TextFormatter {
         let mutableText = NSMutableAttributedString(attributedString: cleanedText)
         let hasItalic = checkForItalic(in: cleanedText, range: range)
         
-        mutableText.enumerateAttribute(.font, in: range, options: []) { value, subrange, _ in
+        mutableText.enumerateAttributes(in: range, options: []) { attributes, subrange, _ in
             // Every paragraph MUST have a font attribute (text style)
             // If missing, it's a bug - but we handle it gracefully with .body default
-            guard let currentFont = value as? UIFont else {
+            guard let currentFont = attributes[.font] as? UIFont else {
                 #if DEBUG
                 print("⚠️ TextFormatter.toggleItalic: Missing font attribute at range \(subrange) - using .body as fallback")
                 #endif
@@ -136,16 +138,29 @@ struct TextFormatter {
             }
 
             let currentTraits = FontFaceResolver.traits(of: currentFont)
+            let baseFont = inlineFormattingBaseFont(from: attributes, fallback: currentFont)
             let newFont = FontFaceResolver.resolvedFont(
-                from: currentFont,
+                from: baseFont,
                 bold: currentTraits.bold,
                 italic: !hasItalic
             )
             mutableText.addAttribute(.font, value: newFont, range: subrange)
             mutableText.addAttribute(.explicitItalic, value: !hasItalic, range: subrange)
+            mutableText.addAttribute(.inlineFormattingBaseFontName, value: baseFont.fontName, range: subrange)
         }
         
         return mutableText
+    }
+
+    private static func inlineFormattingBaseFont(
+        from attributes: [NSAttributedString.Key: Any],
+        fallback: UIFont
+    ) -> UIFont {
+        guard let fontName = attributes[.inlineFormattingBaseFontName] as? String,
+              let font = UIFont(name: fontName, size: fallback.pointSize) else {
+            return fallback
+        }
+        return font
     }
     
     /// Toggle underline formatting for the given range

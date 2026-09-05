@@ -363,5 +363,24 @@ final class UndoRedoTests: XCTestCase {
         XCTAssertLessThan(persistedCommands.count, manager.undoStack.count)
         XCTAssertEqual(persistedCommands.last?.description, "Format 5")
     }
+
+    func testRegisterExecutedCommandPublishesUndoWithoutExecutingAgain() {
+        let manager = TextFileUndoManager(file: testFile)
+        let alreadyApplied = NSAttributedString(string: "Corrected")
+        testFile.currentVersion?.attributedContent = alreadyApplied
+        let command = FormatApplyCommand(
+            description: "Replace Spelling",
+            range: NSRange(location: 0, length: 8),
+            beforeContent: NSAttributedString(string: "Corected"),
+            afterContent: NSAttributedString(string: "Should Not Execute"),
+            targetFile: testFile
+        )
+
+        manager.registerExecuted(command)
+
+        XCTAssertTrue(manager.canUndo)
+        XCTAssertEqual(manager.undoActionName, "Replace Spelling")
+        XCTAssertEqual(testFile.currentVersion?.attributedContent?.string, "Corrected")
+    }
 }
 

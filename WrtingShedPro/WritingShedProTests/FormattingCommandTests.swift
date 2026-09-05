@@ -631,6 +631,36 @@ final class FormattingCommandTests: XCTestCase {
         XCTAssertEqual(boldItalicContent.attribute(.explicitBold, at: 0, effectiveRange: nil) as? Bool, true)
         XCTAssertEqual(boldItalicContent.attribute(.explicitItalic, at: 0, effectiveRange: nil) as? Bool, true)
     }
+
+    func testToolbarBoldToggleRestoresSelectedBaseFace() throws {
+        let lightFont = try XCTUnwrap(UIFont(name: "HelveticaNeue-Light", size: 17))
+        let originalContent = NSAttributedString(string: "Hello", attributes: [.font: lightFont])
+        let range = NSRange(location: 0, length: originalContent.length)
+
+        let boldContent = TextFormatter.toggleBold(in: originalContent, range: range)
+        let restoredContent = TextFormatter.toggleBold(in: boldContent, range: range)
+        let restoredFont = try XCTUnwrap(restoredContent.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+
+        XCTAssertEqual(restoredFont.fontName, "HelveticaNeue-Light")
+        XCTAssertEqual(
+            restoredContent.attribute(.inlineFormattingBaseFontName, at: 0, effectiveRange: nil) as? String,
+            "HelveticaNeue-Light"
+        )
+    }
+
+    func testToolbarItalicToggleRestoresSelectedBaseFaceAfterSerialization() throws {
+        let lightFont = try XCTUnwrap(UIFont(name: "HelveticaNeue-Light", size: 17))
+        let originalContent = NSAttributedString(string: "Hello", attributes: [.font: lightFont])
+        let range = NSRange(location: 0, length: originalContent.length)
+
+        let italicContent = TextFormatter.toggleItalic(in: originalContent, range: range)
+        let encoded = AttributedStringSerializer.encode(italicContent)
+        let reopenedContent = AttributedStringSerializer.decode(encoded, text: italicContent.string)
+        let restoredContent = TextFormatter.toggleItalic(in: reopenedContent, range: range)
+        let restoredFont = try XCTUnwrap(restoredContent.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)
+
+        XCTAssertEqual(restoredFont.fontName, "HelveticaNeue-Light")
+    }
     
     func testFormatApplyCommand_PreservesFontSize() {
         // Given: Text with size 24

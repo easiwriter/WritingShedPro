@@ -18,6 +18,9 @@ enum StyleReapplicationAttributeMerger {
             merged[.font] = FontFaceResolver.resolvedFont(from: newFont, bold: bold, italic: italic)
             if let explicitBold = currentAttributes[.explicitBold] { merged[.explicitBold] = explicitBold }
             if let explicitItalic = currentAttributes[.explicitItalic] { merged[.explicitItalic] = explicitItalic }
+            if currentAttributes[.explicitBold] != nil || currentAttributes[.explicitItalic] != nil {
+                merged[.inlineFormattingBaseFontName] = newFont.fontName
+            }
         }
 
         if let attachment = currentAttributes[.attachment] {
@@ -30,6 +33,10 @@ enum StyleReapplicationAttributeMerger {
         if let poemSectionType = currentAttributes[.poemSectionType] {
             merged[.poemSectionType] = poemSectionType
             merged[.foregroundColor] = UIColor.systemGray
+        }
+
+        if currentAttributes[.spellingIgnored] as? Bool == true {
+            merged[.spellingIgnored] = true
         }
 
         if merged[.underlineStyle] == nil, let underlineStyle = currentAttributes[.underlineStyle] {
@@ -1921,6 +1928,8 @@ struct FileEditView: View {
                     isVisible: $showSpellingBar,
                     canReplace: isFileEditable,
                     onReplace: replaceCurrentSpellingIssue,
+                    onIgnore: ignoreCurrentSpellingIssue,
+                    onIgnoreAll: ignoreAllOccurrencesOfCurrentSpellingWord,
                     onRescan: scanDocumentSpelling,
                     onClose: closeDocumentSpellingCheck
                 )
@@ -2766,7 +2775,7 @@ struct FileEditView: View {
 
         if let textView = textViewCoordinator.textView {
             spellingManager.connect(to: textView)
-            spellingManager.scan(text: textView.text, startingAt: textView.selectedRange.location)
+            spellingManager.scan(attributedText: textView.attributedText, startingAt: textView.selectedRange.location)
         } else {
             DispatchQueue.main.async {
                 scanDocumentSpelling()
@@ -2777,7 +2786,7 @@ struct FileEditView: View {
     private func scanDocumentSpelling() {
         guard let textView = textViewCoordinator.textView else { return }
         spellingManager.connect(to: textView)
-        spellingManager.scan(text: textView.text, startingAt: textView.selectedRange.location)
+        spellingManager.scan(attributedText: textView.attributedText, startingAt: textView.selectedRange.location)
     }
 
     private func closeDocumentSpellingCheck() {
@@ -2818,10 +2827,49 @@ struct FileEditView: View {
             afterContent: afterContent,
             targetFile: file
         )
-        undoManager.execute(command)
+        undoManager.registerExecuted(command)
+        try? WriteCoalescer.shared?.requestSaveAndFlush(reason: "spelling-replacement")
 
         spellingManager.didReplaceCurrentIssue(with: replacement)
         searchManager.notifyTextChanged()
+    }
+
+    private func ignoreCurrentSpellingIssue() {
+        guard let issue = spellingManager.currentIssue else { return }
+        persistIgnoredSpellingRanges([issue.range])
+        spellingManager.ignoreCurrentIssue()
+    }
+
+    private func ignoreAllOccurrencesOfCurrentSpellingWord() {
+        guard let issue = spellingManager.currentIssue else { return }
+        let normalizedWord = issue.word.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        let ranges = spellingManager.issues.compactMap { candidate -> NSRange? in
+            let candidateWord = candidate.word.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            return candidateWord == normalizedWord ? candidate.range : nil
+        }
+        persistIgnoredSpellingRanges(ranges)
+        spellingManager.ignoreAllOccurrencesOfCurrentWord()
+    }
+
+    private func persistIgnoredSpellingRanges(_ ranges: [NSRange]) {
+        guard isFileEditable,
+              !ranges.isEmpty,
+              let textView = textViewCoordinator.textView else { return }
+
+        flushPendingEditorChanges(reason: "spelling-ignore-preflight")
+        let mutableContent = NSMutableAttributedString(attributedString: textView.attributedText)
+        for range in ranges where NSMaxRange(range) <= mutableContent.length {
+            mutableContent.addAttribute(.spellingIgnored, value: true, range: range)
+        }
+        let updatedContent = NSAttributedString(attributedString: mutableContent)
+        textView.textStorage.setAttributedString(updatedContent)
+        attributedContent = updatedContent
+        previousContent = updatedContent.string
+        previousAttributedContent = updatedContent
+        file.currentVersion?.attributedContent = updatedContent
+        file.currentVersion?.referenceMetadataData = extractReferenceMetadata(from: updatedContent).encode()
+        file.modifiedDate = Date()
+        try? WriteCoalescer.shared?.requestSaveAndFlush(reason: "spelling-ignore")
     }
 
     // MARK: - Search Context Activation
@@ -3774,7 +3822,7 @@ struct FileEditView: View {
             searchManager.notifyTextChanged()
             if showSpellingBar {
                 spellingManager.connect(to: textView)
-                spellingManager.scan(text: textView.text, startingAt: textView.selectedRange.location)
+                spellingManager.scan(attributedText: textView.attributedText, startingAt: textView.selectedRange.location)
             }
             return
         }

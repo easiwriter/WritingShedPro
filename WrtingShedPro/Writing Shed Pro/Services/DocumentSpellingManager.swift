@@ -97,7 +97,7 @@ final class DocumentSpellingManager {
         ) { [weak self, weak textView] _ in
             Task { @MainActor in
                 guard let self, let textView else { return }
-                self.scan(text: textView.text, startingAt: textView.selectedRange.location)
+                self.scan(attributedText: textView.attributedText, startingAt: textView.selectedRange.location)
             }
         }
     }
@@ -118,6 +118,24 @@ final class DocumentSpellingManager {
     }
 
     func scan(text: String, startingAt location: Int = 0) {
+        scan(text: text, ignoredRanges: [], startingAt: location)
+    }
+
+    func scan(attributedText: NSAttributedString, startingAt location: Int = 0) {
+        var ignoredRanges: [NSRange] = []
+        attributedText.enumerateAttribute(
+            .spellingIgnored,
+            in: NSRange(location: 0, length: attributedText.length),
+            options: []
+        ) { value, range, _ in
+            if value as? Bool == true {
+                ignoredRanges.append(range)
+            }
+        }
+        scan(text: attributedText.string, ignoredRanges: ignoredRanges, startingAt: location)
+    }
+
+    private func scan(text: String, ignoredRanges: [NSRange], startingAt location: Int) {
         scanTask?.cancel()
         clearHighlights()
         isScanning = true
@@ -126,7 +144,12 @@ final class DocumentSpellingManager {
 
         scanTask = Task { [weak self] in
             let foundIssues = await Task.detached(priority: .userInitiated) {
-                Self.findIssues(in: text, language: language, ignoring: ignoredWords)
+                Self.findIssues(
+                    in: text,
+                    language: language,
+                    ignoring: ignoredWords,
+                    ignoredRanges: ignoredRanges
+                )
             }.value
             guard !Task.isCancelled, let self else { return }
 
@@ -264,7 +287,8 @@ final class DocumentSpellingManager {
     nonisolated static func findIssues(
         in text: String,
         language: String,
-        ignoring ignoredWords: Set<String> = []
+        ignoring ignoredWords: Set<String> = [],
+        ignoredRanges: [NSRange] = []
     ) -> [DocumentSpellingIssue] {
         guard !text.isEmpty else { return [] }
 
@@ -287,7 +311,8 @@ final class DocumentSpellingManager {
 
             let word = nsText.substring(with: misspelledRange)
             let normalizedWord = word.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-            if !ignoredWords.contains(normalizedWord) {
+            let isMarkedIgnored = ignoredRanges.contains { NSIntersectionRange($0, misspelledRange).length > 0 }
+            if !ignoredWords.contains(normalizedWord) && !isMarkedIgnored {
                 results.append(DocumentSpellingIssue(word: word, range: misspelledRange))
             }
             location = max(NSMaxRange(misspelledRange), location + 1)

@@ -418,6 +418,7 @@ final class StyleReapplicationTests: XCTestCase {
 
         XCTAssertTrue(FontFaceResolver.traits(of: font).bold)
         XCTAssertEqual(merged[.explicitBold] as? Bool, true)
+        XCTAssertEqual(merged[.inlineFormattingBaseFontName] as? String, "Avenir-Light")
     }
 
     func testInsertionAttributesUseCompleteNumberedBodyStyle() throws {

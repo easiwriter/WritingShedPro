@@ -15,6 +15,8 @@ struct AttributeValues: Codable {
     var italic: Bool?
     var explicitBold: Bool?
     var explicitItalic: Bool?
+    var inlineFormattingBaseFontName: String?
+    var spellingIgnored: Bool?
     var underline: CGFloat?
     var strikethrough: CGFloat?
     var textAlignment: Int?
@@ -532,6 +534,12 @@ struct AttributedStringSerializer {
 
                     case .explicitItalic:
                         attributes.explicitItalic = value as? Bool
+
+                    case .inlineFormattingBaseFontName:
+                        attributes.inlineFormattingBaseFontName = value as? String
+
+                    case .spellingIgnored:
+                        attributes.spellingIgnored = value as? Bool
                     
                     case .attachment:
                         // Handle image and comment attachments
@@ -842,6 +850,12 @@ struct AttributedStringSerializer {
                 }
                 if let explicitItalic = jsonAttributes.explicitItalic {
                     attributes[.explicitItalic] = explicitItalic
+                }
+                if let baseFontName = jsonAttributes.inlineFormattingBaseFontName {
+                    attributes[.inlineFormattingBaseFontName] = baseFontName
+                }
+                if jsonAttributes.spellingIgnored == true {
+                    attributes[.spellingIgnored] = true
                 }
                 
                 // Paragraph style - only add if we have non-default values

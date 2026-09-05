@@ -5,6 +5,8 @@ struct DocumentSpellingBar: View {
     @Binding var isVisible: Bool
     let canReplace: Bool
     let onReplace: (String) -> Void
+    let onIgnore: () -> Void
+    let onIgnoreAll: () -> Void
     let onRescan: () -> Void
     let onClose: () -> Void
 
@@ -86,13 +88,13 @@ struct DocumentSpellingBar: View {
                 .disabled(!canReplace || replacement.isEmpty || replacement == issue.word)
 
                 Button {
-                    manager.ignoreCurrentIssue()
+                    onIgnore()
                 } label: {
                     Label(NSLocalizedString("spelling.ignore", comment: "Ignore this spelling occurrence"), systemImage: "forward")
                 }
 
                 Button {
-                    manager.ignoreAllOccurrencesOfCurrentWord()
+                    onIgnoreAll()
                 } label: {
                     Label(NSLocalizedString("spelling.ignoreAll", comment: "Ignore every occurrence of this word"), systemImage: "forward.end")
                 }

@@ -619,6 +619,18 @@ final class AttributedStringSerializerTests: XCTestCase {
         XCTAssertEqual(restored.attribute(.explicitItalic, at: 0, effectiveRange: nil) as? Bool, false)
     }
 
+    func testRoundTripPreservesIgnoredSpellingRange() {
+        let text = NSMutableAttributedString(string: "Keep qzxqzxword ignored")
+        let ignoredRange = (text.string as NSString).range(of: "qzxqzxword")
+        text.addAttribute(.spellingIgnored, value: true, range: ignoredRange)
+
+        let data = AttributedStringSerializer.encode(text)
+        let restored = AttributedStringSerializer.decode(data, text: text.string)
+
+        XCTAssertEqual(restored.attribute(.spellingIgnored, at: ignoredRange.location, effectiveRange: nil) as? Bool, true)
+        XCTAssertNil(restored.attribute(.spellingIgnored, at: 0, effectiveRange: nil))
+    }
+
     func testRoundTripPreservesCustomSystemFontSize() throws {
         let text = NSAttributedString(
             string: "Large system text",

@@ -1129,11 +1129,7 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
 
     private func configureEditorInputTraits(_ textView: UITextView) {
         textView.autocorrectionType = .no
-        #if targetEnvironment(macCatalyst)
         textView.spellCheckingType = .no
-        #else
-        textView.spellCheckingType = .yes
-        #endif
         textView.textContentType = nil
         #if targetEnvironment(macCatalyst)
         textView.textContentType = UITextContentType(rawValue: "")

@@ -29,6 +29,22 @@ final class DocumentSpellingManagerTests: XCTestCase {
         XCTAssertTrue(issues.isEmpty)
     }
 
+    func testFindIssuesHonorsPersistedIgnoredRanges() throws {
+        let language = try XCTUnwrap(
+            DocumentSpellingManager.availableLanguages.first(where: { $0.hasPrefix("en") })
+        )
+        let text = "qzxqzxword anotherbadword"
+        let ignoredRange = (text as NSString).range(of: "qzxqzxword")
+
+        let issues = DocumentSpellingManager.findIssues(
+            in: text,
+            language: language,
+            ignoredRanges: [ignoredRange]
+        )
+
+        XCTAssertFalse(issues.contains(where: { $0.word == "qzxqzxword" }))
+    }
+
     func testReplacementAdjustsFollowingUTF16Ranges() {
         let issues = [
             DocumentSpellingIssue(word: "bad", range: NSRange(location: 2, length: 3)),

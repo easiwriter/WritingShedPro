@@ -136,6 +136,12 @@ final class TextFileUndoManager {
         // The typing buffer is flushed after the user pauses. Avoid publishing undo-state
         // changes for every repeated keypress; that invalidates SwiftUI during live typing.
     }
+
+    /// Register a command for a change that was already applied outside the command.
+    func registerExecuted(_ command: UndoableCommand) {
+        push(command)
+        updateState()
+    }
     
     /// Undo the last command
     func undo() {

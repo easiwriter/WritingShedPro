@@ -15,6 +15,8 @@ extension NSAttributedString.Key {
     static let textStyle = NSAttributedString.Key("WritingShedPro.TextStyle")
     static let explicitBold = NSAttributedString.Key("WritingShedPro.ExplicitBold")
     static let explicitItalic = NSAttributedString.Key("WritingShedPro.ExplicitItalic")
+    static let inlineFormattingBaseFontName = NSAttributedString.Key("WritingShedPro.InlineFormattingBaseFontName")
+    static let spellingIgnored = NSAttributedString.Key("WritingShedPro.SpellingIgnored")
 }
 
 extension UIFont.TextStyle {
