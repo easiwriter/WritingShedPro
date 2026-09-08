@@ -366,11 +366,15 @@ struct FileEditView: View {
                 Image(systemName: "minus.magnifyingglass")
             }
             
-            Text("\(editorZoomPercent)%")
-                .font(.caption)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 40, alignment: .center)
+            VStack(spacing: 0) {
+                Text("\(editorZoomPercent)%")
+                Text(localizedEditorWordCount)
+                    .lineLimit(1)
+            }
+            .font(.caption)
+            .monospacedDigit()
+            .foregroundStyle(.secondary)
+            .frame(minWidth: 64, alignment: .center)
             
             Button {
                 setEditorZoomScale(editorZoomScale + 0.05)
@@ -392,6 +396,15 @@ struct FileEditView: View {
     
     private var editorZoomPercent: Int {
         Int(round(editorZoomScale * 100))
+    }
+
+    private var localizedEditorWordCount: String {
+        let count = attributedContent.string
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .count
+        let key = count == 1 ? "common.wordCountSingularFormat" : "common.wordCountPluralFormat"
+        return String(format: NSLocalizedString(key, comment: "Word count format"), count)
     }
 
     /// Glossary/Index marker insertion is only valid in body files, not
@@ -3334,27 +3347,9 @@ struct FileEditView: View {
         if file.currentVersion?.isLocked != true && searchContext == nil {
             let shouldSuppressInitialKeyboard = attributedContent.length > 0
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                if let textView = self.textViewCoordinator.textView {
-                    let requestedPosition = self.initialCharacterPosition ?? textView.attributedText.length
-                    let position = self.initialCharacterPosition == nil
-                        ? min(max(0, requestedPosition), textView.attributedText.length)
-                        : textView.resolvedNavigationPosition(requestedPosition, headingText: self.initialHeadingText)
-                    let range = NSRange(location: position, length: 0)
-                    self.selectedRange = range
-                    textView.selectedRange = range
-                    if self.initialCharacterPosition != nil {
-                        #if targetEnvironment(macCatalyst)
-                        textView.scrollCharacterToTop(position, animated: true)
-                        #else
-                        textView.scrollCharacterToTop(position)
-                        #endif
-                    } else {
-                        textView.scrollRangeToVisible(range)
-                    }
-                    if shouldSuppressInitialKeyboard {
-                        textView.resignFirstResponder()
-                    }
-                }
+                self.positionEditorForInitialNavigation(
+                    shouldSuppressInitialKeyboard: shouldSuppressInitialKeyboard
+                )
             }
             // Second resign after navigation transition completes
             // iOS can auto-focus the first editable text view after push animation finishes
@@ -3520,6 +3515,47 @@ struct FileEditView: View {
             DispatchQueue.main.async {
                 self.cachedValidationIssueCount = issueCount
             }
+        }
+    }
+
+    private func positionEditorForInitialNavigation(
+        shouldSuppressInitialKeyboard: Bool,
+        attempt: Int = 0
+    ) {
+        guard let textView = textViewCoordinator.textView else { return }
+
+        if initialCharacterPosition != nil,
+           textView.attributedText.string != attributedContent.string,
+           attempt < 10 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.positionEditorForInitialNavigation(
+                    shouldSuppressInitialKeyboard: shouldSuppressInitialKeyboard,
+                    attempt: attempt + 1
+                )
+            }
+            return
+        }
+
+        let requestedPosition = initialCharacterPosition ?? textView.attributedText.length
+        let position = initialCharacterPosition == nil
+            ? min(max(0, requestedPosition), textView.attributedText.length)
+            : textView.resolvedNavigationPosition(requestedPosition, headingText: initialHeadingText)
+        let range = NSRange(location: position, length: 0)
+        selectedRange = range
+        textView.selectedRange = range
+
+        if initialCharacterPosition != nil {
+            #if targetEnvironment(macCatalyst)
+            textView.scrollCharacterToTop(position, animated: true)
+            #else
+            textView.scrollCharacterToTop(position)
+            #endif
+        } else {
+            textView.scrollRangeToVisible(range)
+        }
+
+        if shouldSuppressInitialKeyboard {
+            textView.resignFirstResponder()
         }
     }
     

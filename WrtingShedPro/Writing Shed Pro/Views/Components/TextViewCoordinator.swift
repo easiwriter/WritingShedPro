@@ -51,7 +51,13 @@ extension UITextView {
         }
 
         let position = min(max(0, characterPosition), textStorage.length - 1)
-        layoutManager.ensureLayout(forCharacterRange: NSRange(location: position, length: 1))
+        // The editor normally uses non-contiguous layout for performance. A distant
+        // navigation target can therefore have a glyph rect before UITextView's
+        // contentSize includes that part of the document, causing setContentOffset
+        // to clamp near the currently laid-out text. Explicit navigation needs a
+        // complete container layout so the requested offset is reachable.
+        layoutManager.ensureLayout(for: textContainer)
+        layoutIfNeeded()
         let glyphIndex = layoutManager.glyphIndexForCharacter(at: position)
         let lineRect = layoutManager.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: nil)
         let minimumOffsetY = -adjustedContentInset.top

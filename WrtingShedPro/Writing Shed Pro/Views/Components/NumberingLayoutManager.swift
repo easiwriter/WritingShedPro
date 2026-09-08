@@ -64,6 +64,25 @@ class NumberingLayoutManager: NSLayoutManager {
 
     /// Font size for document line numbers
     private let documentLineNumberFontSize: CGFloat = 14
+
+    private var cachedDocumentLineNumbers: [Int: Int]?
+
+    override func processEditing(
+        for textStorage: NSTextStorage,
+        edited editMask: NSTextStorage.EditActions,
+        range newCharRange: NSRange,
+        changeInLength delta: Int,
+        invalidatedRange invalidatedCharRange: NSRange
+    ) {
+        cachedDocumentLineNumbers = nil
+        super.processEditing(
+            for: textStorage,
+            edited: editMask,
+            range: newCharRange,
+            changeInLength: delta,
+            invalidatedRange: invalidatedCharRange
+        )
+    }
     
     /// Determine the bullet level from a style name
     /// Returns 0 for base level, 1 for level-2, 2 for level-3, etc.
@@ -759,33 +778,27 @@ class NumberingLayoutManager: NSLayoutManager {
             return
         }
 
-        if numberOfGlyphs == 0 {
+        if glyphsToShow.length == 0 {
             return
         }
 
-        let visibleGlyphStart = glyphsToShow.location
-        let visibleGlyphEnd = glyphsToShow.location + glyphsToShow.length
-        let fullGlyphRange = NSRange(location: 0, length: numberOfGlyphs)
         let text = textStorage.string as NSString
-        let lineNumbers = buildDocumentLineNumberMap(for: textStorage)
+        let lineNumbers: [Int: Int]
+        if let cachedDocumentLineNumbers {
+            lineNumbers = cachedDocumentLineNumbers
+        } else {
+            let generatedLineNumbers = buildDocumentLineNumberMap(for: textStorage)
+            cachedDocumentLineNumbers = generatedLineNumbers
+            lineNumbers = generatedLineNumbers
+        }
 
-        enumerateLineFragments(forGlyphRange: fullGlyphRange) { [weak self] lineFragmentRect, _, _, fragmentGlyphRange, stop in
+        enumerateLineFragments(forGlyphRange: glyphsToShow) { [weak self] lineFragmentRect, _, _, fragmentGlyphRange, stop in
             guard let self = self else {
                 stop.pointee = true
                 return
             }
 
             let fragmentStart = fragmentGlyphRange.location
-            let fragmentEnd = fragmentGlyphRange.location + fragmentGlyphRange.length
-
-            if fragmentEnd <= visibleGlyphStart {
-                return
-            }
-
-            if fragmentStart >= visibleGlyphEnd {
-                stop.pointee = true
-                return
-            }
 
             let characterRange = self.characterRange(forGlyphRange: fragmentGlyphRange, actualGlyphRange: nil)
             let paragraphRange = text.paragraphRange(for: NSRange(location: characterRange.location, length: 0))
@@ -896,8 +909,19 @@ class NumberingLayoutManager: NSLayoutManager {
             let gap: CGFloat = 4.0
             numberX = origin.x + style.headIndent - numberSize.width - gap
         } else {
-            // Non-list numbered paragraphs (headings): draw at the style's base indent.
-            numberX = origin.x + style.firstLineIndent
+            // Right-align headings against the actual text start. This preserves
+            // the gap when an existing paragraph's reserved indent was calculated
+            // before its counter grew from one digit to two (for example 1.9 → 1.10).
+            let gap: CGFloat = 4.0
+            let paragraphStyle = paragraphAttributes[.paragraphStyle] as? NSParagraphStyle
+            let textStartIndent = paragraphStyle?.firstLineHeadIndent
+                ?? (style.firstLineIndent + numberSize.width + gap)
+            numberX = Self.headingNumberDrawingX(
+                originX: origin.x,
+                textStartIndent: textStartIndent,
+                numberWidth: numberSize.width,
+                gap: gap
+            )
         }
         
         #if DEBUG
@@ -925,6 +949,15 @@ class NumberingLayoutManager: NSLayoutManager {
         )
         
         numberString.draw(in: numberRect, withAttributes: numberAttributes)
+    }
+
+    static func headingNumberDrawingX(
+        originX: CGFloat,
+        textStartIndent: CGFloat,
+        numberWidth: CGFloat,
+        gap: CGFloat = 4
+    ) -> CGFloat {
+        originX + textStartIndent - numberWidth - gap
     }
 
     static func numberDrawingY(
