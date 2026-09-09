@@ -217,9 +217,7 @@ extension NumberFormat {
         case .none:
             return 0
         case .decimal:
-            // Reserve two digits for every hierarchy level so counters such as
-            // "1.10" do not outgrow the space calculated when the style is applied.
-            let segments = Array(repeating: "99", count: depth + 1)
+            let segments = Array(repeating: "9", count: depth + 1)
             sampleNumber = segments.joined(separator: ".")
         case .lowercaseRoman:
             let segments = ["viii"] + Array(repeating: "viii", count: depth)

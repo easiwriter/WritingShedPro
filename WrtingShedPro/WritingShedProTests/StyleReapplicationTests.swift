@@ -273,7 +273,7 @@ final class StyleReapplicationTests: XCTestCase {
         )
 
         XCTAssertTrue(
-            StyleReapplicationAttributeMerger.hasFontMismatch(in: staleText) { styleName in
+            StyleReapplicationAttributeMerger.hasStyleMismatch(in: staleText) { styleName in
                 styleName == titleStyle.name ? titleStyle : nil
             }
         )
@@ -282,7 +282,42 @@ final class StyleReapplicationTests: XCTestCase {
             styleName == titleStyle.name ? titleStyle : nil
         }
         XCTAssertFalse(
-            StyleReapplicationAttributeMerger.hasFontMismatch(in: currentText) { styleName in
+            StyleReapplicationAttributeMerger.hasStyleMismatch(in: currentText) { styleName in
+                styleName == titleStyle.name ? titleStyle : nil
+            }
+        )
+    }
+
+    func testStyleReapplicationDetectsStaleNumberedHeadingIndent() throws {
+        let titleStyle = TextStyleModel(
+            name: UIFont.TextStyle.title3.rawValue,
+            displayName: "Title 3",
+            fontFamily: "Helvetica Neue",
+            fontSize: 19,
+            isBold: true
+        )
+        titleStyle.selectFontFace("HelveticaNeue-Bold")
+        titleStyle.numberFormat = .decimal
+        titleStyle.styleCategory = .heading
+
+        let expectedAttributes = titleStyle.generateAttributes()
+        let staleParagraphStyle = NSMutableParagraphStyle()
+        staleParagraphStyle.firstLineHeadIndent = 77
+        var staleAttributes = expectedAttributes
+        staleAttributes[.paragraphStyle] = staleParagraphStyle
+        let staleText = NSAttributedString(string: "Support\n", attributes: staleAttributes)
+
+        XCTAssertTrue(
+            StyleReapplicationAttributeMerger.hasStyleMismatch(in: staleText) { styleName in
+                styleName == titleStyle.name ? titleStyle : nil
+            }
+        )
+
+        let repaired = StyleReapplicationAttributeMerger.reapplyStyles(in: staleText) { styleName in
+            styleName == titleStyle.name ? titleStyle : nil
+        }
+        XCTAssertFalse(
+            StyleReapplicationAttributeMerger.hasStyleMismatch(in: repaired) { styleName in
                 styleName == titleStyle.name ? titleStyle : nil
             }
         )

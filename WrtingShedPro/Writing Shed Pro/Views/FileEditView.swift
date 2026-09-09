@@ -82,7 +82,7 @@ enum StyleReapplicationAttributeMerger {
         return mutable
     }
 
-    static func hasFontMismatch(
+    static func hasStyleMismatch(
         in source: NSAttributedString,
         resolveStyle: (String) -> TextStyleModel?
     ) -> Bool {
@@ -94,11 +94,15 @@ enum StyleReapplicationAttributeMerger {
             options: []
         ) { attributes, _, stop in
             guard let styleName = attributes[.textStyle] as? String,
-                  let style = resolveStyle(styleName),
-                  let expectedFont = merge(
-                    styleAttributes: style.generateAttributes(),
-                    currentAttributes: attributes
-                  )[.font] as? UIFont else {
+                  let style = resolveStyle(styleName) else {
+                return
+            }
+
+            let expectedAttributes = merge(
+                styleAttributes: style.generateAttributes(),
+                currentAttributes: attributes
+            )
+            guard let expectedFont = expectedAttributes[.font] as? UIFont else {
                 return
             }
 
@@ -108,6 +112,16 @@ enum StyleReapplicationAttributeMerger {
                 hasMismatch = true
                 stop.pointee = true
                 return
+            }
+
+            if style.numberFormat != .none,
+               style.styleCategory != .list,
+               let expectedParagraph = expectedAttributes[.paragraphStyle] as? NSParagraphStyle {
+                let currentIndent = (attributes[.paragraphStyle] as? NSParagraphStyle)?.firstLineHeadIndent ?? 0
+                if abs(currentIndent - expectedParagraph.firstLineHeadIndent) >= 0.01 {
+                    hasMismatch = true
+                    stop.pointee = true
+                }
             }
         }
 
@@ -8548,7 +8562,7 @@ struct FileEditView: View {
         let sourceContent = textViewCoordinator.textView.map {
             NSAttributedString(attributedString: $0.attributedText)
         } ?? attributedContent
-        return StyleReapplicationAttributeMerger.hasFontMismatch(in: sourceContent) { styleName in
+        return StyleReapplicationAttributeMerger.hasStyleMismatch(in: sourceContent) { styleName in
             styleSheet.style(named: styleName)
         }
     }

@@ -909,15 +909,16 @@ class NumberingLayoutManager: NSLayoutManager {
             let gap: CGFloat = 4.0
             numberX = origin.x + style.headIndent - numberSize.width - gap
         } else {
-            // Right-align headings against the actual text start. This preserves
-            // the gap when an existing paragraph's reserved indent was calculated
-            // before its counter grew from one digit to two (for example 1.9 → 1.10).
+            // Keep headings anchored at the style's base indent. If an older
+            // paragraph reserved too little room for a wider number, let only
+            // the number extend left rather than shifting the heading right.
             let gap: CGFloat = 4.0
             let paragraphStyle = paragraphAttributes[.paragraphStyle] as? NSParagraphStyle
             let textStartIndent = paragraphStyle?.firstLineHeadIndent
                 ?? (style.firstLineIndent + numberSize.width + gap)
             numberX = Self.headingNumberDrawingX(
                 originX: origin.x,
+                styleFirstLineIndent: style.firstLineIndent,
                 textStartIndent: textStartIndent,
                 numberWidth: numberSize.width,
                 gap: gap
@@ -953,11 +954,14 @@ class NumberingLayoutManager: NSLayoutManager {
 
     static func headingNumberDrawingX(
         originX: CGFloat,
+        styleFirstLineIndent: CGFloat,
         textStartIndent: CGFloat,
         numberWidth: CGFloat,
         gap: CGFloat = 4
     ) -> CGFloat {
-        originX + textStartIndent - numberWidth - gap
+        let styleAnchor = originX + styleFirstLineIndent
+        let rightAlignedPosition = originX + textStartIndent - numberWidth - gap
+        return min(styleAnchor, rightAlignedPosition)
     }
 
     static func numberDrawingY(

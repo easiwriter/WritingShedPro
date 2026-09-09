@@ -88,17 +88,29 @@ final class NumberingLayoutManagerTests: XCTestCase {
         XCTAssertEqual(baselineAlignedY + font.ascender, 55, accuracy: 0.001)
     }
 
-    func testHeadingNumberDrawingXKeepsGapBeforeTextForTwoDigitCounter() {
-        let textStartX: CGFloat = 74
+    func testHeadingNumberDrawingXExtendsLeftWhenStoredReservationIsTooNarrow() {
+        let textStartX: CGFloat = 40
         let numberWidth: CGFloat = 46
 
         let numberX = NumberingLayoutManager.headingNumberDrawingX(
             originX: 8,
+            styleFirstLineIndent: 0,
             textStartIndent: textStartX,
             numberWidth: numberWidth
         )
 
         XCTAssertEqual(numberX + numberWidth + 4, 8 + textStartX, accuracy: 0.001)
+    }
+
+    func testHeadingNumberDrawingXDoesNotFollowOversizedStoredReservation() {
+        let numberX = NumberingLayoutManager.headingNumberDrawingX(
+            originX: 8,
+            styleFirstLineIndent: 0,
+            textStartIndent: 77,
+            numberWidth: 35
+        )
+
+        XCTAssertEqual(numberX, 8, accuracy: 0.001)
     }
 
     func testOnScreenNumberDrawingYUsesUsedLineTop() {
@@ -452,7 +464,7 @@ final class NumberingLayoutManagerTests: XCTestCase {
         let widthOneAncestor = NumberFormat.decimal.estimatedWidth(for: font, adornment: .period, ancestorDepth: 1)
         
         XCTAssertGreaterThan(widthOneAncestor, widthNoAncestor,
-                             "Depth 1 ('99.99.') should be wider than depth 0 ('99.')")
+                             "Depth 1 ('9.9.') should be wider than depth 0 ('9.')")
     }
     
     func testEstimatedWidth_DecimalTwoAncestors() {
