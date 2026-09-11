@@ -88,6 +88,19 @@ struct ReviewMetadata: Codable {
     let analysisTimeMs: Int
     let model: String
     let softCapState: String  // "normal", "approaching_limit", "throttled"
+    let authorshipAssessment: AuthorshipAssessment?
+}
+
+struct AuthorshipAssessment: Codable {
+    let classification: String
+    let confidence: String
+    let summary: String
+    let indicators: [AuthorshipIndicator]
+}
+
+struct AuthorshipIndicator: Codable {
+    let location: String?
+    let observation: String
 }
 
 // MARK: - API Request/Response Types
@@ -131,6 +144,7 @@ struct ManuscriptAnalystResponse: Codable {
         let overallSentiment: String
         let analysisProfile: String
         let suggestedFocusOrder: [String]
+        let authorshipAssessment: AuthorshipAssessment?
     }
 
     struct ResponseMetadata: Codable {

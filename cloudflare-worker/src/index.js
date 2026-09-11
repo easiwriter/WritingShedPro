@@ -15,7 +15,7 @@ const RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
 const MAX_QUERY_LENGTH = 2000;
 const MAX_DIAGNOSTICS_LENGTH = 12000;
 const MAX_ANALYST_CONTENT_LENGTH = 120000;
-const ANALYST_CACHE_VERSION = "v7";
+const ANALYST_CACHE_VERSION = "v8";
 const ANALYST_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
 const MAX_MESSAGE_TITLE_LENGTH = 200;
 const MAX_MESSAGE_BODY_LENGTH = 4000;
@@ -386,7 +386,7 @@ async function handleManuscriptAnalystReview(request, env) {
 
     try {
         const systemPrompt = buildAnalystSystemPrompt(analysisProfile, projectType, fictionClass, safeMetadata);
-        const userPrompt = buildAnalystUserPrompt(content, safeMetadata, safeOptions, analysisProfile);
+        const userPrompt = buildAnalystUserPrompt(content, safeMetadata, safeOptions, analysisProfile, projectType);
         const cacheFingerprint = await sha256Hex(JSON.stringify({
             v: ANALYST_CACHE_VERSION,
             analysisMode,
@@ -478,6 +478,7 @@ async function handleManuscriptAnalystReview(request, env) {
                     overallSentiment: analysis.sentiment,
                     analysisProfile: analysisProfile,
                     suggestedFocusOrder: analysis.focusAreas,
+                    authorshipAssessment: analysis.authorshipAssessment,
                 },
                 suggestions: analysis.suggestions,
                 metadata: {
@@ -1745,6 +1746,17 @@ You provide feedback in JSON format with the following structure:
     "summary": "a developed editorial reading (4-6 sentences) of the writing's strengths and possible areas for revision, naming specific craft elements rather than generalities",
   "sentiment": "encouraging|mixed|critical",
   "focusAreas": ["area1", "area2", "area3"],
+    "authorshipAssessment": {
+        "classification": "insufficient_text|no_notable_indicators|some_ai_like_characteristics|strong_ai_like_characteristics|inconclusive",
+        "confidence": "low|moderate",
+        "summary": "a cautious explanation of the result and conflicting evidence",
+        "indicators": [
+            {
+                "location": "Line N or Line N-M (must use source line numbers)",
+                "observation": "a specific, evidence-grounded pattern sometimes associated with AI-generated writing"
+            }
+        ]
+    },
   "suggestions": [
     {
       "id": "unique_id",
@@ -1773,6 +1785,21 @@ OUTPUT QUALITY RULES:
 - Quality still governs: every suggestion must be anchored in textual evidence. Do not invent weak or speculative points purely to inflate the count.
 - Never imply that your reading is the only valid reading of the text.`;
 
+    const authorshipGuidance = `
+
+AI-WRITING INDICATORS ASSESSMENT:
+- Assess textual patterns only. You cannot determine authorship or prove that AI was used.
+- Never provide a percentage, probability, score, accusation, or definitive AI/human verdict.
+- Use "insufficient_text" when the sample is too short or fragmentary for a meaningful assessment.
+- Use "inconclusive" when signals conflict or there is no responsible distinction to make.
+- Consider observable patterns such as unusually uniform sentence structure, repetitive paragraph templates, formulaic transitions, abstract claims without concrete detail, excessively even tone or vocabulary, repeated conclusion-like restatements, and abrupt stylistic changes.
+- Do not treat polished grammar, formal vocabulary, genre conventions, non-native English, disability-related writing patterns, or a single stylistic feature as evidence by itself.
+- Include only well-supported indicators and cite exact source line numbers. An empty indicators array is valid.
+- Confidence may only be "low" or "moderate" because text-only detection is inherently unreliable.
+- The summary must clearly acknowledge uncertainty and must not imply misconduct.`;
+
+    const promptWithAuthorshipGuidance = basePrompt + authorshipGuidance;
+
     if (analysisProfile === "poetry") {
         const preserveForm = metadata?.preservePoetryForm === true;
         const declaredForm = metadata?.poetryFormName && metadata.poetryFormName.trim().length > 0
@@ -1787,7 +1814,7 @@ OUTPUT QUALITY RULES:
 - If the only possible improvement appears form-breaking, mark it as low severity and offer a form-preserving alternative.`
             : "";
 
-        return basePrompt + `
+        return promptWithAuthorshipGuidance + `
 
 POETRY-SPECIFIC GUIDANCE:
 - Focus on: imagery, diction, lineation, rhythm and meter, stanza architecture, sonic texture, emotional coherence
@@ -1798,7 +1825,7 @@ POETRY-SPECIFIC GUIDANCE:
 - De-emphasize plot/character diagnostics unless narrative elements are explicit${declaredForm ? `
 - Declared form: ${declaredForm}` : ""}${formConstraintBlock}`;
     } else if (analysisProfile === "prose") {
-        return basePrompt + `
+        return promptWithAuthorshipGuidance + `
 
 PROSE-SPECIFIC GUIDANCE:
 - Focus on: clarity, structure, transitions, voice consistency, exposition density, readability
@@ -1808,7 +1835,7 @@ PROSE-SPECIFIC GUIDANCE:
 - Consider reader engagement and pacing
 - Do not force fiction-style character/plot analysis`;
     } else if (analysisProfile === "fiction") {
-        return basePrompt + `
+        return promptWithAuthorshipGuidance + `
 
 FICTION-SPECIFIC GUIDANCE:
 - Focus on: plot logic, character motivation, scene effectiveness, pacing, tension, continuity, stakes, voice, POV control
@@ -1817,14 +1844,14 @@ FICTION-SPECIFIC GUIDANCE:
 - Assess character consistency and believability
 - Comment on show-vs-tell balance`;
     } else if (analysisProfile === "shortFiction") {
-        return basePrompt + `
+        return promptWithAuthorshipGuidance + `
 
 SHORT FICTION-SPECIFIC GUIDANCE:
 - Focus on: compression, economy, payoff, scene intent, momentum, stakes
 - Categories: Pacing & Structure, Character Development, Narrative Consistency, Tone & Voice, Engagement
 - Weight concise execution and ending effectiveness more heavily than long-form pacing`;
     } else if (analysisProfile === "drama") {
-        return basePrompt + `
+        return promptWithAuthorshipGuidance + `
 
 DRAMA-SPECIFIC GUIDANCE:
 - Focus on: scene dynamics, dialogue effectiveness, stage clarity, dramatic tension, objectives and escalation
@@ -1833,7 +1860,7 @@ DRAMA-SPECIFIC GUIDANCE:
 - Assess dialogue patterns and subtext
 - Consider act/scene structure`;
     } else if (analysisProfile === "verseNovel") {
-        return basePrompt + `
+        return promptWithAuthorshipGuidance + `
 
 VERSE NOVEL-SPECIFIC GUIDANCE:
 - Focus on: narrative movement and poetic craft together, including continuity, scene clarity, lineation, imagery, rhythm, and compression
@@ -1842,10 +1869,10 @@ VERSE NOVEL-SPECIFIC GUIDANCE:
 - Assess whether verse enhances or obstructs the story
 - Balance poem-level and narrative-level feedback`;
     }
-    return basePrompt;
+    return promptWithAuthorshipGuidance;
 }
 
-function buildAnalystUserPrompt(content, metadata, options, analysisProfile) {
+function buildAnalystUserPrompt(content, metadata, options, analysisProfile, projectType) {
     let prompt = `Please analyze the following ${analysisProfile} writing sample:\n\n`;
     
     if (metadata) {
@@ -1928,6 +1955,7 @@ function parseAnalysisResponse(text, analysisProfile) {
             summary: parsed.summary || "Analysis completed.",
             sentiment: parsed.sentiment || "mixed",
             focusAreas: parsed.focusAreas || [],
+            authorshipAssessment: normalizeAuthorshipAssessment(parsed.authorshipAssessment),
             suggestions: (parsed.suggestions || []).map((s, idx) => ({
                 id: s.id || `sugg_${idx}`,
                 category: s.category || "General",
@@ -1944,11 +1972,40 @@ function parseAnalysisResponse(text, analysisProfile) {
     }
 }
 
+function normalizeAuthorshipAssessment(value) {
+    const allowedClassifications = new Set([
+        "insufficient_text",
+        "no_notable_indicators",
+        "some_ai_like_characteristics",
+        "strong_ai_like_characteristics",
+        "inconclusive",
+    ]);
+    const classification = allowedClassifications.has(value?.classification)
+        ? value.classification
+        : "inconclusive";
+    const confidence = value?.confidence === "moderate" ? "moderate" : "low";
+    const summary = typeof value?.summary === "string" && value.summary.trim().length > 0
+        ? value.summary.trim()
+        : "Text-only analysis cannot reliably determine whether AI was used.";
+    const indicators = Array.isArray(value?.indicators)
+        ? value.indicators
+            .filter((indicator) => typeof indicator?.observation === "string" && indicator.observation.trim().length > 0)
+            .slice(0, 6)
+            .map((indicator) => ({
+                location: typeof indicator.location === "string" ? indicator.location : null,
+                observation: indicator.observation.trim(),
+            }))
+        : [];
+
+    return { classification, confidence, summary, indicators };
+}
+
 function createFallbackAnalysis(analysisProfile) {
     return {
         summary: "Analysis completed. Review the suggestions below.",
         sentiment: "mixed",
         focusAreas: [],
+        authorshipAssessment: normalizeAuthorshipAssessment(null),
         suggestions: [],
     };
 }

@@ -24,6 +24,20 @@
 "fileEditor.missingBody.confirmTitle" = "Edit Empty File?";
 "fileEditor.missingBody.confirmMessage" = "Only continue if this file has never contained text. If another device has content for it, editing here may replace that content.";
 "fileEditor.missingBody.confirmEdit" = "Edit Empty File";
+
+/* Manuscript Analyst - Writing Pattern Assessment */
+"analyst.authorship.title" = "Writing Pattern Assessment";
+"analyst.authorship.result" = "Result";
+"analyst.authorship.classification.none" = "No notable patterns";
+"analyst.authorship.classification.some" = "Some notable patterns";
+"analyst.authorship.classification.strong" = "Multiple notable patterns";
+"analyst.authorship.classification.insufficient" = "Insufficient text";
+"analyst.authorship.classification.inconclusive" = "Inconclusive";
+"analyst.authorship.confidence.low" = "Low";
+"analyst.authorship.confidence.moderate" = "Moderate";
+"analyst.authorship.confidenceFormat" = "%@ confidence";
+"analyst.authorship.observedPatterns" = "Observed patterns";
+"analyst.authorship.disclaimer" = "This assessment highlights structural and stylistic patterns in the text. It cannot determine authorship or prove that AI was used.";
 /* Localization strings for Write! app */
 
 /* Project types */

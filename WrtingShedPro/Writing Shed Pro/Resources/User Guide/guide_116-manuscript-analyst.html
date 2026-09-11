@@ -71,12 +71,14 @@ body > *:first-child { margin-top: 0 !important; }
 <li>Returns structured suggestions with category and severity</li>
 <li>Highlights clarity, structure, pacing, consistency, and craft concerns</li>
 <li>Adapts feedback to project type (Poetry, Prose, Fiction, Drama, Verse Novel)</li>
+<li>Includes a Writing Pattern Assessment that highlights notable structural and stylistic patterns</li>
 </ul>
 <h2 id="what-it-does-not-do">What It Does Not Do</h2>
 <ul>
 <li>Does not auto-edit your file</li>
 <li>Does not rewrite your manuscript for you</li>
 <li>Does not publish or submit your work</li>
+<li>Does not determine authorship or prove that AI was used</li>
 </ul>
 <h2 id="availability-and-purchase">Availability and Purchase</h2>
 <p>Manuscript Analyst is a separate add-on from the core app purchase and requires an active Manuscript Analyst subscription.</p>
@@ -91,7 +93,8 @@ body > *:first-child { margin-top: 0 !important; }
 </li>
 <li>Analysis starts immediately after you tap the button.</li>
 <li>Wait for analysis to complete.</li>
-<li>Review suggestions and apply edits manually.</li>
+<li>Review the analysis summary, Writing Pattern Assessment, and editorial suggestions.</li>
+<li>Apply any edits manually.</li>
 </ol>
 <h3 id="manuscript-analyst-button-visual">Manuscript Analyst Button (Visual)</h3>
 <p><svg xmlns="http://www.w3.org/2000/svg" width="210" height="44" role="img" aria-label="Manuscript Analyst Analyze button visual">
@@ -101,6 +104,22 @@ body > *:first-child { margin-top: 0 !important; }
 </svg></p>
 <h2 id="review-output-format">Review Output Format</h2>
 <p>Each suggestion includes a category, severity, location (when available), observation, suggested direction, and rationale.</p>
+<h2 id="writing-pattern-assessment">Writing Pattern Assessment</h2>
+<p>Each review includes a <strong>Writing Pattern Assessment</strong> above the editorial suggestions. It examines structural and stylistic features in the submitted text, such as unusually uniform sentence construction, repeated paragraph patterns, formulaic transitions, consistently abstract language, repeated conclusions, or abrupt changes in style.</p>
+<p>The assessment reports one of the following results:</p>
+<ul>
+<li><strong>No notable patterns</strong>: the analysis did not find sufficiently distinctive patterns to highlight</li>
+<li><strong>Some notable patterns</strong>: the analysis found a limited number of relevant patterns</li>
+<li><strong>Multiple notable patterns</strong>: the analysis found several relevant patterns across the text</li>
+<li><strong>Inconclusive</strong>: the available signals conflict or do not support a responsible distinction</li>
+<li><strong>Insufficient text</strong>: the sample is too short or fragmentary for a meaningful assessment</li>
+</ul>
+<p>The result also includes a <strong>Low</strong> or <strong>Moderate</strong> confidence label, a summary, and line-referenced observations when relevant. Confidence is deliberately limited because text-only pattern analysis is inherently uncertain.</p>
+<blockquote>
+<p><strong>Important:</strong> Writing Pattern Assessment cannot determine who wrote a text or prove that AI was used. A result of <strong>No notable patterns</strong> does not establish human authorship, and notable patterns do not establish AI authorship. Treat the assessment as additional editorial information, not as evidence for academic, employment, publication, or disciplinary decisions.</p>
+</blockquote>
+<p>Poetry, short passages, heavily edited text, translations, and highly formal writing can be particularly difficult to assess because many legitimate writing techniques overlap with patterns sometimes found in generated text.</p>
+<p>When you choose <strong>Copy Full Review</strong> from the review menu, the Writing Pattern Assessment and its disclaimer are included with the analysis summary and editorial suggestions.</p>
 <h2 id="see-also">See Also</h2>
 <ul>
 <li><a href="guide:114-faq">Frequently Asked Questions</a></li>

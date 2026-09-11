@@ -7,9 +7,9 @@ final class ManuscriptAnalystService {
     static let shared = ManuscriptAnalystService()
 
     private var reviewCache: [String: ManuscriptReview] = [:]
-    private let cacheSchemaVersion = "v5"
+    private let cacheSchemaVersion = "v7"
     private let manuscriptFileBoundaryPrefix = "[[WSP_FILE:"
-    private let cloudFlareEndpoint = "https://wsp-support.writingshedpro.workers.dev/api/manuscript-analyst/review"
+    private let cloudFlareEndpoint = "https://wsp-support.wsp-support.workers.dev/api/manuscript-analyst/review"
     
     // Soft cap tracking
     private var monthlyTokenUsage: Int = 0
@@ -440,7 +440,8 @@ final class ManuscriptAnalystService {
             tokensUsed: response.metadata.tokensUsed,
             analysisTimeMs: response.metadata.analysisTimeMs,
             model: response.metadata.model,
-            softCapState: response.metadata.softCapState
+            softCapState: response.metadata.softCapState,
+            authorshipAssessment: response.analysis.authorshipAssessment
         )
 
         return review

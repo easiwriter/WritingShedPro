@@ -13,6 +13,7 @@ struct AddFileSheet: View {
     @State private var selectedContentType: FileContentType = .richText
     @State private var upgradePromptReason: UpgradePromptReason?
     @Environment(\.modelContext) var modelContext
+    @Environment(\.dismiss) private var dismiss
     
     /// Whether this file is being created in a Poetry project
     private var isPoetryProject: Bool {
@@ -93,7 +94,7 @@ struct AddFileSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("addFile.cancel", comment: "Cancel button")) {
-                        isPresented = false
+                        dismissSheet()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -150,7 +151,7 @@ struct AddFileSheet: View {
                 poetryFormName: poetryFormName,
                 contentType: supportsMarkdown ? selectedContentType : .richText
             )
-            isPresented = false
+            dismissSheet()
         } catch OnboardingCreationError.fileLimit(let projectType) {
             upgradePromptReason = .fileLimit(projectType: projectType)
         } catch OnboardingCreationError.folderDoesNotAllowFiles {
@@ -165,6 +166,12 @@ struct AddFileSheet: View {
             }
             showErrorAlert = true
         }
+    }
+
+    private func dismissSheet() {
+        isPresented = false
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
     
 }

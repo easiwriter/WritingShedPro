@@ -35,6 +35,10 @@ struct AnalystReviewView: View {
                 // Suggestions list
                 ScrollView {
                     VStack(spacing: 12) {
+                        if let assessment = review.metadata?.authorshipAssessment {
+                            authorshipAssessmentCard(assessment)
+                        }
+
                         if filteredSuggestions.isEmpty {
                             emptyState
                         } else {
@@ -334,6 +338,78 @@ struct AnalystReviewView: View {
         }
     }
 
+    private func authorshipAssessmentCard(_ assessment: AuthorshipAssessment) -> some View {
+        let (icon, color) = authorshipStyle(for: assessment.classification)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Label(
+                    NSLocalizedString("analyst.authorship.title", comment: "Writing pattern assessment section title"),
+                    systemImage: "text.magnifyingglass"
+                )
+                .font(useLargeText ? .title3 : .headline)
+                .fontWeight(.semibold)
+
+                Spacer()
+
+                Label(authorshipClassificationLabel(assessment.classification), systemImage: icon)
+                    .font(useLargeText ? .callout : .caption)
+                    .foregroundStyle(color)
+            }
+
+            Text(assessment.summary)
+                .font(useLargeText ? .body : .callout)
+                .foregroundStyle(.primary)
+
+            Text(String(
+                format: NSLocalizedString("analyst.authorship.confidenceFormat", comment: "AI-writing assessment confidence label"),
+                authorshipConfidenceLabel(assessment.confidence)
+            ))
+            .font(useLargeText ? .callout : .caption)
+            .foregroundStyle(.secondary)
+
+            if !assessment.indicators.isEmpty {
+                Divider()
+
+                Text(NSLocalizedString("analyst.authorship.observedPatterns", comment: "Observed writing patterns heading"))
+                    .font(useLargeText ? .headline : .subheadline)
+                    .fontWeight(.semibold)
+
+                ForEach(Array(assessment.indicators.enumerated()), id: \.offset) { _, indicator in
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 6))
+                            .foregroundStyle(color)
+                            .padding(.top, 7)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            if let location = indicator.location, !location.isEmpty {
+                                Text(location)
+                                    .font(useLargeText ? .callout : .caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text(indicator.observation)
+                                .font(useLargeText ? .body : .callout)
+                        }
+                    }
+                }
+            }
+
+            Text(NSLocalizedString("analyst.authorship.disclaimer", comment: "AI-writing assessment reliability disclaimer"))
+                .font(useLargeText ? .callout : .caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(color.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(color.opacity(0.25), lineWidth: 1)
+        )
+        .cornerRadius(8)
+    }
+
     // MARK: - Helpers
 
     private var filteredSuggestions: [ReviewSuggestion] {
@@ -377,6 +453,38 @@ struct AnalystReviewView: View {
         default:
             return ("question.circle.fill", .gray)
         }
+    }
+
+    private func authorshipStyle(for classification: String) -> (icon: String, color: Color) {
+        switch classification {
+        case "no_notable_indicators":
+            return ("checkmark.circle.fill", .green)
+        case "some_ai_like_characteristics", "strong_ai_like_characteristics":
+            return ("exclamationmark.triangle.fill", .orange)
+        case "insufficient_text":
+            return ("text.badge.xmark", .gray)
+        default:
+            return ("questionmark.circle.fill", .gray)
+        }
+    }
+
+    private func authorshipClassificationLabel(_ classification: String) -> String {
+        let key: String
+        switch classification {
+        case "no_notable_indicators": key = "analyst.authorship.classification.none"
+        case "some_ai_like_characteristics": key = "analyst.authorship.classification.some"
+        case "strong_ai_like_characteristics": key = "analyst.authorship.classification.strong"
+        case "insufficient_text": key = "analyst.authorship.classification.insufficient"
+        default: key = "analyst.authorship.classification.inconclusive"
+        }
+        return NSLocalizedString(key, comment: "Writing pattern assessment classification")
+    }
+
+    private func authorshipConfidenceLabel(_ confidence: String) -> String {
+        let key = confidence == "moderate"
+            ? "analyst.authorship.confidence.moderate"
+            : "analyst.authorship.confidence.low"
+        return NSLocalizedString(key, comment: "AI-writing assessment confidence")
     }
 
     private func copyFullReviewToClipboard() {
@@ -440,6 +548,22 @@ struct AnalystReviewView: View {
             for area in focusOrder {
                 lines.append("- \(area)")
             }
+        }
+
+        if let assessment = review.metadata?.authorshipAssessment {
+            lines.append("")
+            lines.append(plainTextBold(NSLocalizedString("analyst.authorship.title", comment: "Writing pattern assessment section title")))
+            lines.append("\(NSLocalizedString("analyst.authorship.result", comment: "AI-writing assessment result label")): \(authorshipClassificationLabel(assessment.classification))")
+            lines.append(String(
+                format: NSLocalizedString("analyst.authorship.confidenceFormat", comment: "AI-writing assessment confidence label"),
+                authorshipConfidenceLabel(assessment.confidence)
+            ))
+            lines.append(assessment.summary)
+            for indicator in assessment.indicators {
+                let location = indicator.location.map { " [\($0)]" } ?? ""
+                lines.append("-\(location) \(indicator.observation)")
+            }
+            lines.append(NSLocalizedString("analyst.authorship.disclaimer", comment: "AI-writing assessment reliability disclaimer"))
         }
 
         lines.append("")
@@ -539,6 +663,22 @@ struct AnalystReviewView: View {
             for area in focusOrder {
                 appendBody("- \(area)")
             }
+        }
+
+        if let assessment = review.metadata?.authorshipAssessment {
+            appendBody("")
+            appendHeading(NSLocalizedString("analyst.authorship.title", comment: "Writing pattern assessment section title"))
+            appendBody("\(NSLocalizedString("analyst.authorship.result", comment: "AI-writing assessment result label")): \(authorshipClassificationLabel(assessment.classification))")
+            appendBody(String(
+                format: NSLocalizedString("analyst.authorship.confidenceFormat", comment: "AI-writing assessment confidence label"),
+                authorshipConfidenceLabel(assessment.confidence)
+            ))
+            appendBody(assessment.summary)
+            for indicator in assessment.indicators {
+                let location = indicator.location.map { " [\($0)]" } ?? ""
+                appendBody("-\(location) \(indicator.observation)")
+            }
+            appendBody(NSLocalizedString("analyst.authorship.disclaimer", comment: "AI-writing assessment reliability disclaimer"))
         }
 
         appendBody("")
