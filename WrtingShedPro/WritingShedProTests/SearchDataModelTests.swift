@@ -120,6 +120,63 @@ final class SearchDataModelTests: XCTestCase {
         
         XCTAssertEqual(match1, match2)
     }
+
+    // MARK: - Multi-File Search Result Tests
+
+    func testMultiFileSearchResultShowsProjectLocation() {
+        let project = Project(name: "Novel", type: .fiction)
+        let manuscript = Folder(name: "Manuscript", project: project)
+        let chapters = Folder(name: "Chapters", parentFolder: manuscript)
+        let file = TextFile(name: "Opening", parentFolder: chapters)
+        let result = MultiFileSearchResult(file: file, version: Version(), matches: [])
+
+        XCTAssertEqual(result.locationPath, "Novel / Manuscript / Chapters")
+    }
+
+    func testMultiFileSearchResultHandlesDetachedFile() {
+        let file = TextFile(name: "Opening")
+        let result = MultiFileSearchResult(file: file, version: Version(), matches: [])
+
+        XCTAssertEqual(result.locationPath, "Location unavailable")
+    }
+
+    @MainActor
+    func testMultiFileSearchFindsFileByPartialName() {
+        let file = TextFile(name: "Opening Scene", initialContent: "No matching content")
+        let service = MultiFileSearchService()
+        service.searchTarget = .fileNames
+        service.searchText = "opening"
+
+        service.searchInFiles([file])
+
+        XCTAssertEqual(service.results.map(\.file.id), [file.id])
+    }
+
+    @MainActor
+    func testMultiFileSearchFindsFileNameWithoutCurrentVersion() {
+        let file = TextFile(name: "Opening Scene")
+        file.versions = []
+        let service = MultiFileSearchService()
+        service.searchTarget = .fileNames
+        service.searchText = "Scene"
+
+        service.searchInFiles([file])
+
+        XCTAssertEqual(service.results.map(\.file.id), [file.id])
+        XCTAssertNil(service.results.first?.version)
+    }
+
+    @MainActor
+    func testContentSearchDoesNotMatchFileName() {
+        let file = TextFile(name: "Opening Scene", initialContent: "No matching content")
+        let service = MultiFileSearchService()
+        service.searchTarget = .contents
+        service.searchText = "Opening Scene"
+
+        service.searchInFiles([file])
+
+        XCTAssertTrue(service.results.isEmpty)
+    }
     
     // MARK: - SearchOptions Tests
     

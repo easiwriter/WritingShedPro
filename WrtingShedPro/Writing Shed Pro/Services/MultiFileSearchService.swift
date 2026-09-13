@@ -10,14 +10,43 @@ import Foundation
 import SwiftData
 import Observation
 
+enum MultiFileSearchTarget: String, CaseIterable, Identifiable {
+    case contents
+    case fileNames
+
+    var id: Self { self }
+}
+
 /// Result of searching across multiple files
 struct MultiFileSearchResult: Identifiable {
     let id = UUID()
     let file: TextFile
-    let version: Version
+    let version: Version?
     let matches: [SearchMatch]
     var matchCount: Int { matches.count }
     var isSelected: Bool = false  // For bulk replace operations
+
+    var locationPath: String {
+        var folderNames: [String] = []
+        var visitedFolderIDs = Set<UUID>()
+        var currentFolder = file.parentFolder
+        var projectName: String?
+
+        while let folder = currentFolder, visitedFolderIDs.insert(folder.id).inserted {
+            folderNames.append(folder.name?.isEmpty == false ? folder.name! : "Untitled Folder")
+            if projectName == nil, let name = folder.project?.name, !name.isEmpty {
+                projectName = name
+            }
+            currentFolder = folder.parentFolder
+        }
+
+        folderNames.reverse()
+        if let projectName {
+            folderNames.insert(projectName, at: 0)
+        }
+
+        return folderNames.isEmpty ? "Location unavailable" : folderNames.joined(separator: " / ")
+    }
 }
 
 /// Service for searching across multiple files (folders or collections)
@@ -33,6 +62,7 @@ class MultiFileSearchService {
     var isWholeWord: Bool = false
     var isRegex: Bool = false
     var isReplaceMode: Bool = false
+    var searchTarget: MultiFileSearchTarget = .contents
     
     var results: [MultiFileSearchResult] = []
     var isSearching: Bool = false
@@ -119,11 +149,15 @@ class MultiFileSearchService {
         
         // Search each file
         for file in uniqueFiles {
-            // Use the current version
-            guard let version = file.currentVersion else { continue }
-            
-            // Get the text content (use plain text stored in content property)
-            let text = version.content
+            let version = file.currentVersion
+            let text: String
+            switch searchTarget {
+            case .contents:
+                guard let version else { continue }
+                text = version.content
+            case .fileNames:
+                text = file.name
+            }
             
             // Search for matches
             let matches = searchEngine.search(in: text, query: query)
@@ -161,7 +195,7 @@ class MultiFileSearchService {
         
         for i in results.indices where results[i].isSelected {
             let result = results[i]
-            let version = result.version
+            guard let version = result.version else { continue }
             
             // Get the current content
             var text = version.content

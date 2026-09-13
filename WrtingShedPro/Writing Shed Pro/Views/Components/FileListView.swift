@@ -121,6 +121,9 @@ struct FileListView: View {
     
     /// Tracks which collection sections are expanded (bound from parent)
     @Binding var expandedCollections: Set<String>
+
+    /// File to reveal when this list was opened from search results.
+    let highlightedFileID: UUID?
     
     /// Feature 021: Poetry form picker for changing form
     @State private var fileForFormChange: TextFile?
@@ -358,57 +361,94 @@ struct FileListView: View {
     // MARK: - Extracted Content
     
     private var fileListContainer: some View {
-        List {
-            if useCollectionGrouping, let groups = collectionGroups {
-                ForEach(groups) { group in
-                    Section {
-                        if expandedCollections.contains(group.id) {
-                            ForEach(group.files) { file in
-                                fileRow(for: file, collectionGroupID: group.id)
-                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                        if !isEditMode {
-                                            swipeActionButtons(for: file)
+        ScrollViewReader { proxy in
+            List {
+                if useCollectionGrouping, let groups = collectionGroups {
+                    ForEach(groups) { group in
+                        Section {
+                            if expandedCollections.contains(group.id) {
+                                ForEach(group.files) { file in
+                                    fileRow(for: file, collectionGroupID: group.id)
+                                        .id(file.id)
+                                        .listRowBackground(searchResultHighlight(for: file))
+                                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                            if !isEditMode {
+                                                swipeActionButtons(for: file)
+                                            }
                                         }
-                                    }
+                                }
                             }
+                        } header: {
+                            collectionSectionHeader(for: group)
                         }
-                    } header: {
-                        collectionSectionHeader(for: group)
                     }
-                }
-            } else if useSections {
-                ForEach(sections) { section in
-                    Section {
-                        if expandedSections.contains(section.letter) {
-                            ForEach(section.items) { file in
-                                fileRow(for: file)
-                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                        if !isEditMode {
-                                            swipeActionButtons(for: file)
+                } else if useSections {
+                    ForEach(sections) { section in
+                        Section {
+                            if expandedSections.contains(section.letter) {
+                                ForEach(section.items) { file in
+                                    fileRow(for: file)
+                                        .id(file.id)
+                                        .listRowBackground(searchResultHighlight(for: file))
+                                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                            if !isEditMode {
+                                                swipeActionButtons(for: file)
+                                            }
                                         }
-                                    }
+                                }
                             }
+                        } header: {
+                            sectionHeader(for: section)
                         }
-                    } header: {
-                        sectionHeader(for: section)
                     }
-                }
-            } else {
-                ForEach(uniqueFiles) { file in
-                    fileRow(for: file)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if !isEditMode {
-                                swipeActionButtons(for: file)
+                } else {
+                    ForEach(uniqueFiles) { file in
+                        fileRow(for: file)
+                            .id(file.id)
+                            .listRowBackground(searchResultHighlight(for: file))
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                if !isEditMode {
+                                    swipeActionButtons(for: file)
+                                }
                             }
-                        }
+                    }
+                    .onMove(perform: onReorder)
                 }
-                .onMove(perform: onReorder)
+            }
+            .listStyle(.plain)
+            .onAppear {
+                revealHighlightedFile(using: proxy)
             }
         }
-        .listStyle(.plain)
+    }
+
+    private func searchResultHighlight(for file: TextFile) -> Color {
+        highlightedFileID == file.id ? Color.accentColor.opacity(0.2) : Color.clear
+    }
+
+    private func revealHighlightedFile(using proxy: ScrollViewProxy) {
+        guard let highlightedFileID else { return }
+
+        if useCollectionGrouping,
+           let group = collectionGroups?.first(where: { group in
+               group.files.contains(where: { $0.id == highlightedFileID })
+           }) {
+            expandedCollections.insert(group.id)
+        } else if useSections,
+                  let section = sections.first(where: { section in
+                      section.items.contains(where: { $0.id == highlightedFileID })
+                  }) {
+            expandedSections.insert(section.letter)
+        }
+
+        DispatchQueue.main.async {
+            withAnimation {
+                proxy.scrollTo(highlightedFileID, anchor: .center)
+            }
+        }
     }
     
     @ViewBuilder

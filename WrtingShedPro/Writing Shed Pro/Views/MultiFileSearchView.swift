@@ -11,6 +11,25 @@ import SwiftData
 
 /// View for searching across multiple files (folder or collection)
 struct MultiFileSearchView: View {
+    private struct ResultNavigation: Identifiable, Hashable {
+        enum Destination {
+            case file
+            case folder
+        }
+
+        let id = UUID()
+        let file: TextFile
+        let destination: Destination
+
+        static func == (lhs: ResultNavigation, rhs: ResultNavigation) -> Bool {
+            lhs.id == rhs.id
+        }
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(id)
+        }
+    }
+
     @Environment(\.dismiss) var dismiss
     @Environment(\.modelContext) var modelContext
     
@@ -20,8 +39,8 @@ struct MultiFileSearchView: View {
     @State private var showReplaceSuccessAlert = false
     @State private var replacementCount = 0
     
-    // Navigation to file
-    @State private var selectedFile: TextFile?
+    @State private var selectedResult: MultiFileSearchResult?
+    @State private var resultNavigation: ResultNavigation?
     
     let title: String
     let folder: Folder?
@@ -47,46 +66,21 @@ struct MultiFileSearchView: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Search bar
-                searchBar
-                
-                Divider()
-                
-                // Results area
-                if searchService.isSearching {
-                    ProgressView("Searching...")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if let errorMessage = searchService.errorMessage {
-                    ContentUnavailableView {
-                        Label("Error", systemImage: "exclamationmark.triangle")
-                    } description: {
-                        Text(errorMessage)
-                    }
-                } else if let regexError = searchService.regexError {
-                    ContentUnavailableView {
-                        Label("Invalid Pattern", systemImage: "exclamationmark.triangle")
-                    } description: {
-                        Text(regexError)
-                    }
-                } else if searchService.hasResults {
-                    resultsView
-                } else if !searchService.searchText.isEmpty {
-                    ContentUnavailableView {
-                        Label("No Matches", systemImage: "magnifyingglass")
-                    } description: {
-                        Text("No matches found in any files")
-                    }
-                } else {
-                    ContentUnavailableView {
-                        Label("Search Files", systemImage: "magnifyingglass")
-                    } description: {
-                        Text("Enter text to search across all files")
-                    }
-                }
-            }
+            resultActionDialogContent
+        }
+    }
+
+    private var navigationContent: some View {
+        VStack(spacing: 0) {
+            searchBar
+            Divider()
+            searchResultsContent
+        }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(item: $resultNavigation) { navigation in
+                resultDestination(for: navigation)
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") {
@@ -94,6 +88,10 @@ struct MultiFileSearchView: View {
                     }
                 }
             }
+    }
+
+    private var alertContent: some View {
+        navigationContent
             .alert("Replace Matches", isPresented: $showReplaceConfirmation) {
                 Button("Cancel", role: .cancel) { }
                 Button("Replace", role: .destructive) {
@@ -114,19 +112,127 @@ struct MultiFileSearchView: View {
             } message: {
                 Text("Replaced \(replacementCount) matches successfully.")
             }
+    }
+
+    private var resultActionDialogContent: some View {
+        alertContent
+            .confirmationDialog(
+                selectedResultTitle,
+                isPresented: isResultActionDialogPresented,
+                presenting: selectedResult
+            ) { result in
+                Button("Open File") {
+                    resultNavigation = ResultNavigation(file: result.file, destination: .file)
+                }
+                Button("Show in Folder") {
+                    resultNavigation = ResultNavigation(file: result.file, destination: .folder)
+                }
+                .disabled(result.file.parentFolder == nil)
+                Button("Cancel", role: .cancel) { }
+            } message: { result in
+                Text(result.locationPath)
+            }
+    }
+
+    private var isResultActionDialogPresented: Binding<Bool> {
+        Binding(
+            get: { selectedResult != nil },
+            set: { if !$0 { selectedResult = nil } }
+        )
+    }
+
+    @ViewBuilder
+    private var searchResultsContent: some View {
+        if searchService.isSearching {
+            ProgressView("Searching...")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let errorMessage = searchService.errorMessage {
+            searchUnavailableView(title: "Error", message: errorMessage, systemImage: "exclamationmark.triangle")
+        } else if let regexError = searchService.regexError {
+            searchUnavailableView(title: "Invalid Pattern", message: regexError, systemImage: "exclamationmark.triangle")
+        } else if searchService.hasResults {
+            resultsView
+        } else if !searchService.searchText.isEmpty {
+            let message = searchService.searchTarget == .fileNames
+                ? "No file names match your search"
+                : "No matches found in any files"
+            searchUnavailableView(title: "No Matches", message: message, systemImage: "magnifyingglass")
+        } else {
+            let message = searchService.searchTarget == .fileNames
+                ? "Enter all or part of a file name"
+                : "Enter text to search across all files"
+            searchUnavailableView(title: "Search Files", message: message, systemImage: "magnifyingglass")
+        }
+    }
+
+    private func searchUnavailableView(title: String, message: String, systemImage: String) -> some View {
+        ContentUnavailableView {
+            Label(title, systemImage: systemImage)
+        } description: {
+            Text(message)
         }
     }
     
     // MARK: - Search Bar
+
+    @ViewBuilder
+    private func resultDestination(for navigation: ResultNavigation) -> some View {
+        switch navigation.destination {
+        case .file:
+            FileEditViewWithSearch(
+                file: navigation.file,
+                searchText: searchService.searchText,
+                replaceText: searchService.isReplaceMode ? searchService.replaceText : nil,
+                isCaseSensitive: searchService.isCaseSensitive,
+                isWholeWord: searchService.isWholeWord,
+                isRegex: searchService.isRegex,
+                highlightsContent: searchService.searchTarget == .contents
+            )
+        case .folder:
+            folderDestination(for: navigation.file)
+        }
+    }
+
+    @ViewBuilder
+    private func folderDestination(for file: TextFile) -> some View {
+        if let parentFolder = file.parentFolder {
+            FolderFilesView(folder: parentFolder, highlightedFileID: file.id)
+        } else {
+            ContentUnavailableView(
+                "Folder Unavailable",
+                systemImage: "folder.badge.questionmark",
+                description: Text("This file is not currently assigned to a folder.")
+            )
+        }
+    }
+
+    private var selectedResultTitle: String {
+        guard let fileName = selectedResult?.file.name, !fileName.isEmpty else {
+            return "Untitled"
+        }
+        return fileName
+    }
     
     private var searchBar: some View {
         VStack(spacing: 12) {
+            Picker("Search in", selection: $searchService.searchTarget) {
+                Text("Contents").tag(MultiFileSearchTarget.contents)
+                Text("File Names").tag(MultiFileSearchTarget.fileNames)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: searchService.searchTarget) { _, target in
+                searchService.results = []
+                if target == .fileNames {
+                    searchService.isReplaceMode = false
+                }
+            }
+
             // Search field row with inline options
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
                 
-                TextField("Search", text: $searchService.searchText)
+                TextField(searchService.searchTarget == .fileNames ? "Search file names" : "Search contents", text: $searchService.searchText)
                     .textFieldStyle(.plain)
                     .onSubmit {
                         performSearch()
@@ -197,7 +303,7 @@ struct MultiFileSearchView: View {
             }
             
             // Replace field row (if replace mode)
-            if searchService.isReplaceMode {
+            if searchService.isReplaceMode && searchService.searchTarget == .contents {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.triangle.2.circlepath")
                         .foregroundStyle(.secondary)
@@ -220,19 +326,23 @@ struct MultiFileSearchView: View {
             // Bottom row: Replace toggle and results summary
             HStack(spacing: 16) {
                 // Toggle replace mode
-                Button(action: {
-                    searchService.isReplaceMode.toggle()
-                }) {
-                    Label("Replace", systemImage: searchService.isReplaceMode ? "chevron.down" : "chevron.right")
-                        .font(.caption)
+                if searchService.searchTarget == .contents {
+                    Button(action: {
+                        searchService.isReplaceMode.toggle()
+                    }) {
+                        Label("Replace", systemImage: searchService.isReplaceMode ? "chevron.down" : "chevron.right")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
                 
                 Spacer()
                 
                 // Results summary
                 if searchService.hasResults {
-                    Text("\(searchService.totalMatchCount) matches in \(searchService.fileCount) files")
+                    Text(searchService.searchTarget == .fileNames
+                         ? "\(searchService.fileCount) matching files"
+                         : "\(searchService.totalMatchCount) matches in \(searchService.fileCount) files")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -281,14 +391,10 @@ struct MultiFileSearchView: View {
                         onToggleSelection: {
                             searchService.toggleSelection(for: result.id)
                         },
-                        destination: FileEditViewWithSearch(
-                            file: result.file,
-                            searchText: searchService.searchText,
-                            replaceText: searchService.isReplaceMode ? searchService.replaceText : nil,
-                            isCaseSensitive: searchService.isCaseSensitive,
-                            isWholeWord: searchService.isWholeWord,
-                            isRegex: searchService.isRegex
-                        )
+                        onOpenActions: {
+                            selectedResult = result
+                        },
+                        isFileNameMatch: searchService.searchTarget == .fileNames
                     )
                 }
             }
@@ -330,45 +436,49 @@ struct MultiFileSearchView: View {
 
 // MARK: - File Result Row
 
-struct FileResultRow<Destination: View>: View {
+struct FileResultRow: View {
     let result: MultiFileSearchResult
     let isReplaceMode: Bool
     let onToggleSelection: () -> Void
-    let destination: Destination
+    let onOpenActions: () -> Void
+    let isFileNameMatch: Bool
     
     var body: some View {
-        NavigationLink(destination: destination) {
-            HStack(spacing: 12) {
-                // Selection checkbox (replace mode only)
-                if isReplaceMode {
-                    Button(action: {
-                        onToggleSelection()
-                    }) {
-                        Image(systemName: result.isSelected ? "checkmark.square.fill" : "square")
-                            .foregroundStyle(result.isSelected ? .blue : .secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .onTapGesture {
-                        // Prevent navigation when tapping checkbox
-                        onToggleSelection()
-                    }
+        HStack(spacing: 12) {
+            if isReplaceMode {
+                Button(action: onToggleSelection) {
+                    Image(systemName: result.isSelected ? "checkmark.square.fill" : "square")
+                        .foregroundStyle(result.isSelected ? .blue : .secondary)
                 }
-                
-                // File info (2 lines)
+                .buttonStyle(.plain)
+            }
+
+            Button(action: onOpenActions) {
+                HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(result.file.name.isEmpty ? "Untitled" : result.file.name)
                         .font(.body)
                     
-                    Text("\(result.matchCount) matches")
+                    Text(isFileNameMatch ? "File name match" : "\(result.matchCount) matches")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
+                    Label(result.locationPath, systemImage: "folder")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
                 }
-                
+
                 Spacer()
+
+                    Image(systemName: "ellipsis.circle")
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
             }
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
         }
+        .padding(.vertical, 8)
     }
 }
 
@@ -382,16 +492,18 @@ struct FileEditViewWithSearch: View {
     let isCaseSensitive: Bool
     let isWholeWord: Bool
     let isRegex: Bool
+    let highlightsContent: Bool
     
     @State private var searchContext: SearchContext
     
-    init(file: TextFile, searchText: String, replaceText: String?, isCaseSensitive: Bool, isWholeWord: Bool, isRegex: Bool) {
+    init(file: TextFile, searchText: String, replaceText: String?, isCaseSensitive: Bool, isWholeWord: Bool, isRegex: Bool, highlightsContent: Bool) {
         self.file = file
         self.searchText = searchText
         self.replaceText = replaceText
         self.isCaseSensitive = isCaseSensitive
         self.isWholeWord = isWholeWord
         self.isRegex = isRegex
+        self.highlightsContent = highlightsContent
         
         _searchContext = State(initialValue: SearchContext(
             searchText: searchText,
@@ -403,8 +515,12 @@ struct FileEditViewWithSearch: View {
     }
     
     var body: some View {
-        FileEditView(file: file)
-            .environment(searchContext)
+        if highlightsContent {
+            FileEditView(file: file)
+                .environment(searchContext)
+        } else {
+            FileEditView(file: file)
+        }
     }
 }
 

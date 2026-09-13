@@ -14,7 +14,13 @@ import UniformTypeIdentifiers
 /// Uses the new FileListView component with full file movement support
 struct FolderFilesView: View {
     @Bindable var folder: Folder
+    let highlightedFileID: UUID?
     @Environment(\.modelContext) var modelContext
+
+    init(folder: Folder, highlightedFileID: UUID? = nil) {
+        self.folder = folder
+        self.highlightedFileID = highlightedFileID
+    }
     
     // State for edit mode (shared with FileListView)
     @State var editMode: EditMode = .inactive
@@ -178,7 +184,8 @@ struct FolderFilesView: View {
             onPrint: handlePrint,
             collectionGroups: deferredPoetryCollectionGroups,
             hasAvailableCollectionsForAddToCollection: !(folder.project?.poetryCollections?.isEmpty ?? true),
-            expandedCollections: $collectionExpandedSections
+            expandedCollections: $collectionExpandedSections,
+            highlightedFileID: highlightedFileID
         )
     }
     
@@ -388,77 +395,84 @@ struct FolderFilesView: View {
     /// View for folders that support both subfolders and files
     @ViewBuilder
     private var mixedContentBody: some View {
-        List {
-            // Subfolders section
-            if !sortedSubfolders.isEmpty {
-                Section {
-                    ForEach(sortedSubfolders) { subfolder in
-                        mixedContentSubfolderRow(subfolder)
-                            // Enable drag-to-reorder without edit mode
-                            .onDrag {
-                                return NSItemProvider(object: subfolder.id.uuidString as NSString)
+        ScrollViewReader { proxy in
+            List {
+                // Subfolders section
+                if !sortedSubfolders.isEmpty {
+                    Section {
+                        ForEach(sortedSubfolders) { subfolder in
+                            mixedContentSubfolderRow(subfolder)
+                                // Enable drag-to-reorder without edit mode
+                                .onDrag {
+                                    return NSItemProvider(object: subfolder.id.uuidString as NSString)
+                                }
+                        }
+                        .onMove(perform: moveSubfolders)
+                    } header: {
+                        HStack {
+                            Text(NSLocalizedString("folderFiles.subfoldersHeader", comment: "Subfolders section header"))
+                            Spacer()
+                            if !isEditMode {
+                                folderSortMenu
                             }
-                    }
-                    .onMove(perform: moveSubfolders)
-                } header: {
-                    HStack {
-                        Text(NSLocalizedString("folderFiles.subfoldersHeader", comment: "Subfolders section header"))
-                        Spacer()
-                        if !isEditMode {
-                            folderSortMenu
                         }
                     }
                 }
-            }
-            
-            // Files section
-            if !sortedMixedFiles.isEmpty {
-                Section {
-                    ForEach(sortedMixedFiles) { file in
-                        mixedContentFileRow(file)
-                            // Enable drag-to-reorder without edit mode
-                            .onDrag {
-                                return NSItemProvider(object: file.id.uuidString as NSString)
+
+                // Files section
+                if !sortedMixedFiles.isEmpty {
+                    Section {
+                        ForEach(sortedMixedFiles) { file in
+                            mixedContentFileRow(file)
+                                .id(file.id)
+                                .listRowBackground(searchResultHighlight(for: file))
+                                // Enable drag-to-reorder without edit mode
+                                .onDrag {
+                                    return NSItemProvider(object: file.id.uuidString as NSString)
+                                }
+                        }
+                        .onMove(perform: moveMixedFiles)
+                    } header: {
+                        HStack {
+                            Text(NSLocalizedString("folderFiles.filesHeader", comment: "Files section header"))
+                            Spacer()
+                            if !isEditMode {
+                                fileSortMenu
                             }
-                    }
-                    .onMove(perform: moveMixedFiles)
-                } header: {
-                    HStack {
-                        Text(NSLocalizedString("folderFiles.filesHeader", comment: "Files section header"))
-                        Spacer()
-                        if !isEditMode {
-                            fileSortMenu
                         }
                     }
                 }
-            }
-            
-            // Empty state when both are empty
-            if sortedSubfolders.isEmpty && sortedMixedFiles.isEmpty {
-                ContentUnavailableView {
-                    Label(NSLocalizedString("folderFiles.emptyFolder", comment: "Empty folder"), systemImage: "folder")
-                } description: {
-                    Text(NSLocalizedString("folderFiles.emptyFolder.hint", comment: "Empty folder hint"))
+
+                // Empty state when both are empty
+                if sortedSubfolders.isEmpty && sortedMixedFiles.isEmpty {
+                    ContentUnavailableView {
+                        Label(NSLocalizedString("folderFiles.emptyFolder", comment: "Empty folder"), systemImage: "folder")
+                    } description: {
+                        Text(NSLocalizedString("folderFiles.emptyFolder.hint", comment: "Empty folder hint"))
+                    }
                 }
             }
-        }
-        .environment(\.editMode, $editMode)
-        .toolbar {
-            // Bottom toolbar for multi-select actions (only in edit mode)
-            ToolbarItemGroup(placement: .bottomBar) {
-                if showMixedContentToolbar {
-                    mixedContentBottomToolbar
+            .environment(\.editMode, $editMode)
+            .toolbar {
+                // Bottom toolbar for multi-select actions (only in edit mode)
+                ToolbarItemGroup(placement: .bottomBar) {
+                    if showMixedContentToolbar {
+                        mixedContentBottomToolbar
+                    }
                 }
             }
-        }
-        .onChange(of: editMode) { _, newValue in
-            if newValue == .active {
-                // Clear status filter so all items are available for selection
-                statusFilter = nil
-            } else if newValue == .inactive {
-                // Clear selection when exiting edit mode
-                selectedFileIDs.removeAll()
-                selectedFolderIDs.removeAll()
+            .onAppear {
+                scrollToHighlightedFile(using: proxy)
+            }
+            .onChange(of: editMode) { _, newValue in
+                if newValue == .active {
+                    // Clear status filter so all items are available for selection
+                    statusFilter = nil
+                } else if newValue == .inactive {
+                    // Clear selection when exiting edit mode
+                    selectedFileIDs.removeAll()
+                    selectedFolderIDs.removeAll()
+                }
             }
         }
     }
@@ -468,15 +482,35 @@ struct FolderFilesView: View {
     /// View for Front Matter and Back Matter folders with drag-to-reorder support
     @ViewBuilder
     private var matterFolderBody: some View {
-        List {
-            ForEach(deferredSortedFiles ?? []) { file in
-                matterFileRow(file)
-                    .moveDisabled(file.isCoverFile)
+        ScrollViewReader { proxy in
+            List {
+                ForEach(deferredSortedFiles ?? []) { file in
+                    matterFileRow(file)
+                        .id(file.id)
+                        .listRowBackground(searchResultHighlight(for: file))
+                        .moveDisabled(file.isCoverFile)
+                }
+                .onMove(perform: moveMatterFiles)
             }
-            .onMove(perform: moveMatterFiles)
+            .listStyle(.plain)
+            .environment(\.editMode, $editMode)
+            .onAppear {
+                scrollToHighlightedFile(using: proxy)
+            }
         }
-        .listStyle(.plain)
-        .environment(\.editMode, $editMode)
+    }
+
+    private func searchResultHighlight(for file: TextFile) -> Color {
+        highlightedFileID == file.id ? Color.accentColor.opacity(0.2) : Color.clear
+    }
+
+    private func scrollToHighlightedFile(using proxy: ScrollViewProxy) {
+        guard let highlightedFileID else { return }
+        DispatchQueue.main.async {
+            withAnimation {
+                proxy.scrollTo(highlightedFileID, anchor: .center)
+            }
+        }
     }
     
     /// Row view for matter folder files
