@@ -567,6 +567,8 @@
 "folderList.emptyFile" = "Empty";
 "folderList.folderCount" = "%d folders";
 "folderList.fileCount" = "%d files";
+"folderList.fileCountSingular" = "%d file";
+"folderList.fileCountPlural" = "%d files";
 "folderList.noFoldersYet" = "No folders yet";
 "folderList.emptyFolder" = "This folder is empty";
 "folderList.tapAddFolderHint" = "Tap + to add your first folder";
@@ -1282,7 +1284,9 @@
 "publicationHistory.title" = "Publication History";
 "publicationHistory.emptyTitle" = "No Publication History";
 "publicationHistory.emptyMessage" = "No text files in this project have been submitted to a publication.";
+"publicationHistory.emptyAllProjectsMessage" = "No text files in any project have been submitted to a publication.";
 "publicationHistory.column.name" = "Name";
+"publicationHistory.column.project" = "Project";
 "publicationHistory.column.submittedDate" = "Date Submitted";
 "publicationHistory.column.publicationType" = "Publication Type";
 "publicationHistory.column.publicationName" = "Publication Name";
@@ -1290,6 +1294,7 @@
 "publicationHistory.status.waiting" = "Waiting";
 "publicationHistory.printErrorTitle" = "Unable to Print";
 "publicationHistory.printJobName" = "%@ Publication History";
+"publicationHistory.allProjects" = "All Projects";
 
 /* Version Locking */
 "version.locked.warning.title" = "This Version Has Been Submitted";

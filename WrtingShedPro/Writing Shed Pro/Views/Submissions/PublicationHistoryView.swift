@@ -7,6 +7,7 @@ struct PublicationHistoryView: View {
         let submittedFile: SubmittedFile
         let submission: Submission
         let publication: Publication
+        let project: Project
 
         var id: UUID { submittedFile.id }
     }
@@ -14,15 +15,18 @@ struct PublicationHistoryView: View {
     @Query private var allSubmittedFiles: [SubmittedFile]
     @Query private var allSubmissions: [Submission]
     @Query private var allPublications: [Publication]
+    @Query private var allProjects: [Project]
 
-    let project: Project
+    let project: Project?
 
+    @Environment(\.dismiss) private var dismiss
     @State private var selectedSubmission: Submission?
     @State private var printErrorMessage = ""
     @State private var showPrintError = false
     @State private var upgradePromptReason: UpgradePromptReason?
 
     private let nameWidth: CGFloat = 180
+    private let projectWidth: CGFloat = 180
     private let dateWidth: CGFloat = 120
     private let typeWidth: CGFloat = 140
     private let publicationWidth: CGFloat = 180
@@ -32,23 +36,32 @@ struct PublicationHistoryView: View {
         var submittedFilesByID = Dictionary(
             uniqueKeysWithValues: allSubmittedFiles.map { ($0.id, $0) }
         )
-        for submittedFile in project.submittedFiles ?? [] {
-            submittedFilesByID[submittedFile.id] = submittedFile
+        if let project {
+            for submittedFile in project.submittedFiles ?? [] {
+                submittedFilesByID[submittedFile.id] = submittedFile
+            }
+        } else {
+            for submittedFile in allProjects.flatMap({ $0.submittedFiles ?? [] }) {
+                submittedFilesByID[submittedFile.id] = submittedFile
+            }
+            for submittedFile in allSubmissions.flatMap({ $0.submittedFiles ?? [] }) {
+                submittedFilesByID[submittedFile.id] = submittedFile
+            }
         }
 
         return submittedFilesByID.values.compactMap { submittedFile in
             guard let linkedSubmission = submittedFile.submission else { return nil }
             let submission = allSubmissions.first { $0.id == linkedSubmission.id } ?? linkedSubmission
             guard !submission.isCollection else { return nil }
-            guard submission.projectId == project.id
-                    || submission.project?.id == project.id
-                    || submittedFile.project?.id == project.id else { return nil }
+            guard let entryProject = project(for: submittedFile, submission: submission) else { return nil }
+            if let project, entryProject.id != project.id { return nil }
             guard let linkedPublication = submission.publication else { return nil }
             let publication = allPublications.first { $0.id == linkedPublication.id } ?? linkedPublication
             return HistoryEntry(
                 submittedFile: submittedFile,
                 submission: submission,
-                publication: publication
+                publication: publication,
+                project: entryProject
             )
         }
         .sorted { lhs, rhs in
@@ -69,7 +82,10 @@ struct PublicationHistoryView: View {
                         systemImage: "clock.arrow.circlepath"
                     )
                 } description: {
-                    Text(NSLocalizedString("publicationHistory.emptyMessage", comment: "No publication history message"))
+                    Text(NSLocalizedString(
+                        project == nil ? "publicationHistory.emptyAllProjectsMessage" : "publicationHistory.emptyMessage",
+                        comment: "No publication history message"
+                    ))
                 }
             } else {
                 historyTable
@@ -81,6 +97,13 @@ struct PublicationHistoryView: View {
             SubmissionDetailView(submission: submission)
         }
         .toolbar {
+            if project == nil {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(NSLocalizedString("common.done", comment: "Done")) {
+                        dismiss()
+                    }
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button(action: printHistory) {
                     Label(NSLocalizedString("button.print", comment: "Print"), systemImage: "printer")
@@ -101,17 +124,23 @@ struct PublicationHistoryView: View {
             Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
                 GridRow {
                     headerCell("publicationHistory.column.name", width: nameWidth)
+                    if project == nil {
+                        headerCell("publicationHistory.column.project", width: projectWidth)
+                    }
                     headerCell("publicationHistory.column.submittedDate", width: dateWidth)
                     headerCell("publicationHistory.column.publicationType", width: typeWidth)
                     headerCell("publicationHistory.column.publicationName", width: publicationWidth)
                     headerCell("publicationHistory.column.status", width: statusWidth)
                 }
 
-                Divider().gridCellColumns(5)
+                Divider().gridCellColumns(columnCount)
 
                 ForEach(Array(historyEntries.enumerated()), id: \.element.id) { index, entry in
                     GridRow {
                         textCell(entry.submittedFile.textFile?.name ?? "", width: nameWidth)
+                        if project == nil {
+                            textCell(entry.project.name ?? "", width: projectWidth)
+                        }
                         textCell(
                             entry.submission.submittedDate.formatted(date: .abbreviated, time: .omitted),
                             width: dateWidth
@@ -131,7 +160,7 @@ struct PublicationHistoryView: View {
                         selectedSubmission = entry.submission
                     }
 
-                    Divider().gridCellColumns(5)
+                    Divider().gridCellColumns(columnCount)
                 }
             }
             .overlay {
@@ -182,10 +211,11 @@ struct PublicationHistoryView: View {
 
     private func accessibilityLabel(for entry: HistoryEntry) -> String {
         let fileName = entry.submittedFile.textFile?.name ?? ""
+        let projectName = project == nil ? "\(entry.project.name ?? ""), " : ""
         let date = entry.submission.submittedDate.formatted(date: .long, time: .omitted)
         let type = entry.publication.publicationType?.displayName ?? ""
         let status = historyDisplayName(for: entry.submittedFile.submissionStatus ?? .pending)
-        return "\(fileName), \(date), \(type), \(entry.publication.name), \(status)"
+        return "\(fileName), \(projectName)\(date), \(type), \(entry.publication.name), \(status)"
     }
 
     private func historyDisplayName(for status: SubmissionStatus) -> String {
@@ -203,11 +233,30 @@ struct PublicationHistoryView: View {
         #endif
     }
 
+    private var columnCount: Int {
+        project == nil ? 6 : 5
+    }
+
+    private func project(for submittedFile: SubmittedFile, submission: Submission) -> Project? {
+        if let linkedProject = submission.project ?? submittedFile.project {
+            return allProjects.first { $0.id == linkedProject.id } ?? linkedProject
+        }
+        guard let projectID = submission.projectId else { return nil }
+        return allProjects.first { $0.id == projectID }
+    }
+
     private func printHistory() {
-        guard EntitlementManager.shared.canPrint(projectType: project.type) else {
-            upgradePromptReason = .printBlocked(projectType: project.type)
+        if let lockedProjectType = Set(historyEntries.map { $0.project.type }).first(where: {
+            !EntitlementManager.shared.canPrint(projectType: $0)
+        }) {
+            upgradePromptReason = .printBlocked(projectType: lockedProjectType)
             return
         }
+
+        presentPrintController()
+    }
+
+    private func presentPrintController() {
 
         guard UIPrintInteractionController.isPrintingAvailable else {
             printErrorMessage = NSLocalizedString("print.error.notAvailable", comment: "Printing is not available")
@@ -218,7 +267,7 @@ struct PublicationHistoryView: View {
         let printInfo = UIPrintInfo.printInfo()
         printInfo.jobName = String(
             format: NSLocalizedString("publicationHistory.printJobName", comment: "Publication history print job name"),
-            project.name ?? ""
+            project?.name ?? NSLocalizedString("publicationHistory.allProjects", comment: "All projects")
         )
         printInfo.outputType = .general
         printInfo.orientation = .landscape
@@ -237,24 +286,31 @@ struct PublicationHistoryView: View {
     }
 
     private var printableHTML: String {
-        let projectName = escapedHTML(project.name ?? "")
+        let projectName = escapedHTML(project?.name ?? NSLocalizedString("publicationHistory.allProjects", comment: "All projects"))
         let title = escapedHTML(NSLocalizedString("publicationHistory.title", comment: "Publication History title"))
-        let headings = [
-            "publicationHistory.column.name",
+        var headingKeys = ["publicationHistory.column.name"]
+        if project == nil {
+            headingKeys.append("publicationHistory.column.project")
+        }
+        headingKeys.append(contentsOf: [
             "publicationHistory.column.submittedDate",
             "publicationHistory.column.publicationType",
             "publicationHistory.column.publicationName",
             "publicationHistory.column.status"
-        ].map { escapedHTML(NSLocalizedString($0, comment: "Publication history column heading")) }
+        ])
+        let headings = headingKeys.map { escapedHTML(NSLocalizedString($0, comment: "Publication history column heading")) }
 
         let rows = historyEntries.map { entry in
-            let values = [
-                entry.submittedFile.textFile?.name ?? "",
+            var values = [entry.submittedFile.textFile?.name ?? ""]
+            if project == nil {
+                values.append(entry.project.name ?? "")
+            }
+            values.append(contentsOf: [
                 entry.submission.submittedDate.formatted(date: .abbreviated, time: .omitted),
                 entry.publication.publicationType?.displayName ?? "",
                 entry.publication.name,
                 historyDisplayName(for: entry.submittedFile.submissionStatus ?? .pending)
-            ]
+            ])
             return "<tr>\(values.map { "<td>\(escapedHTML($0))</td>" }.joined())</tr>"
         }.joined()
 

@@ -24,6 +24,7 @@ extension UTType {
 
 struct ContentViewBody: View {
     let projects: [Project]
+    let refreshTrigger: Bool
     @Bindable var state: ContentViewState
     
     let onInitialize: () -> Void
@@ -44,6 +45,7 @@ struct ContentViewBody: View {
 
     @State private var showProjectTrash = false
     @State private var didProcessLaunchProjectRestore = false
+    @State private var importAfterSettingsDismissal = false
 
     private var trashedProjects: [Project] {
         projects.filter { $0.isTrashed == true }
@@ -74,6 +76,7 @@ struct ContentViewBody: View {
     private var navigationRoot: some View {
         NavigationStack(path: $state.navigationPath) {
             navigationStackContent
+                .id(refreshTrigger)
         }
         .environment(state)
         .onReceive(NotificationCenter.default.publisher(for: GuideNavigationService.openGuideSectionNotification)) { notification in
@@ -145,12 +148,18 @@ struct ContentViewBody: View {
             .sheet(isPresented: $showProjectTrash) {
                 ProjectTrashBinView()
             }
-            .sheet(isPresented: $state.showSettings) {
+            .sheet(isPresented: $state.showSettings, onDismiss: {
+                guard importAfterSettingsDismissal else { return }
+                importAfterSettingsDismissal = false
+                onHandleImportMenu()
+            }) {
                 SettingsSheet(
                     isPresented: $state.showSettings,
                     state: state,
                     projects: projects,
-                    onImport: onHandleImportMenu,
+                    onImport: {
+                        importAfterSettingsDismissal = true
+                    },
                     onSyncNow: onSyncNow,
                     onRestartOnboarding: onRestartOnboarding
                 )
@@ -166,6 +175,11 @@ struct ContentViewBody: View {
             }
             .sheet(isPresented: $state.showManageStyles) {
                 StyleSheetListView()
+            }
+            .sheet(isPresented: $state.showPublicationHistory) {
+                NavigationStack {
+                    PublicationHistoryView(project: nil)
+                }
             }
             .sheet(isPresented: $state.showAbout) {
                 AboutView()

@@ -33,6 +33,7 @@ final class ContentViewState {
     var showAddProject = false
     var showManageStyles = false
     var showSettings = false  // Settings sheet
+    var showPublicationHistory = false
     var isImporting = false
     var showingJSONImportPicker = false
     var showImportError = false

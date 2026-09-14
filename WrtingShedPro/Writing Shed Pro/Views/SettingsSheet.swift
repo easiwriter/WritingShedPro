@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import StoreKit
 
 struct SettingsSheet: View {
     @Binding var isPresented: Bool
@@ -17,7 +16,6 @@ struct SettingsSheet: View {
     let onRestartOnboarding: () -> Void
     
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.requestReview) var requestReview
     @State private var receiveOperatorMessages = SupportMessagesService.receiveOperatorMessages
     @State private var allowCriticalOperatorMessages = SupportMessagesService.allowCriticalWhenOptedOut
     @State private var showRestartOnboardingConfirmation = false
@@ -49,6 +47,13 @@ struct SettingsSheet: View {
                     }
 
                     Button {
+                        dismissSheet()
+                        state.showPublicationHistory = true
+                    } label: {
+                        Label(NSLocalizedString("publicationHistory.title", comment: "Publication History"), systemImage: "clock.arrow.circlepath")
+                    }
+
+                    Button {
                         showRestartOnboardingConfirmation = true
                     } label: {
                         Label(NSLocalizedString("onboarding.settings.restart", comment: "Restart onboarding"), systemImage: "sparkles")
@@ -58,8 +63,8 @@ struct SettingsSheet: View {
                 // MARK: - Import Section
                 Section {
                     Button {
-                        dismissSheet()
                         onImport()
+                        dismissSheet()
                     } label: {
                         Label("Import", systemImage: "arrow.down.doc")
                     }
@@ -100,8 +105,8 @@ struct SettingsSheet: View {
                     SyncStatusView()
 
                     Button {
-                        dismissSheet()
                         onSyncNow()
+                        dismissSheet()
                     } label: {
                         Label("Sync Now", systemImage: "arrow.clockwise.icloud")
                     }
@@ -137,18 +142,6 @@ struct SettingsSheet: View {
                         Label("Allow critical messages when opted out", systemImage: "exclamationmark.triangle")
                     }
                     .disabled(receiveOperatorMessages)
-                    
-                    Button {
-                        Task {
-                            ReviewManager.shared.requestReviewManually()
-                            await MainActor.run {
-                                requestReview()
-                            }
-                        }
-                        dismissSheet()
-                    } label: {
-                        Label("Rate This App", systemImage: "star.fill")
-                    }
                 }
 
 #if DEBUG || targetEnvironment(simulator)
