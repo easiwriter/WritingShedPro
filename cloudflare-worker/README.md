@@ -81,6 +81,30 @@ Admin (Bearer token required: `Authorization: Bearer <ADMIN_API_TOKEN>`):
 - `PUT /api/admin/tutorial-videos/order` with `{ "orderedKeys": ["tutorials/foo.mp4", ...] }`
 - `DELETE /api/admin/tutorial-videos/:key`
 
+## Sales API
+
+Public reporting endpoint:
+
+- `POST /api/sales` with `transactionID`, `productID`, and `purchaseDate`.
+- A Full Access conversion also sends `trialTransactionID` and `trialPurchaseDate`.
+
+The sales event table is idempotent by StoreKit transaction ID. Legacy module and
+Manuscript Analyst purchases retain their existing monthly totals. Version 19+
+trial cohorts are reported as:
+
+- `trial`: trials activated in the selected month that have not converted.
+- `convertedTrial`: trials activated in the selected month that later bought Full Access.
+- `fullAccess`: direct Full Access purchases with no preceding trial, grouped by purchase month.
+
+`ensureSalesTables` adds the nullable conversion columns to an existing D1
+database on first use. Apply the schema command when creating a fresh database.
+Deploy the Worker before releasing the app version that reports trial and Full
+Access products:
+
+```bash
+npm run messages:deploy
+```
+
 ## Local Development
 
 ```bash

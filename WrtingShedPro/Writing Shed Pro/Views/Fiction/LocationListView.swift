@@ -129,6 +129,7 @@ struct LocationListView: View {
     // MARK: - Actions
     
     private func deleteLocation(_ location: Location) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         modelContext.delete(location)
         location.project?.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "location-list-delete")

@@ -15,6 +15,9 @@ struct OperatorSalesRecord: Identifiable, Codable, Equatable {
         case "fiction": return "Fiction"
         case "drama": return "Drama"
         case "bundle": return "All-in Bundle"
+        case "trial": return "Unconverted Trials"
+        case "convertedTrial": return "Converted Trials"
+        case "fullAccess": return "Direct Full Access"
         case "manuscriptAnalyst": return "Manuscript Analyst"
         default: return projectType
         }
@@ -27,7 +30,10 @@ struct OperatorSalesRecord: Identifiable, Codable, Equatable {
         case "fiction": return 2
         case "drama": return 3
         case "bundle": return 4
-        case "manuscriptAnalyst": return 5
+        case "trial": return 5
+        case "convertedTrial": return 6
+        case "fullAccess": return 7
+        case "manuscriptAnalyst": return 8
         default: return 99
         }
     }

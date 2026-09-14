@@ -487,6 +487,7 @@ struct DramaSceneEditorView: View {
             project: project,
             text: $sourceText,
             selectedRange: $selectedRange,
+            isEditable: EntitlementManager.shared.canModifyContent,
             onUndoManagerReady: { undoManager in
                 textViewUndoManager = undoManager
             },

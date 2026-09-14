@@ -122,9 +122,16 @@ struct AddFileSheet: View {
     private var isAddButtonDisabled: Bool {
         // Name is required - same for all project types
         return fileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !EntitlementManager.shared.canModifyContent
     }
     
     private func addFile() {
+        guard EntitlementManager.shared.canModifyContent else {
+            if let projectType = parentFolder.resolvedProject?.type {
+                upgradePromptReason = .fileLimit(projectType: projectType)
+            }
+            return
+        }
         let trimmedName = fileName.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedName.isEmpty {
             errorMessage = NSLocalizedString("addFile.nameRequired", comment: "File name is required")

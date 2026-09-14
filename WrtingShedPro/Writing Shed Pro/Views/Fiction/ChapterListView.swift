@@ -499,6 +499,7 @@ struct ChapterListView: View {
     // MARK: - Actions
     
     private func deleteSelectedContainers() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         if isVerseNovel {
             for book in selectedBooks {
                 for scene in book.scenes ?? [] {
@@ -534,6 +535,7 @@ struct ChapterListView: View {
     }
     
     private func updateChapter(_ chapter: Chapter, name: String, synopsis: String) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         guard !name.isEmpty else { return }
 
         chapter.name = name
@@ -545,6 +547,7 @@ struct ChapterListView: View {
     }
 
     private func updateBook(_ book: Book, name: String, synopsis: String) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         guard !name.isEmpty else { return }
 
         book.name = name
@@ -556,6 +559,7 @@ struct ChapterListView: View {
     }
     
     private func moveContainers(from source: IndexSet, to destination: Int) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         if isVerseNovel {
             var books = sortedBooks
             books.move(fromOffsets: source, toOffset: destination)
@@ -578,6 +582,7 @@ struct ChapterListView: View {
     }
     
     private func renumberContainers() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         if isVerseNovel {
             for (index, book) in sortedBooks.enumerated() {
                 book.userOrder = index
@@ -593,6 +598,7 @@ struct ChapterListView: View {
     }
     
     private func createSubmissionFromContainers(name: String) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty else { return }
 
@@ -705,7 +711,7 @@ struct ChapterRowView: View {
             HStack(spacing: 4) {
                 Image(systemName: fictionClass == .verseNovel ? "music.note.list" : "film")
                     .font(.footnote)
-                Text(String(format: sceneCountFormat, sceneCount))
+                Text("\(String(format: sceneCountFormat, sceneCount)) • \(localizedWordCount)")
                     .font(.footnote)
             }
             .foregroundColor(.secondary)
@@ -715,6 +721,22 @@ struct ChapterRowView: View {
 
     private func isLiveScene(_ scene: StoryScene) -> Bool {
         !scene.isTrashed && scene.textFile?.parentFolder != nil
+    }
+
+    private var localizedWordCount: String {
+        let count = (chapter.scenes ?? [])
+            .filter(isLiveScene)
+            .compactMap { $0.textFile }
+            .reduce(0) { $0 + wordCount(for: $1) }
+        let key = count == 1 ? "common.wordCountSingularFormat" : "common.wordCountPluralFormat"
+        return String(format: NSLocalizedString(key, comment: "Word count format"), count)
+    }
+
+    private func wordCount(for file: TextFile) -> Int {
+        (file.currentVersion?.content ?? "")
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .count
     }
 }
 
@@ -757,7 +779,7 @@ struct BookRowView: View {
             HStack(spacing: 4) {
                 Image(systemName: fictionClass == .verseNovel ? "music.note.list" : "film")
                     .font(.footnote)
-                Text(String(format: sceneCountFormat, sceneCount))
+                Text("\(String(format: sceneCountFormat, sceneCount)) • \(localizedWordCount)")
                     .font(.footnote)
             }
             .foregroundColor(.secondary)
@@ -767,5 +789,21 @@ struct BookRowView: View {
 
     private func isLiveScene(_ scene: StoryScene) -> Bool {
         !scene.isTrashed && scene.textFile?.parentFolder != nil
+    }
+
+    private var localizedWordCount: String {
+        let count = (book.scenes ?? [])
+            .filter(isLiveScene)
+            .compactMap { $0.textFile }
+            .reduce(0) { $0 + wordCount(for: $1) }
+        let key = count == 1 ? "common.wordCountSingularFormat" : "common.wordCountPluralFormat"
+        return String(format: NSLocalizedString(key, comment: "Word count format"), count)
+    }
+
+    private func wordCount(for file: TextFile) -> Int {
+        (file.currentVersion?.content ?? "")
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .count
     }
 }

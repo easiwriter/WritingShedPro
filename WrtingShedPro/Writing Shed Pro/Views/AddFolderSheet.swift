@@ -37,7 +37,10 @@ struct AddFolderSheet: View {
                     Button(NSLocalizedString("addFolder.add", comment: "Add button")) {
                         addFolder()
                     }
-                    .disabled(folderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(
+                        folderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            || !EntitlementManager.shared.canModifyContent
+                    )
                     .foregroundColor(.blue)
                 }
             }
@@ -51,6 +54,7 @@ struct AddFolderSheet: View {
     }
     
     private func addFolder() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         // Validate folder name
         do {
             try NameValidator.validateFolderName(folderName)

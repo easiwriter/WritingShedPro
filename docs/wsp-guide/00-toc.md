@@ -93,6 +93,7 @@
 - [FAQ](12-reference/114-faq.md)
 - [Contact Support](12-reference/115-contact-support.md)
 - [Manuscript Analyst](12-reference/116-manuscript-analyst.md)
+- [Purchases and Access](12-reference/117-purchases-and-access.md)
 
 ## 13. Appendices
 - [Version History](13-appendices/121-version-history.md)

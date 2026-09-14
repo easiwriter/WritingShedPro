@@ -12,6 +12,117 @@ import SwiftData
 import StoreKitManager
 import Observation
 
+enum PurchaseModel: String, Equatable {
+    case legacy
+    case trialAndFullAccess
+}
+
+enum CoreAccessState: Equatable {
+    case loading
+    case activationRequired
+    case trialActive(expiresAt: Date)
+    case trialExpired
+    case fullAccess
+    case legacy
+
+    var allowsCoreMutations: Bool {
+        switch self {
+        case .trialActive, .fullAccess, .legacy:
+            return true
+        case .loading, .activationRequired, .trialExpired:
+            return false
+        }
+    }
+
+    var allowsAppEntry: Bool {
+        switch self {
+        case .trialActive, .trialExpired, .fullAccess, .legacy:
+            return true
+        case .loading, .activationRequired:
+            return false
+        }
+    }
+}
+
+enum EntitlementPolicy {
+    static let cutoverVersion = "19.0"
+    static let trialDuration: TimeInterval = 10 * 24 * 60 * 60
+
+    static func purchaseModel(for originalAppVersion: String) -> PurchaseModel {
+        compareVersions(originalAppVersion, cutoverVersion) == .orderedAscending
+            ? .legacy
+            : .trialAndFullAccess
+    }
+
+    static func coreAccessState(
+        purchaseModel: PurchaseModel?,
+        entitlementIDs: Set<String>,
+        trialStartDate: Date?,
+        now: Date
+    ) -> CoreAccessState {
+        guard let purchaseModel else { return .loading }
+        guard purchaseModel == .trialAndFullAccess else { return .legacy }
+
+        if entitlementIDs.contains(WSPProduct.fullAccess.rawValue) {
+            return .fullAccess
+        }
+
+        guard entitlementIDs.contains(WSPProduct.tenDayTrial.rawValue),
+              let trialStartDate else {
+            return .activationRequired
+        }
+
+        let expirationDate = trialStartDate.addingTimeInterval(trialDuration)
+        return now < expirationDate ? .trialActive(expiresAt: expirationDate) : .trialExpired
+    }
+
+    static func canCreate(
+        existingCount: Int,
+        freeTierLimit: Int,
+        purchaseModel: PurchaseModel?,
+        coreAccessState: CoreAccessState,
+        isLegacyProductUnlocked: Bool
+    ) -> Bool {
+        if purchaseModel == .trialAndFullAccess {
+            return coreAccessState.allowsCoreMutations
+        }
+        return isLegacyProductUnlocked || existingCount < freeTierLimit
+    }
+
+    static func canPurchaseManuscriptAnalyst(
+        purchaseModel: PurchaseModel?,
+        coreAccessState: CoreAccessState
+    ) -> Bool {
+        guard let purchaseModel else { return false }
+        switch purchaseModel {
+        case .legacy:
+            return true
+        case .trialAndFullAccess:
+            return coreAccessState == .fullAccess
+        }
+    }
+
+    private static func compareVersions(_ lhs: String, _ rhs: String) -> ComparisonResult {
+        let lhsComponents = numericComponents(lhs)
+        let rhsComponents = numericComponents(rhs)
+        let componentCount = max(lhsComponents.count, rhsComponents.count)
+
+        for index in 0..<componentCount {
+            let lhsValue = index < lhsComponents.count ? lhsComponents[index] : 0
+            let rhsValue = index < rhsComponents.count ? rhsComponents[index] : 0
+            if lhsValue < rhsValue { return .orderedAscending }
+            if lhsValue > rhsValue { return .orderedDescending }
+        }
+        return .orderedSame
+    }
+
+    private static func numericComponents(_ version: String) -> [Int] {
+        version.split(separator: ".").map { component in
+            Int(component.prefix(while: { $0.isNumber })) ?? 0
+        }
+    }
+}
+
 // MARK: - Entitlement Manager
 
 /// Manages purchase entitlements and free tier gating for Writing Shed Pro.
@@ -20,6 +131,17 @@ import Observation
 @Observable
 @MainActor
 final class EntitlementManager {
+
+    private enum PersistenceKey {
+        static let purchaseModel = "iap.purchaseModel"
+        static let trialStartDate = "iap.trialStartDate"
+        static let latestTrustedDate = "iap.latestTrustedDate"
+    }
+
+    private struct VerifiedEntitlementSnapshot {
+        var productIDs: Set<String> = []
+        var trialStartDate: Date?
+    }
     
     // MARK: - Singleton
     
@@ -37,6 +159,18 @@ final class EntitlementManager {
     
     /// Whether entitlements have been loaded
     private(set) var isLoaded: Bool = false
+
+    /// Purchase model derived from Apple's verified original app version.
+    private(set) var purchaseModel: PurchaseModel?
+
+    /// Authoritative start of the non-consumable trial transaction.
+    private(set) var trialStartDate: Date?
+
+    /// Latest trusted wall-clock value, used to prevent clock rollback extending a trial.
+    private(set) var latestTrustedDate: Date?
+
+    /// Updated by the foreground lifecycle so computed trial state changes at expiry.
+    private(set) var currentEvaluationDate: Date = Date()
 
     /// Product IDs verified directly from purchase transactions within this session.
     /// Merged into cachedEntitlements so we don't lose a purchase just because
@@ -56,15 +190,26 @@ final class EntitlementManager {
 
 #if DEBUG
     private static let paywallCaptureModeKey = "debug.paywallCaptureMode"
+    private static let expiredTrialSimulationKey = "debug.expiredTrialSimulation"
 #endif
     
     // MARK: - Initialization
     
-    private init() {}
+    private init() {
+        if let rawValue = UserDefaults.standard.string(forKey: PersistenceKey.purchaseModel) {
+            purchaseModel = PurchaseModel(rawValue: rawValue)
+        }
+        trialStartDate = UserDefaults.standard.object(forKey: PersistenceKey.trialStartDate) as? Date
+        latestTrustedDate = UserDefaults.standard.object(forKey: PersistenceKey.latestTrustedDate) as? Date
+    }
 
 #if DEBUG
     var isPaywallCaptureModeEnabled: Bool {
         UserDefaults.standard.bool(forKey: Self.paywallCaptureModeKey)
+    }
+
+    var isExpiredTrialSimulationEnabled: Bool {
+        UserDefaults.standard.bool(forKey: Self.expiredTrialSimulationKey)
     }
 
     func setPaywallCaptureModeEnabled(_ enabled: Bool) async {
@@ -80,6 +225,11 @@ final class EntitlementManager {
         locallyVerifiedProductIDs.removeAll()
         await refreshEntitlements()
     }
+
+    func setExpiredTrialSimulationEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: Self.expiredTrialSimulationKey)
+        refreshTimeState()
+    }
 #endif
     
     // MARK: - Setup
@@ -92,6 +242,7 @@ final class EntitlementManager {
         if let config = SubscriptionConfigLoader.loadLocalizedConfig() {
             purchaseManager.configure(from: config)
         }
+        await resolvePurchaseModel()
         await refreshEntitlements()
     }
     
@@ -102,7 +253,8 @@ final class EntitlementManager {
         let hasConfirmedPath = hasConfirmedNetworkPath
         let wasOffline = hasConfirmedPath ? !isNetworkReachable : false
         await purchaseManager.checkEntitlement()
-        let verifiedEntitlements = await loadCurrentEntitlementProductIDs()
+        let verifiedSnapshot = await loadCurrentEntitlements()
+        let verifiedEntitlements = verifiedSnapshot.productIDs
 #if DEBUG
         if isPaywallCaptureModeEnabled {
             cachedEntitlements = locallyVerifiedProductIDs
@@ -112,6 +264,12 @@ final class EntitlementManager {
 #else
         cachedEntitlements = verifiedEntitlements.union(locallyVerifiedProductIDs)
 #endif
+    if let verifiedTrialStartDate = verifiedSnapshot.trialStartDate {
+        recordTrialStartDate(verifiedTrialStartDate)
+    }
+    if !wasOffline {
+        recordTrustedDate(Date())
+    }
         isLoaded = true
 
         // Show the offline warning only if we got no entitlements AND we were
@@ -128,16 +286,69 @@ final class EntitlementManager {
         #endif
     }
 
-    private func loadCurrentEntitlementProductIDs() async -> Set<String> {
-        var productIDs: Set<String> = []
+    private func loadCurrentEntitlements() async -> VerifiedEntitlementSnapshot {
+        var snapshot = VerifiedEntitlementSnapshot()
         for await result in Transaction.currentEntitlements {
             guard case .verified(let transaction) = result else { continue }
-            guard WSPProduct.allProductIDs.contains(transaction.productID) else { continue }
-            guard transaction.revocationDate == nil else { continue }
-            if let expirationDate = transaction.expirationDate, expirationDate <= Date() { continue }
-            productIDs.insert(transaction.productID)
+            includeVerifiedTransaction(transaction, in: &snapshot)
         }
-        return productIDs
+
+        let trialProductID = WSPProduct.tenDayTrial.rawValue
+        if !snapshot.productIDs.contains(trialProductID),
+           let latestTrialResult = await Transaction.latest(for: trialProductID),
+           case .verified(let transaction) = latestTrialResult {
+            includeVerifiedTransaction(transaction, in: &snapshot)
+            #if DEBUG
+            if snapshot.productIDs.contains(trialProductID) {
+                print("📦 [EntitlementManager] Recovered trial from latest StoreKit transaction")
+            }
+            #endif
+        }
+        return snapshot
+    }
+
+    private func includeVerifiedTransaction(
+        _ transaction: Transaction,
+        in snapshot: inout VerifiedEntitlementSnapshot
+    ) {
+        guard WSPProduct.allProductIDs.contains(transaction.productID) else { return }
+        guard transaction.revocationDate == nil else { return }
+        if let expirationDate = transaction.expirationDate, expirationDate <= Date() { return }
+
+        snapshot.productIDs.insert(transaction.productID)
+        if transaction.productID == WSPProduct.tenDayTrial.rawValue {
+            let purchaseDate = transaction.originalPurchaseDate
+            snapshot.trialStartDate = min(snapshot.trialStartDate ?? purchaseDate, purchaseDate)
+        }
+    }
+
+    private func resolvePurchaseModel() async {
+        do {
+            switch try await AppTransaction.shared {
+            case .verified(let appTransaction):
+                let resolvedModel = EntitlementPolicy.purchaseModel(for: appTransaction.originalAppVersion)
+                purchaseModel = resolvedModel
+                UserDefaults.standard.set(resolvedModel.rawValue, forKey: PersistenceKey.purchaseModel)
+            case .unverified:
+                break
+            }
+        } catch {
+            #if DEBUG
+            print("⚠️ [EntitlementManager] Unable to resolve original app transaction: \(error.localizedDescription)")
+            #endif
+        }
+    }
+
+    private func recordTrialStartDate(_ date: Date) {
+        let authoritativeDate = min(trialStartDate ?? date, date)
+        trialStartDate = authoritativeDate
+        UserDefaults.standard.set(authoritativeDate, forKey: PersistenceKey.trialStartDate)
+    }
+
+    private func recordTrustedDate(_ date: Date) {
+        let trustedDate = max(latestTrustedDate ?? date, date)
+        latestTrustedDate = trustedDate
+        UserDefaults.standard.set(trustedDate, forKey: PersistenceKey.latestTrustedDate)
     }
 
     // MARK: - Network Monitoring
@@ -166,6 +377,74 @@ final class EntitlementManager {
     }
     
     // MARK: - Purchase Status Checks
+
+    var coreAccessState: CoreAccessState {
+#if DEBUG
+        if isExpiredTrialSimulationEnabled {
+            return .trialExpired
+        }
+#endif
+    return EntitlementPolicy.coreAccessState(
+            purchaseModel: purchaseModel,
+            entitlementIDs: cachedEntitlements,
+            trialStartDate: trialStartDate,
+            now: max(currentEvaluationDate, latestTrustedDate ?? .distantPast)
+        )
+    }
+
+    var trialExpirationDate: Date? {
+#if DEBUG
+        if isExpiredTrialSimulationEnabled {
+            return currentEvaluationDate
+        }
+#endif
+        guard purchaseModel == .trialAndFullAccess, let trialStartDate else { return nil }
+        return trialStartDate.addingTimeInterval(EntitlementPolicy.trialDuration)
+    }
+
+    var trialTimeRemaining: TimeInterval? {
+        guard let trialExpirationDate else { return nil }
+        return max(0, trialExpirationDate.timeIntervalSince(max(currentEvaluationDate, latestTrustedDate ?? .distantPast)))
+    }
+
+    func refreshTimeState() {
+        currentEvaluationDate = Date()
+    }
+
+    var requiresTrialActivation: Bool {
+        coreAccessState == .activationRequired
+    }
+
+    var isCoreReadOnly: Bool {
+        coreAccessState == .trialExpired
+    }
+
+    var hasFullAccess: Bool {
+        coreAccessState == .fullAccess
+    }
+
+    var trialStatusText: String? {
+        switch coreAccessState {
+        case .trialActive:
+            guard let trialTimeRemaining else { return nil }
+            if trialTimeRemaining <= 24 * 60 * 60 {
+                return NSLocalizedString("iap.trial.lessThanOneDay", comment: "Less than one trial day remains")
+            }
+            let days = Int(ceil(trialTimeRemaining / (24 * 60 * 60)))
+            return String(
+                format: NSLocalizedString("iap.trial.daysRemaining", comment: "Trial days remaining"),
+                days
+            )
+        case .trialExpired:
+            return NSLocalizedString("iap.trial.expired", comment: "Trial expired")
+        default:
+            return nil
+        }
+    }
+
+    var canModifyContent: Bool {
+        coreAccessState.allowsCoreMutations
+    }
     
     /// Check if a specific product is purchased
     func isModulePurchased(_ product: WSPProduct) -> Bool {
@@ -173,6 +452,12 @@ final class EntitlementManager {
         guard isLoaded else {
             return false
         }
+        if purchaseModel == .trialAndFullAccess,
+           product.projectType != nil || product == .allInBundle {
+            return coreAccessState == .trialActive(expiresAt: trialExpirationDate ?? .distantPast)
+            || coreAccessState == .fullAccess
+        }
+
         // Check cached entitlements first (includes locally verified purchases
         // that Transaction.currentEntitlements may not yet reflect on iOS).
         let cachedBundle = cachedEntitlements.contains(WSPProduct.allInBundle.rawValue)
@@ -228,6 +513,19 @@ final class EntitlementManager {
         #endif
     }
 
+    func recordVerifiedPurchase(_ transaction: Transaction) {
+        guard transaction.revocationDate == nil else {
+            locallyVerifiedProductIDs.remove(transaction.productID)
+            cachedEntitlements.remove(transaction.productID)
+            return
+        }
+        recordVerifiedPurchase(transaction.productID)
+        if transaction.productID == WSPProduct.tenDayTrial.rawValue {
+            recordTrialStartDate(transaction.originalPurchaseDate)
+        }
+        recordTrustedDate(Date())
+    }
+
     // MARK: - Free Tier Limit Checks
     
     /// Check if user can create a new project of the given type
@@ -243,10 +541,13 @@ final class EntitlementManager {
             return existingCount < Self.freeTierMaxProjectsPerType
         }
 
-        if isProjectTypeUnlocked(type) {
-            return true  // No limit if purchased
-        }
-        return existingCount < Self.freeTierMaxProjectsPerType  // Free tier: max 1 project per type
+        return EntitlementPolicy.canCreate(
+            existingCount: existingCount,
+            freeTierLimit: Self.freeTierMaxProjectsPerType,
+            purchaseModel: purchaseModel,
+            coreAccessState: coreAccessState,
+            isLegacyProductUnlocked: isProjectTypeUnlocked(type)
+        )
     }
     
     /// Check if user can create a new file in the given project
@@ -260,19 +561,28 @@ final class EntitlementManager {
             return existingCount < Self.freeTierMaxFilesPerProject
         }
 
-        if isProjectTypeUnlocked(projectType) {
-            return true  // No limit if purchased
-        }
-        return existingCount < Self.freeTierMaxFilesPerProject  // Free tier: max 1 file per project
+        return EntitlementPolicy.canCreate(
+            existingCount: existingCount,
+            freeTierLimit: Self.freeTierMaxFilesPerProject,
+            purchaseModel: purchaseModel,
+            coreAccessState: coreAccessState,
+            isLegacyProductUnlocked: isProjectTypeUnlocked(projectType)
+        )
     }
     
     /// Check if user can export from a project of the given type
     func canExport(projectType: ProjectType) -> Bool {
+        if purchaseModel == .trialAndFullAccess {
+            return coreAccessState.allowsCoreMutations
+        }
         return isProjectTypeUnlocked(projectType)
     }
     
     /// Check if user can print from a project of the given type
     func canPrint(projectType: ProjectType) -> Bool {
+        if purchaseModel == .trialAndFullAccess {
+            return coreAccessState.allowsCoreMutations
+        }
         return isProjectTypeUnlocked(projectType)
     }
 
@@ -285,6 +595,19 @@ final class EntitlementManager {
         // Check if the subscription product is in cached entitlements
         let subscriptionProductID = WSPProduct.manuscriptAnalystSubscription.rawValue
         return cachedEntitlements.contains(subscriptionProductID)
+    }
+
+    func canUseManuscriptAnalyst() -> Bool {
+        guard isManuscriptAnalystSubscriptionActive() else { return false }
+        guard purchaseModel == .trialAndFullAccess else { return true }
+        return hasFullAccess
+    }
+
+    var canPurchaseManuscriptAnalyst: Bool {
+        EntitlementPolicy.canPurchaseManuscriptAnalyst(
+            purchaseModel: purchaseModel,
+            coreAccessState: coreAccessState
+        )
     }
     
     // MARK: - Free Tier Limits

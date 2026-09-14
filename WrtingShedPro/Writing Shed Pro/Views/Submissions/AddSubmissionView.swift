@@ -162,6 +162,7 @@ struct AddSubmissionView: View {
     }
 
     private func createSubmission() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         // Create submission
         let submission = Submission(
             publication: publication,

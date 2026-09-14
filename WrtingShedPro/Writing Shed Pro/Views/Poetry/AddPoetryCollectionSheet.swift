@@ -101,6 +101,7 @@ struct AddPoetryCollectionSheet: View {
     // MARK: - Actions
     
     private func addCollection() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !trimmedTitle.isEmpty else {

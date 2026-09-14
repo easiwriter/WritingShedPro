@@ -29,8 +29,13 @@ const PRODUCT_SALE_TYPES = new Map([
     ["com.writingshedpro.fictionwriter", "fiction"],
     ["com.writingshedpro.dramawriter", "drama"],
     ["com.writingshedpro.allinbundle", "bundle"],
+    ["com.writingshedpro.trial10day", "trial"],
+    ["com.writingshedpro.fullaccess", "fullAccess"],
     ["com.writingshedpro.manuscriptanalyst", "manuscriptAnalyst"],
 ]);
+
+const TRIAL_PRODUCT_ID = "com.writingshedpro.trial10day";
+const FULL_ACCESS_PRODUCT_ID = "com.writingshedpro.fullaccess";
 
 const ALLOWED_ANALYSIS_MODES = new Set(["file", "manuscript"]);
 const ALLOWED_PROJECT_TYPES = new Set(["fiction", "poetry", "drama", "prose"]);
@@ -1496,19 +1501,88 @@ async function handleRecordSale(request, env) {
     const saleMonth = saleMonthFromTimestamp(purchaseDate);
     const now = Date.now();
 
+    const trialTransactionID = typeof body?.trialTransactionID === "string"
+        ? body.trialTransactionID.trim()
+        : "";
+    if (trialTransactionID.length > 120) {
+        return jsonResponse({ error: "Invalid trialTransactionID" }, 400);
+    }
+
+    let trialPurchaseDate = null;
+    if (trialTransactionID) {
+        trialPurchaseDate = validatedPurchaseDate(body?.trialPurchaseDate);
+        if (trialPurchaseDate === null) {
+            return jsonResponse({ error: "Invalid trialPurchaseDate" }, 400);
+        }
+    }
+
     try {
         await ensureSalesTables(env);
 
+        if (projectType === "fullAccess" && trialTransactionID) {
+            const trialMonth = saleMonthFromTimestamp(trialPurchaseDate);
+            const results = await env.MESSAGES_DB.batch([
+                env.MESSAGES_DB
+                    .prepare(`
+                        DELETE FROM sales_events
+                        WHERE transaction_id = ? AND product_id = ?
+                    `)
+                    .bind(transactionID, FULL_ACCESS_PRODUCT_ID),
+                env.MESSAGES_DB
+                    .prepare(`
+                        INSERT OR IGNORE INTO sales_events (
+                            transaction_id, product_id, project_type, sale_month,
+                            purchase_date, created_at, conversion_transaction_id,
+                            conversion_purchase_date
+                        )
+                        VALUES (?, ?, 'trial', ?, ?, ?, NULL, NULL)
+                    `)
+                    .bind(trialTransactionID, TRIAL_PRODUCT_ID, trialMonth, trialPurchaseDate, now),
+                env.MESSAGES_DB
+                    .prepare(`
+                        UPDATE sales_events
+                        SET conversion_transaction_id = ?,
+                            conversion_purchase_date = ?
+                        WHERE transaction_id = ?
+                          AND product_id = ?
+                          AND (conversion_transaction_id IS NULL OR conversion_transaction_id = ?)
+                    `)
+                    .bind(transactionID, purchaseDate, trialTransactionID, TRIAL_PRODUCT_ID, transactionID),
+            ]);
+            const converted = (results?.[2]?.meta?.changes ?? 0) > 0;
+            return jsonResponse({
+                ok: true,
+                inserted: (results?.[1]?.meta?.changes ?? 0) > 0,
+                converted,
+                month: trialMonth,
+                projectType: "convertedTrial",
+            }, 200);
+        }
+
+        if (projectType === "fullAccess") {
+            const existingConversion = await env.MESSAGES_DB
+                .prepare("SELECT 1 FROM sales_events WHERE conversion_transaction_id = ? LIMIT 1")
+                .bind(transactionID)
+                .first();
+            if (existingConversion) {
+                return jsonResponse({ ok: true, inserted: false, converted: true, month: saleMonth, projectType }, 200);
+            }
+        }
+
         const insertResult = await env.MESSAGES_DB
             .prepare(`
-                INSERT OR IGNORE INTO sales_events (transaction_id, product_id, project_type, sale_month, purchase_date, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT OR IGNORE INTO sales_events (
+                    transaction_id, product_id, project_type, sale_month,
+                    purchase_date, created_at, conversion_transaction_id,
+                    conversion_purchase_date
+                )
+                VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)
             `)
             .bind(transactionID, productID, projectType, saleMonth, purchaseDate, now)
             .run();
 
         const inserted = (insertResult?.meta?.changes ?? 0) > 0;
-        if (inserted) {
+        if (inserted && productID !== TRIAL_PRODUCT_ID && productID !== FULL_ACCESS_PRODUCT_ID) {
             await env.MESSAGES_DB
                 .prepare(`
                     INSERT INTO monthly_sales (sale_month, project_type, sale_count, updated_at)
@@ -1548,12 +1622,19 @@ async function handleAdminSales(request, env) {
         await ensureSalesTables(env);
 
         const { results: monthRows } = await env.MESSAGES_DB
-            .prepare("SELECT DISTINCT sale_month FROM monthly_sales ORDER BY sale_month DESC")
+            .prepare(`
+                SELECT sale_month FROM monthly_sales
+                UNION
+                SELECT sale_month FROM sales_events
+                WHERE product_id IN (?, ?)
+                ORDER BY sale_month DESC
+            `)
+            .bind(TRIAL_PRODUCT_ID, FULL_ACCESS_PRODUCT_ID)
             .all();
         const months = (monthRows || []).map((row) => row.sale_month).filter(Boolean);
         const selectedMonth = isValidSaleMonth(requestedMonth) ? requestedMonth : (months[0] || saleMonthFromTimestamp(Date.now()));
 
-        const { results } = await env.MESSAGES_DB
+        const { results: legacyResults } = await env.MESSAGES_DB
             .prepare(`
                 SELECT sale_month, project_type, sale_count, updated_at
                 FROM monthly_sales
@@ -1563,7 +1644,27 @@ async function handleAdminSales(request, env) {
             .bind(selectedMonth)
             .all();
 
-        const sales = (results || []).map((row) => ({
+        const { results: cohortResults } = await env.MESSAGES_DB
+            .prepare(`
+                SELECT
+                    sale_month,
+                    CASE
+                        WHEN product_id = ? AND conversion_transaction_id IS NOT NULL THEN 'convertedTrial'
+                        WHEN product_id = ? THEN 'trial'
+                        ELSE 'fullAccess'
+                    END AS project_type,
+                    COUNT(*) AS sale_count,
+                    MAX(COALESCE(conversion_purchase_date, created_at)) AS updated_at
+                FROM sales_events
+                WHERE sale_month = ?
+                  AND product_id IN (?, ?)
+                GROUP BY 1, 2
+                ORDER BY project_type ASC
+            `)
+            .bind(TRIAL_PRODUCT_ID, TRIAL_PRODUCT_ID, selectedMonth, TRIAL_PRODUCT_ID, FULL_ACCESS_PRODUCT_ID)
+            .all();
+
+        const sales = [...(legacyResults || []), ...(cohortResults || [])].map((row) => ({
             month: row.sale_month,
             projectType: row.project_type,
             count: row.sale_count,
@@ -1590,6 +1691,19 @@ function normalizedPurchaseDate(value) {
     return Date.now();
 }
 
+function validatedPurchaseDate(value) {
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+        return Math.trunc(value);
+    }
+    if (typeof value === "string") {
+        const parsed = Date.parse(value);
+        if (Number.isFinite(parsed) && parsed > 0) {
+            return parsed;
+        }
+    }
+    return null;
+}
+
 function saleMonthFromTimestamp(timestamp) {
     const date = new Date(timestamp);
     const year = date.getUTCFullYear();
@@ -1610,8 +1724,21 @@ async function ensureSalesTables(env) {
                 project_type TEXT NOT NULL,
                 sale_month TEXT NOT NULL,
                 purchase_date INTEGER NOT NULL,
-                created_at INTEGER NOT NULL
+                created_at INTEGER NOT NULL,
+                conversion_transaction_id TEXT,
+                conversion_purchase_date INTEGER
             )
+        `)
+        .run();
+
+    await ensureSalesColumn(env, "conversion_transaction_id", "TEXT");
+    await ensureSalesColumn(env, "conversion_purchase_date", "INTEGER");
+
+    await env.MESSAGES_DB
+        .prepare(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_events_conversion_transaction
+            ON sales_events(conversion_transaction_id)
+            WHERE conversion_transaction_id IS NOT NULL
         `)
         .run();
 
@@ -1634,6 +1761,28 @@ async function ensureSalesTables(env) {
     await env.MESSAGES_DB
         .prepare("CREATE INDEX IF NOT EXISTS idx_monthly_sales_month ON monthly_sales(sale_month DESC)")
         .run();
+}
+
+async function ensureSalesColumn(env, columnName, columnType) {
+    const { results } = await env.MESSAGES_DB
+        .prepare("PRAGMA table_info(sales_events)")
+        .all();
+    if ((results || []).some((column) => column.name === columnName)) {
+        return;
+    }
+
+    try {
+        await env.MESSAGES_DB
+            .prepare(`ALTER TABLE sales_events ADD COLUMN ${columnName} ${columnType}`)
+            .run();
+    } catch (error) {
+        const { results: refreshedColumns } = await env.MESSAGES_DB
+            .prepare("PRAGMA table_info(sales_events)")
+            .all();
+        if (!(refreshedColumns || []).some((column) => column.name === columnName)) {
+            throw error;
+        }
+    }
 }
 
 function validateMessageInput(body, { allowPartial }) {
@@ -1723,6 +1872,10 @@ function jsonResponse(body, status, extraHeaders = {}) {
 }
 
 function buildAnalystSystemPrompt(analysisProfile, projectType, fictionClass, metadata) {
+    const usesLineReferences = projectType === "poetry";
+    const referenceLabel = usesLineReferences ? "Line" : "Paragraph";
+    const referenceLabelLower = referenceLabel.toLowerCase();
+    const referenceLabelPluralLower = usesLineReferences ? "lines" : "paragraphs";
     const basePrompt = `You are an expert editorial assistant specializing in ${analysisProfile} writing. Your role is to provide constructive, specific feedback on writing samples.
 
 You must provide critique only. Do not rewrite or generate replacement passages for the user.
@@ -1752,7 +1905,7 @@ You provide feedback in JSON format with the following structure:
         "summary": "a cautious explanation of the result and conflicting evidence",
         "indicators": [
             {
-                "location": "Line N or Line N-M (must use source line numbers)",
+                "location": "${referenceLabel} N or ${referenceLabel} N-M (must use source ${referenceLabelPluralLower})",
                 "observation": "a specific, evidence-grounded pattern sometimes associated with AI-generated writing"
             }
         ]
@@ -1762,7 +1915,7 @@ You provide feedback in JSON format with the following structure:
       "id": "unique_id",
       "category": "category_name",
       "severity": "high|medium|low",
-            "location": "Line N or Line N-M (must use source line numbers) or null",
+            "location": "${referenceLabel} N or ${referenceLabel} N-M (must use source ${referenceLabelPluralLower}) or null",
             "observation": "a thorough, evidence-grounded editorial reading of what you noticed, quoting a brief phrase from the source and explaining precisely how the passage operates",
             "suggestion": "a concrete, developed revision focus or craft experiment the author could try, with enough specificity to act on (without rewriting the text for them)",
             "rationale": "a full explanation of why this may matter for reader experience or authorial intent, tracing the likely effect on the reader"
@@ -1770,10 +1923,10 @@ You provide feedback in JSON format with the following structure:
   ]
 }
 
-CRITICAL LINE-NUMBER RULES:
-- The user content is provided with explicit line-number prefixes in the form "0001 | text".
-- If you cite a location, you MUST use those exact numbers as "Line N" or "Line N-M".
-- Do not estimate or invent line numbers.
+CRITICAL ${referenceLabel.toUpperCase()}-NUMBER RULES:
+- The user content is provided with explicit ${referenceLabelLower}-number prefixes in the form "0001 | text".
+- If you cite a location, you MUST use those exact numbers as "${referenceLabel} N" or "${referenceLabel} N-M".
+- Do not estimate or invent ${referenceLabelLower} numbers.
 - If no precise location applies, set "location" to null.
 
 OUTPUT QUALITY RULES:
@@ -1794,7 +1947,7 @@ AI-WRITING INDICATORS ASSESSMENT:
 - Use "inconclusive" when signals conflict or there is no responsible distinction to make.
 - Consider observable patterns such as unusually uniform sentence structure, repetitive paragraph templates, formulaic transitions, abstract claims without concrete detail, excessively even tone or vocabulary, repeated conclusion-like restatements, and abrupt stylistic changes.
 - Do not treat polished grammar, formal vocabulary, genre conventions, non-native English, disability-related writing patterns, or a single stylistic feature as evidence by itself.
-- Include only well-supported indicators and cite exact source line numbers. An empty indicators array is valid.
+- Include only well-supported indicators and cite exact source ${referenceLabelPluralLower}. An empty indicators array is valid.
 - Confidence may only be "low" or "moderate" because text-only detection is inherently unreliable.
 - The summary must clearly acknowledge uncertainty and must not imply misconduct.`;
 
@@ -1873,6 +2026,7 @@ VERSE NOVEL-SPECIFIC GUIDANCE:
 }
 
 function buildAnalystUserPrompt(content, metadata, options, analysisProfile, projectType) {
+    const referenceLabel = projectType === "poetry" ? "line" : "paragraph";
     let prompt = `Please analyze the following ${analysisProfile} writing sample:\n\n`;
     
     if (metadata) {
@@ -1889,11 +2043,11 @@ function buildAnalystUserPrompt(content, metadata, options, analysisProfile, pro
         }
     }
     
-    const numberedContent = addSourceLineNumbers(content || "", {
+    const numberedContent = addSourceReferenceNumbers(content || "", {
         skipMatchingTitles: projectType === "poetry",
         fileName: metadata.fileName,
     });
-    prompt += `\nSource (line-numbered):\n${numberedContent}\n\n`;
+    prompt += `\nSource (${referenceLabel}-numbered):\n${numberedContent}\n\n`;
     
     if (options?.focusAreas && options.focusAreas.length > 0) {
         prompt += `Focus particularly on: ${options.focusAreas.join(", ")}\n\n`;
@@ -1904,16 +2058,16 @@ function buildAnalystUserPrompt(content, metadata, options, analysisProfile, pro
     return prompt;
 }
 
-function addSourceLineNumbers(content, options = {}) {
+function addSourceReferenceNumbers(content, options = {}) {
     const lines = String(content).replace(/\r\n?/g, "\n").split("\n");
 
-    // If content is already line-numbered (e.g. "0001 | ..."), keep it as-is.
+    // If content already has reference prefixes (e.g. "0001 | ..."), keep it as-is.
     const firstNonEmpty = lines.find((line) => line.trim().length > 0);
     if (firstNonEmpty && /^\s*\d{3,6}\s\|/.test(firstNonEmpty)) {
         return lines.join("\n");
     }
 
-    let lineNumber = 0;
+    let referenceNumber = 0;
     let expectedTitle = options.skipMatchingTitles ? normalizeSourceTitle(options.fileName) : null;
     return lines
         .map((line) => {
@@ -1931,8 +2085,8 @@ function addSourceLineNumbers(content, options = {}) {
                 return line;
             }
             expectedTitle = null;
-            lineNumber += 1;
-            return `${String(lineNumber).padStart(4, "0")} | ${line}`;
+            referenceNumber += 1;
+            return `${String(referenceNumber).padStart(4, "0")} | ${line}`;
         })
         .join("\n");
 }

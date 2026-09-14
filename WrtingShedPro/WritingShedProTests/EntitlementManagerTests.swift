@@ -14,6 +14,95 @@ import XCTest
 @available(macCatalyst 15, macOS 14.4, iOS 17.4, *)
 @MainActor
 final class EntitlementManagerTests: XCTestCase {
+
+    func testPurchaseModelUsesNumericCutoverComparison() {
+        XCTAssertEqual(EntitlementPolicy.purchaseModel(for: "18.10"), .legacy)
+        XCTAssertEqual(EntitlementPolicy.purchaseModel(for: "19.0"), .trialAndFullAccess)
+        XCTAssertEqual(EntitlementPolicy.purchaseModel(for: "19.0.1"), .trialAndFullAccess)
+        XCTAssertEqual(EntitlementPolicy.purchaseModel(for: "20"), .trialAndFullAccess)
+    }
+
+    func testNewModelRequiresActivationWithoutEntitlement() {
+        XCTAssertEqual(
+            EntitlementPolicy.coreAccessState(
+                purchaseModel: .trialAndFullAccess,
+                entitlementIDs: [],
+                trialStartDate: nil,
+                now: Date()
+            ),
+            .activationRequired
+        )
+    }
+
+    func testTrialIsActiveForExactly240Hours() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let entitlements = Set([WSPProduct.tenDayTrial.rawValue])
+
+        XCTAssertEqual(
+            EntitlementPolicy.coreAccessState(
+                purchaseModel: .trialAndFullAccess,
+                entitlementIDs: entitlements,
+                trialStartDate: start,
+                now: start.addingTimeInterval(EntitlementPolicy.trialDuration - 1)
+            ),
+            .trialActive(expiresAt: start.addingTimeInterval(EntitlementPolicy.trialDuration))
+        )
+        XCTAssertEqual(
+            EntitlementPolicy.coreAccessState(
+                purchaseModel: .trialAndFullAccess,
+                entitlementIDs: entitlements,
+                trialStartDate: start,
+                now: start.addingTimeInterval(EntitlementPolicy.trialDuration)
+            ),
+            .trialExpired
+        )
+    }
+
+    func testFullAccessOverridesTrialState() {
+        XCTAssertEqual(
+            EntitlementPolicy.coreAccessState(
+                purchaseModel: .trialAndFullAccess,
+                entitlementIDs: [WSPProduct.fullAccess.rawValue],
+                trialStartDate: nil,
+                now: Date()
+            ),
+            .fullAccess
+        )
+    }
+
+    func testAnalystPurchaseRequiresFullAccessForNewModel() {
+        XCTAssertFalse(EntitlementPolicy.canPurchaseManuscriptAnalyst(
+            purchaseModel: .trialAndFullAccess,
+            coreAccessState: .trialActive(expiresAt: Date().addingTimeInterval(60))
+        ))
+        XCTAssertFalse(EntitlementPolicy.canPurchaseManuscriptAnalyst(
+            purchaseModel: .trialAndFullAccess,
+            coreAccessState: .trialExpired
+        ))
+        XCTAssertTrue(EntitlementPolicy.canPurchaseManuscriptAnalyst(
+            purchaseModel: .trialAndFullAccess,
+            coreAccessState: .fullAccess
+        ))
+    }
+
+    func testLegacyModelCanPurchaseAnalystSubscription() {
+        XCTAssertTrue(EntitlementPolicy.canPurchaseManuscriptAnalyst(
+            purchaseModel: .legacy,
+            coreAccessState: .legacy
+        ))
+    }
+
+    func testLegacyAccessStateDoesNotRequireNewProducts() {
+        XCTAssertEqual(
+            EntitlementPolicy.coreAccessState(
+                purchaseModel: .legacy,
+                entitlementIDs: [],
+                trialStartDate: nil,
+                now: Date()
+            ),
+            .legacy
+        )
+    }
     
     // MARK: - Free Tier Limit Constants
     
@@ -32,71 +121,83 @@ final class EntitlementManagerTests: XCTestCase {
     /// For free tier (no purchases), these are the expected behaviors.
     
     func testCanCreateProjectWhenNoExistingProjects() {
-        // Free tier allows 1 project per type
-        // When existingCount = 0, should allow creation
-        let manager = EntitlementManager.shared
-        
-        // We can't easily mock the purchase state, but we can verify
-        // the limit logic by testing with existingCount
-        XCTAssertTrue(manager.canCreateProject(ofType: .prose, existingCount: 0))
-        XCTAssertTrue(manager.canCreateProject(ofType: .poetry, existingCount: 0))
-        XCTAssertTrue(manager.canCreateProject(ofType: .fiction, existingCount: 0))
-        XCTAssertTrue(manager.canCreateProject(ofType: .drama, existingCount: 0))
+        XCTAssertTrue(EntitlementPolicy.canCreate(
+            existingCount: 0,
+            freeTierLimit: EntitlementManager.freeTierMaxProjectsPerType,
+            purchaseModel: .legacy,
+            coreAccessState: .legacy,
+            isLegacyProductUnlocked: false
+        ))
     }
     
     func testCannotCreateProjectWhenAtLimit() {
-        // Skip if purchases exist (sandbox environment may have test purchases)
-        let manager = EntitlementManager.shared
-        guard !manager.hasAnyPurchase else {
-            // Test cannot run reliably with sandbox purchases present
-            return
-        }
-        
-        // Free tier allows 1 project per type
-        // When existingCount = 1, should block creation (unless purchased)
-        
-        // Note: This assumes no purchases - in real use, if user has purchased
-        // the module, this would return true regardless of count
-        // The logic is: if purchased, unlimited; if not, limit to 1
-        
-        // Without mocking, we're testing the unpurchased path
-        // These tests verify the count checking logic works
-        XCTAssertFalse(manager.canCreateProject(ofType: .prose, existingCount: 1))
-        XCTAssertFalse(manager.canCreateProject(ofType: .poetry, existingCount: 1))
-        XCTAssertFalse(manager.canCreateProject(ofType: .fiction, existingCount: 1))
-        XCTAssertFalse(manager.canCreateProject(ofType: .drama, existingCount: 1))
+        XCTAssertFalse(EntitlementPolicy.canCreate(
+            existingCount: 1,
+            freeTierLimit: EntitlementManager.freeTierMaxProjectsPerType,
+            purchaseModel: .legacy,
+            coreAccessState: .legacy,
+            isLegacyProductUnlocked: false
+        ))
     }
     
     func testCannotCreateProjectWhenOverLimit() {
-        let manager = EntitlementManager.shared
-        guard !manager.hasAnyPurchase else { return }
-        
-        // Even with 5 existing projects, should block
-        XCTAssertFalse(manager.canCreateProject(ofType: .prose, existingCount: 5))
-        XCTAssertFalse(manager.canCreateProject(ofType: .poetry, existingCount: 10))
+        XCTAssertFalse(EntitlementPolicy.canCreate(
+            existingCount: 10,
+            freeTierLimit: EntitlementManager.freeTierMaxProjectsPerType,
+            purchaseModel: .legacy,
+            coreAccessState: .legacy,
+            isLegacyProductUnlocked: false
+        ))
+    }
+
+    func testLegacyPurchaseAllowsCreationBeyondLimit() {
+        XCTAssertTrue(EntitlementPolicy.canCreate(
+            existingCount: 10,
+            freeTierLimit: EntitlementManager.freeTierMaxProjectsPerType,
+            purchaseModel: .legacy,
+            coreAccessState: .legacy,
+            isLegacyProductUnlocked: true
+        ))
+    }
+
+    func testNewModelCreationFollowsCoreAccessState() {
+        let expirationDate = Date().addingTimeInterval(60)
+        XCTAssertTrue(EntitlementPolicy.canCreate(
+            existingCount: 10,
+            freeTierLimit: EntitlementManager.freeTierMaxProjectsPerType,
+            purchaseModel: .trialAndFullAccess,
+            coreAccessState: .trialActive(expiresAt: expirationDate),
+            isLegacyProductUnlocked: false
+        ))
+        XCTAssertFalse(EntitlementPolicy.canCreate(
+            existingCount: 0,
+            freeTierLimit: EntitlementManager.freeTierMaxProjectsPerType,
+            purchaseModel: .trialAndFullAccess,
+            coreAccessState: .trialExpired,
+            isLegacyProductUnlocked: true
+        ))
     }
     
     // MARK: - canCreateFile Tests
     
     func testCanCreateFileWhenNoExistingFiles() {
-        let manager = EntitlementManager.shared
-        
-        // Free tier allows 1 file per project
-        XCTAssertTrue(manager.canCreateFile(forProjectType: .prose, existingCount: 0))
-        XCTAssertTrue(manager.canCreateFile(forProjectType: .poetry, existingCount: 0))
-        XCTAssertTrue(manager.canCreateFile(forProjectType: .fiction, existingCount: 0))
-        XCTAssertTrue(manager.canCreateFile(forProjectType: .drama, existingCount: 0))
+        XCTAssertTrue(EntitlementPolicy.canCreate(
+            existingCount: 0,
+            freeTierLimit: EntitlementManager.freeTierMaxFilesPerProject,
+            purchaseModel: .legacy,
+            coreAccessState: .legacy,
+            isLegacyProductUnlocked: false
+        ))
     }
     
     func testCannotCreateFileWhenAtLimit() {
-        let manager = EntitlementManager.shared
-        guard !manager.hasAnyPurchase else { return }
-        
-        // Free tier allows 1 file per project
-        XCTAssertFalse(manager.canCreateFile(forProjectType: .prose, existingCount: 1))
-        XCTAssertFalse(manager.canCreateFile(forProjectType: .poetry, existingCount: 1))
-        XCTAssertFalse(manager.canCreateFile(forProjectType: .fiction, existingCount: 1))
-        XCTAssertFalse(manager.canCreateFile(forProjectType: .drama, existingCount: 1))
+        XCTAssertFalse(EntitlementPolicy.canCreate(
+            existingCount: 1,
+            freeTierLimit: EntitlementManager.freeTierMaxFilesPerProject,
+            purchaseModel: .legacy,
+            coreAccessState: .legacy,
+            isLegacyProductUnlocked: false
+        ))
     }
     
     // MARK: - canExport Tests

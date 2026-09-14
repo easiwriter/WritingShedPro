@@ -613,6 +613,7 @@ struct SceneDetailView: View {
     }
     
     private func saveChanges() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         scene.name = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         scene.synopsis = editSummary.isEmpty ? nil : editSummary
         
@@ -654,6 +655,7 @@ struct SceneDetailView: View {
     }
     
     private func deleteScene() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         modelContext.delete(scene)
         project.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "scene-detail-delete")

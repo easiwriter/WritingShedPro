@@ -21,6 +21,11 @@ Manuscript Analyst is an optional AI-powered editorial feedback feature in Writi
 
 Manuscript Analyst is a separate add-on from the core app purchase and requires an active Manuscript Analyst subscription.
 
+- If you originally obtained Writing Shed Pro before version 19, you can subscribe under the legacy module purchase system.
+- If you first obtain Writing Shed Pro in version 19 or later, you must own Full Access before subscribing. The 10-Day Free Trial alone does not unlock an Analyst subscription.
+
+See [Purchases and Access](117-purchases-and-access.md) for details about the two purchase systems.
+
 ## Using Manuscript Analyst
 
 If you need help while reading the guide, tap **Ask a question** in the guide toolbar to open the support question panel directly.

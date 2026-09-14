@@ -1296,6 +1296,28 @@
 "publicationHistory.printJobName" = "%@ Publication History";
 "publicationHistory.allProjects" = "All Projects";
 
+// MARK: - New IAP Structure
+"iap.new.title" = "Writing Shed Pro Access";
+"iap.new.heading" = "Choose Your Access";
+"iap.new.subheading" = "Start your free 10-day trial or unlock Writing Shed Pro permanently.";
+"iap.trial.noRenewal" = "The free trial lasts exactly 10 days. It does not renew and you will not be charged automatically.";
+"iap.analyst.requiresFullAccess" = "Manuscript Analyst requires Full Access and a separate subscription.";
+"iap.purchase.unavailable" = "Purchase Unavailable";
+"iap.trial.daysRemaining" = "Trial: %d days remaining";
+"iap.trial.lessThanOneDay" = "Trial: Less than 1 day remaining";
+"iap.trial.expired" = "Trial Expired - Unlock Full Access";
+"iap.trial.expires" = "Expires %@";
+"iap.trial.status.accessibilityHint" = "Opens the Full Access purchase screen.";
+"iap.trial.warning.threeDays.title" = "3 Days Left in Your Trial";
+"iap.trial.warning.threeDays.message" = "Your full access trial ends in 3 days. Export any work you need before the trial expires, or unlock Writing Shed Pro to keep editing.";
+"iap.trial.warning.oneDay.title" = "Less Than 1 Day Left";
+"iap.trial.warning.oneDay.message" = "Your trial ends in less than 24 hours. After it expires, your work remains readable but editing, printing, and export are blocked.";
+"iap.fullAccess.unlock" = "Unlock Full Access";
+"iap.fullAccess.notNow" = "Not Now";
+"iap.readOnly.title" = "Full Access Required";
+"iap.readOnly.message" = "Your trial has expired. Your work remains available to read, but Full Access is required to make changes, print, or export.";
+"iap.readOnly.error" = "Full Access is required to modify content.";
+
 /* Version Locking */
 "version.locked.warning.title" = "This Version Has Been Submitted";
 "version.locked.warning.message" = "This version is part of an active submission. Editing it may affect your submission record.";

@@ -13,6 +13,7 @@ struct ContentViewToolbar: ToolbarContent {
     let onHandleImportMenu: () -> Void
     
     @Environment(\.requestReview) var requestReview
+    private var entitlementManager: EntitlementManager { .shared }
     
     /// Poetry preferences accessed via state for proper observation in ToolbarContent
     private var poetryPrefs: PoetryPreferences { state.poetryPreferences }
@@ -27,6 +28,19 @@ struct ContentViewToolbar: ToolbarContent {
         // Action buttons (trailing)
         ToolbarItem(placement: .navigationBarTrailing) {
             HStack(spacing: 16) {
+                if let trialStatusText = entitlementManager.trialStatusText {
+                    Button {
+                        state.showStore = true
+                    } label: {
+                        Label(
+                            trialStatusText,
+                            systemImage: entitlementManager.isCoreReadOnly ? "lock.fill" : "clock"
+                        )
+                        .font(.caption)
+                    }
+                    .accessibilityHint(NSLocalizedString("iap.trial.status.accessibilityHint", comment: "Open Full Access purchase screen"))
+                }
+
                 // Settings button - opens settings sheet
                 Button {
                     state.showSettings = true
@@ -47,7 +61,7 @@ struct ContentViewToolbar: ToolbarContent {
                     Label(NSLocalizedString("contentView.addProject", comment: "Button to add new project"), systemImage: "plus")
                 }
                 .accessibilityLabel(NSLocalizedString("contentView.addProjectAccessibility", comment: "Accessibility label for add project button"))
-                .disabled(state.editMode == .active)
+                .disabled(state.editMode == .active || !entitlementManager.canModifyContent)
                 
                 // Sort Menu
                 Menu {
@@ -77,6 +91,7 @@ struct ContentViewToolbar: ToolbarContent {
                     } label: {
                         Text(state.editMode == .inactive ? "Edit" : "Done")
                     }
+                    .disabled(!entitlementManager.canModifyContent)
                 }
             }
         }

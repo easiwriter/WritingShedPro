@@ -82,6 +82,7 @@ struct AddLocationSheet: View {
     // MARK: - Actions
     
     private func addLocation() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !trimmedName.isEmpty else {

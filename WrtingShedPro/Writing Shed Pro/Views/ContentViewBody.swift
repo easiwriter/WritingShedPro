@@ -9,6 +9,34 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 
+private struct TrialWarning: Identifiable {
+    enum Kind: String {
+        case threeDays
+        case oneDay
+    }
+
+    let kind: Kind
+    var id: String { kind.rawValue }
+
+    var title: String {
+        switch kind {
+        case .threeDays:
+            return NSLocalizedString("iap.trial.warning.threeDays.title", comment: "Three trial days remain")
+        case .oneDay:
+            return NSLocalizedString("iap.trial.warning.oneDay.title", comment: "One trial day remains")
+        }
+    }
+
+    var message: String {
+        switch kind {
+        case .threeDays:
+            return NSLocalizedString("iap.trial.warning.threeDays.message", comment: "Three trial days warning")
+        case .oneDay:
+            return NSLocalizedString("iap.trial.warning.oneDay.message", comment: "One trial day warning")
+        }
+    }
+}
+
 // MARK: - Custom UTTypes for Writing Shed files
 extension UTType {
     /// Writing Shed legacy export format (.wsd)
@@ -41,11 +69,12 @@ struct ContentViewBody: View {
     
     @Environment(\.requestReview) var requestReview
     @Environment(\.modelContext) private var modelContext
-    
+    @State private var entitlementManager = EntitlementManager.shared
 
     @State private var showProjectTrash = false
     @State private var didProcessLaunchProjectRestore = false
     @State private var importAfterSettingsDismissal = false
+    @State private var trialWarning: TrialWarning?
 
     private var trashedProjects: [Project] {
         projects.filter { $0.isTrashed == true }
@@ -121,7 +150,8 @@ struct ContentViewBody: View {
                 }
 
                 restoreLastOpenedProjectIfNeeded()
-                onEvaluateOnboarding()
+                evaluateOnboardingWhenAccessIsReady()
+                evaluateTrialMilestones()
             }
             .onChange(of: projects.count) { _, _ in
                 adoptUserOrderSortIfNeeded()
@@ -133,6 +163,13 @@ struct ContentViewBody: View {
                         state.editMode = .inactive
                     }
                 }
+            }
+            .onChange(of: entitlementManager.coreAccessState) { _, _ in
+                evaluateOnboardingWhenAccessIsReady()
+                evaluateTrialMilestones()
+            }
+            .onChange(of: entitlementManager.currentEvaluationDate) { _, _ in
+                evaluateTrialMilestones()
             }
             #if targetEnvironment(macCatalyst)
             .navigationTitle("Writing Shed Pro")
@@ -187,6 +224,17 @@ struct ContentViewBody: View {
             .sheet(isPresented: $state.showStore) {
                 StoreView()
             }
+            .fullScreenCover(
+                isPresented: Binding(
+                    get: {
+                        entitlementManager.isLoaded && entitlementManager.requiresTrialActivation
+                    },
+                    set: { _ in }
+                )
+            ) {
+                StoreView(requiresAccessSelection: true)
+                    .interactiveDismissDisabled()
+            }
             .sheet(item: $state.projectForPageSetup) { project in
                 PageSetupForm(project: project)
             }
@@ -235,6 +283,16 @@ struct ContentViewBody: View {
             } message: {
                 Text(NSLocalizedString("messages.launchAlert.body", comment: ""))
             }
+            .alert(item: $trialWarning) { warning in
+                Alert(
+                    title: Text(warning.title),
+                    message: Text(warning.message),
+                    primaryButton: .default(Text(NSLocalizedString("iap.fullAccess.unlock", comment: "Unlock Full Access"))) {
+                        state.showStore = true
+                    },
+                    secondaryButton: .cancel(Text(NSLocalizedString("iap.fullAccess.notNow", comment: "Not now")))
+                )
+            }
             .navigationDestination(for: TextFile.self) { file in
                 editorDestination(for: file)
                     .alert(NSLocalizedString("onboarding.editorIntro.title", comment: "Editor introduction title"), isPresented: $state.showOnboardingEditorIntro) {
@@ -248,6 +306,42 @@ struct ContentViewBody: View {
             .navigationDestination(for: ProjectContentRoute.self) { route in
                 projectContentDestination(for: route)
             }
+    }
+
+    private func evaluateOnboardingWhenAccessIsReady() {
+        guard entitlementManager.isLoaded,
+              entitlementManager.coreAccessState.allowsAppEntry else { return }
+        onEvaluateOnboarding()
+    }
+
+    private func evaluateTrialMilestones() {
+        guard entitlementManager.purchaseModel == .trialAndFullAccess,
+              let trialStartDate = entitlementManager.trialStartDate else { return }
+
+        let trialIdentifier = String(Int(trialStartDate.timeIntervalSince1970))
+        if entitlementManager.isCoreReadOnly {
+            let key = "iap.trial.warning.\(trialIdentifier).expired"
+            guard !UserDefaults.standard.bool(forKey: key) else { return }
+            UserDefaults.standard.set(true, forKey: key)
+            state.showStore = true
+            return
+        }
+
+        guard let remaining = entitlementManager.trialTimeRemaining else { return }
+        let warning: TrialWarning?
+        if remaining <= 24 * 60 * 60 {
+            warning = TrialWarning(kind: .oneDay)
+        } else if remaining <= 3 * 24 * 60 * 60 {
+            warning = TrialWarning(kind: .threeDays)
+        } else {
+            warning = nil
+        }
+
+        guard let warning else { return }
+        let key = "iap.trial.warning.\(trialIdentifier).\(warning.kind.rawValue)"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
+        trialWarning = warning
     }
 
     private var projectListSection: some View {

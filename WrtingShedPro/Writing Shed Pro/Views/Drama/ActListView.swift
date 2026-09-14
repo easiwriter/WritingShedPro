@@ -255,6 +255,7 @@ struct ActListView: View {
     // MARK: - Actions
     
     private func deleteSelectedActs() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         for act in selectedActs {
             // Also delete all scenes in the act
             if let scenes = act.scenes {
@@ -274,6 +275,7 @@ struct ActListView: View {
     }
     
     private func updateAct(_ act: Act, name: String, synopsis: String) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         guard !name.isEmpty else { return }
 
         act.name = name
@@ -285,6 +287,7 @@ struct ActListView: View {
     }
     
     private func moveActs(from source: IndexSet, to destination: Int) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         var acts = sortedActs
         acts.move(fromOffsets: source, toOffset: destination)
         
@@ -300,6 +303,7 @@ struct ActListView: View {
     }
     
     private func renumberActs() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         for (index, act) in sortedActs.enumerated() {
             act.userOrder = index
             act.modifiedDate = Date()
@@ -310,6 +314,7 @@ struct ActListView: View {
     }
     
     private func createSubmissionFromActs(name: String) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty else { return }
 
@@ -396,7 +401,7 @@ struct ActRowView: View {
             HStack(spacing: 4) {
                 Image(systemName: "film")
                     .font(.footnote)
-                Text(String(format: NSLocalizedString("drama.act.sceneCount", comment: "Scene count"), sceneCount))
+                Text("\(String(format: NSLocalizedString("drama.act.sceneCount", comment: "Scene count"), sceneCount)) • \(localizedWordCount)")
                     .font(.footnote)
             }
             .foregroundColor(.secondary)
@@ -406,5 +411,19 @@ struct ActRowView: View {
 
     private func isLiveScene(_ scene: StoryScene) -> Bool {
         !scene.isTrashed && scene.textFile?.parentFolder != nil
+    }
+
+    private var localizedWordCount: String {
+        let count = (act.scenes ?? [])
+            .filter(isLiveScene)
+            .compactMap { $0.textFile }
+            .reduce(0) { total, file in
+                total + (file.currentVersion?.content ?? "")
+                    .components(separatedBy: .whitespacesAndNewlines)
+                    .filter { !$0.isEmpty }
+                    .count
+            }
+        let key = count == 1 ? "common.wordCountSingularFormat" : "common.wordCountPluralFormat"
+        return String(format: NSLocalizedString(key, comment: "Word count format"), count)
     }
 }

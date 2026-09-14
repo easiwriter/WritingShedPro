@@ -84,6 +84,12 @@ struct ProjectItemView: View {
                         Text(projectTypeDisplayName)
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                        if Write_App.isLocalRecoveryModeEnabled {
+                            Text(recoveryIdentitySummary)
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(.orange)
+                                .textSelection(.enabled)
+                        }
                     }
 
                     Spacer()
@@ -99,6 +105,16 @@ struct ProjectItemView: View {
         .accessibilityLabel("Project: \(project.name ?? NSLocalizedString("projectItem.untitledProject", comment: "Untitled project"))")
         .accessibilityValue(projectTypeDisplayName)
         .accessibilityHint("Double tap to view project details")
+    }
+
+    private var recoveryIdentitySummary: String {
+        let id = String(project.id.uuidString.prefix(8))
+        let modified = project.modifiedDate?.formatted(
+            .dateTime.year().month(.twoDigits).day(.twoDigits).hour().minute()
+        ) ?? "unknown"
+        let folderCount = project.folders?.count ?? 0
+        let styleStatus = project.styleSheet == nil ? "no style" : "style linked"
+        return "ID \(id) | modified \(modified) | roots \(folderCount) | \(styleStatus)"
     }
     
     private var projectOptionsMenu: some View {

@@ -15,23 +15,8 @@
   ],
   "products" : [
     {
-      "displayPrice" : "39.99",
-      "familyShareable" : true,
-      "internalID" : "6758569572",
-      "localizations" : [
-        {
-          "description" : "Access to prose, poetry, fiction and drama modules",
-          "displayName" : "All In Bundle",
-          "locale" : "en_GB"
-        }
-      ],
-      "productID" : "com.writingshedpro.allinbundle",
-      "referenceName" : "All-in Bundle",
-      "type" : "NonConsumable"
-    },
-    {
       "displayPrice" : "19.99",
-      "familyShareable" : false,
+      "familyShareable" : true,
       "internalID" : "6758569505",
       "localizations" : [
         {
@@ -46,7 +31,7 @@
     },
     {
       "displayPrice" : "19.99",
-      "familyShareable" : false,
+      "familyShareable" : true,
       "internalID" : "6758569423",
       "localizations" : [
         {
@@ -60,8 +45,23 @@
       "type" : "NonConsumable"
     },
     {
+      "displayPrice" : "49.99",
+      "familyShareable" : true,
+      "internalID" : "6758569572",
+      "localizations" : [
+        {
+          "description" : "Access to prose, poetry, fiction and drama modules",
+          "displayName" : "All In Bundle",
+          "locale" : "en_GB"
+        }
+      ],
+      "productID" : "com.writingshedpro.allinbundle",
+      "referenceName" : "Integrated Writing Environment",
+      "type" : "NonConsumable"
+    },
+    {
       "displayPrice" : "19.99",
-      "familyShareable" : false,
+      "familyShareable" : true,
       "internalID" : "6758569451",
       "localizations" : [
         {
@@ -76,7 +76,7 @@
     },
     {
       "displayPrice" : "19.99",
-      "familyShareable" : false,
+      "familyShareable" : true,
       "internalID" : "6758569394",
       "localizations" : [
         {
@@ -88,6 +88,36 @@
       "productID" : "com.writingshedpro.prosewriter",
       "referenceName" : "Prose Writer",
       "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "0.0",
+      "familyShareable" : true,
+      "internalID" : "6811794605",
+      "localizations" : [
+        {
+          "description" : "Try all Writing Shed Pro features free for 10 days",
+          "displayName" : "10-Day Free Trial",
+          "locale" : "en_GB"
+        }
+      ],
+      "productID" : "com.writingshedpro.trial10day",
+      "referenceName" : "Writing Shed Pro 10-Day Trial",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "24.99",
+      "familyShareable" : true,
+      "internalID" : "6811793369",
+      "localizations" : [
+        {
+          "description" : "Unlock Poetry, Fiction, Drama and Prose permanently",
+          "displayName" : "Writing Shed Pro – Full Access",
+          "locale" : "en_GB"
+        }
+      ],
+      "productID" : "com.writingshedpro.fullaccess",
+      "referenceName" : "Writing Shed Pro Full Access",
+      "type" : "NonConsumable"
     }
   ],
   "settings" : {
@@ -98,7 +128,7 @@
     "_developerTeamID" : "SK6C3MP32D",
     "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 806053495.00160396,
+    "_lastSynchronizedDate" : 811079303.77246296,
     "_locale" : "en_US",
     "_renewalBillingIssuesEnabled" : false,
     "_storefront" : "USA",
@@ -141,7 +171,7 @@
           "internalID" : "6771675601",
           "introductoryOffer" : {
             "billingPlanType" : "BILLED_UPFRONT",
-            "internalID" : "EEBAAA08",
+            "internalID" : "1E3095EE",
             "numberOfPeriods" : 1,
             "paymentMode" : "free",
             "subscriptionPeriod" : "P1M"
@@ -149,7 +179,7 @@
           "introductoryOffers" : [
             {
               "billingPlanType" : "BILLED_UPFRONT",
-              "internalID" : "EEBAAA08",
+              "internalID" : "1E3095EE",
               "numberOfPeriods" : 1,
               "paymentMode" : "free",
               "subscriptionPeriod" : "P1M"

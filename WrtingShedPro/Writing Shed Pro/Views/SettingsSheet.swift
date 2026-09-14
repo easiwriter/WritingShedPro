@@ -16,6 +16,7 @@ struct SettingsSheet: View {
     let onRestartOnboarding: () -> Void
     
     @Environment(\.dismiss) private var dismiss
+    private var entitlementManager: EntitlementManager { .shared }
     @State private var receiveOperatorMessages = SupportMessagesService.receiveOperatorMessages
     @State private var allowCriticalOperatorMessages = SupportMessagesService.allowCriticalWhenOptedOut
     @State private var showRestartOnboardingConfirmation = false
@@ -37,6 +38,30 @@ struct SettingsSheet: View {
                         set: { state.autoOpenLastProjectOnLaunch = $0 }
                     )) {
                         Label("Auto-open last project on launch", systemImage: "arrowshape.turn.up.right")
+                    }
+
+                    if let trialStatusText = entitlementManager.trialStatusText {
+                        Button {
+                            dismissSheet()
+                            state.showStore = true
+                        } label: {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Label(
+                                    trialStatusText,
+                                    systemImage: entitlementManager.isCoreReadOnly ? "lock.fill" : "clock"
+                                )
+                                if let expirationDate = entitlementManager.trialExpirationDate {
+                                    Text(
+                                        String(
+                                            format: NSLocalizedString("iap.trial.expires", comment: "Trial expiry date"),
+                                            expirationDate.formatted(date: .abbreviated, time: .shortened)
+                                        )
+                                    )
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                     }
                     
                     Button {
@@ -63,8 +88,13 @@ struct SettingsSheet: View {
                 // MARK: - Import Section
                 Section {
                     Button {
-                        onImport()
-                        dismissSheet()
+                        if entitlementManager.canModifyContent {
+                            onImport()
+                            dismissSheet()
+                        } else {
+                            dismissSheet()
+                            state.showStore = true
+                        }
                     } label: {
                         Label("Import", systemImage: "arrow.down.doc")
                     }
@@ -147,6 +177,19 @@ struct SettingsSheet: View {
 #if DEBUG || targetEnvironment(simulator)
                 // MARK: - Debug Section
                 Section("Debug") {
+#if DEBUG
+                    Toggle(isOn: Binding(
+                        get: {
+                            EntitlementManager.shared.isExpiredTrialSimulationEnabled
+                        },
+                        set: { isEnabled in
+                            EntitlementManager.shared.setExpiredTrialSimulationEnabled(isEnabled)
+                        }
+                    )) {
+                        Label("Simulate Expired Trial", systemImage: "clock.badge.exclamationmark")
+                    }
+#endif
+
                     Toggle(isOn: Binding(
                         get: {
                             EntitlementManager.shared.isPaywallCaptureModeEnabled
@@ -185,6 +228,12 @@ struct SettingsSheet: View {
                     Text("When enabled, the app ignores existing purchases so creating a second project/file shows the upgrade paywall for screenshots.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+
+#if DEBUG
+                    Text("Expired trial simulation makes the app read-only without changing StoreKit purchases or the real trial date. Turn it off to restore the actual entitlement state.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+#endif
 
                     Text("When enabled, onboarding ignores existing projects and completion state. Real project data is not deleted or hidden.")
                         .font(.footnote)

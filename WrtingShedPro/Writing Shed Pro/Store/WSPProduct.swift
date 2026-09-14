@@ -19,6 +19,8 @@ enum WSPProduct: String, CaseIterable, Identifiable {
     case fictionWriter = "com.writingshedpro.fictionwriter"
     case dramaWriter = "com.writingshedpro.dramawriter"
     case allInBundle = "com.writingshedpro.allinbundle"
+    case tenDayTrial = "com.writingshedpro.trial10day"
+    case fullAccess = "com.writingshedpro.fullaccess"
     case manuscriptAnalystSubscription = "com.writingshedpro.manuscriptanalyst"
     
     var id: String { rawValue }
@@ -40,6 +42,8 @@ enum WSPProduct: String, CaseIterable, Identifiable {
         case .fictionWriter: return .fiction
         case .dramaWriter: return .drama
         case .allInBundle: return nil  // Bundle unlocks all
+        case .tenDayTrial: return nil
+        case .fullAccess: return nil
         case .manuscriptAnalystSubscription: return nil  // Subscription, not type-specific
         }
     }
@@ -64,6 +68,8 @@ enum WSPProduct: String, CaseIterable, Identifiable {
         case .fictionWriter: return "Fiction Writer"
         case .dramaWriter: return "Drama Writer"
         case .allInBundle: return "All-in Bundle"
+        case .tenDayTrial: return "10-Day Free Trial"
+        case .fullAccess: return "Writing Shed Pro Full Access"
         case .manuscriptAnalystSubscription: return "Manuscript Analyst"
         }
     }
@@ -76,6 +82,8 @@ enum WSPProduct: String, CaseIterable, Identifiable {
         case .fictionWriter: return "Novels, short fiction, outlines"
         case .dramaWriter: return "Stage plays, screenplays, DML"
         case .allInBundle: return "All modules - best value!"
+        case .tenDayTrial: return "Full access to core features for 10 days"
+        case .fullAccess: return "Permanent access to all core features"
         case .manuscriptAnalystSubscription: return "AI-powered editorial analysis"
         }
     }
@@ -88,6 +96,8 @@ enum WSPProduct: String, CaseIterable, Identifiable {
         case .fictionWriter: return "book"
         case .dramaWriter: return "theatermasks"
         case .allInBundle: return "star.circle.fill"
+        case .tenDayTrial: return "clock.badge.checkmark"
+        case .fullAccess: return "checkmark.seal.fill"
         case .manuscriptAnalystSubscription: return "sparkles"
         }
     }
@@ -100,6 +110,8 @@ enum WSPProduct: String, CaseIterable, Identifiable {
         case .fictionWriter: return .orange
         case .dramaWriter: return .red
         case .allInBundle: return .purple
+        case .tenDayTrial: return .teal
+        case .fullAccess: return .green
         case .manuscriptAnalystSubscription: return .cyan
         }
     }
@@ -112,6 +124,10 @@ enum WSPProduct: String, CaseIterable, Identifiable {
     /// Individual modules (excludes bundle)
     static var individualModules: [WSPProduct] {
         allCases.filter { $0.projectType != nil }
+    }
+
+    static var legacyCoreProducts: [WSPProduct] {
+        individualModules + [.allInBundle]
     }
 }
 

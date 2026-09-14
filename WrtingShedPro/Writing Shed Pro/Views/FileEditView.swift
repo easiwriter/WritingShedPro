@@ -2130,6 +2130,10 @@ struct FileEditView: View {
     /// Back matter files and TOC files are read-only
     /// Also read-only when previewing in alternate format (to prevent accidental edits to preview content)
     private var isFileEditable: Bool {
+        guard EntitlementManager.shared.canModifyContent else {
+            return false
+        }
+
         if isFormattedContentSyncIncomplete {
             return false
         }
@@ -2245,6 +2249,11 @@ struct FileEditView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 refreshRemoteContentAndStylesIfSafe()
+            }
+            .onChange(of: EntitlementManager.shared.canModifyContent) { wasEditable, isEditable in
+                guard wasEditable, !isEditable else { return }
+                flushPendingEditorChanges(reason: "editor-access-expired-flush")
+                textViewCoordinator.textView?.resignFirstResponder()
             }
             .onReceive(NotificationCenter.default.publisher(for: .writingShedProSyncDidUpdateLocalData)) { _ in
                 refreshRemoteContentAndStylesIfSafe()

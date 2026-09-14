@@ -182,6 +182,7 @@ struct CommentDetailView: View {
     // MARK: - Actions
     
     private func saveChanges() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         guard editedText != comment.text else {
             isEditing = false
             return
@@ -193,6 +194,7 @@ struct CommentDetailView: View {
     }
     
     private func toggleResolve() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         if comment.isResolved {
             CommentManager.shared.reopenComment(comment, context: modelContext)
         } else {
@@ -202,6 +204,7 @@ struct CommentDetailView: View {
     }
     
     private func deleteComment() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         CommentManager.shared.deleteComment(comment, context: modelContext)
         onDelete?(comment)
         dismiss()

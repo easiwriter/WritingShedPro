@@ -26,7 +26,7 @@ final class ManuscriptAnalystService {
         modelContext: ModelContext
     ) async throws -> ManuscriptReview {
         // Validate subscription
-        guard EntitlementManager.shared.isManuscriptAnalystSubscriptionActive() else {
+        guard EntitlementManager.shared.canUseManuscriptAnalyst() else {
             throw ManuscriptAnalystError.subscriptionInactive
         }
 
@@ -87,7 +87,7 @@ final class ManuscriptAnalystService {
         modelContext: ModelContext
     ) async throws -> ManuscriptReview {
         // Validate subscription
-        guard EntitlementManager.shared.isManuscriptAnalystSubscriptionActive() else {
+        guard EntitlementManager.shared.canUseManuscriptAnalyst() else {
             throw ManuscriptAnalystError.subscriptionInactive
         }
 
@@ -141,7 +141,7 @@ final class ManuscriptAnalystService {
         fileName: String = "Raw Drama",
         projectId: UUID? = nil
     ) async throws -> ManuscriptReview {
-        guard EntitlementManager.shared.isManuscriptAnalystSubscriptionActive() else {
+        guard EntitlementManager.shared.canUseManuscriptAnalyst() else {
             throw ManuscriptAnalystError.subscriptionInactive
         }
 

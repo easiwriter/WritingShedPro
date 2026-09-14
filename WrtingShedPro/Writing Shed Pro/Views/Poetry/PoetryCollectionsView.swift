@@ -34,6 +34,7 @@ struct PoetryCollectionsView: View {
     @State private var collectionToEdit: CollectionEditState?
     @State private var refreshToken: Int = 0
     @State private var fileCountByCollectionID: [UUID: Int] = [:]
+    @State private var wordCountByCollectionID: [UUID: Int] = [:]
     
     /// Submission state
     @State private var showSubmissionNamePrompt = false
@@ -63,6 +64,10 @@ struct PoetryCollectionsView: View {
     /// Fast lookup of live counts computed from a single fetch.
     private func liveFileCount(for collection: PoetryCollection) -> Int {
         fileCountByCollectionID[collection.id] ?? 0
+    }
+
+    private func liveWordCount(for collection: PoetryCollection) -> Int {
+        wordCountByCollectionID[collection.id] ?? 0
     }
     
     // MARK: - Body
@@ -218,14 +223,15 @@ struct PoetryCollectionsView: View {
         List(selection: $selectedCollectionIDs) {
             ForEach(sortedCollections) { collection in
                 let currentFileCount = liveFileCount(for: collection)
+                let currentWordCount = liveWordCount(for: collection)
                 HStack {
                     if isEditMode {
-                        CollectionRowView(collection: collection, fileCount: currentFileCount)
+                        CollectionRowView(collection: collection, fileCount: currentFileCount, wordCount: currentWordCount)
                     } else {
                         NavigationLink {
                             PoetryCollectionPoemsView(project: project, collection: collection)
                         } label: {
-                            CollectionRowView(collection: collection, fileCount: currentFileCount)
+                            CollectionRowView(collection: collection, fileCount: currentFileCount, wordCount: currentWordCount)
                         }
                     }
                     
@@ -287,6 +293,7 @@ struct PoetryCollectionsView: View {
     private func refreshLiveFileCounts() {
         let freshContext = ModelContext(modelContext.container)
         var counts: [UUID: Int] = [:]
+        var wordCounts: [UUID: Int] = [:]
         let collectionIDs = Set(sortedCollections.map(\.id))
         let files = (try? freshContext.fetch(FetchDescriptor<TextFile>())) ?? []
 
@@ -295,13 +302,19 @@ struct PoetryCollectionsView: View {
                   collectionIDs.contains(collectionID),
                   file.trashItem == nil else { continue }
             counts[collectionID, default: 0] += 1
+            wordCounts[collectionID, default: 0] += (file.currentVersion?.content ?? "")
+                .components(separatedBy: .whitespacesAndNewlines)
+                .filter { !$0.isEmpty }
+                .count
         }
 
         for collectionID in collectionIDs where counts[collectionID] == nil {
             counts[collectionID] = 0
+            wordCounts[collectionID] = 0
         }
 
         fileCountByCollectionID = counts
+        wordCountByCollectionID = wordCounts
     }
 
     private func collectionFilesByID(for collectionIDs: Set<UUID>) -> [UUID: [TextFile]] {
@@ -321,6 +334,7 @@ struct PoetryCollectionsView: View {
     }
     
     private func deleteSelectedCollections() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let deletedIDs = Set(selectedCollections.map { $0.id })
 
         for collection in selectedCollections {
@@ -348,6 +362,7 @@ struct PoetryCollectionsView: View {
     }
     
     private func updateCollection(id: UUID, name: String, synopsis: String) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         guard !name.isEmpty else { return }
         guard let collection = sortedCollections.first(where: { $0.id == id }) else { return }
         collection.name = name
@@ -360,6 +375,7 @@ struct PoetryCollectionsView: View {
     }
     
     private func moveCollections(from source: IndexSet, to destination: Int) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         var collections = sortedCollections
         collections.move(fromOffsets: source, toOffset: destination)
         for (index, collection) in collections.enumerated() {
@@ -373,6 +389,7 @@ struct PoetryCollectionsView: View {
     }
     
     private func createSubmissionFromCollections(name: String) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty else { return }
 
@@ -434,6 +451,7 @@ struct PoetryCollectionsView: View {
 struct CollectionRowView: View {
     let collection: PoetryCollection
     let fileCount: Int
+    let wordCount: Int
     
     var body: some View {
         HStack {
@@ -442,7 +460,7 @@ struct CollectionRowView: View {
                     .font(.body)
                 
                 HStack(spacing: 8) {
-                    Text(String(format: NSLocalizedString("poetry.collection.poemCount", comment: "%d poems"), fileCount))
+                    Text("\(String(format: NSLocalizedString("poetry.collection.poemCount", comment: "%d poems"), fileCount)) • \(localizedWordCount)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     
@@ -461,5 +479,10 @@ struct CollectionRowView: View {
             Spacer()
         }
         .accessibilityElement(children: .combine)
+    }
+
+    private var localizedWordCount: String {
+        let key = wordCount == 1 ? "common.wordCountSingularFormat" : "common.wordCountPluralFormat"
+        return String(format: NSLocalizedString(key, comment: "Word count format"), wordCount)
     }
 }

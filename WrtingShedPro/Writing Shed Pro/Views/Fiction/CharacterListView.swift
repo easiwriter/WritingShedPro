@@ -129,6 +129,7 @@ struct CharacterListView: View {
     // MARK: - Actions
     
     private func deleteCharacter(_ character: Character) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         modelContext.delete(character)
         character.project?.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "character-list-delete")

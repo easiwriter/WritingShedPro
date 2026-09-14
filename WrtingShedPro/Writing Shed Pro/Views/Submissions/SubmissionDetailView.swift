@@ -319,6 +319,7 @@ struct SubmissionDetailView: View {
     }
     
     private func deleteSubmission() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         modelContext.delete(submission)
         dismiss()
     }
@@ -681,6 +682,7 @@ struct SubmissionDetailView: View {
     }
     
     private func updateStatus(_ submittedFile: SubmittedFile, to status: SubmissionStatus) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let now = Date()
         submittedFile.submissionStatus = status
         submittedFile.statusDate = now

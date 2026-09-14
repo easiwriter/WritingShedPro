@@ -411,6 +411,14 @@ struct ProjectEditableList: View {
     }
 
     private func canPerformProjectDeletion(reason: String) -> Bool {
+        if !EntitlementManager.shared.canModifyContent {
+            let projectType = projectsToDelete?.first.flatMap { index in
+                index < sortedProjects.count ? sortedProjects[index].type : nil
+            } ?? .prose
+            upgradePromptReason = .projectLimit(projectType: projectType)
+            return false
+        }
+
         guard let ensemblesContainer = Write_App.activeEnsemblesContainer,
               !EnsemblesSaveGate.canSaveNow(reason: reason) else {
             return true
@@ -430,6 +438,14 @@ struct ProjectEditableList: View {
     }
     
     private func moveProjects(from source: IndexSet, to destination: Int) {
+        guard EntitlementManager.shared.canModifyContent else {
+            let projectType = source.first.flatMap { index in
+                index < sortedProjects.count ? sortedProjects[index].type : nil
+            } ?? .prose
+            upgradePromptReason = .projectLimit(projectType: projectType)
+            return
+        }
+
         // Capture the current display order BEFORE switching sort modes.
         // sortedProjects reads selectedSortOrder through the binding, so changing
         // it first would sort by userOrder instead of what the List was showing,

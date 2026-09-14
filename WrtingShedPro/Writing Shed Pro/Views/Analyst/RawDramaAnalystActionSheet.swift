@@ -75,7 +75,7 @@ struct RawDramaAnalystActionSheet: View {
 
     private func performAnalysis() {
         Task { @MainActor in
-            let hasSubscription = EntitlementManager.shared.isManuscriptAnalystSubscriptionActive()
+            let hasSubscription = EntitlementManager.shared.canUseManuscriptAnalyst()
             if !hasSubscription {
                 showPaywall = true
                 return

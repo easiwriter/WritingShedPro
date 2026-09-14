@@ -112,6 +112,10 @@ struct AddProjectSheet: View {
     }
     
     private func addProject() {
+        guard EntitlementManager.shared.canModifyContent else {
+            upgradePromptReason = .projectLimit(projectType: selectedType)
+            return
+        }
         do {
             _ = try ProjectCreationService.createProject(
                 name: projectName,

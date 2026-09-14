@@ -102,7 +102,10 @@ struct FileDetailsSheet: View {
                 Button(NSLocalizedString("button.done", comment: "Done")) {
                     saveChanges()
                 }
-                .disabled(editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(
+                    editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || !EntitlementManager.shared.canModifyContent
+                )
             }
         }
     }
@@ -110,6 +113,7 @@ struct FileDetailsSheet: View {
     private var nameSection: some View {
         Section {
             TextField(NSLocalizedString("fileDetails.name", comment: "Name"), text: $editName)
+                .disabled(!EntitlementManager.shared.canModifyContent)
                 .accessibilityLabel(NSLocalizedString("fileDetails.name", comment: "Name"))
                 .onSubmit {
                     saveChanges()
@@ -264,6 +268,7 @@ struct FileDetailsSheet: View {
     }
     
     private func saveChanges() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let trimmed = editName.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard trimmed != file.name else {

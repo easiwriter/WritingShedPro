@@ -170,6 +170,7 @@ struct LocationDetailView: View {
     }
     
     private func saveChanges() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         location.name = editName.trimmingCharacters(in: .whitespacesAndNewlines)
         location.detail = editDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : editDetails
         location.sights = nil
@@ -184,6 +185,7 @@ struct LocationDetailView: View {
     }
     
     private func deleteLocation() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         modelContext.delete(location)
         location.project?.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "location-detail-delete")

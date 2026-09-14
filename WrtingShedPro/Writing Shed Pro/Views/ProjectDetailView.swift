@@ -47,6 +47,7 @@ struct ProjectDetailView: View {
     }
 
     private func deleteProject() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let reason = "project-detail-trash"
         guard let ensemblesContainer = Write_App.activeEnsemblesContainer,
               !EnsemblesSaveGate.canSaveNow(reason: reason) else {
@@ -402,6 +403,7 @@ struct ProjectInfoSheet: View {
     // MARK: - Helper Methods
 
     private func saveAndClose() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let trimmedName: String = editedName.trimmingCharacters(in: .whitespaces)
 
         if trimmedName.isEmpty {
@@ -470,6 +472,7 @@ struct ProjectInfoSheet: View {
     }
 
     private func validateAndUpdateName(_ newName: String) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         // Validate name
         do {
             try NameValidator.validateProjectName(newName)

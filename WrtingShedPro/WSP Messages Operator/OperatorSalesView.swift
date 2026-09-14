@@ -72,7 +72,7 @@ struct OperatorSalesView: View {
                 } header: {
                     Text("Sales")
                 } footer: {
-                    Text("Bundle and Manuscript Analyst purchases are listed separately from project-type module sales.")
+                    Text("Unconverted and converted trials are grouped by trial activation month. Direct Full Access purchases are grouped by purchase month.")
                 }
             }
             .navigationTitle("WSP Sales")

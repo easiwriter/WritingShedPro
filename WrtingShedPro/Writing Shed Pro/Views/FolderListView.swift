@@ -392,6 +392,13 @@ struct FolderListView: View {
             projectContentRefreshID = UUID()
             scheduleProjectContentRefresh()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .writingShedProSyncDidUpdateLocalData)) { _ in
+            Task { @MainActor in
+                await loadFolders()
+                projectContentRefreshID = UUID()
+                scheduleProjectContentRefresh()
+            }
+        }
     }
 
     private func scheduleProjectContentRefresh() {
@@ -1512,8 +1519,9 @@ struct FolderRowView: View {
         }
 
         if isManuscriptBodyFolder {
+            let fileCountLabel = localizedFileCount(fileCount)
             let wordCountLabel = localizedWordCount(bodyMatterWordCount)
-            return "\(baseName) (\(wordCountLabel))"
+            return "\(baseName) (\(fileCountLabel), \(wordCountLabel))"
         }
 
         let count: Int
@@ -1679,7 +1687,7 @@ struct FolderRowView: View {
             subfolderCount = 0
             bodyMatterWordCount = 0
         } else if isManuscriptBodyFolder {
-            fileCount = folder.textFiles?.count ?? 0
+            fileCount = totalBodyMatterFiles(project: folder.resolvedProject).count
             subfolderCount = folder.folders?.count ?? 0
             bodyMatterWordCount = totalBodyMatterWordCount(project: folder.resolvedProject)
         } else {
@@ -1714,8 +1722,19 @@ struct FolderRowView: View {
         return String(format: NSLocalizedString(key, comment: "Word count format"), count)
     }
 
+    private func localizedFileCount(_ count: Int) -> String {
+        let key = count == 1 ? "folderList.fileCountSingular" : "folderList.fileCountPlural"
+        return String(format: NSLocalizedString(key, comment: "File count format"), count)
+    }
+
     private func totalBodyMatterWordCount(project: Project?) -> Int {
-        guard let project else { return 0 }
+        totalBodyMatterFiles(project: project).reduce(0) { total, file in
+            total + wordCount(for: file)
+        }
+    }
+
+    private func totalBodyMatterFiles(project: Project?) -> [TextFile] {
+        guard let project else { return [] }
 
         let files: [TextFile]
         switch project.type {
@@ -1756,9 +1775,7 @@ struct FolderRowView: View {
                 .compactMap { $0.textFile }
         }
 
-        return files.reduce(0) { total, file in
-            total + wordCount(for: file)
-        }
+        return files
     }
     
     private var folderIcon: String {

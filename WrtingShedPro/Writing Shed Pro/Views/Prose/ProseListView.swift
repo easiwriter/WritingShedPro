@@ -123,6 +123,7 @@ struct ProseListView: View {
     
     /// Collapsible section state - tracks which sections are expanded
     @State private var expandedSections: Set<String> = []
+    @State private var hasLoadedDisclosureState = false
     @State private var subsectionsByFileID: [UUID: [DocumentSubsectionEntry]] = [:]
     @State private var subsectionNavigationTarget: DocumentSubsectionNavigationTarget?
     
@@ -249,6 +250,10 @@ struct ProseListView: View {
     /// Whether to show collapsible sections when the project defines sections.
     private var useSections: Bool {
         section == nil && !sectionGroups.isEmpty
+    }
+
+    private var disclosureStateKey: String {
+        "proseFileList.expandedSections.\(project.id.uuidString)"
     }
     
     // MARK: - Body
@@ -880,13 +885,14 @@ struct ProseListView: View {
                 if newValue == .active {
                     // Expand all sections when entering edit mode for easier multi-select
                     expandedSections = Set(sectionGroups.map { $0.id })
+                } else {
+                    loadDisclosureState(force: true)
                 }
             }
         }
         .onAppear {
-            // Start with all sections expanded
-            if useSections && expandedSections.isEmpty {
-                expandedSections = Set(sectionGroups.map { $0.id })
+            if useSections {
+                loadDisclosureState()
             }
             refreshSubsectionEntries()
         }
@@ -907,6 +913,7 @@ struct ProseListView: View {
                 } else {
                     expandedSections.insert(group.id)
                 }
+                saveDisclosureState()
             }
         } label: {
             HStack(spacing: 12) {
@@ -955,6 +962,7 @@ struct ProseListView: View {
                     // Expand all
                     expandedSections = Set(sectionGroups.map { $0.id })
                 }
+                saveDisclosureState()
             }
         } label: {
             Image(systemName: allExpanded ? "chevron.up.circle" : "chevron.down.circle")
@@ -965,6 +973,24 @@ struct ProseListView: View {
         .help(allExpanded ?
             NSLocalizedString("fileList.collapseAll", comment: "Collapse all sections") :
             NSLocalizedString("fileList.expandAll", comment: "Expand all sections"))
+    }
+
+    private func loadDisclosureState(force: Bool = false) {
+        guard force || !hasLoadedDisclosureState else { return }
+        hasLoadedDisclosureState = true
+
+        let validSectionIDs = Set(sectionGroups.map { $0.id })
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: disclosureStateKey) != nil {
+            let savedSectionIDs = Set(defaults.stringArray(forKey: disclosureStateKey) ?? [])
+            expandedSections = savedSectionIDs.intersection(validSectionIDs)
+        } else {
+            expandedSections = validSectionIDs
+        }
+    }
+
+    private func saveDisclosureState() {
+        UserDefaults.standard.set(expandedSections.sorted(), forKey: disclosureStateKey)
     }
     
     @ViewBuilder

@@ -422,6 +422,7 @@ struct PlotElementDetailView: View {
     }
     
     private func saveChanges() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         plotElement.name = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         plotElement.notes = editDescription.isEmpty ? nil : editDescription
         
@@ -459,6 +460,7 @@ struct PlotElementDetailView: View {
     }
     
     private func deletePlotElement() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         modelContext.delete(plotElement)
         WriteCoalescer.shared?.requestSave(reason: "plot-element-delete")
         WriteCoalescer.shared?.flush()

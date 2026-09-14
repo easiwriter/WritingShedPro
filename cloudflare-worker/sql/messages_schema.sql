@@ -21,11 +21,17 @@ CREATE TABLE IF NOT EXISTS sales_events (
   project_type TEXT NOT NULL,
   sale_month TEXT NOT NULL,
   purchase_date INTEGER NOT NULL,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  conversion_transaction_id TEXT,
+  conversion_purchase_date INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_sales_events_month
 ON sales_events(sale_month DESC, project_type);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_events_conversion_transaction
+ON sales_events(conversion_transaction_id)
+WHERE conversion_transaction_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS monthly_sales (
   sale_month TEXT NOT NULL,

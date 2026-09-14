@@ -201,6 +201,7 @@ struct CharacterDetailView: View {
     }
     
     private func saveChanges() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         character.name = editName.trimmingCharacters(in: .whitespacesAndNewlines)
         if usesStructuredRoleSet {
             let trimmed = selectedStructuredRoleRaw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -224,6 +225,7 @@ struct CharacterDetailView: View {
     }
     
     private func deleteCharacter() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         modelContext.delete(character)
         character.project?.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "character-detail-delete")

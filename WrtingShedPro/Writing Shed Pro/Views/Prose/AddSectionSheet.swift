@@ -101,6 +101,7 @@ struct AddSectionSheet: View {
     // MARK: - Actions
     
     private func addSection() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !trimmedTitle.isEmpty else {

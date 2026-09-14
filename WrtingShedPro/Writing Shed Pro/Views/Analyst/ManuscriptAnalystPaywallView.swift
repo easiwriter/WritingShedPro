@@ -8,7 +8,13 @@ struct ManuscriptAnalystPaywallView: View {
     @State private var isPurchasing = false
     @State private var showTrialTerms = false
     @State private var purchaseError: String?
+    @State private var showFullAccessStore = false
     var onSubscribe: (() -> Void)?
+
+    private var requiresFullAccess: Bool {
+        EntitlementManager.shared.purchaseModel == .trialAndFullAccess
+            && !EntitlementManager.shared.hasFullAccess
+    }
 
     private var purchaseErrorPresented: Binding<Bool> {
         Binding(
@@ -19,8 +25,52 @@ struct ManuscriptAnalystPaywallView: View {
 
     var body: some View {
         NavigationStack {
-            paywallContent
+            if requiresFullAccess {
+                fullAccessRequiredContent
+            } else {
+                paywallContent
+            }
         }
+        .fullScreenCover(isPresented: $showFullAccessStore) {
+            StoreView(highlightedProduct: .fullAccess)
+        }
+    }
+
+    private var fullAccessRequiredContent: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            Image(systemName: "lock.fill")
+                .font(.system(size: 44))
+                .foregroundStyle(.secondary)
+
+            Text(NSLocalizedString("iap.readOnly.title", comment: "Full Access required"))
+                .font(.title2)
+                .fontWeight(.bold)
+
+            Text(NSLocalizedString("iap.analyst.requiresFullAccess", comment: "Analyst requires Full Access"))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            Button {
+                showFullAccessStore = true
+            } label: {
+                Text(NSLocalizedString("iap.fullAccess.unlock", comment: "Unlock Full Access"))
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                cancelFlow()
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding()
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private var paywallContent: some View {
@@ -197,6 +247,13 @@ struct ManuscriptAnalystPaywallView: View {
     }
 
     private func purchaseSubscription() async {
+        guard EntitlementManager.shared.canPurchaseManuscriptAnalyst else {
+            purchaseError = NSLocalizedString(
+                "iap.analyst.requiresFullAccess",
+                comment: "Analyst requires Full Access"
+            )
+            return
+        }
         isPurchasing = true
         defer { isPurchasing = false }
         do {

@@ -77,6 +77,7 @@ struct AddProseFileSheet: View {
     }
     
     private func addFile() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         guard let folder = proseFolder else {
             errorMessage = "Prose folder not found"
             showErrorAlert = true

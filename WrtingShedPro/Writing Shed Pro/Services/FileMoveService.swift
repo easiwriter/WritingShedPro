@@ -12,12 +12,18 @@ import UIKit
 
 /// Service for managing file movement operations between folders
 /// Handles move, delete to trash, and put back operations
+@MainActor
 class FileMoveService {
     
     private let modelContext: ModelContext
+    private let canModifyContent: @MainActor () -> Bool
     
-    init(modelContext: ModelContext) {
+    init(
+        modelContext: ModelContext,
+        canModifyContent: @escaping @MainActor () -> Bool = { EntitlementManager.shared.canModifyContent }
+    ) {
         self.modelContext = modelContext
+        self.canModifyContent = canModifyContent
     }
     
     // MARK: - Move Operations
@@ -28,6 +34,7 @@ class FileMoveService {
     ///   - destination: The destination Folder
     /// - Throws: FileMoveError if the move is invalid
     func moveFile(_ file: TextFile, to destination: Folder) throws {
+        try requireModificationAccess()
         try validateMove(file, to: destination)
         
         // Check for name conflict and auto-rename if needed
@@ -48,6 +55,7 @@ class FileMoveService {
     ///   - destination: The destination Folder
     /// - Throws: FileMoveError if any move is invalid
     func moveFiles(_ files: [TextFile], to destination: Folder) throws {
+        try requireModificationAccess()
         // Validate all files first (atomic - all succeed or all fail)
         for file in files {
             try validateMove(file, to: destination)
@@ -70,6 +78,7 @@ class FileMoveService {
     ///   - destination: The destination Folder (new parent)
     /// - Throws: FileMoveError if the move is invalid
     func moveFolder(_ folder: Folder, to destination: Folder) throws {
+        try requireModificationAccess()
         // Validate: Can't move folder into itself
         guard folder.id != destination.id else {
             throw FileMoveError.cannotMoveToSelf
@@ -129,6 +138,7 @@ class FileMoveService {
     /// - Parameter file: The TextFile to delete
     /// - Throws: FileMoveError if the file or project is invalid
     func deleteFile(_ file: TextFile) throws {
+        try requireModificationAccess()
         guard let originalFolder = file.parentFolder else {
             throw FileMoveError.invalidSourceFolder
         }
@@ -160,6 +170,7 @@ class FileMoveService {
     /// - Parameter files: Array of TextFiles to delete
     /// - Throws: FileMoveError if any file is invalid
     func deleteFiles(_ files: [TextFile]) throws {
+        try requireModificationAccess()
         // Validate all files first
         for file in files {
             guard file.parentFolder != nil else {
@@ -197,6 +208,7 @@ class FileMoveService {
     /// - Parameter files: Array of TextFiles to permanently delete
     /// - Throws: FileMoveError if any file is invalid
     func deleteFilesPermanently(_ files: [TextFile]) throws {
+        try requireModificationAccess()
         guard EnsemblesSaveGate.canSaveNow(
             reason: "file-move-permanent-delete",
             context: modelContext
@@ -298,6 +310,7 @@ class FileMoveService {
     /// - Returns: (restoredToOriginal: Bool, folder: Folder) - indicates if restored to original or Draft
     @discardableResult
     func putBack(_ trashItem: TrashItem) throws -> (restoredToOriginal: Bool, folder: Folder) {
+        try requireModificationAccess()
         guard let file = trashItem.textFile else {
             throw FileMoveError.fileNotFound
         }
@@ -351,6 +364,12 @@ class FileMoveService {
     }
     
     // MARK: - Validation
+
+    private func requireModificationAccess() throws {
+        guard canModifyContent() else {
+            throw FileMoveError.readOnlyAccess
+        }
+    }
     
     /// Validates whether a file can be moved to a destination folder
     /// - Parameters:
@@ -432,6 +451,7 @@ class FileMoveService {
 
 /// Errors that can occur during file movement operations
 enum FileMoveError: LocalizedError, Equatable {
+    case readOnlyAccess
     case fileNotFound
     case folderNotFound
     case projectNotFound
@@ -447,6 +467,8 @@ enum FileMoveError: LocalizedError, Equatable {
     
     var errorDescription: String? {
         switch self {
+        case .readOnlyAccess:
+            return NSLocalizedString("iap.readOnly.error", comment: "Error when an editing action requires Full Access")
         case .fileNotFound:
             return "File not found"
         case .folderNotFound:

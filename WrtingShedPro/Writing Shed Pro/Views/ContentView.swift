@@ -128,12 +128,14 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             if newPhase == .active && oldPhase != .active {
+                EntitlementManager.shared.refreshTimeState()
                 let shouldReconcile = syncOnForegroundResume()
                 startPeriodicSyncTimer()
                 if shouldReconcile {
                     scheduleRemoteReconcile(reason: "foreground-resume")
                 }
                 Task {
+                    await EntitlementManager.shared.refreshEntitlements()
                     await checkForNewSupportMessagesIfNeeded()
                 }
             }
@@ -181,6 +183,10 @@ struct ContentView: View {
     }
 
     private func handleOpenedFileURL(_ url: URL) {
+        guard EntitlementManager.shared.canModifyContent else {
+            state.showStore = true
+            return
+        }
         let ext = url.pathExtension.lowercased()
         guard ext == "wsp" || ext == "wsd" || ext == "json" else { return }
         handleJSONImport(.success([url]))
@@ -301,6 +307,7 @@ struct ContentView: View {
 
     /// Passive periodic local maintenance.
     private func performPeriodicSyncWatchdogTick() {
+        EntitlementManager.shared.refreshTimeState()
         reconcileProjectListIfNeeded()
         autoNormalizeProjectOrderIfNeeded()
     }
@@ -1040,6 +1047,10 @@ struct ContentView: View {
     
     /// Handle Import menu action - show file picker directly
     private func handleImportMenu() {
+        guard EntitlementManager.shared.canModifyContent else {
+            state.showStore = true
+            return
+        }
         #if DEBUG
         print("[ContentView] Import menu clicked - showing file picker")
         #endif
@@ -1049,6 +1060,10 @@ struct ContentView: View {
 
     
     private func handleJSONImport(_ result: Result<[URL], Error>) {
+        guard EntitlementManager.shared.canModifyContent else {
+            state.showStore = true
+            return
+        }
         switch result {
         case .success(let urls):
             guard let fileURL = urls.first else { return }

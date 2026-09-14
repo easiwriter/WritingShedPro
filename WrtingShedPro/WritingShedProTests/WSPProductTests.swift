@@ -18,17 +18,21 @@ final class WSPProductTests: XCTestCase {
         XCTAssertEqual(WSPProduct.fictionWriter.rawValue, "com.writingshedpro.fictionwriter")
         XCTAssertEqual(WSPProduct.dramaWriter.rawValue, "com.writingshedpro.dramawriter")
         XCTAssertEqual(WSPProduct.allInBundle.rawValue, "com.writingshedpro.allinbundle")
+        XCTAssertEqual(WSPProduct.tenDayTrial.rawValue, "com.writingshedpro.trial10day")
+        XCTAssertEqual(WSPProduct.fullAccess.rawValue, "com.writingshedpro.fullaccess")
         XCTAssertEqual(WSPProduct.manuscriptAnalystSubscription.rawValue, "com.writingshedpro.manuscriptanalyst")
     }
     
     func testAllProductIDsContainsAllProducts() {
         let allIDs = WSPProduct.allProductIDs
-        XCTAssertEqual(allIDs.count, 6)
+        XCTAssertEqual(allIDs.count, 8)
         XCTAssertTrue(allIDs.contains(WSPProduct.proseWriter.rawValue))
         XCTAssertTrue(allIDs.contains(WSPProduct.poetryWriter.rawValue))
         XCTAssertTrue(allIDs.contains(WSPProduct.fictionWriter.rawValue))
         XCTAssertTrue(allIDs.contains(WSPProduct.dramaWriter.rawValue))
         XCTAssertTrue(allIDs.contains(WSPProduct.allInBundle.rawValue))
+        XCTAssertTrue(allIDs.contains(WSPProduct.tenDayTrial.rawValue))
+        XCTAssertTrue(allIDs.contains(WSPProduct.fullAccess.rawValue))
         XCTAssertTrue(allIDs.contains(WSPProduct.manuscriptAnalystSubscription.rawValue))
     }
     
@@ -43,6 +47,8 @@ final class WSPProductTests: XCTestCase {
     
     func testBundleHasNoProjectType() {
         XCTAssertNil(WSPProduct.allInBundle.projectType)
+        XCTAssertNil(WSPProduct.tenDayTrial.projectType)
+        XCTAssertNil(WSPProduct.fullAccess.projectType)
         XCTAssertNil(WSPProduct.manuscriptAnalystSubscription.projectType)
     }
     
@@ -61,6 +67,8 @@ final class WSPProductTests: XCTestCase {
         XCTAssertEqual(WSPProduct.fictionWriter.displayName, "Fiction Writer")
         XCTAssertEqual(WSPProduct.dramaWriter.displayName, "Drama Writer")
         XCTAssertEqual(WSPProduct.allInBundle.displayName, "All-in Bundle")
+        XCTAssertEqual(WSPProduct.tenDayTrial.displayName, "10-Day Free Trial")
+        XCTAssertEqual(WSPProduct.fullAccess.displayName, "Writing Shed Pro Full Access")
         XCTAssertEqual(WSPProduct.manuscriptAnalystSubscription.displayName, "Manuscript Analyst")
     }
     
@@ -70,6 +78,8 @@ final class WSPProductTests: XCTestCase {
         XCTAssertFalse(WSPProduct.fictionWriter.shortDescription.isEmpty)
         XCTAssertFalse(WSPProduct.dramaWriter.shortDescription.isEmpty)
         XCTAssertFalse(WSPProduct.allInBundle.shortDescription.isEmpty)
+        XCTAssertFalse(WSPProduct.tenDayTrial.shortDescription.isEmpty)
+        XCTAssertFalse(WSPProduct.fullAccess.shortDescription.isEmpty)
         XCTAssertFalse(WSPProduct.manuscriptAnalystSubscription.shortDescription.isEmpty)
     }
     
@@ -79,6 +89,8 @@ final class WSPProductTests: XCTestCase {
         XCTAssertEqual(WSPProduct.fictionWriter.iconName, "book")
         XCTAssertEqual(WSPProduct.dramaWriter.iconName, "theatermasks")
         XCTAssertEqual(WSPProduct.allInBundle.iconName, "star.circle.fill")
+        XCTAssertEqual(WSPProduct.tenDayTrial.iconName, "clock.badge.checkmark")
+        XCTAssertEqual(WSPProduct.fullAccess.iconName, "checkmark.seal.fill")
         XCTAssertEqual(WSPProduct.manuscriptAnalystSubscription.iconName, "sparkles")
     }
     
@@ -114,7 +126,7 @@ final class WSPProductTests: XCTestCase {
     // MARK: - CaseIterable Tests
     
     func testAllCasesCount() {
-        XCTAssertEqual(WSPProduct.allCases.count, 6)
+        XCTAssertEqual(WSPProduct.allCases.count, 8)
     }
 
     // MARK: - Bundle Savings Tests

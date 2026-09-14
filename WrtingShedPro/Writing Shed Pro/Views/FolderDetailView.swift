@@ -23,6 +23,7 @@ struct FolderDetailView: View {
         Form {
             Section(NSLocalizedString("folderDetail.nameSection", comment: "Name section header")) {
                 TextField(NSLocalizedString("folderDetail.folderName", comment: "Folder name field"), text: $editedName)
+                    .disabled(!EntitlementManager.shared.canModifyContent)
                     .accessibilityLabel(NSLocalizedString("folderDetail.folderNameAccessibility", comment: "Folder name accessibility"))
                     .onSubmit {
                         validateAndUpdateName()
@@ -69,6 +70,7 @@ struct FolderDetailView: View {
                 } label: {
                     Label(NSLocalizedString("folderDetail.delete", comment: "Delete button"), systemImage: "trash")
                 }
+                .disabled(!EntitlementManager.shared.canModifyContent)
                 .accessibilityLabel(NSLocalizedString("folderDetail.deleteAccessibility", comment: "Delete folder accessibility"))
             }
         }
@@ -125,6 +127,10 @@ struct FolderDetailView: View {
     }
     
     private func validateAndUpdateName() {
+        guard EntitlementManager.shared.canModifyContent else {
+            editedName = folder.name ?? ""
+            return
+        }
         let trimmedName = editedName.trimmingCharacters(in: .whitespacesAndNewlines)
         
         // Don't update if name hasn't changed
@@ -155,6 +161,7 @@ struct FolderDetailView: View {
     }
     
     private func deleteFolder() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         modelContext.delete(folder)
         dismiss()
     }

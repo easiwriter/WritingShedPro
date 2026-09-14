@@ -25,6 +25,7 @@ struct FileDetailView: View {
             // Name field
             TextField(NSLocalizedString("fileDetail.fileName", comment: "File name field"), text: $editedName)
                 .textFieldStyle(.roundedBorder)
+                .disabled(!EntitlementManager.shared.canModifyContent)
                 .padding()
                 .accessibilityLabel(NSLocalizedString("fileDetail.fileNameAccessibility", comment: "File name accessibility"))
                 .onSubmit {
@@ -56,6 +57,7 @@ struct FileDetailView: View {
                 } label: {
                     Image(systemName: "trash")
                 }
+                .disabled(!EntitlementManager.shared.canModifyContent)
                 .accessibilityLabel(NSLocalizedString("fileDetail.deleteAccessibility", comment: "Delete file accessibility"))
             }
 
@@ -92,6 +94,10 @@ struct FileDetailView: View {
     }
     
     private func validateAndUpdateName() {
+        guard EntitlementManager.shared.canModifyContent else {
+            editedName = file.name
+            return
+        }
         let trimmedName = editedName.trimmingCharacters(in: .whitespacesAndNewlines)
         
         // Don't update if name hasn't changed
@@ -133,6 +139,7 @@ struct FileDetailView: View {
     }
     
     private func deleteFile() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         // Clean up index references before deleting
         FileMoveService.cleanupIndexReferences(for: file, context: modelContext)
         modelContext.delete(file)

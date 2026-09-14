@@ -207,6 +207,7 @@ struct PlotOutlineView: View {
     // MARK: - Actions
     
     private func deletePlotElement(_ element: PlotElement) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         modelContext.delete(element)
         project.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "plot-outline-delete")
@@ -222,6 +223,7 @@ struct PlotOutlineView: View {
     }
     
     private func movePlotElements(from source: IndexSet, to destination: Int) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         var elements = sortedPlotElements
         elements.move(fromOffsets: source, toOffset: destination)
         
@@ -237,6 +239,7 @@ struct PlotOutlineView: View {
     }
     
     private func renumberPlotElements() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         for (index, element) in sortedPlotElements.enumerated() {
             element.userOrder = index
             element.modifiedDate = Date()

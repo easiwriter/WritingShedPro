@@ -198,6 +198,7 @@ struct AddChapterSheet: View {
     // MARK: - Actions
     
     private func addChapter() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !trimmedTitle.isEmpty else {

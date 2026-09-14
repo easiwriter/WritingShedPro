@@ -20,6 +20,8 @@ enum PurchaseTab: String, CaseIterable {
 struct StoreView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var storeManager = StoreKitPurchaseManager.shared
+
+    var requiresAccessSelection = false
     
     /// Optional: highlight a specific product (from upgrade prompt)
     var highlightedProduct: WSPProduct?
@@ -29,6 +31,7 @@ struct StoreView: View {
     
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var purchaseError: String?
     @State private var showRestoreSuccess = false
     @State private var purchaseInProgress: String?
     @State private var loadedProducts: [Product] = []
@@ -58,6 +61,8 @@ struct StoreView: View {
                         loadingView
                     } else if let error = errorMessage {
                         errorView(error)
+                    } else if EntitlementManager.shared.purchaseModel == .trialAndFullAccess {
+                        newModelStoreContent
                     } else {
                         // Tab picker to switch between views (hidden if only one tab available)
                         if showTabPicker {
@@ -82,12 +87,18 @@ struct StoreView: View {
                 .padding()
             }
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("Writing Modules")
+            .navigationTitle(
+                EntitlementManager.shared.purchaseModel == .trialAndFullAccess
+                    ? NSLocalizedString("iap.new.title", comment: "New IAP store title")
+                    : "Writing Modules"
+            )
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Not Now") {
-                        dismiss()
+                    if !requiresAccessSelection {
+                        Button("Not Now") {
+                            dismiss()
+                        }
                     }
                 }
             }
@@ -99,7 +110,7 @@ struct StoreView: View {
                 for await result in Transaction.updates {
                     if case .verified(let transaction) = result {
                         await transaction.finish()
-                        EntitlementManager.shared.recordVerifiedPurchase(transaction.productID)
+                        EntitlementManager.shared.recordVerifiedPurchase(transaction)
                         await SalesReporter.recordSale(for: transaction)
                         await EntitlementManager.shared.refreshEntitlements()
                     }
@@ -109,6 +120,17 @@ struct StoreView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text("Your purchases have been restored successfully.")
+            }
+            .alert(
+                NSLocalizedString("iap.purchase.unavailable", comment: "Purchase unavailable alert title"),
+                isPresented: Binding(
+                    get: { purchaseError != nil },
+                    set: { if !$0 { purchaseError = nil } }
+                )
+            ) {
+                Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) { }
+            } message: {
+                Text(purchaseError ?? "")
             }
             .onAppear {
                 // Route initial tab based on the highlighted product from upgrade prompts.
@@ -139,16 +161,72 @@ struct StoreView: View {
                     )
                 )
             
-            Text("Unlock Your Writing Potential")
+            Text(
+                EntitlementManager.shared.purchaseModel == .trialAndFullAccess
+                    ? NSLocalizedString("iap.new.heading", comment: "New IAP heading")
+                    : "Unlock Your Writing Potential"
+            )
                 .font(.headline)
                 .fontWeight(.bold)
             
-            Text("Choose a bundle or purchase modules individually")
+            Text(
+                EntitlementManager.shared.purchaseModel == .trialAndFullAccess
+                    ? NSLocalizedString("iap.new.subheading", comment: "New IAP subheading")
+                    : "Choose a bundle or purchase modules individually"
+            )
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
         }
         .padding(.vertical, 8)
+    }
+
+    private var newModelStoreContent: some View {
+        VStack(spacing: 16) {
+            if EntitlementManager.shared.requiresTrialActivation,
+               let trialProduct = product(for: .tenDayTrial) {
+                ModuleCardView(
+                    wspProduct: .tenDayTrial,
+                    storeProduct: trialProduct,
+                    isPurchased: false,
+                    isHighlighted: true,
+                    isLoading: purchaseInProgress == trialProduct.id,
+                    onPurchase: { await purchase(trialProduct) },
+                    onRedeemCode: { presentOfferCodeRedemption() }
+                )
+
+                Text(NSLocalizedString("iap.trial.noRenewal", comment: "Trial does not renew or charge"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            if let fullAccessProduct = product(for: .fullAccess) {
+                ModuleCardView(
+                    wspProduct: .fullAccess,
+                    storeProduct: fullAccessProduct,
+                    isPurchased: EntitlementManager.shared.hasFullAccess,
+                    isHighlighted: !EntitlementManager.shared.requiresTrialActivation,
+                    isLoading: purchaseInProgress == fullAccessProduct.id,
+                    onPurchase: { await purchase(fullAccessProduct) },
+                    onRedeemCode: { presentOfferCodeRedemption() }
+                )
+            }
+
+            if EntitlementManager.shared.hasFullAccess {
+                analystSubscriptionSection
+            } else {
+                Label(
+                    NSLocalizedString("iap.analyst.requiresFullAccess", comment: "Analyst requires Full Access"),
+                    systemImage: "lock.fill"
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
+
+            restoreSection
+            legalSection
+        }
     }
     
     private var purchaseTabPicker: some View {
@@ -417,6 +495,26 @@ struct StoreView: View {
     }
     
     private func purchase(_ product: Product) async {
+        if product.id == WSPProduct.manuscriptAnalystSubscription.rawValue,
+           !EntitlementManager.shared.canPurchaseManuscriptAnalyst {
+            purchaseError = NSLocalizedString(
+                "iap.analyst.requiresFullAccess",
+                comment: "Analyst requires Full Access"
+            )
+            return
+        }
+
+        #if DEBUG
+        if product.id == WSPProduct.tenDayTrial.rawValue,
+           EntitlementManager.shared.isPaywallCaptureModeEnabled {
+            await EntitlementManager.shared.setPaywallCaptureModeEnabled(false)
+            if !EntitlementManager.shared.requiresTrialActivation {
+                dismiss()
+                return
+            }
+        }
+        #endif
+
         purchaseInProgress = product.id
         
         do {
@@ -428,7 +526,7 @@ struct StoreView: View {
                     await transaction.finish()
                     // Record immediately so the entitlement is available even if
                     // Transaction.currentEntitlements hasn't updated yet (iOS timing issue).
-                    EntitlementManager.shared.recordVerifiedPurchase(transaction.productID)
+                    EntitlementManager.shared.recordVerifiedPurchase(transaction)
                     await SalesReporter.recordSale(for: transaction)
                     await EntitlementManager.shared.refreshEntitlements()
                     // Dismiss the store after successful purchase
@@ -444,6 +542,17 @@ struct StoreView: View {
                 break
             }
         } catch {
+            if product.id == WSPProduct.tenDayTrial.rawValue {
+                try? await AppStore.sync()
+                await EntitlementManager.shared.refreshEntitlements()
+                if !EntitlementManager.shared.requiresTrialActivation {
+                    dismiss()
+                    purchaseInProgress = nil
+                    return
+                }
+            }
+
+            purchaseError = error.localizedDescription
             #if DEBUG
             print("❌ Purchase failed: \(error.localizedDescription)")
             #endif

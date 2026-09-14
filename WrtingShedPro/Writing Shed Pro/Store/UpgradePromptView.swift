@@ -21,6 +21,14 @@ struct UpgradePromptView: View {
     @State private var showStore = false
     @State private var highlightedStoreProduct: WSPProduct?
     @State private var bundleSavingsPercentage: Int?
+
+    private var isNewPurchaseModel: Bool {
+        EntitlementManager.shared.purchaseModel == .trialAndFullAccess
+    }
+
+    private var targetProduct: WSPProduct {
+        isNewPurchaseModel ? .fullAccess : reason.requiredProduct
+    }
     
     var body: some View {
         VStack(spacing: 20) {
@@ -30,12 +38,12 @@ struct UpgradePromptView: View {
                 .foregroundStyle(iconGradient)
             
             // Title
-            Text(reason.title)
+            Text(isNewPurchaseModel ? NSLocalizedString("iap.readOnly.title", comment: "Full Access required") : reason.title)
                 .font(.title2)
                 .fontWeight(.semibold)
             
             // Message
-            Text(reason.message)
+            Text(isNewPurchaseModel ? NSLocalizedString("iap.readOnly.message", comment: "Trial expired read-only message") : reason.message)
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
@@ -57,10 +65,14 @@ struct UpgradePromptView: View {
             // Buttons
             VStack(spacing: 12) {
                 Button {
-                    highlightedStoreProduct = reason.requiredProduct
+                    highlightedStoreProduct = targetProduct
                     showStore = true
                 } label: {
-                    Text("View \(reason.requiredProduct.displayName)")
+                    Text(
+                        isNewPurchaseModel
+                            ? NSLocalizedString("iap.fullAccess.unlock", comment: "Unlock Full Access")
+                            : "View \(reason.requiredProduct.displayName)"
+                    )
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -71,7 +83,9 @@ struct UpgradePromptView: View {
                 
                 // Also show bundle option if not already requesting it AND user has no purchases yet
                 // (Bundle not worth showing if they already bought individual modules)
-                if reason.requiredProduct != .allInBundle && !EntitlementManager.shared.hasAnyPurchase {
+                     if !isNewPurchaseModel,
+                         reason.requiredProduct != .allInBundle,
+                         !EntitlementManager.shared.hasAnyPurchase {
                     Button {
                         highlightedStoreProduct = .allInBundle
                         showStore = true
@@ -138,6 +152,9 @@ struct UpgradePromptView: View {
     // MARK: - Styling
     
     private var iconName: String {
+        if isNewPurchaseModel {
+            return "lock.fill"
+        }
         switch reason {
         case .projectLimit:
             return "folder.badge.plus"
@@ -159,6 +176,9 @@ struct UpgradePromptView: View {
     }
     
     private var productColor: Color {
+        if isNewPurchaseModel {
+            return .green
+        }
         switch reason.projectType {
         case .prose:
             return .blue

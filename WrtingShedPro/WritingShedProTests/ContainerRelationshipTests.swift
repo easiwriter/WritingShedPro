@@ -233,7 +233,7 @@ final class ContainerRelationshipTests: XCTestCase {
 
         WriteCoalescer.shared = nil
 
-        let service = FileMoveService(modelContext: modelContext)
+        let service = FileMoveService(modelContext: modelContext, canModifyContent: { true })
         try service.deleteFilesPermanently([file])
 
         XCTAssertFalse(folder.textFiles?.contains(where: { $0.id == file.id }) ?? false,
@@ -265,7 +265,7 @@ final class ContainerRelationshipTests: XCTestCase {
         XCTAssertEqual(folder.textFiles?.count, 2, "Setup should start with two files")
 
         WriteCoalescer.shared = nil
-        let service = FileMoveService(modelContext: modelContext)
+        let service = FileMoveService(modelContext: modelContext, canModifyContent: { true })
         try service.deleteFilesPermanently([firstFile])
 
         // Immediate in-memory relationship update (the row count source).

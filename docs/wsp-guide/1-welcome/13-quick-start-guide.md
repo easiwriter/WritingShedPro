@@ -108,10 +108,17 @@ You've learned the basics! Here's where to go next:
 
 ## Try Before You Buy
 
-Writing Shed Pro lets you explore the app and start writing before purchasing. You can create a project, add files, and use the full editor — when you reach the file limit, you'll be prompted to unlock the full version with a one-time in-app purchase. There's no subscription and no time limit on the trial.
+The purchase system depends on the version of Writing Shed Pro that you originally obtained:
+
+- **Before version 19**: the legacy system lets you create one project of each type with one file per project. One-time module purchases or the All-in Bundle remove those limits.
+- **Version 19 and later**: a one-time 10-Day Free Trial provides all core writing features. After it expires, your work remains readable, but Full Access is required to create or change content, import, print, or export.
+
+See [Purchases and Access](../12-reference/117-purchases-and-access.md) for full details.
+
 ## See Also
 - [Introduction](11-introduction.md)
 - [Creating Your First Project](../3-getting-started/22-creating-your-first-project.md)
 - [The Editor](../5-writing/41-the-editor.md)
+- [Purchases and Access](../12-reference/117-purchases-and-access.md)
 
 ---

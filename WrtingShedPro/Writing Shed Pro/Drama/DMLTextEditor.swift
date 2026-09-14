@@ -13,6 +13,7 @@ struct DMLTextEditor: UIViewRepresentable {
     let project: Project
     @Binding var text: String
     @Binding var selectedRange: NSRange
+    var isEditable: Bool = true
     var onUndoManagerReady: ((UndoManager?) -> Void)?
     var onTextViewReady: ((UITextView) -> Void)?
     
@@ -40,6 +41,7 @@ struct DMLTextEditor: UIViewRepresentable {
         textView.textContainer.lineFragmentPadding = 0
         textView.textContainerInset = UIEdgeInsets(top: 8, left: 8 + lineNumberGutterWidth, bottom: 8, right: 8)
         textView.text = text
+        textView.isEditable = isEditable
         textView.selectedRange = selectedRange
         textView.layoutManager.allowsNonContiguousLayout = false
         
@@ -57,6 +59,7 @@ struct DMLTextEditor: UIViewRepresentable {
     
     func updateUIView(_ uiView: UITextView, context: Context) {
         context.coordinator.parent = self
+        uiView.isEditable = isEditable
 
         // Only update text if it changed externally
         if !context.coordinator.hasPendingTextChange && uiView.text != text {

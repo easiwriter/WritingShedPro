@@ -29,7 +29,7 @@ struct NotesEditorSheet: View {
                     textColor: .label,
                     backgroundColor: .systemBackground,
                     textContainerInset: UIEdgeInsets(top: 12, left: 12, bottom: 12, right: 12),
-                    isEditable: true,
+                    isEditable: EntitlementManager.shared.canModifyContent,
                     onTextChange: { change in
                         persistNotes(change.attributedText)
                     }
@@ -49,7 +49,7 @@ struct NotesEditorSheet: View {
                     Button("Clear", role: .destructive) {
                         showClearConfirmation = true
                     }
-                    .disabled(attributedNotes.string.isEmpty)
+                    .disabled(attributedNotes.string.isEmpty || !EntitlementManager.shared.canModifyContent)
                 }
             }
             .confirmationDialog(
@@ -84,6 +84,7 @@ struct NotesEditorSheet: View {
     }
 
     private func persistNotes(_ notes: NSAttributedString) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         attributedNotes = notes
         let plainText = notes.string.trimmingCharacters(in: .whitespacesAndNewlines)
         version.notes = plainText.isEmpty ? nil : notes.string
@@ -145,6 +146,7 @@ struct NotesEditorSheet: View {
     }
 
     private func clearNotes() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let cleared = NSAttributedString(
             string: "",
             attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]

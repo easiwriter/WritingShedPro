@@ -108,6 +108,7 @@ struct AddCharacterSheet: View {
     // MARK: - Actions
     
     private func addCharacter() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !trimmedName.isEmpty else {

@@ -257,6 +257,7 @@ struct SectionListView: View {
     // MARK: - Actions
     
     private func deleteSelectedSections() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         for section in selectedSections {
             // Unassign files from section (don't delete them)
             if let textFiles = section.textFiles {
@@ -276,6 +277,7 @@ struct SectionListView: View {
     }
     
     private func updateSection(_ section: ProseSection, name: String, synopsis: String) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         guard !name.isEmpty else { return }
 
         section.name = name
@@ -287,6 +289,7 @@ struct SectionListView: View {
     }
     
     private func moveSections(from source: IndexSet, to destination: Int) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         var sections = sortedSections
         sections.move(fromOffsets: source, toOffset: destination)
         
@@ -302,6 +305,7 @@ struct SectionListView: View {
     }
     
     private func renumberSections() {
+        guard EntitlementManager.shared.canModifyContent else { return }
         for (index, section) in sortedSections.enumerated() {
             section.userOrder = index
             section.modifiedDate = Date()
@@ -312,6 +316,7 @@ struct SectionListView: View {
     }
     
     private func createSubmissionFromSections(name: String) {
+        guard EntitlementManager.shared.canModifyContent else { return }
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty else { return }
 
@@ -393,11 +398,24 @@ struct SectionRowView: View {
             HStack(spacing: 4) {
                 Image(systemName: "doc.text")
                     .font(.footnote)
-                Text(String(format: NSLocalizedString("prose.section.fileCount", comment: "File count"), fileCount))
+                Text("\(String(format: NSLocalizedString("prose.section.fileCount", comment: "File count"), fileCount)) • \(localizedWordCount)")
                     .font(.footnote)
             }
             .foregroundColor(.secondary)
         }
         .padding(.vertical, 2)
+    }
+
+    private var localizedWordCount: String {
+        let count = (section.textFiles ?? [])
+            .filter { $0.trashItem == nil }
+            .reduce(0) { total, file in
+                total + (file.currentVersion?.content ?? "")
+                    .components(separatedBy: .whitespacesAndNewlines)
+                    .filter { !$0.isEmpty }
+                    .count
+            }
+        let key = count == 1 ? "common.wordCountSingularFormat" : "common.wordCountPluralFormat"
+        return String(format: NSLocalizedString(key, comment: "Word count format"), count)
     }
 }
