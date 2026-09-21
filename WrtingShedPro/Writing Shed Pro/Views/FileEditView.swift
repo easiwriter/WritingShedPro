@@ -8766,6 +8766,7 @@ struct FileEditView: View {
             )
             
             undoManager.execute(command)
+            scheduleEditorSave(newAttributedContent)
             #if DEBUG
             print("📝 Paragraph style command added to undo stack")
             #endif
@@ -8852,6 +8853,7 @@ struct FileEditView: View {
         
         // Execute command through undo manager
         undoManager.execute(command)
+        scheduleEditorSave(newAttributedContent)
         
         #if DEBUG
         print("📝 Paragraph style command added to undo stack")

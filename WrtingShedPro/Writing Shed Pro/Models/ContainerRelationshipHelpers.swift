@@ -49,8 +49,12 @@ extension TextFile {
     /// Assign this file to one poetry collection, replacing any prior assignment.
     func addToPoetryCollection(_ collection: PoetryCollection) {
         guard poetryCollection?.id != collection.id else { return }
+        let existingFiles = (collection.textFiles ?? []).filter { $0.id != id }
+        let nextExplicitOrder = (existingFiles.compactMap(\.userOrder).max() ?? -1) + 1
+        let nextOrder = max(existingFiles.count, nextExplicitOrder)
         poetryCollection?.modifiedDate = Date()
         poetryCollection = collection
+        userOrder = nextOrder
         modifiedDate = Date()
         collection.modifiedDate = Date()
     }

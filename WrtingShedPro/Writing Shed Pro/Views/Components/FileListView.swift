@@ -217,6 +217,8 @@ struct FileListView: View {
             : String(format: NSLocalizedString("fileList.deleteFiles.title", comment: "Delete files?"), filesToDelete.count)
         
         fileListContainer
+            .toolbarBackground(Color(uiColor: .systemBackground), for: .bottomBar)
+            .toolbarBackground(showToolbar ? .visible : .automatic, for: .bottomBar)
             .toolbar {
                 // Top toolbar for alphabetical expand/collapse (only when using sections and not in edit mode)
                 ToolbarItemGroup(placement: .topBarTrailing) {
@@ -503,6 +505,8 @@ struct FileListView: View {
                 
                 Spacer()
             }
+            .padding(.vertical, 8)
+            .background(Color(uiColor: .systemBackground))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -712,6 +716,8 @@ struct FileListView: View {
                 
                 Spacer()
             }
+            .padding(.vertical, 8)
+            .background(Color(uiColor: .systemBackground))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

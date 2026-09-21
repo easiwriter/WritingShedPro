@@ -643,9 +643,9 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
         textView.textContainer.widthTracksTextView = true
         textView.textContainer.heightTracksTextView = false
         
-        // Important: Ensure layoutManager is properly configured
-        // Disable non-contiguous layout to ensure accurate tap-to-position
-        textView.layoutManager.allowsNonContiguousLayout = false
+        // Keep layout scoped to the visible viewport. Geometry queries such as taps and
+        // caret placement ask TextKit to lay out their target range when needed.
+        textView.layoutManager.allowsNonContiguousLayout = true
         
         // Use typographic line fragment padding for better accuracy
         textView.layoutManager.usesFontLeading = true
@@ -1267,11 +1267,29 @@ struct LegacyFormattedTextEditor: UIViewRepresentable {
                 return
             }
 
-            textView.textStorage.addAttributes(
-                attributes,
-                range: NSRange(location: range.location, length: replacementLength)
-            )
-            textView.typingAttributes = attributes
+            let insertedRange = NSRange(location: range.location, length: replacementLength)
+            textView.textStorage.addAttributes(attributes, range: insertedRange)
+            if !typingAttributes(textView.typingAttributes, match: attributes) {
+                textView.typingAttributes = attributes
+            }
+        }
+
+        private func typingAttributes(
+            _ current: [NSAttributedString.Key: Any],
+            match expected: [NSAttributedString.Key: Any]
+        ) -> Bool {
+            expected.allSatisfy { key, expectedValue in
+                guard let currentValue = current[key] else { return false }
+                return attributeValue(currentValue, equals: expectedValue)
+            }
+        }
+
+        private func attributeValue(_ lhs: Any, equals rhs: Any) -> Bool {
+            guard let lhsObject = lhs as? NSObject,
+                  let rhsObject = rhs as? NSObject else {
+                return false
+            }
+            return lhsObject.isEqual(rhsObject)
         }
 
         private func refreshLineNumberDisplay(in textView: UITextView, from location: Int) {
@@ -2556,7 +2574,7 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         )
     }
 
-    private func caretCharacterIndex(at position: UITextPosition) -> Int? {
+    private func caretCharacterIndex(at position: UITextPosition, nativeCaretRect: CGRect) -> Int? {
         let offset = self.offset(from: beginningOfDocument, to: position)
         let textLength = attributedText.length
 
@@ -2569,12 +2587,42 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             return min(clampedOffset, textLength - 1)
         }
 
+        if clampedOffset < textLength {
+            let previousGlyphRange = layoutManager.glyphRange(
+                forCharacterRange: NSRange(location: clampedOffset - 1, length: 1),
+                actualCharacterRange: nil
+            )
+            let nextGlyphRange = layoutManager.glyphRange(
+                forCharacterRange: NSRange(location: clampedOffset, length: 1),
+                actualCharacterRange: nil
+            )
+
+            if previousGlyphRange.length > 0, nextGlyphRange.length > 0 {
+                let previousLine = layoutManager.lineFragmentRect(
+                    forGlyphAt: previousGlyphRange.location,
+                    effectiveRange: nil
+                )
+                let nextLine = layoutManager.lineFragmentRect(
+                    forGlyphAt: nextGlyphRange.location,
+                    effectiveRange: nil
+                )
+                if abs(previousLine.minY - nextLine.minY) > 0.5 {
+                    let nativeCaretMidY = nativeCaretRect.midY - textContainerInset.top
+                    let distanceToPreviousLine = abs(nativeCaretMidY - previousLine.midY)
+                    let distanceToNextLine = abs(nativeCaretMidY - nextLine.midY)
+                    return distanceToNextLine < distanceToPreviousLine
+                        ? clampedOffset
+                        : clampedOffset - 1
+                }
+            }
+        }
+
         return clampedOffset - 1
     }
 
     override func caretRect(for position: UITextPosition) -> CGRect {
         if let rect = validInputRect(super.caretRect(for: position)) {
-            guard let characterIndex = caretCharacterIndex(at: position),
+            guard let characterIndex = caretCharacterIndex(at: position, nativeCaretRect: rect),
                   let caretFont = attributedText.attribute(.font, at: characterIndex, effectiveRange: nil) as? UIFont else {
                 return rect
             }
@@ -3052,7 +3100,30 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             externalAttachment.updateBounds()
             attachment = externalAttachment
         } else {
-            super.paste(sender)
+            guard let pastedText = pasteboard.string else {
+                super.paste(sender)
+                return
+            }
+
+            let replacementRange = selectedRange
+            let shouldPaste = delegate?.textView?(
+                self,
+                shouldChangeTextIn: replacementRange,
+                replacementText: pastedText
+            ) ?? true
+            guard shouldPaste else { return }
+
+            let pastedContent = NSAttributedString(
+                string: pastedText,
+                attributes: typingAttributes
+            )
+            textStorage.replaceCharacters(in: replacementRange, with: pastedContent)
+            selectedRange = NSRange(
+                location: replacementRange.location + pastedContent.length,
+                length: 0
+            )
+            delegate?.textViewDidChange?(self)
+            delegate?.textViewDidChangeSelection?(self)
             return
         }
 

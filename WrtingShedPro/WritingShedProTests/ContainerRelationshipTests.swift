@@ -113,6 +113,46 @@ final class ContainerRelationshipTests: XCTestCase {
         XCTAssertEqual(file.poetryCollection?.id, collection.id)
         XCTAssertEqual(try poetryCollectionLinkCount(for: file), 0)
     }
+
+    func testAddToPoetryCollectionPlacesFileAtEnd() throws {
+        let collection = PoetryCollection(name: "Sonnets")
+        let firstFile = TextFile(name: "First", initialContent: "")
+        let secondFile = TextFile(name: "Second", initialContent: "")
+        let addedFile = TextFile(name: "Added", initialContent: "")
+        firstFile.userOrder = 3
+        secondFile.userOrder = 7
+        firstFile.poetryCollection = collection
+        secondFile.poetryCollection = collection
+
+        modelContext.insert(collection)
+        modelContext.insert(firstFile)
+        modelContext.insert(secondFile)
+        modelContext.insert(addedFile)
+
+        addedFile.addToPoetryCollection(collection)
+        try modelContext.save()
+
+        XCTAssertEqual(addedFile.userOrder, 8)
+    }
+
+    func testAddToPoetryCollectionPlacesFileAfterLegacyUnorderedFiles() throws {
+        let collection = PoetryCollection(name: "Sonnets")
+        let firstFile = TextFile(name: "First", initialContent: "")
+        let secondFile = TextFile(name: "Second", initialContent: "")
+        let addedFile = TextFile(name: "Added", initialContent: "")
+        firstFile.poetryCollection = collection
+        secondFile.poetryCollection = collection
+
+        modelContext.insert(collection)
+        modelContext.insert(firstFile)
+        modelContext.insert(secondFile)
+        modelContext.insert(addedFile)
+
+        addedFile.addToPoetryCollection(collection)
+        try modelContext.save()
+
+        XCTAssertEqual(addedFile.userOrder, 2)
+    }
     
     func testAddToPoetryCollection_NoDuplicate() throws {
         let collection = PoetryCollection(name: "Sonnets")
