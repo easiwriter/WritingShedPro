@@ -268,7 +268,7 @@ struct ProseListView: View {
                 )
             }
             .sheet(isPresented: $showAddFile) {
-                AddProseFileSheet(project: project)
+                AddProseFileSheet(project: project) { showAddFile = false }
             }
             .sheet(isPresented: $showSectionPicker) {
                 sectionPickerSheet

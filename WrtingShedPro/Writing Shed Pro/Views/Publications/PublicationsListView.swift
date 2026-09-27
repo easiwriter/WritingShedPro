@@ -98,7 +98,9 @@ struct PublicationsListView: View {
             }
         }
         .sheet(isPresented: $showingAddSheet) {
-            PublicationFormView(project: project, publication: nil)
+            PublicationFormView(project: project, publication: nil) {
+                showingAddSheet = false
+            }
         }
         .sheet(item: $selectedPublication) { publication in
             PublicationDetailView(publication: publication) {

@@ -14,6 +14,7 @@ typealias StyleSheetListView = StyleSheetManagementView
 struct StyleSheetManagementView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    var onDismiss: (() -> Void)? = nil
     
     @State private var styleSheets: [StyleSheet] = []
     @State private var showCreateSheet = false
@@ -46,8 +47,9 @@ struct StyleSheetManagementView: View {
             }
             .sheet(isPresented: $showCreateSheet) {
                 CreateStyleSheetView(onCreated: {
+                    showCreateSheet = false
                     loadStyleSheets()
-                })
+                }, onDismiss: { showCreateSheet = false })
             }
             .alert("styleSheetManagement.deleteAlert.title", isPresented: $showDeleteAlert) {
                 Button("button.cancel", role: .cancel) { }
@@ -96,7 +98,9 @@ struct StyleSheetManagementView: View {
     private var managementToolbar: some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
             Button("button.done") {
+                onDismiss?()
                 dismiss()
+                dismissPresentedSheetOnCatalyst()
             }
         }
 
@@ -373,6 +377,7 @@ struct CreateStyleSheetView: View {
     @State private var errorMessage: String = ""
     
     let onCreated: () -> Void
+    var onDismiss: (() -> Void)? = nil
     
     var body: some View {
         NavigationStack {
@@ -391,7 +396,9 @@ struct CreateStyleSheetView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("button.cancel") {
+                        onDismiss?()
                         dismiss()
+                        dismissPresentedSheetOnCatalyst()
                     }
                 }
                 
@@ -503,6 +510,7 @@ struct CreateStyleSheetView: View {
             try WriteCoalescer.shared.requestSaveAndFlush(reason: "stylesheet-management-create")
             onCreated()
             dismiss()
+            dismissPresentedSheetOnCatalyst()
         } catch {
             errorMessage = String(format: NSLocalizedString("createStyleSheet.error.failed", comment: ""), error.localizedDescription)
             showError = true

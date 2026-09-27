@@ -19,6 +19,7 @@ struct AddActSheet: View {
     // MARK: - Properties
     
     let project: Project
+    var onDismiss: (() -> Void)? = nil
     
     // MARK: - State
     
@@ -78,7 +79,7 @@ struct AddActSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        closeSheet()
                     }
                 }
                 
@@ -122,10 +123,16 @@ struct AddActSheet: View {
         do {
             project.modifiedDate = Date()
             try WriteCoalescer.shared.requestSaveAndFlush(reason: "add-act")
-            dismiss()
+            closeSheet()
         } catch {
             errorMessage = error.localizedDescription
             showErrorAlert = true
         }
+    }
+
+    private func closeSheet() {
+        onDismiss?()
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 }

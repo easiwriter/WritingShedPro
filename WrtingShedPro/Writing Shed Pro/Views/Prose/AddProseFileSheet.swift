@@ -13,6 +13,7 @@ struct AddProseFileSheet: View {
     @Environment(\.modelContext) private var modelContext
     
     let project: Project
+    var onDismiss: (() -> Void)? = nil
     
     @State private var fileName = ""
     @State private var showErrorAlert = false
@@ -57,7 +58,7 @@ struct AddProseFileSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        closeSheet()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -131,6 +132,12 @@ struct AddProseFileSheet: View {
             return
         }
         
+        closeSheet()
+    }
+
+    private func closeSheet() {
+        onDismiss?()
         dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 }

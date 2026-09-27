@@ -19,6 +19,7 @@ struct AddPlotElementSheet: View {
     // MARK: - Properties
     
     let project: Project
+    var onDismiss: (() -> Void)? = nil
     
     // MARK: - State
     
@@ -256,7 +257,7 @@ struct AddPlotElementSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        closeSheet()
                     }
                 }
                 
@@ -406,6 +407,15 @@ struct AddPlotElementSheet: View {
         project.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "add-plot-element")
         WriteCoalescer.shared?.flush()
-        dismiss()
+        closeSheet()
+    }
+
+    private func closeSheet() {
+        if let onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
+            dismissPresentedSheetOnCatalyst()
+        }
     }
 }

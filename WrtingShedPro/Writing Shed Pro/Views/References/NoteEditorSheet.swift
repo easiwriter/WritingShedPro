@@ -32,6 +32,9 @@ struct NoteEditorSheet: View {
     
     /// Callback when note is saved, returns the note entry for marker insertion
     var onSave: ((NoteEntry) -> Void)?
+
+    /// Callback that clears the presenting sheet state
+    var onDismiss: (() -> Void)?
     
     /// Callback when cancelled
     var onCancel: (() -> Void)?
@@ -94,12 +97,14 @@ struct NoteEditorSheet: View {
         project: Project,
         existingNote: NoteEntry? = nil,
         isEndnote: Bool = false,
+        onDismiss: (() -> Void)? = nil,
         onSave: ((NoteEntry) -> Void)? = nil,
         onCancel: (() -> Void)? = nil
     ) {
         self.project = project
         self.existingNote = existingNote
         self.isEndnote = existingNote?.isEndnote ?? isEndnote
+        self.onDismiss = onDismiss
         self.onSave = onSave
         self.onCancel = onCancel
         
@@ -144,8 +149,10 @@ struct NoteEditorSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                        onDismiss?()
                         onCancel?()
                         dismiss()
+                        dismissPresentedSheetOnCatalyst()
                     }
                 }
                 
@@ -314,7 +321,9 @@ struct NoteEditorSheet: View {
            let selectedNote = existingNotesOfType.first(where: { $0.id == selectedID }) {
             // Reference existing note - dismiss first, then notify parent
             let callback = onSave
+            onDismiss?()
             dismiss()
+            dismissPresentedSheetOnCatalyst()
             DispatchQueue.main.async {
                 callback?(selectedNote)
             }
@@ -370,7 +379,9 @@ struct NoteEditorSheet: View {
             // Dismiss first, then notify parent - onSave triggers heavy
             // state updates (insertNoteMarker) that can block SwiftUI dismiss
             let callback = onSave
+            onDismiss?()
             dismiss()
+            dismissPresentedSheetOnCatalyst()
             DispatchQueue.main.async {
                 callback?(note)
             }

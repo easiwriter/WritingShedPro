@@ -77,7 +77,12 @@ struct ReferencesListView: View {
                 }
             }
             .sheet(isPresented: $showingEditor) {
-                ReferenceCreatorSheet(project: project, existingReference: selectedReference)
+                ReferenceCreatorSheet(
+                    project: project,
+                    existingReference: selectedReference,
+                    onSave: { _ in showingEditor = false },
+                    onCancel: { showingEditor = false }
+                )
                     .presentationDetents([.medium, .large])
             }
             .confirmationDialog(

@@ -19,6 +19,7 @@ struct AddLocationSheet: View {
     // MARK: - Properties
     
     let project: Project
+    var onDismiss: (() -> Void)? = nil
     
     // MARK: - State
     
@@ -59,7 +60,7 @@ struct AddLocationSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        closeSheet()
                     }
                 }
                 
@@ -106,6 +107,15 @@ struct AddLocationSheet: View {
         
         WriteCoalescer.shared?.requestSave(reason: "add-location")
         WriteCoalescer.shared?.flush()
-        dismiss()
+        closeSheet()
+    }
+
+    private func closeSheet() {
+        if let onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
+            dismissPresentedSheetOnCatalyst()
+        }
     }
 }

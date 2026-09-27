@@ -89,7 +89,9 @@ struct FileDetailView: View {
             Text(NSLocalizedString("fileDetail.deleteWarning", comment: "Delete warning"))
         }
         .fullScreenCover(isPresented: $showManuscriptAnalyst) {
-            ManuscriptAnalystActionSheet(textFile: file)
+            ManuscriptAnalystActionSheet(textFile: file) {
+                showManuscriptAnalyst = false
+            }
         }
     }
     

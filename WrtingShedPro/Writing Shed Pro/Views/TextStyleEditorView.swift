@@ -10,6 +10,7 @@ struct TextStyleEditorView: View {
     @Bindable var style: TextStyleModel
     let isNewStyle: Bool
     let onSave: (() -> Void)?
+    let onDismiss: (() -> Void)?
     let onStyleDefinitionSaved: ((String) -> Void)?
     let hideDeleteButton: Bool
     @Environment(\.dismiss) private var dismiss
@@ -41,12 +42,14 @@ struct TextStyleEditorView: View {
         style: TextStyleModel,
         isNewStyle: Bool = false,
         onSave: (() -> Void)? = nil,
+        onDismiss: (() -> Void)? = nil,
         onStyleDefinitionSaved: ((String) -> Void)? = nil,
         hideDeleteButton: Bool = false
     ) {
         self.style = style
         self.isNewStyle = isNewStyle
         self.onSave = onSave
+        self.onDismiss = onDismiss
         self.onStyleDefinitionSaved = onStyleDefinitionSaved
         self.hideDeleteButton = hideDeleteButton
         _editedDisplayName = State(initialValue: style.displayName)
@@ -83,7 +86,9 @@ struct TextStyleEditorView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("button.cancel") {
+                    onDismiss?()
                     dismiss()
+                    dismissPresentedSheetOnCatalyst()
                 }
             }
 

@@ -158,6 +158,7 @@ struct ReferenceCreatorSheet: View {
                         } else {
                             onCancel?()
                             dismiss()
+                            dismissPresentedSheetOnCatalyst()
                         }
                     }
                 }
@@ -195,6 +196,7 @@ struct ReferenceCreatorSheet: View {
                 Button(NSLocalizedString("referenceCreator.discard.button", comment: "Discard"), role: .destructive) {
                     onCancel?()
                     dismiss()
+                    dismissPresentedSheetOnCatalyst()
                 }
                 Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
             } message: {
@@ -376,6 +378,7 @@ struct ReferenceCreatorSheet: View {
             // Reference existing
             onSave?(selectedReference)
             dismiss()
+            dismissPresentedSheetOnCatalyst()
         } else {
             // Create new or update existing
             let trimmedAuthor = author.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -426,6 +429,7 @@ struct ReferenceCreatorSheet: View {
             
             onSave?(reference)
             dismiss()
+            dismissPresentedSheetOnCatalyst()
         }
     }
 }

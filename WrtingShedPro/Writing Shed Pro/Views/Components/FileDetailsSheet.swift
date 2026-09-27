@@ -262,9 +262,12 @@ struct FileDetailsSheet: View {
     // MARK: - Actions
 
     private func closeSheet() {
-        onDismiss?()
-        dismiss()
-        dismissPresentedSheetOnCatalyst()
+        if let onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
+            dismissPresentedSheetOnCatalyst()
+        }
     }
     
     private func saveChanges() {
@@ -295,10 +298,18 @@ struct FileDetailsSheet: View {
             return
         }
 
+        let previousName = file.name
+        let previousModifiedDate = file.modifiedDate
         file.name = trimmed
         file.modifiedDate = Date()
-        WriteCoalescer.shared?.requestSave(reason: "file-details-save")
-        WriteCoalescer.shared?.flush()
-        closeSheet()
+        do {
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "file-details-rename-save")
+            closeSheet()
+        } catch {
+            file.name = previousName
+            file.modifiedDate = previousModifiedDate
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+        }
     }
 }

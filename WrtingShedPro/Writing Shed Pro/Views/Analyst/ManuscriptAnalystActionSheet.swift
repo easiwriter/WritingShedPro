@@ -4,6 +4,7 @@ import SwiftData
 /// Sheet for analyzing a file with the Manuscript Analyst service.
 struct ManuscriptAnalystActionSheet: View {
     let textFile: TextFile
+    var onDismiss: (() -> Void)? = nil
     @State private var isLoading = false
     @State private var hasStartedAnalysis = false
     @State private var showPaywall = false
@@ -19,7 +20,7 @@ struct ManuscriptAnalystActionSheet: View {
                 if isLoading {
                     loadingState
                 } else if let review = review {
-                    AnalystReviewView(review: review)
+                    AnalystReviewView(review: review, onDismiss: closeSheet)
                 } else {
                     Color(.systemBackground)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -34,7 +35,7 @@ struct ManuscriptAnalystActionSheet: View {
                 ManuscriptAnalystPaywallView(
                     onCancel: {
                         showPaywall = false
-                        dismiss()
+                        closeSheet()
                     },
                     onSubscribe: {
                         showPaywall = false
@@ -43,11 +44,17 @@ struct ManuscriptAnalystActionSheet: View {
                 )
             }
             .alert("Analysis Error", isPresented: $showError, presenting: error) { _ in
-                Button("OK") { dismiss() }
+                Button("OK") { closeSheet() }
             } message: { error in
                 Text(error.errorDescription ?? "Unknown error")
             }
         }
+    }
+
+    private func closeSheet() {
+        onDismiss?()
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 
     private var loadingState: some View {

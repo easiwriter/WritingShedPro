@@ -211,7 +211,7 @@ struct ContentViewBody: View {
                 )
             }
             .sheet(isPresented: $state.showManageStyles) {
-                StyleSheetListView()
+                StyleSheetListView { state.showManageStyles = false }
             }
             .sheet(isPresented: $state.showPublicationHistory) {
                 NavigationStack {
@@ -239,10 +239,10 @@ struct ContentViewBody: View {
                 PageSetupForm(project: project)
             }
             .sheet(isPresented: $state.showContactSupport) {
-                ContactSupportView()
+                ContactSupportView(onDismiss: { state.showContactSupport = false })
             }
             .sheet(isPresented: $state.showSupportMessages) {
-                SupportMessagesView()
+                SupportMessagesView { state.showSupportMessages = false }
             }
             .sheet(isPresented: $state.showSyncDiagnostics) {
                 SyncDiagnosticsView()

@@ -56,12 +56,16 @@ struct LocationListView: View {
                 .accessibilityLabel(NSLocalizedString("fiction.locations.add", comment: "Add location"))
             }
         }
+        #if targetEnvironment(macCatalyst)
+        .overlay { locationOverlay }
+        #else
         .sheet(isPresented: $showAddLocation) {
-            AddLocationSheet(project: project)
+            AddLocationSheet(project: project) { showAddLocation = false }
         }
         .sheet(item: $selectedLocation) { location in
-            LocationDetailView(location: location)
+            LocationDetailView(location: location) { selectedLocation = nil }
         }
+        #endif
         .alert(
             NSLocalizedString("fiction.locations.deleteConfirm.title", comment: "Delete location?"),
             isPresented: $showDeleteConfirmation,
@@ -75,6 +79,31 @@ struct LocationListView: View {
             Text(String(format: NSLocalizedString("fiction.locations.deleteConfirm.message", comment: "Delete message"), location.name ?? ""))
         }
     }
+
+    #if targetEnvironment(macCatalyst)
+    @ViewBuilder
+    private var locationOverlay: some View {
+        if showAddLocation || selectedLocation != nil {
+            GeometryReader { geometry in
+                ZStack {
+                    Color.black.opacity(0.28).ignoresSafeArea()
+                    Group {
+                        if showAddLocation {
+                            AddLocationSheet(project: project) { showAddLocation = false }
+                        } else if let location = selectedLocation {
+                            LocationDetailView(location: location) { selectedLocation = nil }
+                        }
+                    }
+                    .frame(width: min(620, max(320, geometry.size.width - 48)), height: min(720, max(420, geometry.size.height - 48)))
+                    .background(Color(.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(color: .black.opacity(0.25), radius: 24, x: 0, y: 12)
+                }
+            }
+            .zIndex(1000)
+        }
+    }
+    #endif
     
     // MARK: - Location List
     

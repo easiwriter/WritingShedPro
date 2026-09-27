@@ -19,6 +19,7 @@ struct AddChapterSheet: View {
     // MARK: - Properties
     
     let project: Project
+    var onDismiss: (() -> Void)? = nil
     
     // MARK: - State
     
@@ -175,7 +176,7 @@ struct AddChapterSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        closeSheet()
                     }
                 }
                 
@@ -230,6 +231,12 @@ struct AddChapterSheet: View {
         project.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "add-chapter-or-book")
         WriteCoalescer.shared?.flush()
+        closeSheet()
+    }
+
+    private func closeSheet() {
+        onDismiss?()
         dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 }

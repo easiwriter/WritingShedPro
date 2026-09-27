@@ -19,6 +19,7 @@ struct AddCharacterSheet: View {
     // MARK: - Properties
     
     let project: Project
+    var onDismiss: (() -> Void)? = nil
     
     // MARK: - State
     
@@ -85,7 +86,7 @@ struct AddCharacterSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        closeSheet()
                     }
                 }
                 
@@ -133,7 +134,16 @@ struct AddCharacterSheet: View {
         
         WriteCoalescer.shared?.requestSave(reason: "add-character")
         WriteCoalescer.shared?.flush()
-        dismiss()
+        closeSheet()
+    }
+
+    private func closeSheet() {
+        if let onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
+            dismissPresentedSheetOnCatalyst()
+        }
     }
 
     private func resolvedRoleValue() -> String? {

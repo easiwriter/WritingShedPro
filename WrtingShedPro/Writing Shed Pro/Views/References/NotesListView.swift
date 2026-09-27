@@ -170,6 +170,7 @@ struct NotesListView: View {
             NoteEditorSheet(
                 project: project,
                 isEndnote: addNoteAsEndnote,
+                onDismiss: { showAddNoteSheet = false },
                 onSave: { _ in
                     loadNotes()
                     onNoteChanged?()
@@ -180,6 +181,7 @@ struct NotesListView: View {
             NoteEditorSheet(
                 project: project,
                 existingNote: note,
+                onDismiss: { editingNote = nil },
                 onSave: { _ in
                     loadNotes()
                     onNoteChanged?()

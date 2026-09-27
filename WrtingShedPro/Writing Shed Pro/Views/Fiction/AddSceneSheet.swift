@@ -22,6 +22,7 @@ struct AddSceneSheet: View {
     let chapter: Chapter?
     let act: Act?
     let book: Book?
+    var onDismiss: (() -> Void)? = nil
     
     // MARK: - State
     
@@ -234,7 +235,7 @@ struct AddSceneSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        closeSheet()
                     }
                 }
                 
@@ -386,7 +387,13 @@ struct AddSceneSheet: View {
         
         WriteCoalescer.shared?.requestSave(reason: "add-scene")
         WriteCoalescer.shared?.flush()
+        closeSheet()
+    }
+
+    private func closeSheet() {
+        onDismiss?()
         dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 
 }

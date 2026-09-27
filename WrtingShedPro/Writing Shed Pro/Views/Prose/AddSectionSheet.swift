@@ -19,6 +19,7 @@ struct AddSectionSheet: View {
     // MARK: - Properties
     
     let project: Project
+    var onDismiss: (() -> Void)? = nil
     
     // MARK: - State
     
@@ -78,7 +79,7 @@ struct AddSectionSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        closeSheet()
                     }
                 }
                 
@@ -123,10 +124,16 @@ struct AddSectionSheet: View {
             section.modifiedDate = Date()
             project.modifiedDate = Date()
             try WriteCoalescer.shared.requestSaveAndFlush(reason: "add-prose-section")
-            dismiss()
+            closeSheet()
         } catch {
             errorMessage = error.localizedDescription
             showErrorAlert = true
         }
+    }
+
+    private func closeSheet() {
+        onDismiss?()
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 }

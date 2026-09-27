@@ -96,7 +96,7 @@ struct SubmissionDetailView: View {
             copyToProjectSheet
         }
         .sheet(isPresented: $showEditDates) {
-            EditSubmissionDatesView(submission: submission)
+            EditSubmissionDatesView(submission: submission) { showEditDates = false }
         }
         .alert(
             copyResultIsError

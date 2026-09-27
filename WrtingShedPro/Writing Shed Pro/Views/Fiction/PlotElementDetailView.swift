@@ -20,6 +20,7 @@ struct PlotElementDetailView: View {
     
     @Bindable var plotElement: PlotElement
     let project: Project
+    var onDismiss: (() -> Void)? = nil
     
     // MARK: - State
     
@@ -67,56 +68,81 @@ struct PlotElementDetailView: View {
     // MARK: - Body
     
     var body: some View {
+        navigationContainer
+    }
+
+    @ViewBuilder
+    private var navigationContainer: some View {
+        #if targetEnvironment(macCatalyst)
+        NavigationView {
+            detailContent
+        }
+        .navigationViewStyle(.stack)
+        #else
         NavigationStack {
-            Form {
+            detailContent
+        }
+        #endif
+    }
+
+    private var detailContent: some View {
+        Form {
+            if isEditing {
+                editingContent
+            } else {
+                viewingContent
+            }
+        }
+        .id(isEditing)
+        .navigationTitle(plotElement.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
                 if isEditing {
-                    editingContent
+                    Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                        cancelEditing()
+                    }
                 } else {
-                    viewingContent
-                }
-            }
-            .navigationTitle(plotElement.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    if isEditing {
-                        Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                            isEditing = false
-                        }
-                    } else {
-                        Button(NSLocalizedString("button.done", comment: "Done")) {
-                            dismiss()
-                        }
-                    }
-                }
-                
-                ToolbarItem(placement: .confirmationAction) {
-                    if isEditing {
-                        Button(NSLocalizedString("button.save", comment: "Save")) {
-                            saveChanges()
-                        }
-                        .disabled(editTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    } else {
-                        Button(NSLocalizedString("button.edit", comment: "Edit")) {
-                            startEditing()
-                        }
+                    Button(NSLocalizedString("button.done", comment: "Done")) {
+                        closeDetail()
                     }
                 }
             }
-            .alert(
-                NSLocalizedString("fiction.plot.deleteConfirm.title", comment: "Delete?"),
-                isPresented: $showDeleteConfirmation
-            ) {
-                Button(NSLocalizedString("button.delete", comment: "Delete"), role: .destructive) {
-                    deletePlotElement()
+
+            ToolbarItem(placement: .confirmationAction) {
+                if isEditing {
+                    Button(NSLocalizedString("button.save", comment: "Save")) {
+                        saveChanges()
+                    }
+                    .disabled(editTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                } else {
+                    Button(NSLocalizedString("button.edit", comment: "Edit")) {
+                        startEditing()
+                    }
                 }
-                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
-            } message: {
-                Text(String(format: NSLocalizedString("fiction.plot.deleteConfirm.message", comment: "Delete message"), plotElement.name ?? ""))
             }
-            .sheet(isPresented: $showCreateSceneSheet) {
-                CreateSceneForPlotElementSheet(project: project, plotElement: plotElement)
+        }
+        .alert(
+            NSLocalizedString("fiction.plot.deleteConfirm.title", comment: "Delete?"),
+            isPresented: $showDeleteConfirmation
+        ) {
+            Button(NSLocalizedString("button.delete", comment: "Delete"), role: .destructive) {
+                deletePlotElement()
             }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
+        } message: {
+            Text(String(format: NSLocalizedString("fiction.plot.deleteConfirm.message", comment: "Delete message"), plotElement.name ?? ""))
+        }
+        .sheet(isPresented: $showCreateSceneSheet) {
+            CreateSceneForPlotElementSheet(project: project, plotElement: plotElement)
+        }
+    }
+
+    private func closeDetail() {
+        if let onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
         }
     }
     
@@ -419,6 +445,17 @@ struct PlotElementDetailView: View {
         editCharacters = Set((plotElement.characterLinks ?? []).compactMap(\.character))
         editLocations = Set((plotElement.locationLinks ?? []).compactMap(\.location))
         isEditing = true
+    }
+
+    private func cancelEditing() {
+        editTitle = ""
+        editDescription = ""
+        editMonomythStage = nil
+        editThreeActStage = nil
+        editLinkedScenes.removeAll()
+        editCharacters.removeAll()
+        editLocations.removeAll()
+        isEditing = false
     }
     
     private func saveChanges() {

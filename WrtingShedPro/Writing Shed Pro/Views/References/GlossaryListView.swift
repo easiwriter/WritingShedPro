@@ -172,9 +172,11 @@ struct GlossaryListView: View {
             GlossaryEditorSheet(
                 project: project,
                 onSave: { _ in
+                    showAddTermSheet = false
                     loadTerms()
                     onTermChanged?()
-                }
+                },
+                onCancel: { showAddTermSheet = false }
             )
         }
         .sheet(item: $editingTerm) { term in
@@ -182,9 +184,11 @@ struct GlossaryListView: View {
                 project: project,
                 existingTerm: term,
                 onSave: { _ in
+                    editingTerm = nil
                     loadTerms()
                     onTermChanged?()
-                }
+                },
+                onCancel: { editingTerm = nil }
             )
         }
         .confirmationDialog(

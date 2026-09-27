@@ -7,6 +7,7 @@ struct EditContainerSheet: View {
     let synopsisFooter: String
     let initialName: String
     let initialSynopsis: String
+    let onDismiss: () -> Void
     let onSave: (String, String) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -20,6 +21,7 @@ struct EditContainerSheet: View {
         synopsisFooter: String,
         initialName: String,
         initialSynopsis: String,
+        onDismiss: @escaping () -> Void = {},
         onSave: @escaping (String, String) -> Void
     ) {
         self.navigationTitle = navigationTitle
@@ -28,6 +30,7 @@ struct EditContainerSheet: View {
         self.synopsisFooter = synopsisFooter
         self.initialName = initialName
         self.initialSynopsis = initialSynopsis
+        self.onDismiss = onDismiss
         self.onSave = onSave
         _name = State(initialValue: initialName)
         _synopsis = State(initialValue: initialSynopsis)
@@ -58,7 +61,7 @@ struct EditContainerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        closeSheet()
                     }
                 }
 
@@ -67,12 +70,18 @@ struct EditContainerSheet: View {
                         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
                         let trimmedSynopsis = synopsis.trimmingCharacters(in: .whitespacesAndNewlines)
                         onSave(trimmedName, trimmedSynopsis)
-                        dismiss()
+                        closeSheet()
                     }
                     .disabled(!isValid)
                 }
             }
         }
         .navigationViewStyle(.stack)
+    }
+
+    private func closeSheet() {
+        onDismiss()
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 }

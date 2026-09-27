@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 /// Displays editorial suggestions from the Manuscript Analyst service.
 struct AnalystReviewView: View {
     let review: ManuscriptReview
+    var onDismiss: (() -> Void)? = nil
     @State private var isArchived: Bool = false
     @State private var selectedCategory: String?
     @State private var sortBy: SortOption = .severity
@@ -82,7 +83,9 @@ struct AnalystReviewView: View {
     private var headerBar: some View {
         HStack {
             Button {
+                onDismiss?()
                 dismiss()
+                dismissPresentedSheetOnCatalyst()
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .imageScale(.large)

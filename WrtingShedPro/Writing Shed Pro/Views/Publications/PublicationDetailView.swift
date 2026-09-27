@@ -191,12 +191,16 @@ struct PublicationDetailView: View {
             }
             .sheet(isPresented: $showingEditSheet) {
                 if let project = publication.project {
-                    PublicationFormView(project: project, publication: publication)
+                    PublicationFormView(project: project, publication: publication) {
+                        showingEditSheet = false
+                    }
                 }
             }
             .sheet(isPresented: $showingAddSubmissionSheet) {
                 if let project = publication.project {
-                    AddSubmissionView(publication: publication, project: project)
+                    AddSubmissionView(publication: publication, project: project) {
+                        showingAddSubmissionSheet = false
+                    }
                 }
             }
         }

@@ -13,6 +13,7 @@ struct ImageStyleSheetEditorView: View {
     @Environment(\.modelContext) private var modelContext
     
     @Bindable var imageStyle: ImageStyle
+    var onDismiss: (() -> Void)? = nil
     
     @State private var scaleText: String = ""
     @State private var spacingAboveText: String = ""
@@ -158,7 +159,9 @@ struct ImageStyleSheetEditorView: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("button.done") {
                     saveChanges()
+                    onDismiss?()
                     dismiss()
+                    dismissPresentedSheetOnCatalyst()
                 }
             }
         }

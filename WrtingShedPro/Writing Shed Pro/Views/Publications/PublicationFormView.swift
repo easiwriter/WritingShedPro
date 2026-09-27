@@ -14,6 +14,7 @@ struct PublicationFormView: View {
     
     let project: Project
     let publication: Publication? // nil = add, non-nil = edit
+    var onDismiss: (() -> Void)? = nil
     
     @Query private var allPublications: [Publication]
     
@@ -137,7 +138,7 @@ struct PublicationFormView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("publications.button.cancel", comment: "Cancel button")) {
-                        dismiss()
+                        closeForm()
                     }
                     .accessibilityHint(Text(NSLocalizedString("accessibility.cancel.hint", comment: "Cancel hint")))
                 }
@@ -288,12 +289,18 @@ struct PublicationFormView: View {
             project.modifiedDate = Date()
             try WriteCoalescer.shared.requestSaveAndFlush(reason: "publication-form-save")
             NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
-            dismiss()
+            closeForm()
         } catch {
             #if DEBUG
             print("[PublicationFormView] Error saving publication: \(error)")
             #endif
         }
+    }
+
+    private func closeForm() {
+        onDismiss?()
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
     
     private func scheduleOrCancelReminder(for publication: Publication) {

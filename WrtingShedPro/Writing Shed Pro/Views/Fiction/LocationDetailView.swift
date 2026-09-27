@@ -19,6 +19,7 @@ struct LocationDetailView: View {
     // MARK: - Properties
     
     @Bindable var location: Location
+    var onDismiss: (() -> Void)? = nil
     
     // MARK: - State
     
@@ -30,7 +31,24 @@ struct LocationDetailView: View {
     // MARK: - Body
     
     var body: some View {
+        navigationContainer
+    }
+
+    @ViewBuilder
+    private var navigationContainer: some View {
+        #if targetEnvironment(macCatalyst)
+        NavigationView {
+            detailContent
+        }
+        .navigationViewStyle(.stack)
+        #else
         NavigationStack {
+            detailContent
+        }
+        #endif
+    }
+
+    private var detailContent: some View {
             Form {
                 if isEditing {
                     editingContent
@@ -48,7 +66,7 @@ struct LocationDetailView: View {
                         }
                     } else {
                         Button(NSLocalizedString("button.done", comment: "Done")) {
-                            dismiss()
+                            closeDetail()
                         }
                     }
                 }
@@ -77,6 +95,14 @@ struct LocationDetailView: View {
             } message: {
                 Text(String(format: NSLocalizedString("fiction.locations.deleteConfirm.message", comment: "Delete message"), location.name ?? ""))
             }
+    }
+
+    private func closeDetail() {
+        if let onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
+            dismissPresentedSheetOnCatalyst()
         }
     }
     
@@ -190,7 +216,7 @@ struct LocationDetailView: View {
         location.project?.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "location-detail-delete")
         WriteCoalescer.shared?.flush()
-        dismiss()
+        closeDetail()
     }
 
     private func consolidatedLocationDetails() -> String {

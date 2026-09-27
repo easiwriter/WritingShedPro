@@ -58,6 +58,7 @@ struct MailComposeView: UIViewControllerRepresentable {
 struct ContactSupportView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    private let onDismiss: (() -> Void)?
 
     private struct MailDraft: Identifiable {
         let id = UUID()
@@ -107,12 +108,14 @@ struct ContactSupportView: View {
         initialReportType: ReportType = .bug,
         presentationMode: PresentationMode = .full,
         initialSubject: String = "",
-        initialDetails: String = ""
+        initialDetails: String = "",
+        onDismiss: (() -> Void)? = nil
     ) {
         _reportType = State(initialValue: initialReportType)
         _subject = State(initialValue: initialSubject)
         _details = State(initialValue: initialDetails)
         self.presentationMode = presentationMode
+        self.onDismiss = onDismiss
     }
 
     var body: some View {
@@ -135,7 +138,7 @@ struct ContactSupportView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(NSLocalizedString("common.cancel", comment: "")) { dismiss() }
+                    Button(NSLocalizedString("common.cancel", comment: "")) { closeSheet() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
@@ -158,14 +161,14 @@ struct ContactSupportView: View {
                     subject: draft.subject,
                     body: draft.body,
                     attachments: draft.attachments,
-                    onDismiss: { dismiss() }
+                    onDismiss: { closeSheet() }
                 )
             }
             .sheet(isPresented: $showSupportResponse) {
                 if let response = supportService.response {
                     SupportResponseView(
                         responseText: response,
-                        onDismiss: { dismiss() },
+                        onDismiss: { closeSheet() },
                         onAskDeveloper: {
                             showSupportResponse = false
                             openEmailFlow()
@@ -215,6 +218,12 @@ struct ContactSupportView: View {
                 Text(supportService.errorMessage ?? "")
             }
         }
+    }
+
+    private func closeSheet() {
+        onDismiss?()
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 
     // MARK: - Form Sections

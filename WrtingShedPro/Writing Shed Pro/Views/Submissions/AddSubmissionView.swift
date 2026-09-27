@@ -14,6 +14,7 @@ struct AddSubmissionView: View {
 
     let publication: Publication
     let project: Project
+    var onDismiss: (() -> Void)? = nil
 
     @Query private var allFiles: [TextFile]
     @State private var selectedFiles: Set<TextFile> = []
@@ -134,7 +135,7 @@ struct AddSubmissionView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        closeSheet()
                     }
                     .accessibilityLabel(Text(NSLocalizedString("accessibility.cancel", comment: "Cancel")))
                 }
@@ -189,7 +190,13 @@ struct AddSubmissionView: View {
             }
         }
 
+        closeSheet()
+    }
+
+    private func closeSheet() {
+        onDismiss?()
         dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 }
 

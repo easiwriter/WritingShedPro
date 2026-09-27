@@ -56,12 +56,16 @@ struct CharacterListView: View {
                 .accessibilityLabel(NSLocalizedString("fiction.characters.add", comment: "Add character"))
             }
         }
+        #if targetEnvironment(macCatalyst)
+        .overlay { characterOverlay }
+        #else
         .sheet(isPresented: $showAddCharacter) {
-            AddCharacterSheet(project: project)
+            AddCharacterSheet(project: project) { showAddCharacter = false }
         }
         .sheet(item: $selectedCharacter) { character in
-            CharacterDetailView(character: character)
+            CharacterDetailView(character: character) { selectedCharacter = nil }
         }
+        #endif
         .alert(
             NSLocalizedString("fiction.characters.deleteConfirm.title", comment: "Delete character?"),
             isPresented: $showDeleteConfirmation,
@@ -75,6 +79,35 @@ struct CharacterListView: View {
             Text(String(format: NSLocalizedString("fiction.characters.deleteConfirm.message", comment: "Delete message"), character.name ?? ""))
         }
     }
+
+    #if targetEnvironment(macCatalyst)
+    @ViewBuilder
+    private var characterOverlay: some View {
+        if showAddCharacter || selectedCharacter != nil {
+            modalOverlay {
+                if showAddCharacter {
+                    AddCharacterSheet(project: project) { showAddCharacter = false }
+                } else if let character = selectedCharacter {
+                    CharacterDetailView(character: character) { selectedCharacter = nil }
+                }
+            }
+        }
+    }
+
+    private func modalOverlay<Content: View>(@ViewBuilder content: @escaping () -> Content) -> some View {
+        GeometryReader { geometry in
+            ZStack {
+                Color.black.opacity(0.28).ignoresSafeArea()
+                content()
+                    .frame(width: min(620, max(320, geometry.size.width - 48)), height: min(720, max(420, geometry.size.height - 48)))
+                    .background(Color(.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(color: .black.opacity(0.25), radius: 24, x: 0, y: 12)
+            }
+        }
+        .zIndex(1000)
+    }
+    #endif
     
     // MARK: - Character List
     

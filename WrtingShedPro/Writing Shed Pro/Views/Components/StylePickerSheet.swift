@@ -152,6 +152,7 @@ struct StylePickerSheet: View {
                         onSave: {
                             styleToEdit = nil
                         },
+                        onDismiss: { styleToEdit = nil },
                         onStyleDefinitionSaved: onStyleDefinitionSaved
                     )
                 }

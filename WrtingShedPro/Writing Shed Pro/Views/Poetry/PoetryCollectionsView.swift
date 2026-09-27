@@ -131,7 +131,7 @@ struct PoetryCollectionsView: View {
             }
         }
         .sheet(isPresented: $showAddCollection) {
-            AddPoetryCollectionSheet(project: project)
+            AddPoetryCollectionSheet(project: project) { showAddCollection = false }
         }
         .alert(
             selectedCollections.count == 1
@@ -157,7 +157,8 @@ struct PoetryCollectionsView: View {
                 synopsisLabel: NSLocalizedString("poetry.collection.synopsis", comment: "Synopsis"),
                 synopsisFooter: NSLocalizedString("poetry.collection.synopsis.footer", comment: "Brief description of this collection"),
                 initialName: collection.name,
-                initialSynopsis: collection.synopsis
+                initialSynopsis: collection.synopsis,
+                onDismiss: { collectionToEdit = nil }
             ) { updatedName, updatedSynopsis in
                 updateCollection(id: collection.id, name: updatedName, synopsis: updatedSynopsis)
             }

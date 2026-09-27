@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SupportMessagesView: View {
     @Environment(\.dismiss) private var dismiss
+    var onDismiss: (() -> Void)? = nil
     @State private var service = SupportMessagesService()
 
     var body: some View {
@@ -30,7 +31,9 @@ struct SupportMessagesView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("common.done", comment: "")) {
+                        onDismiss?()
                         dismiss()
+                        dismissPresentedSheetOnCatalyst()
                     }
                 }
             }

@@ -99,7 +99,7 @@ struct ActListView: View {
             }
         }
         .sheet(isPresented: $showAddAct) {
-            AddActSheet(project: project)
+            AddActSheet(project: project) { showAddAct = false }
         }
         .alert(
             selectedActs.count == 1 
@@ -125,7 +125,8 @@ struct ActListView: View {
                 synopsisLabel: NSLocalizedString("drama.act.synopsis", comment: "Synopsis"),
                 synopsisFooter: NSLocalizedString("drama.act.synopsis.footer", comment: "Brief overview of the act"),
                 initialName: act.name ?? "",
-                initialSynopsis: act.synopsis ?? ""
+                initialSynopsis: act.synopsis ?? "",
+                onDismiss: { actToEdit = nil }
             ) { updatedName, updatedSynopsis in
                 updateAct(act, name: updatedName, synopsis: updatedSynopsis)
             }

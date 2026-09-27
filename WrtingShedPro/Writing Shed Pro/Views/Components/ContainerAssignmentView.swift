@@ -114,13 +114,13 @@ struct ContainerAssignmentView<Item: ContainerAssignable>: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(NSLocalizedString("common.cancel", comment: "Cancel")) {
-                        dismiss()
+                        closeSheet()
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(NSLocalizedString("common.done", comment: "Done")) {
                         applyChanges()
-                        dismiss()
+                        closeSheet()
                     }
                     .fontWeight(.semibold)
                 }
@@ -201,7 +201,12 @@ struct ContainerAssignmentView<Item: ContainerAssignable>: View {
         }
 
         applyChanges()
+        closeSheet()
+    }
+
+    private func closeSheet() {
         dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
     
     // MARK: - Helpers

@@ -19,6 +19,7 @@ struct CharacterDetailView: View {
     // MARK: - Properties
     
     @Bindable var character: Character
+    var onDismiss: (() -> Void)? = nil
     
     // MARK: - State
     
@@ -40,7 +41,24 @@ struct CharacterDetailView: View {
     // MARK: - Body
     
     var body: some View {
+        navigationContainer
+    }
+
+    @ViewBuilder
+    private var navigationContainer: some View {
+        #if targetEnvironment(macCatalyst)
+        NavigationView {
+            detailContent
+        }
+        .navigationViewStyle(.stack)
+        #else
         NavigationStack {
+            detailContent
+        }
+        #endif
+    }
+
+    private var detailContent: some View {
             Form {
                 if isEditing {
                     editingContent
@@ -58,7 +76,7 @@ struct CharacterDetailView: View {
                         }
                     } else {
                         Button(NSLocalizedString("button.done", comment: "Done")) {
-                            dismiss()
+                            closeDetail()
                         }
                     }
                 }
@@ -87,6 +105,14 @@ struct CharacterDetailView: View {
             } message: {
                 Text(String(format: NSLocalizedString("fiction.characters.deleteConfirm.message", comment: "Delete message"), character.name ?? ""))
             }
+    }
+
+    private func closeDetail() {
+        if let onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
+            dismissPresentedSheetOnCatalyst()
         }
     }
     
@@ -230,7 +256,7 @@ struct CharacterDetailView: View {
         character.project?.modifiedDate = Date()
         WriteCoalescer.shared?.requestSave(reason: "character-detail-delete")
         WriteCoalescer.shared?.flush()
-        dismiss()
+        closeDetail()
     }
 
     private func consolidatedCharacterDetails() -> String {

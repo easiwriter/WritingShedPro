@@ -19,6 +19,7 @@ struct AddPoetryCollectionSheet: View {
     // MARK: - Properties
     
     let project: Project
+    var onDismiss: (() -> Void)? = nil
     
     // MARK: - State
     
@@ -78,7 +79,7 @@ struct AddPoetryCollectionSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        closeSheet()
                     }
                 }
                 
@@ -136,10 +137,16 @@ struct AddPoetryCollectionSheet: View {
             collection.modifiedDate = Date()
             project.modifiedDate = Date()
             try WriteCoalescer.shared.requestSaveAndFlush(reason: "add-poetry-collection")
-            dismiss()
+            closeSheet()
         } catch {
             errorMessage = error.localizedDescription
             showErrorAlert = true
         }
+    }
+
+    private func closeSheet() {
+        onDismiss?()
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 }

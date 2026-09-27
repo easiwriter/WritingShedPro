@@ -102,7 +102,8 @@ struct StyleSheetDetailView: View {
                     isNewStyle: true,
                     onSave: {
                         newStyle = nil
-                    }
+                    },
+                    onDismiss: { newStyle = nil }
                 )
             }
         }
@@ -110,7 +111,9 @@ struct StyleSheetDetailView: View {
             newImageStyle = nil
         }) { imageStyle in
             NavigationStack {
-                ImageStyleSheetEditorView(imageStyle: imageStyle)
+                ImageStyleSheetEditorView(imageStyle: imageStyle) {
+                    newImageStyle = nil
+                }
             }
         }
     }

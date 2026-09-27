@@ -179,9 +179,11 @@ struct CitationsListView: View {
             CitationEditorSheet(
                 project: project,
                 onSave: { _ in
+                    showAddCitationSheet = false
                     loadCitations()
                     onCitationChanged?()
-                }
+                },
+                onCancel: { showAddCitationSheet = false }
             )
         }
         .sheet(item: $editingCitation) { citation in
@@ -189,9 +191,11 @@ struct CitationsListView: View {
                 project: project,
                 existingCitation: citation,
                 onSave: { _ in
+                    editingCitation = nil
                     loadCitations()
                     onCitationChanged?()
-                }
+                },
+                onCancel: { editingCitation = nil }
             )
         }
         .confirmationDialog(

@@ -293,7 +293,7 @@ struct ChapterListView: View {
             }
         }
         .sheet(isPresented: $showAddChapter) {
-            AddChapterSheet(project: project)
+            AddChapterSheet(project: project) { showAddChapter = false }
         }
         .alert(
             selectedContainerCount == 1
@@ -325,7 +325,8 @@ struct ChapterListView: View {
                 synopsisLabel: summaryLabel,
                 synopsisFooter: summaryFooter,
                 initialName: chapter.name ?? "",
-                initialSynopsis: chapter.synopsis ?? ""
+                initialSynopsis: chapter.synopsis ?? "",
+                onDismiss: { chapterToEdit = nil }
             ) { updatedName, updatedSynopsis in
                 updateChapter(chapter, name: updatedName, synopsis: updatedSynopsis)
             }
@@ -337,7 +338,8 @@ struct ChapterListView: View {
                 synopsisLabel: summaryLabel,
                 synopsisFooter: summaryFooter,
                 initialName: book.name ?? "",
-                initialSynopsis: book.synopsis ?? ""
+                initialSynopsis: book.synopsis ?? "",
+                onDismiss: { bookToEdit = nil }
             ) { updatedName, updatedSynopsis in
                 updateBook(book, name: updatedName, synopsis: updatedSynopsis)
             }

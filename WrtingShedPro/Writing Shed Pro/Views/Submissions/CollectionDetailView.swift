@@ -255,7 +255,7 @@ struct CollectionDetailView: View {
             submissionPickerSheetContent
         }
         .sheet(isPresented: $showEditDates) {
-            EditSubmissionDatesView(submission: submission)
+            EditSubmissionDatesView(submission: submission) { showEditDates = false }
         }
         .onAppear {
             prefetchSubmittedFiles()

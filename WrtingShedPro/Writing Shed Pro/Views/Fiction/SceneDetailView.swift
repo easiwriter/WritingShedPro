@@ -90,7 +90,24 @@ struct SceneDetailView: View {
     // MARK: - Body
     
     var body: some View {
+        navigationContainer
+    }
+
+    @ViewBuilder
+    private var navigationContainer: some View {
+        #if targetEnvironment(macCatalyst)
+        NavigationView {
+            detailContent
+        }
+        .navigationViewStyle(.stack)
+        #else
         NavigationStack {
+            detailContent
+        }
+        #endif
+    }
+
+    private var detailContent: some View {
             Form {
                 if isEditing {
                     editingContent
@@ -137,7 +154,6 @@ struct SceneDetailView: View {
             } message: {
                 Text(String(format: NSLocalizedString(isVerseNovel ? "fiction.episodes.deleteConfirm.message" : "fiction.scenes.deleteConfirm.message", comment: "Delete message"), scene.name ?? ""))
             }
-        }
     }
     
     // MARK: - Viewing Content
@@ -572,9 +588,12 @@ struct SceneDetailView: View {
     
 
     private func closeView() {
-        onDismiss?()
-        dismiss()
-        dismissPresentedSheetOnCatalyst()
+        if let onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
+            dismissPresentedSheetOnCatalyst()
+        }
     }
 
     private func startEditing() {

@@ -101,7 +101,7 @@ struct SectionListView: View {
             }
         }
         .sheet(isPresented: $showAddSection) {
-            AddSectionSheet(project: project)
+            AddSectionSheet(project: project) { showAddSection = false }
         }
         .alert(
             selectedSections.count == 1 
@@ -127,7 +127,8 @@ struct SectionListView: View {
                 synopsisLabel: NSLocalizedString("prose.section.synopsis", comment: "Synopsis"),
                 synopsisFooter: NSLocalizedString("prose.section.synopsis.footer", comment: "Brief overview of the section"),
                 initialName: section.name ?? "",
-                initialSynopsis: section.synopsis ?? ""
+                initialSynopsis: section.synopsis ?? "",
+                onDismiss: { sectionToEdit = nil }
             ) { updatedName, updatedSynopsis in
                 updateSection(section, name: updatedName, synopsis: updatedSynopsis)
             }

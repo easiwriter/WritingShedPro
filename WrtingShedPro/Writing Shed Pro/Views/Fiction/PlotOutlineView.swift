@@ -94,12 +94,22 @@ struct PlotOutlineView: View {
                 .accessibilityLabel(NSLocalizedString("fiction.plot.add", comment: "Add plot element"))
             }
         }
+        #if targetEnvironment(macCatalyst)
+        .overlay {
+            plotElementOverlay
+        }
+        #else
         .sheet(isPresented: $showAddPlotElement) {
-            AddPlotElementSheet(project: project)
+            AddPlotElementSheet(project: project) {
+                showAddPlotElement = false
+            }
         }
         .sheet(item: $selectedPlotElement) { element in
-            PlotElementDetailView(plotElement: element, project: project)
+            PlotElementDetailView(plotElement: element, project: project) {
+                selectedPlotElement = nil
+            }
         }
+        #endif
         .alert(
             NSLocalizedString("fiction.plot.deleteConfirm.title", comment: "Delete plot element?"),
             isPresented: $showDeleteConfirmation,
@@ -113,6 +123,41 @@ struct PlotOutlineView: View {
             Text(String(format: NSLocalizedString("fiction.plot.deleteConfirm.message", comment: "Delete message"), element.name ?? ""))
         }
     }
+
+    #if targetEnvironment(macCatalyst)
+    @ViewBuilder
+    private var plotElementOverlay: some View {
+        if showAddPlotElement || selectedPlotElement != nil {
+            GeometryReader { geometry in
+                ZStack {
+                    Color.black.opacity(0.28)
+                        .ignoresSafeArea()
+
+                    Group {
+                        if showAddPlotElement {
+                            AddPlotElementSheet(project: project) {
+                                showAddPlotElement = false
+                            }
+                        } else if let element = selectedPlotElement {
+                            PlotElementDetailView(plotElement: element, project: project) {
+                                selectedPlotElement = nil
+                            }
+                        }
+                    }
+                    .frame(
+                        width: min(620, max(320, geometry.size.width - 48)),
+                        height: min(720, max(420, geometry.size.height - 48))
+                    )
+                    .background(Color(.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(color: .black.opacity(0.25), radius: 24, x: 0, y: 12)
+                }
+            }
+            .transition(.opacity)
+            .zIndex(1000)
+        }
+    }
+    #endif
     
     // MARK: - Structured List (grouped by stage)
     

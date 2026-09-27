@@ -245,7 +245,9 @@ struct DramaSceneEditorView: View {
             LocationQuickView(location: location)
         }
         .sheet(item: $rawDramaAnalysisRequest) { request in
-            RawDramaAnalystActionSheet(project: project, content: request.content, fileName: request.fileName)
+            RawDramaAnalystActionSheet(project: project, content: request.content, fileName: request.fileName) {
+                rawDramaAnalysisRequest = nil
+            }
         }
         .alert(
             NSLocalizedString("fileEdit.deleteVersionTitle", comment: "Delete Version?"),

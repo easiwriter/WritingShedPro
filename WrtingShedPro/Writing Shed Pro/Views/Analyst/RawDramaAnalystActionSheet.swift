@@ -11,6 +11,7 @@ struct RawDramaAnalystActionSheet: View {
     let project: Project
     let content: String
     let fileName: String
+    var onDismiss: (() -> Void)? = nil
 
     @State private var isLoading = false
     @State private var hasStartedAnalysis = false
@@ -27,7 +28,7 @@ struct RawDramaAnalystActionSheet: View {
                 if isLoading {
                     loadingState
                 } else if let review {
-                    AnalystReviewView(review: review)
+                    AnalystReviewView(review: review, onDismiss: closeSheet)
                 } else {
                     Color(.systemBackground)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -42,7 +43,7 @@ struct RawDramaAnalystActionSheet: View {
                 ManuscriptAnalystPaywallView(
                     onCancel: {
                         showPaywall = false
-                        dismiss()
+                        closeSheet()
                     },
                     onSubscribe: {
                         showPaywall = false
@@ -51,11 +52,17 @@ struct RawDramaAnalystActionSheet: View {
                 )
             }
             .alert("Analysis Error", isPresented: $showError) {
-                Button("OK") { dismiss() }
+                Button("OK") { closeSheet() }
             } message: {
                 Text(error ?? "Unknown error")
             }
         }
+    }
+
+    private func closeSheet() {
+        onDismiss?()
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 
     private var loadingState: some View {

@@ -174,6 +174,7 @@ struct GlossaryEditorSheet: View {
                         } else {
                             onCancel?()
                             dismiss()
+                            dismissPresentedSheetOnCatalyst()
                         }
                     }
                 }
@@ -193,6 +194,7 @@ struct GlossaryEditorSheet: View {
                 Button(NSLocalizedString("glossaryEditor.discard.button", comment: "Discard"), role: .destructive) {
                     onCancel?()
                     dismiss()
+                    dismissPresentedSheetOnCatalyst()
                 }
                 Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
             } message: {
@@ -277,6 +279,7 @@ struct GlossaryEditorSheet: View {
         
         onSave?(entry)
         dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 }
 

@@ -144,8 +144,6 @@ struct SceneListView: View {
     
     /// Act grouping: tracks which act sections are expanded (Drama only)
     @State private var actExpandedSections: Set<String> = []
-    @State private var subsectionsByFileID: [UUID: [DocumentSubsectionEntry]] = [:]
-    @State private var subsectionNavigationTarget: DocumentSubsectionNavigationTarget?
     
     // MARK: - Init
     
@@ -563,7 +561,9 @@ struct SceneListView: View {
     private var bodyCoreWithSharedSheets: some View {
         bodyCore
         .sheet(isPresented: $showAddScene) {
-            AddSceneSheet(project: project, chapter: chapter, act: act, book: book)
+            AddSceneSheet(project: project, chapter: chapter, act: act, book: book) {
+                showAddScene = false
+            }
         }
         .sheet(isPresented: $showSearchView) {
             searchSheetContent
@@ -620,6 +620,7 @@ struct SceneListView: View {
                 saveAsRequested = false
                 showExportMenu = true
             }, onDismiss: {
+                synchronizeSceneNameFromFile(scene)
                 sceneForDetails = nil
             })
         } else {
@@ -632,6 +633,14 @@ struct SceneListView: View {
                 sceneForDetails = nil
             })
         }
+    }
+
+    private func synchronizeSceneNameFromFile(_ scene: StoryScene) {
+        guard let fileName = scene.textFile?.name, scene.name != fileName else { return }
+        scene.name = fileName
+        scene.modifiedDate = Date()
+        WriteCoalescer.shared?.requestSave(reason: "scene-list-file-details-rename")
+        WriteCoalescer.shared?.flush()
     }
 
     @ViewBuilder
@@ -663,22 +672,6 @@ struct SceneListView: View {
         bodyCoreWithSheets
         .navigationDestination(item: $navigateToScene) { (scene: StoryScene) in
             sceneNavigationDestination(scene)
-        }
-        .navigationDestination(item: $subsectionNavigationTarget) { target in
-            if project.type == .drama {
-                DramaSceneEditorView(
-                    file: target.file,
-                    project: project,
-                    initialCharacterPosition: target.characterPosition,
-                    initialHeadingText: target.headingText
-                )
-            } else {
-                FileEditView(
-                    file: target.file,
-                    initialCharacterPosition: target.characterPosition,
-                    initialHeadingText: target.headingText
-                )
-            }
         }
         .confirmationDialog(
             deleteConfirmationTitle,
@@ -844,7 +837,6 @@ struct SceneListView: View {
         .upgradePrompt(reason: $upgradePromptReason)
         .onAppear {
             initializeHeaderFooterFields()
-            refreshSubsectionEntries()
             
             // Expand all chapter sections by default on first appear
             if chapterExpandedSections.isEmpty, let groups = chapterGroups {
@@ -855,9 +847,6 @@ struct SceneListView: View {
             if actExpandedSections.isEmpty, let groups = actGroups {
                 actExpandedSections = Set(groups.map { $0.id })
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .writingShedProSyncDidUpdateLocalData)) { _ in
-            refreshSubsectionEntries()
         }
     }
     
@@ -1363,47 +1352,10 @@ struct SceneListView: View {
                 }
             }
 
-            if !isEditMode, let textFile = scene.textFile {
-                ForEach(subsectionsByFileID[textFile.id] ?? []) { entry in
-                    Button {
-                        subsectionNavigationTarget = DocumentSubsectionNavigationTarget(
-                            file: textFile,
-                            headingText: entry.headingText,
-                            characterPosition: entry.characterPosition
-                        )
-                    } label: {
-                        HStack {
-                            Label(entry.headingText, systemImage: "text.alignleft")
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                            .font(.subheadline)
-                            .padding(.leading, CGFloat(entry.indentLevel + 1) * 20)
-                            .padding(.vertical, 5)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint(NSLocalizedString("prose.subsection.open.hint", comment: "Open this subsection in the editor"))
-                }
-            }
         }
         .contentShape(Rectangle())
         .contextMenu {
             sceneContextMenuItems(for: scene)
-        }
-    }
-
-    private func refreshSubsectionEntries() {
-        let service = TOCGenerationService(context: modelContext)
-        subsectionsByFileID = allScenes.reduce(into: [:]) { result, scene in
-            guard let file = scene.textFile else { return }
-            let entries = service.subsectionEntries(
-                in: file,
-                for: project,
-                excluding: [title]
-            )
-            result[file.id] = entries
         }
     }
     
@@ -2245,7 +2197,9 @@ struct SceneRowView: View {
             }
             
             // Summary preview
-            if let synopsis = scene.synopsis, !synopsis.isEmpty {
+            if scene.project?.fictionClass != .verseNovel,
+               let synopsis = scene.synopsis,
+               !synopsis.isEmpty {
                 Text(synopsis)
                     .font(.callout)
                     .foregroundColor(.secondary)

@@ -259,6 +259,7 @@ struct CitationEditorSheet: View {
                 Button(NSLocalizedString("citationEditor.discard.button", comment: "Discard"), role: .destructive) {
                     onCancel?()
                     dismiss()
+                    dismissPresentedSheetOnCatalyst()
                 }
                 Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
             } message: {
@@ -327,6 +328,7 @@ struct CitationEditorSheet: View {
         } else {
             onCancel?()
             dismiss()
+            dismissPresentedSheetOnCatalyst()
         }
     }
     
@@ -387,6 +389,7 @@ struct CitationEditorSheet: View {
         
         onSave?(entry)
         dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 }
 

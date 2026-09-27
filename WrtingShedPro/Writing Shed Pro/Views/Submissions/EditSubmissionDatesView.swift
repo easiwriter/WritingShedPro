@@ -13,6 +13,7 @@ struct EditSubmissionDatesView: View {
     @Environment(\.modelContext) private var modelContext
     
     @Bindable var submission: Submission
+    var onDismiss: (() -> Void)? = nil
     
     @State private var submittedDate: Date = Date()
     @State private var hasExpectedDate: Bool = false
@@ -85,7 +86,7 @@ struct EditSubmissionDatesView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        closeSheet()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -161,11 +162,17 @@ struct EditSubmissionDatesView: View {
 
         do {
             try WriteCoalescer.shared.requestSaveAndFlush(reason: "edit-submission-dates-save")
-            dismiss()
+            closeSheet()
         } catch {
             #if DEBUG
             print("[EditSubmissionDatesView] Error saving dates: \(error)")
             #endif
         }
+    }
+
+    private func closeSheet() {
+        onDismiss?()
+        dismiss()
+        dismissPresentedSheetOnCatalyst()
     }
 }
