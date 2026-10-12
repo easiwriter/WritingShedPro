@@ -1008,6 +1008,7 @@
 "common.edit" = "Edit";
 "common.error" = "Error";
 "common.ok" = "OK";
+"common.more" = "More actions";
 
 /* Onboarding */
 "onboarding.title" = "Welcome";

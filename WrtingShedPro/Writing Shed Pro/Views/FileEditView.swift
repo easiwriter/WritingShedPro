@@ -145,6 +145,7 @@ struct FileEditView: View {
     private let initialHeadingText: String?
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
         @State private var presentDeleteBackMatterAlert = false
     @Bindable var file: TextFile
@@ -175,6 +176,7 @@ struct FileEditView: View {
     @State private var isPerformingUndoRedo = false
     @State private var refreshTrigger = UUID()
     @State private var forceRefresh = false
+    @State private var editorContainerWidth: CGFloat = 0
     @State private var showStylePicker = false
     @State private var needsStyleReapplyAfterPickerDismiss = false
     @State private var hasPendingStyleReapply = false
@@ -1052,6 +1054,48 @@ struct FileEditView: View {
         }
         .disabled(!PrintService.isPrintingAvailable())
     }
+
+    @ViewBuilder
+    private func compactNavigationMenuContent() -> some View {
+        if isPoetryProject && isEnglishLocale {
+            Button(action: presentPoetryMetrics) {
+                Label(
+                    NSLocalizedString("poetryMetrics.buttonAccessibility", comment: "Show poetry metrics"),
+                    systemImage: "chart.bar"
+                )
+            }
+
+            Divider()
+        }
+
+        if !isPaginationMode && isPoetryProject {
+            Button(action: presentManuscriptAnalyst) {
+                Label("Analyze with Manuscript Analyst", systemImage: "text.magnifyingglass")
+            }
+        }
+
+        if !isPaginationMode {
+            Button(action: {
+                performUndo()
+                restoreKeyboardFocus()
+            }) {
+                Label("fileEdit.undo.accessibility", systemImage: "arrow.uturn.backward")
+            }
+            .disabled(!undoManager.canUndo || isPerformingUndoRedo)
+
+            Button(action: {
+                performRedo()
+                restoreKeyboardFocus()
+            }) {
+                Label("fileEdit.redo.accessibility", systemImage: "arrow.uturn.forward")
+            }
+            .disabled(!undoManager.canRedo || isPerformingUndoRedo)
+
+            Divider()
+        }
+
+        compactInsertMenuContent()
+    }
     
     /// Comments submenu for compact mode
     @ViewBuilder
@@ -1214,34 +1258,12 @@ struct FileEditView: View {
                 #endif
             }
         } else {
-            let isCompact = UIDevice.current.userInterfaceIdiom == .phone
+            let isCompact = usesCompactNavigationToolbar
             let showSearchButton = !isPaginationMode && !isFromMultiFileSearch
             
             HStack(spacing: isCompact ? 12 : 16) {
-                if isPoetryProject {
-                    // Poetry metrics button with validation badge (English only - analysis requires CMU dictionary)
-                    if isEnglishLocale {
-                        Button(action: {
-                            showPoetryMetrics = true
-                        }) {
-                            Image(systemName: "chart.bar")
-                                .overlay(alignment: .topTrailing) {
-                                    // Show badge with cached issue count (computed asynchronously)
-                                    if cachedValidationIssueCount > 0 {
-                                        Text("\(min(cachedValidationIssueCount, 99))")
-                                            .font(.system(size: 9, weight: .bold))
-                                            .foregroundColor(.white)
-                                            .padding(3)
-                                            .background(Color.red)
-                                            .clipShape(Circle())
-                                            .offset(x: 6, y: -6)
-                                    }
-                                }
-                        }
-                        // Keep a little extra separation before Search on iOS poetry files.
-                        .padding(.trailing, showSearchButton ? 6 : 0)
-                        .accessibilityLabel(NSLocalizedString("poetryMetrics.buttonAccessibility", comment: "Show poetry metrics"))
-                    }
+                if !isCompact && isPoetryProject && isEnglishLocale {
+                    poetryDashboardButton
                 }
 
                 // Search button (only in edit mode and not opened from multi-file search)
@@ -1290,53 +1312,14 @@ struct FileEditView: View {
                         .disabled(!hasCharactersLocationsOrPlotElements(project: project))
                 }
                 
-                // On iPhone, group paginate/insert/print into a menu to save space
-                // Undo/redo are more commonly used, so they're visible buttons
+                // Keep narrow windows clear of the navigation back button.
                 if isCompact {
-                    if !isPaginationMode {
-                        Button(action: {
-                            presentManuscriptAnalyst()
-                        }) {
-                            Image(systemName: "text.magnifyingglass")
-                        }
-                        .accessibilityLabel("Analyze with Manuscript Analyst")
-
-                        // Undo/redo as visible buttons on iPhone
-                        Button(action: {
-                            performUndo()
-                            restoreKeyboardFocus()
-                        }) {
-                            Image(systemName: "arrow.uturn.backward")
-                        }
-                        .disabled(!undoManager.canUndo || isPerformingUndoRedo)
-                        .accessibilityLabel("fileEdit.undo.accessibility")
-                        
-                        Button(action: {
-                            performRedo()
-                            restoreKeyboardFocus()
-                        }) {
-                            Image(systemName: "arrow.uturn.forward")
-                        }
-                        .disabled(!undoManager.canRedo || isPerformingUndoRedo)
-                        .accessibilityLabel("fileEdit.redo.accessibility")
-                        
-                        // Menu with paginate, insert options, and print
-                        Menu {
-                            compactInsertMenuContent()
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
-                        }
-                    } else {
-                        // In pagination mode on iPhone, just show the toggle button
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                isPaginationMode.toggle()
-                            }
-                        }) {
-                            Image(systemName: "document.on.document.fill")
-                        }
-                        .accessibilityLabel("fileEdit.switchToEditMode.accessibility")
+                    Menu {
+                        compactNavigationMenuContent()
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
+                    .accessibilityLabel(NSLocalizedString("common.more", comment: "More actions"))
                 } else {
                     Button(action: {
                         presentManuscriptAnalyst()
@@ -1425,6 +1408,29 @@ struct FileEditView: View {
                 }
             }
         }
+    }
+
+    private func presentPoetryMetrics() {
+        flushPendingEditorChanges(reason: "poetry-metrics-preflight")
+        showPoetryMetrics = true
+    }
+
+    private var poetryDashboardButton: some View {
+        Button(action: presentPoetryMetrics) {
+            Image(systemName: "chart.bar")
+                .overlay(alignment: .topTrailing) {
+                    if cachedValidationIssueCount > 0 {
+                        Text("\(min(cachedValidationIssueCount, 99))")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(3)
+                            .background(Color.red)
+                            .clipShape(Circle())
+                            .offset(x: 6, y: -6)
+                    }
+                }
+        }
+        .accessibilityLabel(NSLocalizedString("poetryMetrics.buttonAccessibility", comment: "Show poetry metrics"))
     }
     
     /// Button to view plot elements associated with this scene
@@ -1908,6 +1914,14 @@ struct FileEditView: View {
     private var isEnglishLocale: Bool {
         Locale.current.language.languageCode?.identifier == "en"
     }
+
+    private var usesCompactNavigationToolbar: Bool {
+        #if targetEnvironment(macCatalyst)
+        true
+        #else
+        horizontalSizeClass == .compact || editorContainerWidth < 900
+        #endif
+    }
     
     /// Custom title view showing file name and poetry form
     private var poetryTitleView: some View {
@@ -2183,8 +2197,13 @@ struct FileEditView: View {
     
     var body: some View {
         mainContentWithAllSheets
-            // For poetry projects, hide the navigation title since we use a custom title view
-            .navigationTitle(isPoetryProject ? "" : file.name)
+            .onGeometryChange(for: CGFloat.self) { geometry in
+                geometry.size.width
+            } action: { newWidth in
+                editorContainerWidth = newWidth
+            }
+            // Keep a native title fallback when the custom poetry title cannot fit.
+            .navigationTitle(file.name)
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(initialCharacterPosition != nil)
             .toolbar {
@@ -2201,7 +2220,7 @@ struct FileEditView: View {
                     }
                 }
                 // Custom title with form subtitle for poetry projects
-                if isPoetryProject {
+                if isPoetryProject && !usesCompactNavigationToolbar {
                     ToolbarItem(placement: .principal) {
                         poetryTitleView
                     }
