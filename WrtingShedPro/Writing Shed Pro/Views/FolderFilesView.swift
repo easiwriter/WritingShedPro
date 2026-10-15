@@ -1276,8 +1276,11 @@ struct FolderFilesView: View {
             )
             
             // Create new text file
-            let file = TextFile(name: filename, initialContent: "", parentFolder: folder)
-            file.workflowStatus = .draft
+            let file = try TextFileCreationService.insertTextFile(
+                name: filename,
+                parentFolder: folder,
+                modelContext: modelContext
+            )
             
             // Update the first version with imported content
             if let firstVersion = file.versions?.first {
@@ -1293,8 +1296,6 @@ struct FolderFilesView: View {
             file.modifiedDate = Date()
             
             // Insert and save
-            modelContext.insert(file)
-            
             do {
                 try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
                 
@@ -1324,10 +1325,11 @@ struct FolderFilesView: View {
             let (plainText, rtfData, filename) = try WordDocumentService.importWordDocument(from: url)
             
             // Create new text file with initial empty content
-            let file = TextFile(name: filename, initialContent: "", parentFolder: folder)
-            
-            // Set default workflow status for imported files
-            file.workflowStatus = .draft
+            let file = try TextFileCreationService.insertTextFile(
+                name: filename,
+                parentFolder: folder,
+                modelContext: modelContext
+            )
             
             // Update the first version with imported content.
             // Use fromRTF(scaleFonts: false) → attributedContent (JSON) to avoid the 1.8x
@@ -1345,8 +1347,6 @@ struct FolderFilesView: View {
             file.modifiedDate = Date()
             
             // Insert and save immediately
-            modelContext.insert(file)
-            
             do {
                 try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-save")
                 

@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "python3 build-prompt.py",
+    "test": "node --test test/*.test.mjs",
     "dev": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy",
     "cf:whoami": "wrangler whoami",
@@ -15,5 +16,8 @@
   },
   "devDependencies": {
     "wrangler": "^4.93.1"
+  },
+  "dependencies": {
+    "@apple/app-store-server-library": "^3.1.0"
   }
 }

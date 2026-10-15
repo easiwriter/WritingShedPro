@@ -39,4 +39,34 @@ final class SalesReporterTests: XCTestCase {
         XCTAssertEqual(json["trialTransactionID"] as? String, "trial-transaction")
         XCTAssertEqual(json["trialPurchaseDate"] as? Int, 1_700_000_000_000)
     }
+
+    func testSuccessfulVerificationPersistsAcrossReporterInstances() async {
+        let suiteName = "SalesReporterTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let state = SalesReportState(defaults: defaults)
+        let firstAttempt = await state.begin(transactionID: 12345)
+        XCTAssertTrue(firstAttempt)
+        await state.succeed(transactionID: 12345)
+        let repeatedAttempt = await state.begin(transactionID: 12345)
+        XCTAssertFalse(repeatedAttempt)
+
+        let restoredState = SalesReportState(defaults: defaults)
+        let restoredAttempt = await restoredState.begin(transactionID: 12345)
+        XCTAssertFalse(restoredAttempt)
+    }
+
+    func testFailedVerificationCanRetry() async {
+        let suiteName = "SalesReporterTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let state = SalesReportState(defaults: defaults)
+        let firstAttempt = await state.begin(transactionID: 67890)
+        XCTAssertTrue(firstAttempt)
+        await state.fail(transactionID: 67890)
+        let retryAttempt = await state.begin(transactionID: 67890)
+        XCTAssertTrue(retryAttempt)
+    }
 }

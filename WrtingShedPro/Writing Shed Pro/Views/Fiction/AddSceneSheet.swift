@@ -354,28 +354,32 @@ struct AddSceneSheet: View {
             break
         }
         
-        // Create TextFile for scene content in Draft folder
         let textFile: TextFile
-        
-        if isVerseNovel {
-            // Verse Novel episodes always use poetry editor
-            // Use selected form, or free verse if none selected
-            let formId = selectedPoetryForm?.id ?? PoetryForm.freeVerseId
-            let formName = selectedPoetryForm?.name ?? "Free Verse"
-            textFile = TextFile(
+        do {
+            let formId = isVerseNovel
+                ? selectedPoetryForm?.id ?? PoetryForm.freeVerseId
+                : nil
+            let formName = isVerseNovel
+                ? selectedPoetryForm?.name ?? "Free Verse"
+                : nil
+            textFile = try TextFileCreationService.insertTextFile(
                 name: trimmedTitle,
-                initialContent: "",
                 parentFolder: scenesFolder,
+                modelContext: modelContext,
                 poetryFormId: formId,
-                poetryFormName: formName
+                poetryFormName: formName,
+                contentType: isVerseNovel ? .richText : selectedContentType
             )
-            textFile.contentType = .richText  // Poetry always uses rich text
-        } else {
-            textFile = TextFile(name: trimmedTitle, initialContent: "", parentFolder: scenesFolder)
-            textFile.contentType = selectedContentType
+        } catch {
+            project.scenes?.removeAll { $0.id == scene.id }
+            chapter?.scenes?.removeAll { $0.id == scene.id }
+            act?.scenes?.removeAll { $0.id == scene.id }
+            book?.scenes?.removeAll { $0.id == scene.id }
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+            return
         }
-        
-        textFile.workflowStatus = .draft  // New scenes start as drafts
+
         textFile.scene = scene
         scene.textFile = textFile
         scene.modifiedDate = Date()
@@ -383,7 +387,6 @@ struct AddSceneSheet: View {
         project.modifiedDate = Date()
         
         modelContext.insert(scene)
-        modelContext.insert(textFile)
         
         WriteCoalescer.shared?.requestSave(reason: "add-scene")
         WriteCoalescer.shared?.flush()

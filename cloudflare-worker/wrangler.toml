@@ -1,6 +1,7 @@
 name = "wsp-support"
 main = "src/index.js"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [[r2_buckets]]
@@ -18,9 +19,12 @@ type = "Text"
 globs = ["**/*.txt"]
 fallthrough = true
 
-# The LLM_API_KEY and SYSTEM_PROMPT are stored as secrets:
+# The LLM_API_KEY, SYSTEM_PROMPT, and Apple In-App Purchase credentials are stored as secrets:
 #   npx wrangler secret put LLM_API_KEY
 #   npx wrangler secret put SYSTEM_PROMPT
+#   npx wrangler secret put APPLE_IAP_KEY_ID
+#   npx wrangler secret put APPLE_IAP_ISSUER_ID
+#   npx wrangler secret put APPLE_IAP_PRIVATE_KEY
 #
 # Or SYSTEM_PROMPT can be set as a plain-text variable here if preferred:
 # [vars]

@@ -214,13 +214,12 @@ struct FrontMatterSettingsDialog: View {
                 }
             }
 
-            if isDrama {
-                saveDramaSettings()
-            } else {
-                saveFictionSettings()
-            }
-
             do {
+                if isDrama {
+                    try saveDramaSettings()
+                } else {
+                    try saveFictionSettings()
+                }
                 try EnsemblesSaveGate.save(persistenceContext, reason: reason)
                 guard frontMatterSettingsWerePersisted() else {
                     throw MatterSettingsSaveError.verificationFailed
@@ -245,7 +244,8 @@ struct FrontMatterSettingsDialog: View {
         dismissPresentedSheetOnCatalyst()
     }
     
-    private func saveFictionSettings() {
+    private func saveFictionSettings() throws {
+        try validateCreationAccess(for: enabledItems.map(\.fileName))
         let newSettings = FrontMatterSettings(
             enabledItems: enabledItems,
             itemTitles: itemTitles
@@ -253,7 +253,7 @@ struct FrontMatterSettingsDialog: View {
         folder.frontMatterSettings = newSettings
         
         for item in enabledItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
-            createFileForItem(item)
+            try createFileForItem(item)
         }
         
         for item in FrontMatterItem.allCases where !enabledItems.contains(item) {
@@ -261,12 +261,13 @@ struct FrontMatterSettingsDialog: View {
         }
     }
     
-    private func saveDramaSettings() {
+    private func saveDramaSettings() throws {
+        try validateCreationAccess(for: dramaEnabledItems.map(\.fileName))
         let newSettings = DramaFrontMatterSettings(enabledItems: dramaEnabledItems)
         folder.dramaFrontMatterSettings = newSettings
         
         for item in dramaEnabledItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
-            createFileForDramaItem(item)
+            try createFileForDramaItem(item)
         }
         
         for item in DramaFrontMatterItem.allCases where !dramaEnabledItems.contains(item) {
@@ -274,7 +275,7 @@ struct FrontMatterSettingsDialog: View {
         }
     }
     
-    private func createFileForItem(_ item: FrontMatterItem) {
+    private func createFileForItem(_ item: FrontMatterItem) throws {
         if let textFile = matchingFiles(named: item.fileName).first {
             textFile.parentFolder = folder
             textFile.isTOCFile = item == .tableOfContents
@@ -288,7 +289,12 @@ struct FrontMatterSettingsDialog: View {
             return
         }
         
-        let textFile = TextFile(name: item.fileName, initialContent: "", parentFolder: folder)
+        let textFile = try TextFileCreationService.insertTextFile(
+            name: item.fileName,
+            parentFolder: folder,
+            modelContext: persistenceContext,
+            checkEntitlements: false
+        )
         textFile.userOrder = item.sortOrder
         
         // Feature 031: Mark Table of Contents files for auto-generation
@@ -301,15 +307,9 @@ struct FrontMatterSettingsDialog: View {
             textFile.isCoverFile = true
         }
         
-        persistenceContext.insert(textFile)
-        
-        if folder.textFiles == nil {
-            folder.textFiles = []
-        }
-        folder.textFiles?.append(textFile)
     }
     
-    private func createFileForDramaItem(_ item: DramaFrontMatterItem) {
+    private func createFileForDramaItem(_ item: DramaFrontMatterItem) throws {
         if let textFile = matchingFiles(named: item.fileName).first {
             textFile.parentFolder = folder
             if !(folder.textFiles ?? []).contains(where: { $0.id == textFile.id }) {
@@ -321,14 +321,13 @@ struct FrontMatterSettingsDialog: View {
             return
         }
         
-        let textFile = TextFile(name: item.fileName, initialContent: "", parentFolder: folder)
+        let textFile = try TextFileCreationService.insertTextFile(
+            name: item.fileName,
+            parentFolder: folder,
+            modelContext: persistenceContext,
+            checkEntitlements: false
+        )
         textFile.userOrder = item.sortOrder
-        persistenceContext.insert(textFile)
-        
-        if folder.textFiles == nil {
-            folder.textFiles = []
-        }
-        folder.textFiles?.append(textFile)
     }
     
     private func removeFileForItem(_ item: FrontMatterItem) {
@@ -343,6 +342,16 @@ struct FrontMatterSettingsDialog: View {
             folder.textFiles?.removeAll { $0.id == file.id }
             persistenceContext.delete(file)
         }
+    }
+
+    private func validateCreationAccess(for fileNames: [String]) throws {
+        guard let project = folder.resolvedProject else { return }
+        let requestedCount = fileNames.filter { matchingFiles(named: $0).isEmpty }.count
+        try TextFileCreationService.validateCreationAccess(
+            projectType: project.type,
+            existingFileCount: ProjectGateCounterService.activeFileCount(in: project),
+            requestedFileCount: requestedCount
+        )
     }
 
     private func matchingFiles(named fileName: String) -> [TextFile] {
@@ -702,48 +711,44 @@ struct BackMatterSettingsDialog: View {
     private func persistSettingsWhenEnsemblesIsIdle() async {
         let reason = "back-matter-settings-save"
 
-        while true {
-            while !EnsemblesSaveGate.canSaveNow(reason: reason) {
-                do {
-                    try await Task.sleep(nanoseconds: 500_000_000)
-                } catch {
-                    isProcessing = false
-                    return
-                }
-            }
+        guard EnsemblesSaveGate.canSaveNow(reason: reason, context: persistenceContext) else {
+            let container = Write_App.activeEnsemblesContainer
+            let error = EnsemblesSaveGateError.syncBusy(
+                reason: reason,
+                attached: container?.isAttached ?? false,
+                activity: container.map { String(describing: $0.currentActivity) } ?? "none"
+            )
+            isProcessing = false
+            saveErrorMessage = error.localizedDescription
+            return
+        }
 
+        do {
             if isDrama {
-                saveDramaSettings()
+                try saveDramaSettings()
             } else {
-                saveFictionSettings()
+                try saveFictionSettings()
             }
-
-            do {
-                try EnsemblesSaveGate.save(persistenceContext, reason: reason)
-                guard backMatterSettingsWerePersisted() else {
-                    throw MatterSettingsSaveError.verificationFailed
-                }
-                Write_App.scheduleEnsemblesSyncAfterLocalSave(reason: reason)
-                isProcessing = false
-                dismissSheet()
-                return
-            } catch is EnsemblesSaveGateError {
-                continue
-            } catch {
-                isProcessing = false
-                saveErrorMessage = error.localizedDescription
-                return
+            try EnsemblesSaveGate.save(persistenceContext, reason: reason)
+            guard backMatterSettingsWerePersisted() else {
+                throw MatterSettingsSaveError.verificationFailed
             }
+            Write_App.scheduleEnsemblesSyncAfterLocalSave(reason: reason)
+            isProcessing = false
+            dismissSheet()
+        } catch {
+            isProcessing = false
+            saveErrorMessage = error.localizedDescription
         }
     }
 
     private func dismissSheet() {
         isPresented = false
-        dismiss()
         dismissPresentedSheetOnCatalyst()
     }
     
-    private func saveFictionSettings() {
+    private func saveFictionSettings() throws {
+        try validateCreationAccess(for: enabledItems.map(\.fileName))
         let previousSettings = folder.backMatterSettings
         let newSettings = BackMatterSettings(
             enabledItems: enabledItems,
@@ -752,7 +757,7 @@ struct BackMatterSettingsDialog: View {
         )
         
         for item in enabledItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
-            createFileForItem(item)
+            try createFileForItem(item)
         }
         
         for item in BackMatterItem.allCases where !enabledItems.contains(item) {
@@ -762,11 +767,12 @@ struct BackMatterSettingsDialog: View {
         folder.backMatterSettings = newSettings
     }
     
-    private func saveDramaSettings() {
+    private func saveDramaSettings() throws {
+        try validateCreationAccess(for: dramaEnabledItems.map(\.fileName))
         let newSettings = DramaBackMatterSettings(enabledItems: dramaEnabledItems)
         
         for item in dramaEnabledItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
-            createFileForDramaItem(item)
+            try createFileForDramaItem(item)
         }
         
         for item in DramaBackMatterItem.allCases where !dramaEnabledItems.contains(item) {
@@ -776,7 +782,7 @@ struct BackMatterSettingsDialog: View {
         folder.dramaBackMatterSettings = newSettings
     }
     
-    private func createFileForItem(_ item: BackMatterItem) {
+    private func createFileForItem(_ item: BackMatterItem) throws {
         if let textFile = matchingFiles(named: item.fileName).first {
             textFile.parentFolder = folder
             textFile.isTableOfFiguresFile = item == .tableOfFigures
@@ -790,7 +796,12 @@ struct BackMatterSettingsDialog: View {
             return
         }
         
-        let textFile = TextFile(name: item.fileName, initialContent: "", parentFolder: folder)
+        let textFile = try TextFileCreationService.insertTextFile(
+            name: item.fileName,
+            parentFolder: folder,
+            modelContext: persistenceContext,
+            checkEntitlements: false
+        )
         textFile.userOrder = item.sortOrder
         
         // Feature 112: Mark Table of Figures files for auto-generation
@@ -803,15 +814,9 @@ struct BackMatterSettingsDialog: View {
             textFile.isCoverFile = true
         }
         
-        persistenceContext.insert(textFile)
-        
-        if folder.textFiles == nil {
-            folder.textFiles = []
-        }
-        folder.textFiles?.append(textFile)
     }
     
-    private func createFileForDramaItem(_ item: DramaBackMatterItem) {
+    private func createFileForDramaItem(_ item: DramaBackMatterItem) throws {
         if let textFile = matchingFiles(named: item.fileName).first {
             textFile.parentFolder = folder
             if !(folder.textFiles ?? []).contains(where: { $0.id == textFile.id }) {
@@ -823,14 +828,13 @@ struct BackMatterSettingsDialog: View {
             return
         }
         
-        let textFile = TextFile(name: item.fileName, initialContent: "", parentFolder: folder)
+        let textFile = try TextFileCreationService.insertTextFile(
+            name: item.fileName,
+            parentFolder: folder,
+            modelContext: persistenceContext,
+            checkEntitlements: false
+        )
         textFile.userOrder = item.sortOrder
-        persistenceContext.insert(textFile)
-        
-        if folder.textFiles == nil {
-            folder.textFiles = []
-        }
-        folder.textFiles?.append(textFile)
     }
     
     private func removeFileForItem(_ item: BackMatterItem) {
@@ -850,6 +854,16 @@ struct BackMatterSettingsDialog: View {
             folder.textFiles?.removeAll { $0.id == file.id }
             persistenceContext.delete(file)
         }
+    }
+
+    private func validateCreationAccess(for fileNames: [String]) throws {
+        guard let project = folder.resolvedProject else { return }
+        let requestedCount = fileNames.filter { matchingFiles(named: $0).isEmpty }.count
+        try TextFileCreationService.validateCreationAccess(
+            projectType: project.type,
+            existingFileCount: ProjectGateCounterService.activeFileCount(in: project),
+            requestedFileCount: requestedCount
+        )
     }
 
     private func matchingFiles(named fileName: String) -> [TextFile] {

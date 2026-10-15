@@ -3120,6 +3120,7 @@
 
 // MARK: - Manuscript Analyst (Feature 040)
 "analyst.error.subscriptionInactive" = "Manuscript Analyst subscription required. Start your free trial in Settings.";
+"analyst.error.appUpdateRequired" = "Update Writing Shed Pro from the App Store before using Manuscript Analyst.";
 "analyst.error.projectNotFound" = "Could not find the project for this file.";
 "analyst.error.noContent" = "No content to analyze. Add text to your file first.";
 "analyst.error.invalidEndpoint" = "Analysis service is misconfigured.";

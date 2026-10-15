@@ -60,6 +60,17 @@ struct OperatorSalesView: View {
                             }
                         }
 
+                        if service.hasFullAccessCohortData {
+                            HStack {
+                                Text("Total Full Access")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Text(service.totalFullAccessSales, format: .number)
+                                    .font(.headline)
+                                    .monospacedDigit()
+                            }
+                        }
+
                         HStack {
                             Text("Total")
                                 .fontWeight(.semibold)
@@ -72,7 +83,51 @@ struct OperatorSalesView: View {
                 } header: {
                     Text("Sales")
                 } footer: {
-                    Text("Unconverted and converted trials are grouped by trial activation month. Direct Full Access purchases are grouped by purchase month.")
+                    Text("Unconverted and converted trials are grouped by trial activation month. Direct Full Access purchases are grouped by purchase month. Total Full Access combines converted trials and direct purchases and is not added again to Total.")
+                }
+
+                Section {
+                    if service.verificationFailures.isEmpty && !service.isLoading {
+                        Text("No transaction verification failures")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(service.verificationFailures) { failure in
+                            VStack(alignment: .leading, spacing: 5) {
+                                HStack {
+                                    Text(failure.productDisplayName)
+                                        .fontWeight(.semibold)
+                                    Spacer()
+                                    Text(failure.categoryDisplayName)
+                                        .font(.caption)
+                                        .foregroundStyle(
+                                            failure.isResolved
+                                                ? Color.secondary
+                                                : failure.category == "appleRejected"
+                                                    ? Color.red
+                                                    : Color.orange
+                                        )
+                                }
+
+                                Text(failure.reason)
+                                    .font(.callout)
+
+                                Text(
+                                    "\(failure.maskedTransactionID) • HTTP \(failure.statusCode) • \(failure.attemptCount) attempt\(failure.attemptCount == 1 ? "" : "s")"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                                Text(failure.lastSeenDate, format: .dateTime)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                } header: {
+                    Text("Transaction Verification")
+                } footer: {
+                    Text("Apple Rejected indicates a definitive 401 or 403 response. Temporary Failure indicates that Apple verification or the service was unavailable. A later successful verification marks the entry Resolved.")
                 }
             }
             .navigationTitle("WSP Sales")

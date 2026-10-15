@@ -348,7 +348,18 @@ struct AddPlotElementSheet: View {
         if !trimmedSceneName.isEmpty {
             // Find the appropriate folder (Episodes for verse novel, Scenes otherwise)
             let folderName = isVerseNovel ? "Episodes" : "Scenes"
-            let scenesFolder = project.folders?.first { $0.name == folderName }
+            guard let scenesFolder = project.folders?.first(where: { $0.name == folderName }) else {
+                modelContext.delete(element)
+                errorMessage = String(
+                    format: NSLocalizedString(
+                        "fiction.scene.error.folderMissing",
+                        comment: "Missing content folder"
+                    ),
+                    folderName
+                )
+                showErrorAlert = true
+                return
+            }
             
             let scene = StoryScene(
                 name: trimmedSceneName,
@@ -377,27 +388,27 @@ struct AddPlotElementSheet: View {
             // Link scene to plot element
             scene.plotElements = [element]
             
-            // Create TextFile for scene/episode content
             let textFile: TextFile
-            if isVerseNovel {
-                // Verse Novel episodes use poetry editor with free verse by default
-                textFile = TextFile(
+            do {
+                textFile = try TextFileCreationService.insertTextFile(
                     name: trimmedSceneName,
-                    initialContent: "",
                     parentFolder: scenesFolder,
-                    poetryFormId: PoetryForm.freeVerseId,
-                    poetryFormName: "Free Verse"
+                    modelContext: modelContext,
+                    poetryFormId: isVerseNovel ? PoetryForm.freeVerseId : nil,
+                    poetryFormName: isVerseNovel ? "Free Verse" : nil,
+                    contentType: .richText
                 )
-                textFile.contentType = .richText
-            } else {
-                textFile = TextFile(name: trimmedSceneName, initialContent: "", parentFolder: scenesFolder)
+            } catch {
+                project.scenes?.removeAll { $0.id == scene.id }
+                modelContext.delete(element)
+                errorMessage = error.localizedDescription
+                showErrorAlert = true
+                return
             }
-            textFile.workflowStatus = .draft  // New scenes/episodes start as drafts
+
             textFile.scene = scene
             scene.textFile = textFile
-            
             modelContext.insert(scene)
-            modelContext.insert(textFile)
             scene.modifiedDate = Date()
             textFile.modifiedDate = Date()
             element.modifiedDate = Date()

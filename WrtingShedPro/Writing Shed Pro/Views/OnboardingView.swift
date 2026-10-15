@@ -170,66 +170,6 @@ struct ProjectCreationService {
 }
 
 @MainActor
-struct TextFileCreationService {
-    static func createTextFile(
-        name: String,
-        parentFolder: Folder,
-        modelContext: ModelContext,
-        poetryFormId: UUID? = nil,
-        poetryFormName: String? = nil,
-        contentType: FileContentType = .richText,
-        checkEntitlements: Bool = true
-    ) throws -> TextFile {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        try NameValidator.validateFileName(trimmedName)
-
-        if checkEntitlements, !OnboardingCoordinator.debugForceNewUserModeEnabled, let project = parentFolder.resolvedProject {
-            let existingFileCount = ProjectGateCounterService.activeFileCount(in: project)
-            guard EntitlementManager.shared.canCreateFile(forProjectType: project.type, existingCount: existingFileCount) else {
-                throw OnboardingCreationError.fileLimit(project.type)
-            }
-        }
-
-        guard FolderCapabilityService.canAddFile(to: parentFolder) else {
-            throw OnboardingCreationError.folderDoesNotAllowFiles(parentFolder.name ?? "")
-        }
-
-        guard UniquenessChecker.isFileNameUnique(trimmedName, in: parentFolder) else {
-            throw OnboardingCreationError.duplicateFileName
-        }
-
-        let file = TextFile(
-            name: trimmedName,
-            initialContent: "",
-            parentFolder: parentFolder,
-            poetryFormId: poetryFormId,
-            poetryFormName: poetryFormName
-        )
-
-        file.contentType = contentType
-        if FolderCapabilityService.isContentFolder(parentFolder) {
-            file.workflowStatus = .draft
-        }
-
-        modelContext.insert(file)
-        if parentFolder.textFiles == nil {
-            parentFolder.textFiles = []
-        }
-        if parentFolder.textFiles?.contains(where: { $0.id == file.id }) != true {
-            parentFolder.textFiles?.append(file)
-        }
-
-        do {
-            try WriteCoalescer.shared.requestSaveAndFlush(reason: "onboarding-poetry-project")
-            ReviewManager.shared.recordSignificantEvent()
-            return file
-        } catch {
-            throw OnboardingCreationError.saveFailed(error)
-        }
-    }
-}
-
-@MainActor
 struct OnboardingCreationService {
     static func createStarterProjectAndFile(
         defaults: OnboardingDefaults,
@@ -328,26 +268,19 @@ struct OnboardingCreationService {
         }
         project.scenes?.append(scene)
 
-        let file = TextFile(
+        let file = try TextFileCreationService.insertTextFile(
             name: trimmedName,
-            initialContent: "",
             parentFolder: parentFolder,
+            modelContext: modelContext,
             poetryFormId: isVerseNovel ? PoetryForm.freeVerseId : nil,
-            poetryFormName: isVerseNovel ? "Free Verse" : nil
+            poetryFormName: isVerseNovel ? "Free Verse" : nil,
+            contentType: .richText,
+            checkNameUniqueness: false
         )
-        file.contentType = .richText
-        file.workflowStatus = .draft
         file.scene = scene
         scene.textFile = file
 
         modelContext.insert(scene)
-        modelContext.insert(file)
-        if parentFolder.textFiles == nil {
-            parentFolder.textFiles = []
-        }
-        if parentFolder.textFiles?.contains(where: { $0.id == file.id }) != true {
-            parentFolder.textFiles?.append(file)
-        }
 
         do {
             try WriteCoalescer.shared.requestSaveAndFlush(reason: "onboarding-empty-project")

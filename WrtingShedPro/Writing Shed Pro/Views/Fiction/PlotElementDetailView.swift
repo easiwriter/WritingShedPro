@@ -628,7 +628,17 @@ struct CreateSceneForPlotElementSheet: View {
         
         // Find appropriate folder (Episodes for verse novel, Scenes otherwise)
         let folderName = isVerseNovel ? "Episodes" : "Scenes"
-        let scenesFolder = project.folders?.first { $0.name == folderName }
+        guard let scenesFolder = project.folders?.first(where: { $0.name == folderName }) else {
+            errorMessage = String(
+                format: NSLocalizedString(
+                    "fiction.scene.error.folderMissing",
+                    comment: "Missing content folder"
+                ),
+                folderName
+            )
+            showErrorAlert = true
+            return
+        }
         
         let scene = StoryScene(
             name: trimmedName,
@@ -654,31 +664,31 @@ struct CreateSceneForPlotElementSheet: View {
         // Setting both sides with append can duplicate ScenePlotElementLink rows.
         scene.plotElements = [plotElement]
         
-        // Create TextFile for scene/episode content
         let textFile: TextFile
-        if isVerseNovel {
-            // Verse Novel episodes use poetry editor with free verse by default
-            textFile = TextFile(
+        do {
+            textFile = try TextFileCreationService.insertTextFile(
                 name: trimmedName,
-                initialContent: "",
                 parentFolder: scenesFolder,
-                poetryFormId: PoetryForm.freeVerseId,
-                poetryFormName: "Free Verse"
+                modelContext: modelContext,
+                poetryFormId: isVerseNovel ? PoetryForm.freeVerseId : nil,
+                poetryFormName: isVerseNovel ? "Free Verse" : nil,
+                contentType: .richText
             )
-            textFile.contentType = .richText
-        } else {
-            textFile = TextFile(name: trimmedName, initialContent: "", parentFolder: scenesFolder)
+        } catch {
+            project.scenes?.removeAll { $0.id == scene.id }
+            scene.plotElements = []
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+            return
         }
-        textFile.workflowStatus = .draft  // New scenes/episodes start as drafts
+
         textFile.scene = scene
         scene.textFile = textFile
         plotElement.modifiedDate = Date()
         scene.modifiedDate = Date()
         textFile.modifiedDate = Date()
         project.modifiedDate = Date()
-        
         modelContext.insert(scene)
-        modelContext.insert(textFile)
         
         WriteCoalescer.shared?.requestSave(reason: "plot-element-create-linked-scene")
         WriteCoalescer.shared?.flush()

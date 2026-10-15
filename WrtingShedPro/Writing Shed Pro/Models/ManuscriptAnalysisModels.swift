@@ -110,7 +110,6 @@ struct ManuscriptAnalystRequest: Codable {
     let projectType: String  // "fiction", "poetry", "drama", "prose"
     let fictionClass: String?  // "novel", "shortFiction", "verseNovel", or nil
     let analysisProfile: String
-    let subscriptionTier: String
     let content: String
     let metadata: RequestMetadata
     let options: AnalysisOptions

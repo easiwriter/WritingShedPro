@@ -1,4 +1,5 @@
 import Foundation
+import StoreKit
 import SwiftData
 
 /// Service for managing Manuscript Analyst reviews and CloudFlare API integration.
@@ -6,8 +7,24 @@ import SwiftData
 final class ManuscriptAnalystService {
     static let shared = ManuscriptAnalystService()
 
+    private enum ReferenceUnit {
+        case line
+        case paragraph
+
+        init(projectType: ProjectType) {
+            self = projectType == .poetry ? .line : .paragraph
+        }
+
+        var label: String {
+            switch self {
+            case .line: return "Line"
+            case .paragraph: return "Paragraph"
+            }
+        }
+    }
+
     private var reviewCache: [String: ManuscriptReview] = [:]
-    private let cacheSchemaVersion = "v7"
+    private let cacheSchemaVersion = "v8"
     private let manuscriptFileBoundaryPrefix = "[[WSP_FILE:"
     private let cloudFlareEndpoint = "https://wsp-support.wsp-support.workers.dev/api/manuscript-analyst/review"
     
@@ -39,10 +56,8 @@ final class ManuscriptAnalystService {
             throw ManuscriptAnalystError.noContentToAnalyze
         }
 
-        let content = normalizeContentForAnalysis(
-            rawContent,
-            projectType: project.type
-        )
+        let referenceUnit = ReferenceUnit(projectType: project.type)
+        let content = normalizeContentForAnalysis(rawContent, projectType: project.type)
         let cacheKey = "\(cacheSchemaVersion)_file_\(textFile.id)_\(contentFingerprint(content))"
         if let cached = reviewCache[cacheKey] {
             return cached
@@ -69,7 +84,8 @@ final class ManuscriptAnalystService {
             response,
             fileId: textFile.id,
             projectId: project.id,
-            sourceContent: content
+            sourceContent: content,
+            referenceUnit: referenceUnit
         )
 
         // Cache the result
@@ -102,7 +118,10 @@ final class ManuscriptAnalystService {
             throw ManuscriptAnalystError.noContentToAnalyze
         }
 
-        let cacheKey = "\(cacheSchemaVersion)_manuscript_\(project.id)_\(contentFingerprint(bodyFiles.content))"
+        let referenceUnit = ReferenceUnit(projectType: project.type)
+    let content = bodyFiles.content
+
+        let cacheKey = "\(cacheSchemaVersion)_manuscript_\(project.id)_\(contentFingerprint(content))"
         if let cached = reviewCache[cacheKey] {
             return cached
         }
@@ -113,7 +132,7 @@ final class ManuscriptAnalystService {
             fictionClass: project.fictionClassRaw,
             analysisProfile: analysisProfile,
             fileName: project.name ?? "Untitled Manuscript",
-            content: bodyFiles.content,
+            content: content,
             fileCount: bodyFiles.fileCount,
             poetryFormContext: manuscriptPoetryFormContext(for: project)
         )
@@ -123,7 +142,8 @@ final class ManuscriptAnalystService {
             response,
             fileId: nil,
             projectId: project.id,
-            sourceContent: bodyFiles.content
+            sourceContent: content,
+            referenceUnit: referenceUnit
         )
 
         // Cache the result
@@ -145,6 +165,7 @@ final class ManuscriptAnalystService {
             throw ManuscriptAnalystError.subscriptionInactive
         }
 
+        let referenceUnit = ReferenceUnit(projectType: .drama)
         let content = normalizeContentForAnalysis(rawText, projectType: .drama)
         guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ManuscriptAnalystError.noContentToAnalyze
@@ -171,7 +192,8 @@ final class ManuscriptAnalystService {
             response,
             fileId: nil,
             projectId: projectId ?? UUID(),
-            sourceContent: content
+            sourceContent: content,
+            referenceUnit: referenceUnit
         )
 
         reviewCache[cacheKey] = review
@@ -319,7 +341,6 @@ final class ManuscriptAnalystService {
             projectType: projectType,
             fictionClass: fictionClass,
             analysisProfile: analysisProfile,
-            subscriptionTier: "analyst.monthly.5_99",
             content: content,
             metadata: metadata,
             options: options
@@ -374,6 +395,10 @@ final class ManuscriptAnalystService {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue(
+            try await activeAnalystTransactionID(),
+            forHTTPHeaderField: "X-Apple-Transaction-ID"
+        )
 
         let encoder = JSONEncoder()
         urlRequest.httpBody = try encoder.encode(request)
@@ -384,6 +409,10 @@ final class ManuscriptAnalystService {
             throw ManuscriptAnalystError.invalidResponse
         }
 
+        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            throw ManuscriptAnalystError.subscriptionInactive
+        }
+
         if httpResponse.statusCode != 200 {
             let statusError = "\(httpResponse.statusCode)"
             throw ManuscriptAnalystError.apiError("HTTP \(statusError)")
@@ -392,17 +421,40 @@ final class ManuscriptAnalystService {
         let decoder = JSONDecoder()
         let apiResponse = try decoder.decode(ManuscriptAnalystResponse.self, from: data)
 
+        if apiResponse.status == "update_required" {
+            throw ManuscriptAnalystError.appUpdateRequired
+        }
+
         // Update soft cap state from response
         currentSoftCapState = apiResponse.metadata.softCapState
 
         return apiResponse
     }
 
+    private func activeAnalystTransactionID() async throws -> String {
+        let productID = WSPProduct.manuscriptAnalystSubscription.rawValue
+
+        for await result in Transaction.currentEntitlements {
+            guard case .verified(let transaction) = result,
+                  transaction.productID == productID,
+                  transaction.revocationDate == nil else {
+                continue
+            }
+            if let expirationDate = transaction.expirationDate, expirationDate <= Date() {
+                continue
+            }
+            return String(transaction.id)
+        }
+
+        throw ManuscriptAnalystError.subscriptionInactive
+    }
+
     private func parseResponse(
         _ response: ManuscriptAnalystResponse,
         fileId: UUID?,
         projectId: UUID,
-        sourceContent: String
+        sourceContent: String,
+        referenceUnit: ReferenceUnit
     ) -> ManuscriptReview {
         let review = ManuscriptReview(
             reviewId: response.reviewId,
@@ -423,15 +475,35 @@ final class ManuscriptAnalystService {
                 category: suggestionResponse.category,
                 severity: suggestionResponse.severity,
                 location: reconcileLocation(
-                    normalizeLineLocation(suggestionResponse.location),
+                    normalizeLocation(suggestionResponse.location, unit: referenceUnit),
                     observation: suggestionResponse.observation,
-                    sourceContent: sourceContent
+                    sourceContent: sourceContent,
+                    unit: referenceUnit
                 ),
                 observation: suggestionResponse.observation,
                 suggestion: suggestionResponse.suggestion,
                 rationale: suggestionResponse.rationale
             )
             review.suggestions.append(suggestion)
+        }
+
+        let authorshipAssessment = response.analysis.authorshipAssessment.map { assessment in
+            AuthorshipAssessment(
+                classification: assessment.classification,
+                confidence: assessment.confidence,
+                summary: assessment.summary,
+                indicators: assessment.indicators.map { indicator in
+                    AuthorshipIndicator(
+                        location: reconcileLocation(
+                            normalizeLocation(indicator.location, unit: referenceUnit),
+                            observation: indicator.observation,
+                            sourceContent: sourceContent,
+                            unit: referenceUnit
+                        ),
+                        observation: indicator.observation
+                    )
+                }
+            )
         }
 
         // Add metadata
@@ -441,18 +513,18 @@ final class ManuscriptAnalystService {
             analysisTimeMs: response.metadata.analysisTimeMs,
             model: response.metadata.model,
             softCapState: response.metadata.softCapState,
-            authorshipAssessment: response.analysis.authorshipAssessment
+            authorshipAssessment: authorshipAssessment
         )
 
         return review
     }
 
-    private func normalizeLineLocation(_ rawLocation: String?) -> String? {
+    private func normalizeLocation(_ rawLocation: String?, unit: ReferenceUnit) -> String? {
         guard let rawLocation else { return nil }
         let trimmed = rawLocation.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return nil }
 
-        let pattern = #"(?i)line\s*(\d+)(?:\s*[-–]\s*(\d+))?"#
+        let pattern = #"(?i)(?:line|paragraph)\s*(\d+)(?:\s*[-–]\s*(\d+))?"#
         guard let regex = try? NSRegularExpression(pattern: pattern),
               let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)),
               let firstRange = Range(match.range(at: 1), in: trimmed),
@@ -462,25 +534,30 @@ final class ManuscriptAnalystService {
 
         if let secondRange = Range(match.range(at: 2), in: trimmed),
            let secondValue = Int(trimmed[secondRange]) {
-            return "Line \(firstValue)-\(secondValue)"
+            return "\(unit.label) \(firstValue)-\(secondValue)"
         }
 
-        return "Line \(firstValue)"
+        return "\(unit.label) \(firstValue)"
     }
 
-    private func reconcileLocation(_ normalizedLocation: String?, observation: String, sourceContent: String) -> String? {
+    private func reconcileLocation(
+        _ normalizedLocation: String?,
+        observation: String,
+        sourceContent: String,
+        unit: ReferenceUnit
+    ) -> String? {
         guard let quotedPhrase = extractQuotedPhrase(from: observation),
-              let inferredLine = inferLineNumber(forPhrase: quotedPhrase, in: sourceContent) else {
+              let inferredNumber = inferReferenceNumber(forPhrase: quotedPhrase, in: sourceContent) else {
             return normalizedLocation
         }
 
         if let normalizedLocation,
-           let existingLine = parseSingleLineNumber(from: normalizedLocation),
-           existingLine == inferredLine {
+           let existingNumber = parseSingleReferenceNumber(from: normalizedLocation),
+           existingNumber == inferredNumber {
             return normalizedLocation
         }
 
-        return "Line \(inferredLine)"
+        return "\(unit.label) \(inferredNumber)"
     }
 
     private func extractQuotedPhrase(from text: String) -> String? {
@@ -502,7 +579,7 @@ final class ManuscriptAnalystService {
         return nil
     }
 
-    private func inferLineNumber(forPhrase phrase: String, in sourceContent: String) -> Int? {
+    private func inferReferenceNumber(forPhrase phrase: String, in sourceContent: String) -> Int? {
         guard !phrase.isEmpty, !sourceContent.isEmpty else { return nil }
 
         let sourceNSString = sourceContent as NSString
@@ -527,14 +604,14 @@ final class ManuscriptAnalystService {
         return precedingNonblankCount + 1
     }
 
-    private func parseSingleLineNumber(from location: String) -> Int? {
-        let pattern = #"(?i)line\s*(\d+)"#
+    private func parseSingleReferenceNumber(from location: String) -> Int? {
+        let pattern = #"(?i)(?:line|paragraph)\s*(\d+)"#
         guard let regex = try? NSRegularExpression(pattern: pattern),
               let match = regex.firstMatch(in: location, range: NSRange(location.startIndex..., in: location)),
-              let lineRange = Range(match.range(at: 1), in: location) else {
+              let numberRange = Range(match.range(at: 1), in: location) else {
             return nil
         }
-        return Int(location[lineRange])
+          return Int(location[numberRange])
     }
 
     private func contentFingerprint(_ content: String) -> String {
@@ -552,16 +629,15 @@ final class ManuscriptAnalystService {
             .replacingOccurrences(of: "\r", with: "\n")
 
         if projectType == .drama {
-            let structuredDrama = preprocessDramaContentForAnalysis(normalized)
-            return addDramaLineNumbers(structuredDrama)
+            return preprocessDramaContentForAnalysis(normalized)
         }
 
         return normalized
     }
 
-    /// Convert raw DML into lightweight semantic lines for analysis while preserving
-    /// one-to-one source line mapping. This helps the model interpret drama structure
-    /// without changing reported line references.
+    /// Convert raw DML into lightweight semantic paragraphs for analysis while preserving
+    /// one-to-one source paragraph mapping. This helps the model interpret drama structure
+    /// without changing reported paragraph references.
     private func preprocessDramaContentForAnalysis(_ content: String) -> String {
         guard !content.isEmpty else { return content }
 
@@ -605,28 +681,6 @@ final class ManuscriptAnalystService {
         }
 
         return structuredLines.joined(separator: "\n")
-    }
-
-    private func addDramaLineNumbers(_ content: String) -> String {
-        guard !content.isEmpty else { return content }
-
-        let lines = content.components(separatedBy: "\n")
-
-        // Avoid double-numbering if content already appears line-numbered.
-        if let firstNonEmptyLine = lines.first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }),
-           firstNonEmptyLine.range(of: #"^\s*\d{3,6}\s\|"#, options: .regularExpression) != nil {
-            return content
-        }
-
-        var lineNumber = 0
-        return lines.map { line in
-                guard !line.trimmingCharacters(in: .whitespaces).isEmpty else {
-                    return line
-                }
-                lineNumber += 1
-                return "\(String(format: "%04d", lineNumber)) | \(line)"
-            }
-            .joined(separator: "\n")
     }
 
     private func readRawDramaTextFile(at url: URL) throws -> String {
@@ -673,6 +727,7 @@ final class ManuscriptAnalystService {
 
 enum ManuscriptAnalystError: LocalizedError {
     case subscriptionInactive
+    case appUpdateRequired
     case projectNotFound
     case noContentToAnalyze
     case invalidEndpoint
@@ -685,6 +740,8 @@ enum ManuscriptAnalystError: LocalizedError {
         switch self {
         case .subscriptionInactive:
             return NSLocalizedString("analyst.error.subscriptionInactive", comment: "Subscription inactive")
+        case .appUpdateRequired:
+            return NSLocalizedString("analyst.error.appUpdateRequired", comment: "App update required")
         case .projectNotFound:
             return NSLocalizedString("analyst.error.projectNotFound", comment: "Project not found")
         case .noContentToAnalyze:

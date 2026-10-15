@@ -648,57 +648,21 @@ struct CollectionDetailView: View {
 
         let sourceFolderName = sourceFolderNameForCopy()
 
-        guard let destFolder = findMatchingFolder(in: destination, named: sourceFolderName) else {
-            copyResultMessage = String(format: NSLocalizedString("copyToProject.error.noFolder", comment: "No matching folder found"), sourceFolderName, destination.name ?? "")
-            copyResultIsError = true
-            showCopyResult = true
-            return
-        }
-
-        var usedNames = existingFileNames(in: destFolder)
-        var copiedCount = 0
-        let maxSceneOrder = maxSceneOrderForCopy(in: destination)
-
-        for file in files {
-            guard let currentVersion = file.currentVersion else { continue }
-
-            let uniqueName = generateUniqueName(for: file.name, usedNames: usedNames)
-            usedNames.insert(uniqueName)
-
-            let newFile = makeCopiedFile(
-                from: file,
-                version: currentVersion,
-                named: uniqueName,
-                in: destFolder,
-                orderOffset: copiedCount
-            )
-
-            modelContext.insert(newFile)
-
-            insertSceneIfNeeded(
-                for: destination,
-                file: newFile,
-                name: uniqueName,
-                sceneOrderBase: maxSceneOrder,
-                orderOffset: copiedCount
-            )
-
-            copiedCount += 1
-        }
-
         do {
-            try WriteCoalescer.shared.requestSaveAndFlush(reason: "collection-detail-save")
-            let format = copiedCount == 1
-                ? NSLocalizedString("copyToProject.success.single", comment: "1 file copied")
-                : NSLocalizedString("copyToProject.success.multiple", comment: "%d files copied")
-            copyResultMessage = String(format: format, copiedCount) + " " + String(format: NSLocalizedString("copyToProject.success.destination", comment: "to project"), destination.name ?? "")
+            let result = try TextFileCreationService.copyFiles(
+                files,
+                to: destination,
+                matchingSourceFolderName: sourceFolderName,
+                modelContext: modelContext,
+                saveReason: "collection-detail-save"
+            )
+            copyResultMessage = result.localizedMessage
             copyResultIsError = false
-            showCopyResult = true
         } catch {
-            copyResultMessage = NSLocalizedString("copyToProject.error.saveFailed", comment: "Save failed") + ": \(error.localizedDescription)"
+            copyResultMessage = error.localizedDescription
             copyResultIsError = true
-            showCopyResult = true
         }
+        showCopyResult = true
     }
 
     private func sourceFolderNameForCopy() -> String {
@@ -707,92 +671,6 @@ struct CollectionDetailView: View {
             .name ?? "Files"
     }
 
-    private func existingFileNames(in folder: Folder) -> Set<String> {
-        Set((folder.textFiles ?? []).map(\.name))
-    }
-
-    private func maxSceneOrderForCopy(in destination: Project) -> Int {
-        guard destination.type == .fiction || destination.type == .drama else { return 0 }
-        let scenes = destination.scenes ?? []
-        return scenes
-            .filter { !$0.isTrashed }
-            .compactMap(\.userOrder)
-            .max() ?? -1
-    }
-
-    private func makeCopiedFile(
-        from source: TextFile,
-        version: Version,
-        named uniqueName: String,
-        in destinationFolder: Folder,
-        orderOffset: Int
-    ) -> TextFile {
-        let newFile = TextFile(
-            name: uniqueName,
-            initialContent: version.content,
-            parentFolder: destinationFolder,
-            poetryFormId: source.poetryFormId,
-            poetryFormName: source.poetryFormName
-        )
-
-        newFile.workflowStatusRaw = source.workflowStatusRaw
-        newFile.contentTypeRaw = source.contentTypeRaw
-
-        if let newVersion = newFile.currentVersion {
-            let formattedData = version.effectiveFormattedContent
-            newVersion.setFormattedContentData(formattedData, sourceText: version.content)
-            newVersion.referenceMetadataData = version.referenceMetadataData
-            newVersion.comment = version.comment
-            newVersion.notes = version.notes
-            newVersion.notesFormattedContent = version.notesFormattedContent
-        }
-
-        let maxOrder = (destinationFolder.textFiles ?? []).compactMap { $0.userOrder }.max() ?? -1
-        newFile.userOrder = maxOrder + 1 + orderOffset
-
-        return newFile
-    }
-
-    private func insertSceneIfNeeded(
-        for destination: Project,
-        file: TextFile,
-        name: String,
-        sceneOrderBase: Int,
-        orderOffset: Int
-    ) {
-        guard destination.type == .fiction || destination.type == .drama else { return }
-        let scene = StoryScene(name: name, userOrder: sceneOrderBase + 1 + orderOffset)
-        scene.project = destination
-        scene.textFile = file
-        modelContext.insert(scene)
-    }
-    
-    private func findMatchingFolder(in project: Project, named sourceName: String) -> Folder? {
-        guard let folders = project.folders else { return nil }
-        
-        if let match = folders.first(where: { $0.name == sourceName }) {
-            return match
-        }
-        
-        let contentFolderNames: Set<String> = ["Poems", "Scenes", "Stories", "Episodes", "Scripts", "Sections", "Prose"]
-        if let contentFolder = folders.first(where: { contentFolderNames.contains($0.name ?? "") }) {
-            return contentFolder
-        }
-        
-        return folders.first(where: { FolderCapabilityService.canAddFile(to: $0) })
-    }
-    
-    private func generateUniqueName(for name: String, usedNames: Set<String>) -> String {
-        if !usedNames.contains(name) { return name }
-        var counter = 2
-        while counter <= 1000 {
-            let candidate = "\(name) \(counter)"
-            if !usedNames.contains(candidate) { return candidate }
-            counter += 1
-        }
-        return "\(name) \(UUID().uuidString.prefix(6))"
-    }
-    
     // MARK: - Printing
     
     /// Handle print collection action

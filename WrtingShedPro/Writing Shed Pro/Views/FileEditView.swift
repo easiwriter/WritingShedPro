@@ -4985,8 +4985,18 @@ struct FileEditView: View {
                 #if DEBUG
                 print("📄 Creating back matter file: \(item.fileName)")
                 #endif
-                backMatterFile = TextFile(name: item.fileName, parentFolder: backMatterFolder)
-                modelContext.insert(backMatterFile!)
+                do {
+                    backMatterFile = try TextFileCreationService.insertTextFile(
+                        name: item.fileName,
+                        parentFolder: backMatterFolder,
+                        modelContext: modelContext
+                    )
+                } catch {
+                    Write_App.logErrorToFile(
+                        "Failed to create back matter file '\(item.fileName)': \(error.localizedDescription)"
+                    )
+                    continue
+                }
             }
             
             guard let backMatterFile = backMatterFile else { continue }

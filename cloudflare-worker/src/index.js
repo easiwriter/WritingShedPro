@@ -5,6 +5,14 @@
 // by build-prompt.py — do NOT edit system-prompt.txt by hand.
 
 import SYSTEM_PROMPT from "./system-prompt.txt";
+import {
+    verifyAnalystSubscription,
+    verifyStoreTransaction,
+} from "./apple-subscription.mjs";
+import {
+    createLegacyAnalystUpgradeResponse,
+    isLegacyAnalystRequest,
+} from "./legacy-analyst-upgrade.mjs";
 
 // In-memory rate limiting (per-worker instance). For production with
 // multiple edge locations, consider Cloudflare KV or Rate Limiting rules.
@@ -48,10 +56,6 @@ const ALLOWED_ANALYSIS_PROFILES = new Set([
     "verseNovel",
 ]);
 const ALLOWED_SEVERITY_FILTERS = new Set(["all", "high", "medium_high"]);
-
-function isValidSubscriptionTier(subscriptionTier) {
-    return typeof subscriptionTier === "string" && subscriptionTier.startsWith("analyst.monthly");
-}
 
 function isValidProfileForProjectType(analysisProfile, projectType, fictionClass) {
     if (projectType === "poetry") return analysisProfile === "poetry";
@@ -157,7 +161,7 @@ export default {
                 headers: {
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Apple-Transaction-ID",
                     "Access-Control-Max-Age": "86400",
                 },
             });
@@ -346,7 +350,6 @@ async function handleManuscriptAnalystReview(request, env) {
         projectType,
         fictionClass,
         analysisProfile,
-        subscriptionTier,
         content,
         metadata,
         options,
@@ -357,7 +360,6 @@ async function handleManuscriptAnalystReview(request, env) {
     if (!analysisMode || !ALLOWED_ANALYSIS_MODES.has(analysisMode)) errors.push("analysisMode");
     if (!projectType || !ALLOWED_PROJECT_TYPES.has(projectType)) errors.push("projectType");
     if (!analysisProfile || !ALLOWED_ANALYSIS_PROFILES.has(analysisProfile)) errors.push("analysisProfile");
-    if (!isValidSubscriptionTier(subscriptionTier)) errors.push("subscriptionTier");
     if (typeof content !== "string" || content.trim().length === 0) errors.push("content");
 
     if (errors.length > 0) {
@@ -378,6 +380,23 @@ async function handleManuscriptAnalystReview(request, env) {
         return jsonResponse(
             { error: `content exceeds ${MAX_ANALYST_CONTENT_LENGTH} characters` },
             413
+        );
+    }
+
+    const transactionID = request.headers.get("X-Apple-Transaction-ID");
+    if (isLegacyAnalystRequest(transactionID)) {
+        return jsonResponse(
+            createLegacyAnalystUpgradeResponse(analysisProfile),
+            200,
+            { "Cache-Control": "no-store" }
+        );
+    }
+
+    const subscriptionVerification = await verifyAnalystSubscription(transactionID, env);
+    if (!subscriptionVerification.authorized) {
+        return jsonResponse(
+            { error: subscriptionVerification.error },
+            subscriptionVerification.status
         );
     }
 
@@ -491,7 +510,7 @@ async function handleManuscriptAnalystReview(request, env) {
                     tokensUsed: tokensUsed,
                     analysisTimeMs: analysisTimeMs,
                     model: "gpt-4o-mini",
-                    softCapState: calculateSoftCapState(tokensUsed, subscriptionTier),
+                    softCapState: calculateSoftCapState(tokensUsed, "analyst.monthly"),
                 },
             },
             200,
@@ -1493,11 +1512,28 @@ async function handleRecordSale(request, env) {
     if (!projectType) {
         return jsonResponse({ error: "Invalid productID" }, 400);
     }
-    if (!transactionID || transactionID.length > 120) {
+    if (!/^\d{1,64}$/.test(transactionID)) {
         return jsonResponse({ error: "Invalid transactionID" }, 400);
     }
 
-    const purchaseDate = normalizedPurchaseDate(body?.purchaseDate);
+    const verification = await verifyStoreTransaction(transactionID, productID, env);
+    if (!verification.verified) {
+        await recordTransactionVerificationFailure(
+            env,
+            transactionID,
+            productID,
+            verification.status,
+            verification.error
+        );
+        return jsonResponse({ error: verification.error }, verification.status);
+    }
+
+    const transaction = verification.transaction;
+    const purchaseDate = validatedPurchaseDate(transaction.purchaseDate);
+    if (purchaseDate === null) {
+        console.error("Apple transaction did not include a valid purchase date");
+        return jsonResponse({ error: "Transaction verification unavailable" }, 502);
+    }
     const saleMonth = saleMonthFromTimestamp(purchaseDate);
     const now = Date.now();
 
@@ -1518,6 +1554,8 @@ async function handleRecordSale(request, env) {
 
     try {
         await ensureSalesTables(env);
+        await resolveTransactionVerificationFailure(env, transactionID, productID, now);
+        await recordVerifiedTransaction(env, transaction, now);
 
         if (projectType === "fullAccess" && trialTransactionID) {
             const trialMonth = saleMonthFromTimestamp(trialPurchaseDate);
@@ -1552,6 +1590,7 @@ async function handleRecordSale(request, env) {
             const converted = (results?.[2]?.meta?.changes ?? 0) > 0;
             return jsonResponse({
                 ok: true,
+                verified: true,
                 inserted: (results?.[1]?.meta?.changes ?? 0) > 0,
                 converted,
                 month: trialMonth,
@@ -1565,7 +1604,14 @@ async function handleRecordSale(request, env) {
                 .bind(transactionID)
                 .first();
             if (existingConversion) {
-                return jsonResponse({ ok: true, inserted: false, converted: true, month: saleMonth, projectType }, 200);
+                return jsonResponse({
+                    ok: true,
+                    verified: true,
+                    inserted: false,
+                    converted: true,
+                    month: saleMonth,
+                    projectType,
+                }, 200);
             }
         }
 
@@ -1595,7 +1641,13 @@ async function handleRecordSale(request, env) {
                 .run();
         }
 
-        return jsonResponse({ ok: true, inserted, month: saleMonth, projectType }, 200);
+        return jsonResponse({
+            ok: true,
+            verified: true,
+            inserted,
+            month: saleMonth,
+            projectType,
+        }, 200);
     } catch (err) {
         console.error("Failed to record sale:", err);
         return jsonResponse({ error: "Sales service unavailable" }, 502);
@@ -1671,24 +1723,46 @@ async function handleAdminSales(request, env) {
             updatedAt: row.updated_at,
         }));
 
-        return jsonResponse({ months, selectedMonth, sales }, 200, { "Cache-Control": "no-store" });
+        const { results: failureRows } = await env.MESSAGES_DB
+            .prepare(`
+                SELECT
+                    transaction_id,
+                    product_id,
+                    failure_category,
+                    status_code,
+                    reason,
+                    first_seen_at,
+                    last_seen_at,
+                    attempt_count,
+                    is_resolved,
+                    resolved_at
+                FROM transaction_verification_failures
+                ORDER BY is_resolved ASC, last_seen_at DESC
+                LIMIT 100
+            `)
+            .all();
+        const verificationFailures = (failureRows || []).map((row) => ({
+            transactionID: row.transaction_id,
+            productID: row.product_id,
+            category: row.failure_category,
+            statusCode: row.status_code,
+            reason: row.reason,
+            firstSeenAt: row.first_seen_at,
+            lastSeenAt: row.last_seen_at,
+            attemptCount: row.attempt_count,
+            isResolved: row.is_resolved === 1,
+            resolvedAt: row.resolved_at,
+        }));
+
+        return jsonResponse(
+            { months, selectedMonth, sales, verificationFailures },
+            200,
+            { "Cache-Control": "no-store" }
+        );
     } catch (err) {
         console.error("Failed to fetch sales:", err);
         return jsonResponse({ error: "Sales service unavailable" }, 502);
     }
-}
-
-function normalizedPurchaseDate(value) {
-    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
-        return Math.trunc(value);
-    }
-    if (typeof value === "string") {
-        const parsed = Date.parse(value);
-        if (Number.isFinite(parsed) && parsed > 0) {
-            return parsed;
-        }
-    }
-    return Date.now();
 }
 
 function validatedPurchaseDate(value) {
@@ -1746,6 +1820,8 @@ async function ensureSalesTables(env) {
         .prepare("CREATE INDEX IF NOT EXISTS idx_sales_events_month ON sales_events(sale_month DESC, project_type)")
         .run();
 
+    await ensureTransactionVerificationFailuresTable(env);
+
     await env.MESSAGES_DB
         .prepare(`
             CREATE TABLE IF NOT EXISTS monthly_sales (
@@ -1760,6 +1836,160 @@ async function ensureSalesTables(env) {
 
     await env.MESSAGES_DB
         .prepare("CREATE INDEX IF NOT EXISTS idx_monthly_sales_month ON monthly_sales(sale_month DESC)")
+        .run();
+}
+
+async function ensureTransactionVerificationFailuresTable(env) {
+    await env.MESSAGES_DB
+        .prepare(`
+            CREATE TABLE IF NOT EXISTS transaction_verification_failures (
+                transaction_id TEXT NOT NULL,
+                product_id TEXT NOT NULL,
+                failure_category TEXT NOT NULL,
+                status_code INTEGER NOT NULL,
+                reason TEXT NOT NULL,
+                first_seen_at INTEGER NOT NULL,
+                last_seen_at INTEGER NOT NULL,
+                attempt_count INTEGER NOT NULL DEFAULT 1,
+                is_resolved INTEGER NOT NULL DEFAULT 0,
+                resolved_at INTEGER,
+                PRIMARY KEY (transaction_id, product_id)
+            )
+        `)
+        .run();
+
+    await env.MESSAGES_DB
+        .prepare(`
+            CREATE INDEX IF NOT EXISTS idx_transaction_verification_failures_status
+            ON transaction_verification_failures(is_resolved, last_seen_at DESC)
+        `)
+        .run();
+}
+
+async function recordTransactionVerificationFailure(
+    env,
+    transactionID,
+    productID,
+    statusCode,
+    reason
+) {
+    if (!env.MESSAGES_DB) return;
+
+    const now = Date.now();
+    const category = statusCode === 401 || statusCode === 403
+        ? "appleRejected"
+        : "temporaryFailure";
+
+    try {
+        await ensureTransactionVerificationFailuresTable(env);
+        await env.MESSAGES_DB
+            .prepare(`
+                INSERT INTO transaction_verification_failures (
+                    transaction_id, product_id, failure_category, status_code,
+                    reason, first_seen_at, last_seen_at, attempt_count,
+                    is_resolved, resolved_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, NULL)
+                ON CONFLICT(transaction_id, product_id) DO UPDATE SET
+                    failure_category = excluded.failure_category,
+                    status_code = excluded.status_code,
+                    reason = excluded.reason,
+                    last_seen_at = excluded.last_seen_at,
+                    attempt_count = transaction_verification_failures.attempt_count + 1,
+                    is_resolved = 0,
+                    resolved_at = NULL
+            `)
+            .bind(
+                transactionID,
+                productID,
+                category,
+                statusCode,
+                reason,
+                now,
+                now
+            )
+            .run();
+    } catch (error) {
+        console.error("Failed to record transaction verification failure:", error);
+    }
+}
+
+async function resolveTransactionVerificationFailure(
+    env,
+    transactionID,
+    productID,
+    resolvedAt
+) {
+    await ensureTransactionVerificationFailuresTable(env);
+    await env.MESSAGES_DB
+        .prepare(`
+            UPDATE transaction_verification_failures
+            SET is_resolved = 1, resolved_at = ?
+            WHERE transaction_id = ? AND product_id = ? AND is_resolved = 0
+        `)
+        .bind(resolvedAt, transactionID, productID)
+        .run();
+}
+
+async function recordVerifiedTransaction(env, transaction, verifiedAt) {
+    await env.MESSAGES_DB
+        .prepare(`
+            CREATE TABLE IF NOT EXISTS verified_store_transactions (
+                transaction_id TEXT PRIMARY KEY,
+                original_transaction_id TEXT,
+                product_id TEXT NOT NULL,
+                purchase_date INTEGER NOT NULL,
+                original_purchase_date INTEGER,
+                ownership_type TEXT,
+                transaction_type TEXT,
+                price INTEGER,
+                currency TEXT,
+                offer_type INTEGER,
+                offer_identifier TEXT,
+                environment TEXT NOT NULL,
+                verified_at INTEGER NOT NULL
+            )
+        `)
+        .run();
+
+    await env.MESSAGES_DB
+        .prepare(`
+            INSERT INTO verified_store_transactions (
+                transaction_id, original_transaction_id, product_id,
+                purchase_date, original_purchase_date, ownership_type,
+                transaction_type, price, currency, offer_type,
+                offer_identifier, environment, verified_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(transaction_id) DO UPDATE SET
+                original_transaction_id = excluded.original_transaction_id,
+                product_id = excluded.product_id,
+                purchase_date = excluded.purchase_date,
+                original_purchase_date = excluded.original_purchase_date,
+                ownership_type = excluded.ownership_type,
+                transaction_type = excluded.transaction_type,
+                price = excluded.price,
+                currency = excluded.currency,
+                offer_type = excluded.offer_type,
+                offer_identifier = excluded.offer_identifier,
+                environment = excluded.environment,
+                verified_at = excluded.verified_at
+        `)
+        .bind(
+            transaction.transactionId,
+            transaction.originalTransactionId ?? null,
+            transaction.productId,
+            transaction.purchaseDate,
+            transaction.originalPurchaseDate ?? null,
+            transaction.inAppOwnershipType ?? null,
+            transaction.type ?? null,
+            transaction.price ?? null,
+            transaction.currency ?? null,
+            transaction.offerType ?? null,
+            transaction.offerIdentifier ?? null,
+            transaction.environment,
+            verifiedAt
+        )
         .run();
 }
 

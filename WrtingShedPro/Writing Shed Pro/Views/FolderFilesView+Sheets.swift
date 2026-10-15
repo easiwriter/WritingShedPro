@@ -229,135 +229,23 @@ extension FolderFilesView {
     /// Handles duplicate names by appending a numeric suffix.
     func copyFilesToProject(_ files: [TextFile], destination: Project) {
         guard !files.isEmpty else { return }
-        
-        // Find the matching folder in the destination project
         let sourceFolderName = folder.name ?? "Files"
-        let destinationFolder = findMatchingFolder(in: destination, named: sourceFolderName)
-        
-        guard let destFolder = destinationFolder else {
-            copyResultMessage = String(format: NSLocalizedString("copyToProject.error.noFolder", comment: "No matching folder found"), sourceFolderName, destination.name ?? "")
-            copyResultIsError = true
-            showCopyResult = true
-            return
-        }
-        
-        // Collect all existing names in the destination (including names assigned to earlier copies in this batch)
-        var usedNames = Set((destFolder.textFiles ?? []).map { $0.name })
-        var copiedCount = 0
-        let maxSceneOrder = (destination.type == .fiction || destination.type == .drama)
-            ? (destination.scenes ?? []).filter({ !$0.isTrashed }).compactMap(\.userOrder).max() ?? -1
-            : 0
-        
-        for file in files {
-            guard let currentVersion = file.currentVersion else { continue }
-            
-            // Generate a unique name in the destination
-            let uniqueName = generateUniqueName(for: file.name, usedNames: usedNames)
-            usedNames.insert(uniqueName)
-            
-            // Create the new TextFile
-            let newFile = TextFile(
-                name: uniqueName,
-                initialContent: currentVersion.content,
-                parentFolder: destFolder,
-                poetryFormId: file.poetryFormId,
-                poetryFormName: file.poetryFormName
-            )
-            
-            // Preserve workflow status
-            newFile.workflowStatusRaw = file.workflowStatusRaw
-            
-            // Preserve content type
-            newFile.contentTypeRaw = file.contentTypeRaw
-            
-            // Copy formatted content (rich text data) to the new version
-            if let formattedData = currentVersion.effectiveFormattedContent,
-               let newVersion = newFile.currentVersion {
-                newVersion.setFormattedContentData(formattedData, sourceText: currentVersion.content)
-            }
 
-            if let newVersion = newFile.currentVersion {
-                newVersion.comment = currentVersion.comment
-                newVersion.notes = currentVersion.notes
-                newVersion.notesFormattedContent = currentVersion.notesFormattedContent
-            }
-            
-            // Copy reference metadata if present
-            if let refMetadata = currentVersion.referenceMetadataData,
-               let newVersion = newFile.currentVersion {
-                newVersion.referenceMetadataData = refMetadata
-            }
-            
-            // Set userOrder to end of destination folder
-            let maxOrder = (destFolder.textFiles ?? []).compactMap { $0.userOrder }.max() ?? -1
-            newFile.userOrder = maxOrder + 1 + copiedCount
-            
-            modelContext.insert(newFile)
-            
-            // For Fiction/Drama projects, create a StoryScene linked to the TextFile
-            if destination.type == .fiction || destination.type == .drama {
-                let scene = StoryScene(name: uniqueName, userOrder: maxSceneOrder + 1 + copiedCount)
-                scene.project = destination
-                scene.textFile = newFile
-                modelContext.insert(scene)
-            }
-            
-            copiedCount += 1
-        }
-        
         do {
-            try WriteCoalescer.shared.requestSaveAndFlush(reason: "folder-files-sheet-save")
-            let format = copiedCount == 1
-                ? NSLocalizedString("copyToProject.success.single", comment: "1 file copied")
-                : NSLocalizedString("copyToProject.success.multiple", comment: "%d files copied")
-            copyResultMessage = String(format: format, copiedCount) + " " + String(format: NSLocalizedString("copyToProject.success.destination", comment: "to project"), destination.name ?? "")
+            let result = try TextFileCreationService.copyFiles(
+                files,
+                to: destination,
+                matchingSourceFolderName: sourceFolderName,
+                modelContext: modelContext,
+                saveReason: "folder-files-sheet-save"
+            )
+            copyResultMessage = result.localizedMessage
             copyResultIsError = false
-            showCopyResult = true
         } catch {
-            copyResultMessage = NSLocalizedString("copyToProject.error.saveFailed", comment: "Save failed") + ": \(error.localizedDescription)"
+            copyResultMessage = error.localizedDescription
             copyResultIsError = true
-            showCopyResult = true
         }
-    }
-    
-    /// Find a folder in the destination project with the same name as the source folder.
-    /// Falls back to the first content folder if no exact match.
-    private func findMatchingFolder(in project: Project, named sourceName: String) -> Folder? {
-        guard let folders = project.folders else { return nil }
-        
-        // Try exact name match first
-        if let match = folders.first(where: { $0.name == sourceName }) {
-            return match
-        }
-        
-        // Fall back to the first content folder (Poems, Scenes, Scripts, etc.)
-        let contentFolderNames: Set<String> = ["Poems", "Scenes", "Stories", "Episodes", "Scripts", "Sections", "Prose"]
-        if let contentFolder = folders.first(where: { contentFolderNames.contains($0.name ?? "") }) {
-            return contentFolder
-        }
-        
-        // Last resort: first folder that accepts files
-        return folders.first(where: { FolderCapabilityService.canAddFile(to: $0) })
-    }
-    
-    /// Generate a unique file name by appending a numeric suffix if needed.
-    /// "Poem" → "Poem 2" → "Poem 3" etc.
-    private func generateUniqueName(for name: String, usedNames: Set<String>) -> String {
-        if !usedNames.contains(name) {
-            return name
-        }
-        
-        // Try numeric suffixes: "Name 2", "Name 3", ...
-        var counter = 2
-        while counter <= 1000 {
-            let candidate = "\(name) \(counter)"
-            if !usedNames.contains(candidate) {
-                return candidate
-            }
-            counter += 1
-        }
-        // Safety fallback
-        return "\(name) \(UUID().uuidString.prefix(6))"
+        showCopyResult = true
     }
     
     // MARK: - Header/Footer Dialog

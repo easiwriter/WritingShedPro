@@ -6,6 +6,7 @@ final class OperatorSalesService {
     var months: [String] = []
     var selectedMonth: String = ""
     var sales: [OperatorSalesRecord] = []
+    var verificationFailures: [OperatorVerificationFailure] = []
     var isLoading = false
     var errorMessage: String?
 
@@ -18,6 +19,28 @@ final class OperatorSalesService {
 
     var totalSales: Int {
         sales.reduce(0) { $0 + $1.count }
+    }
+
+    var totalFullAccessSales: Int {
+        sales.reduce(0) { total, sale in
+            switch sale.projectType {
+            case "convertedTrial", "fullAccess":
+                return total + sale.count
+            default:
+                return total
+            }
+        }
+    }
+
+    var hasFullAccessCohortData: Bool {
+        sales.contains { sale in
+            switch sale.projectType {
+            case "trial", "convertedTrial", "fullAccess":
+                return true
+            default:
+                return false
+            }
+        }
     }
 
     func fetch(month: String?, settings: OperatorSettingsStore) async {
@@ -65,6 +88,7 @@ final class OperatorSalesService {
             months = decoded.months
             selectedMonth = decoded.selectedMonth
             sales = decoded.sales
+            verificationFailures = decoded.verificationFailures ?? []
         } catch {
             errorMessage = error.localizedDescription
         }

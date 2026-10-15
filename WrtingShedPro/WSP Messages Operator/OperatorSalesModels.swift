@@ -43,4 +43,49 @@ struct OperatorSalesResponse: Codable {
     let months: [String]
     let selectedMonth: String
     let sales: [OperatorSalesRecord]
+    let verificationFailures: [OperatorVerificationFailure]?
+}
+
+struct OperatorVerificationFailure: Identifiable, Codable, Equatable {
+    let transactionID: String
+    let productID: String
+    let category: String
+    let statusCode: Int
+    let reason: String
+    let firstSeenAt: TimeInterval
+    let lastSeenAt: TimeInterval
+    let attemptCount: Int
+    let isResolved: Bool
+    let resolvedAt: TimeInterval?
+
+    var id: String { "\(transactionID)-\(productID)" }
+
+    var maskedTransactionID: String {
+        "••••\(transactionID.suffix(6))"
+    }
+
+    var productDisplayName: String {
+        switch productID {
+        case "com.writingshedpro.prosewriter": return "Prose Writer"
+        case "com.writingshedpro.poetrywriter": return "Poetry Writer"
+        case "com.writingshedpro.fictionwriter": return "Fiction Writer"
+        case "com.writingshedpro.dramawriter": return "Drama Writer"
+        case "com.writingshedpro.allinbundle": return "All-in Bundle"
+        case "com.writingshedpro.trial10day": return "10-day Trial"
+        case "com.writingshedpro.fullaccess": return "Full Access"
+        case "com.writingshedpro.manuscriptanalyst": return "Manuscript Analyst"
+        default: return productID
+        }
+    }
+
+    var categoryDisplayName: String {
+        if isResolved {
+            return "Resolved"
+        }
+        return category == "appleRejected" ? "Apple Rejected" : "Temporary Failure"
+    }
+
+    var lastSeenDate: Date {
+        Date(timeIntervalSince1970: lastSeenAt / 1000)
+    }
 }

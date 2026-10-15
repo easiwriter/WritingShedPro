@@ -53,13 +53,54 @@ Proxies user support queries from Writing Shed Pro to the OpenAI API.
    npx wrangler secret put ADMIN_API_TOKEN
    ```
 
-6. Deploy:
+6. Configure App Store Server API access for Manuscript Analyst:
+   - In App Store Connect, open **Users and Access > Integrations > In-App Purchase**.
+   - Create an In-App Purchase key and download its `.p8` private key.
+   - Copy the key ID and issuer ID shown by App Store Connect.
+   - Store all three values as Worker secrets:
+   ```bash
+   npx wrangler secret put APPLE_IAP_KEY_ID
+   npx wrangler secret put APPLE_IAP_ISSUER_ID
+   npx wrangler secret put APPLE_IAP_PRIVATE_KEY < /path/to/SubscriptionKey_KEYID.p8
+   ```
+   Production verification is the default. For a separate sandbox Worker only, set
+   `APPLE_IAP_ENVIRONMENT = "Sandbox"` and the matching
+   `APPLE_APP_BUNDLE_ID` in that Worker's variables. Never enable sandbox
+   verification on the production Worker.
+
+7. Deploy:
    ```bash
    npm run messages:deploy
    ```
    This prints the Worker URL (e.g. `https://wsp-support.<your-subdomain>.workers.dev`).
 
-7. Update the endpoint URL in the app's `SupportService.swift` to match.
+8. Update the endpoint URL in the app's `SupportService.swift` to match.
+
+## Manuscript Analyst authorization
+
+Every `POST /api/manuscript-analyst/review` request must include the
+`X-Apple-Transaction-ID` header. The app obtains this identifier only from a
+locally verified current StoreKit entitlement.
+
+Before reading from the analysis cache or calling the LLM, the Worker queries
+Apple's production App Store Server API and requires all of the following:
+
+- the exact `com.writingshedpro.manuscriptanalyst` product;
+- the `com.appworks.writingshedpro` bundle;
+- a production auto-renewable subscription;
+- the transaction ID supplied by the app;
+- a future expiration date; and
+- no revocation or superseding upgrade.
+
+Missing Apple credentials fail closed with HTTP 503. Invalid, expired, or
+revoked subscriptions fail with HTTP 401 or 403.
+
+Requests with no transaction header are identified as older app versions. The
+Worker returns a zero-token `update_required` result that those clients display
+as an instruction to update Writing Shed Pro from the App Store. Current
+clients recognize that status as an app-update error and do not save it as an
+analysis. The Worker does not read from the analysis cache or call the LLM for
+these requests.
 
 ## Messages API
 
@@ -88,9 +129,28 @@ Public reporting endpoint:
 - `POST /api/sales` with `transactionID`, `productID`, and `purchaseDate`.
 - A Full Access conversion also sends `trialTransactionID` and `trialPurchaseDate`.
 
-The sales event table is idempotent by StoreKit transaction ID. Legacy module and
-Manuscript Analyst purchases retain their existing monthly totals. Version 19+
-trial cohorts are reported as:
+The Worker ignores the client-supplied purchase date when recording a sale. It
+queries Apple's App Store Server API and requires the returned transaction ID,
+product, app bundle, and environment to match, with no revocation. Apple-signed
+purchase dates, ownership type, transaction type, price, currency, offers, and
+original transaction IDs are stored in `verified_store_transactions`.
+
+The app persists each successfully verified transaction ID and does not report
+it again on later entitlement refreshes or app launches. Failed requests remain
+eligible for retry. This persisted state is only a network optimization and is
+not used to grant entitlements.
+
+Verification failures are stored in `transaction_verification_failures`.
+HTTP 401/403 responses are classified as `appleRejected`; service and
+configuration failures are classified as `temporaryFailure`. Repeated failures
+update the same transaction row and increment its attempt count. A later
+successful verification marks the row resolved. The authenticated
+`GET /api/admin/sales` response includes the latest 100 failure records for the
+Messages Operator sales screen.
+
+The sales event table is idempotent by StoreKit transaction ID. Legacy module
+and Manuscript Analyst purchases retain their existing monthly totals. Version
+19+ trial cohorts are reported as:
 
 - `trial`: trials activated in the selected month that have not converted.
 - `convertedTrial`: trials activated in the selected month that later bought Full Access.

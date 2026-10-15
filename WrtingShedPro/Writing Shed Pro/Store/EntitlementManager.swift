@@ -280,6 +280,10 @@ final class EntitlementManager {
         } else {
             showOfflinePurchaseWarning = false
         }
+
+        Task {
+            await SalesReporter.reconcileCurrentEntitlements()
+        }
         
         #if DEBUG
         print("📦 [EntitlementManager] Loaded entitlements: \(cachedEntitlements) (storeKitManager=\(purchaseManager.entitledProductIDs), offline=\(wasOffline), pathConfirmed=\(hasConfirmedPath))")
