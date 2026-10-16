@@ -26,7 +26,8 @@ final class ManuscriptAnalystService {
     private var reviewCache: [String: ManuscriptReview] = [:]
     private let cacheSchemaVersion = "v8"
     private let manuscriptFileBoundaryPrefix = "[[WSP_FILE:"
-    private let cloudFlareEndpoint = "https://wsp-support.wsp-support.workers.dev/api/manuscript-analyst/review"
+    private let productionEndpoint = "https://wsp-support.wsp-support.workers.dev/api/manuscript-analyst/review"
+    private let sandboxEndpoint = "https://wsp-support-testflight.wsp-support.workers.dev/api/manuscript-analyst/review"
     
     // Soft cap tracking
     private var monthlyTokenUsage: Int = 0
@@ -388,7 +389,9 @@ final class ManuscriptAnalystService {
     }
 
     private func callCloudFlareAPI(_ request: ManuscriptAnalystRequest) async throws -> ManuscriptAnalystResponse {
-        guard let url = URL(string: cloudFlareEndpoint) else {
+        let transaction = try await activeAnalystTransaction()
+        let endpoint = transaction.environment == .sandbox ? sandboxEndpoint : productionEndpoint
+        guard let url = URL(string: endpoint) else {
             throw ManuscriptAnalystError.invalidEndpoint
         }
 
@@ -396,7 +399,7 @@ final class ManuscriptAnalystService {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.setValue(
-            try await activeAnalystTransactionID(),
+            transaction.id,
             forHTTPHeaderField: "X-Apple-Transaction-ID"
         )
 
@@ -431,7 +434,7 @@ final class ManuscriptAnalystService {
         return apiResponse
     }
 
-    private func activeAnalystTransactionID() async throws -> String {
+    private func activeAnalystTransaction() async throws -> (id: String, environment: AppStore.Environment) {
         let productID = WSPProduct.manuscriptAnalystSubscription.rawValue
 
         for await result in Transaction.currentEntitlements {
@@ -443,7 +446,7 @@ final class ManuscriptAnalystService {
             if let expirationDate = transaction.expirationDate, expirationDate <= Date() {
                 continue
             }
-            return String(transaction.id)
+            return (String(transaction.id), transaction.environment)
         }
 
         throw ManuscriptAnalystError.subscriptionInactive

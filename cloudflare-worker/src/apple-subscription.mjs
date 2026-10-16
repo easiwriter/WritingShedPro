@@ -1,14 +1,107 @@
-import {
-    APIException,
-    AppStoreServerAPIClient,
-    Environment,
-} from "@apple/app-store-server-library";
-
 export const ANALYST_PRODUCT_ID = "com.writingshedpro.manuscriptanalyst";
 export const DEFAULT_APP_BUNDLE_ID = "com.appworks.writingshedpro";
 
 const AUTO_RENEWABLE_SUBSCRIPTION_TYPE = "Auto-Renewable Subscription";
 const TRANSACTION_ID_PATTERN = /^\d{1,64}$/;
+const Environment = Object.freeze({
+    PRODUCTION: "Production",
+    SANDBOX: "Sandbox",
+});
+const APP_STORE_BASE_URLS = Object.freeze({
+    [Environment.PRODUCTION]: "https://api.storekit.apple.com",
+    [Environment.SANDBOX]: "https://api.storekit-sandbox.apple.com",
+});
+
+class APIException extends Error {
+    constructor(httpStatusCode, errorMessage = null) {
+        super(errorMessage || `Apple API request failed with HTTP ${httpStatusCode}`);
+        this.httpStatusCode = httpStatusCode;
+    }
+}
+
+function encodeBase64URL(value) {
+    const bytes = typeof value === "string"
+        ? new TextEncoder().encode(value)
+        : new Uint8Array(value);
+    const binary = String.fromCharCode(...bytes);
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function privateKeyBytes(privateKey) {
+    const base64 = privateKey
+        .replace(/-----BEGIN PRIVATE KEY-----/g, "")
+        .replace(/-----END PRIVATE KEY-----/g, "")
+        .replace(/\s/g, "");
+    return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+}
+
+async function createBearerToken(privateKey, keyID, issuerID, bundleID) {
+    const now = Math.floor(Date.now() / 1000);
+    const header = encodeBase64URL(JSON.stringify({
+        alg: "ES256",
+        kid: keyID,
+        typ: "JWT",
+    }));
+    const payload = encodeBase64URL(JSON.stringify({
+        iss: issuerID,
+        iat: now,
+        exp: now + 300,
+        aud: "appstoreconnect-v1",
+        bid: bundleID,
+    }));
+    const signingInput = `${header}.${payload}`;
+    const signingKey = await crypto.subtle.importKey(
+        "pkcs8",
+        privateKeyBytes(privateKey),
+        { name: "ECDSA", namedCurve: "P-256" },
+        false,
+        ["sign"]
+    );
+    const signature = await crypto.subtle.sign(
+        { name: "ECDSA", hash: "SHA-256" },
+        signingKey,
+        new TextEncoder().encode(signingInput)
+    );
+    return `${signingInput}.${encodeBase64URL(signature)}`;
+}
+
+class AppStoreServerAPIClient {
+    constructor(privateKey, keyID, issuerID, bundleID, environment) {
+        this.privateKey = privateKey;
+        this.keyID = keyID;
+        this.issuerID = issuerID;
+        this.bundleID = bundleID;
+        this.baseURL = APP_STORE_BASE_URLS[environment];
+        if (!this.baseURL) {
+            throw new Error(`Unsupported App Store environment: ${environment}`);
+        }
+    }
+
+    async getTransactionInfo(transactionID) {
+        const bearerToken = await createBearerToken(
+            this.privateKey,
+            this.keyID,
+            this.issuerID,
+            this.bundleID
+        );
+        const response = await fetch(
+            `${this.baseURL}/inApps/v1/transactions/${encodeURIComponent(transactionID)}`,
+            {
+                headers: {
+                    "Authorization": `Bearer ${bearerToken}`,
+                    "Accept": "application/json",
+                },
+            }
+        );
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            throw new APIException(response.status, errorBody);
+        }
+
+        return response.json();
+    }
+}
 
 function decodeBase64URL(value) {
     const base64 = value.replace(/-/g, "+").replace(/_/g, "/");

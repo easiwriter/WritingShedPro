@@ -63,10 +63,20 @@ Proxies user support queries from Writing Shed Pro to the OpenAI API.
    npx wrangler secret put APPLE_IAP_ISSUER_ID
    npx wrangler secret put APPLE_IAP_PRIVATE_KEY < /path/to/SubscriptionKey_KEYID.p8
    ```
-   Production verification is the default. For a separate sandbox Worker only, set
-   `APPLE_IAP_ENVIRONMENT = "Sandbox"` and the matching
-   `APPLE_APP_BUNDLE_ID` in that Worker's variables. Never enable sandbox
-   verification on the production Worker.
+   Production verification is the default.
+
+   TestFlight transactions use Apple's sandbox environment. Configure the isolated
+   `testflight` Worker environment with the same credentials and LLM key:
+   ```bash
+   npx wrangler secret put LLM_API_KEY --config wrangler.testflight.toml
+   npx wrangler secret put APPLE_IAP_KEY_ID --config wrangler.testflight.toml
+   npx wrangler secret put APPLE_IAP_ISSUER_ID --config wrangler.testflight.toml
+   npx wrangler secret put APPLE_IAP_PRIVATE_KEY --config wrangler.testflight.toml < /path/to/SubscriptionKey_KEYID.p8
+   npx wrangler deploy --config wrangler.testflight.toml
+   ```
+   The app sends sandbox StoreKit transactions to this Worker and production
+   transactions to the production Worker. Never enable sandbox verification on
+   the production Worker.
 
 7. Deploy:
    ```bash
