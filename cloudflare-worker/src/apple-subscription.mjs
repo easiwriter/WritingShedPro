@@ -236,7 +236,11 @@ export async function verifyStoreTransaction(
         return { verified: true, transaction };
     } catch (error) {
         if (error instanceof APIException && [400, 401, 404].includes(error.httpStatusCode)) {
-            console.warn("Apple rejected transaction verification");
+            console.warn(
+                "Apple rejected transaction verification:",
+                error.httpStatusCode,
+                error.message
+            );
             return { verified: false, status: 401, error: "Valid transaction required" };
         }
 
