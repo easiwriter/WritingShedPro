@@ -1,6 +1,6 @@
 // Shared version settings for the host app and WSPQuickLook extension.
-CURRENT_PROJECT_VERSION = 520
-MARKETING_VERSION = 19.6
+CURRENT_PROJECT_VERSION = 523
+MARKETING_VERSION = 19.7
 
 // Base URL for remotely hosted tutorial videos (no trailing slash),
 // e.g. https://media.writing-shed.com

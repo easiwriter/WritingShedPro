@@ -253,7 +253,7 @@ struct ProseListView: View {
     }
 
     private var disclosureStateKey: String {
-        "proseFileList.expandedSections.\(project.id.uuidString)"
+        "proseFileList.lastOpenedSection.\(project.id.uuidString)"
     }
     
     // MARK: - Body
@@ -912,8 +912,11 @@ struct ProseListView: View {
                     expandedSections.remove(group.id)
                 } else {
                     expandedSections.insert(group.id)
+                    FileListDisclosureState.saveLastOpenedSection(
+                        group.id,
+                        storageKey: disclosureStateKey
+                    )
                 }
-                saveDisclosureState()
             }
         } label: {
             HStack(spacing: 12) {
@@ -962,7 +965,6 @@ struct ProseListView: View {
                     // Expand all
                     expandedSections = Set(sectionGroups.map { $0.id })
                 }
-                saveDisclosureState()
             }
         } label: {
             Image(systemName: allExpanded ? "chevron.up.circle" : "chevron.down.circle")
@@ -979,18 +981,10 @@ struct ProseListView: View {
         guard force || !hasLoadedDisclosureState else { return }
         hasLoadedDisclosureState = true
 
-        let validSectionIDs = Set(sectionGroups.map { $0.id })
-        let defaults = UserDefaults.standard
-        if defaults.object(forKey: disclosureStateKey) != nil {
-            let savedSectionIDs = Set(defaults.stringArray(forKey: disclosureStateKey) ?? [])
-            expandedSections = savedSectionIDs.intersection(validSectionIDs)
-        } else {
-            expandedSections = validSectionIDs
-        }
-    }
-
-    private func saveDisclosureState() {
-        UserDefaults.standard.set(expandedSections.sorted(), forKey: disclosureStateKey)
+        expandedSections = FileListDisclosureState.restoredSectionIDs(
+            storageKey: disclosureStateKey,
+            validSectionIDs: sectionGroups.map(\.id)
+        )
     }
     
     @ViewBuilder

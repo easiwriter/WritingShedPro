@@ -9,6 +9,23 @@
 import SwiftUI
 import SwiftData
 
+enum FileListDisclosureState {
+    static func restoredSectionIDs(storageKey: String, validSectionIDs: [String]) -> Set<String> {
+        guard validSectionIDs.count != 1 else {
+            return Set(validSectionIDs)
+        }
+        guard let savedSectionID = UserDefaults.standard.string(forKey: storageKey),
+              validSectionIDs.contains(savedSectionID) else {
+            return []
+        }
+        return [savedSectionID]
+    }
+
+    static func saveLastOpenedSection(_ sectionID: String, storageKey: String) {
+        UserDefaults.standard.set(sectionID, forKey: storageKey)
+    }
+}
+
 /// Reusable file list component with edit mode, swipe actions, and multi-select toolbar.
 ///
 /// **Key Features:**
@@ -35,6 +52,9 @@ struct FileListView: View {
     
     /// Files to display in the list
     let files: [TextFile]
+
+    /// Stable folder identity used to persist disclosure state across file changes and launches.
+    let persistenceID: UUID
     
     /// Called when user taps a file in normal mode
     let onFileSelected: (TextFile) -> Void
@@ -116,9 +136,6 @@ struct FileListView: View {
     /// Tracks which alphabetical sections are expanded (collapsed by default)
     @State private var expandedSections: Set<String> = []
     
-    /// Tracks the most recently opened section for quick return
-    @State private var lastOpenedSection: String?
-    
     /// Tracks which collection sections are expanded (bound from parent)
     @Binding var expandedCollections: Set<String>
 
@@ -131,10 +148,12 @@ struct FileListView: View {
     /// File details sheet
     @State private var fileForDetails: TextFile?
     
-    /// AppStorage key prefix for persisting last opened section per folder
-    private var storageKey: String {
-        // Use hash of files to create unique key per folder
-        "lastOpenedSection_\(files.map { $0.id.uuidString }.joined().hashValue)"
+    private var alphabeticalSectionStorageKey: String {
+        "fileList.lastOpenedAlphabeticalSection.\(persistenceID.uuidString)"
+    }
+
+    private var collectionSectionStorageKey: String {
+        "fileList.lastOpenedCollectionSection.\(persistenceID.uuidString)"
     }
     
     // MARK: - Computed Properties
@@ -310,16 +329,14 @@ struct FileListView: View {
         if useCollectionGrouping, let groups = collectionGroups {
             if newValue == .active {
                 expandedCollections = Set(groups.map { $0.id })
+            } else if newValue == .inactive {
+                restoreCollectionDisclosureState(groups)
             }
         } else if useSections {
             if newValue == .active {
                 expandedSections = Set(sections.map { $0.letter })
             } else if newValue == .inactive {
-                if let lastSection = lastOpenedSection {
-                    expandedSections = [lastSection]
-                } else {
-                    expandedSections.removeAll()
-                }
+                restoreAlphabeticalDisclosureState()
             }
         }
         
@@ -330,11 +347,9 @@ struct FileListView: View {
     
     private func handleAppear() {
         if useCollectionGrouping, let groups = collectionGroups {
-            if expandedCollections.isEmpty {
-                expandedCollections = Set(groups.map { $0.id })
-            }
+            restoreCollectionDisclosureState(groups)
         } else if useSections {
-            loadLastOpenedSection()
+            restoreAlphabeticalDisclosureState()
         }
     }
 
@@ -481,9 +496,10 @@ struct FileListView: View {
                     expandedSections.remove(section.letter)
                 } else {
                     expandedSections.insert(section.letter)
-                    // Track this as the last opened section
-                    lastOpenedSection = section.letter
-                    saveLastOpenedSection(section.letter)
+                    FileListDisclosureState.saveLastOpenedSection(
+                        section.letter,
+                        storageKey: alphabeticalSectionStorageKey
+                    )
                 }
             }
         } label: {
@@ -636,13 +652,9 @@ struct FileListView: View {
                 if allExpanded {
                     // Collapse all
                     expandedSections.removeAll()
-                    lastOpenedSection = nil
-                    // Clear saved preference so next visit defaults to expanded
-                    UserDefaults.standard.removeObject(forKey: storageKey)
                 } else {
                     // Expand all
                     expandedSections = Set(sections.map { $0.letter })
-                    // Don't save preference - let it default to expanded next time
                 }
             }
         } label: {
@@ -691,6 +703,10 @@ struct FileListView: View {
                     expandedCollections.remove(group.id)
                 } else {
                     expandedCollections.insert(group.id)
+                    FileListDisclosureState.saveLastOpenedSection(
+                        group.id,
+                        storageKey: collectionSectionStorageKey
+                    )
                 }
             }
         } label: {
@@ -1018,23 +1034,18 @@ struct FileListView: View {
     
     // MARK: - Section Persistence
     
-    /// Saves the last opened section to UserDefaults
-    private func saveLastOpenedSection(_ letter: String) {
-        UserDefaults.standard.set(letter, forKey: storageKey)
+    private func restoreAlphabeticalDisclosureState() {
+        expandedSections = FileListDisclosureState.restoredSectionIDs(
+            storageKey: alphabeticalSectionStorageKey,
+            validSectionIDs: sections.map(\.letter)
+        )
     }
-    
-    /// Loads the last opened section from UserDefaults and expands it
-    /// If no saved preference exists, expands all sections by default
-    private func loadLastOpenedSection() {
-        if let savedSection = UserDefaults.standard.string(forKey: storageKey),
-           sections.contains(where: { $0.letter == savedSection }) {
-            // Restore the last opened section only if user had previously opened one
-            lastOpenedSection = savedSection
-            expandedSections.insert(savedSection)
-        } else {
-            // No saved preference - expand all sections by default for first visit
-            expandedSections = Set(sections.map { $0.letter })
-        }
+
+    private func restoreCollectionDisclosureState(_ groups: [CollectionGroup]) {
+        expandedCollections = FileListDisclosureState.restoredSectionIDs(
+            storageKey: collectionSectionStorageKey,
+            validSectionIDs: groups.map(\.id)
+        )
     }
     
 }

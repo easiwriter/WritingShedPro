@@ -168,6 +168,7 @@ struct FolderFilesView: View {
         
         FileListView(
             files: deferredSortedFiles ?? [],
+            persistenceID: folder.id,
             onFileSelected: handleFileSelected,
             fileDestination: { file in destinationView(for: file) },
             onMove: (isProseProject && !isReadOnly) ? handleMove : nil,
@@ -1306,6 +1307,7 @@ struct FolderFilesView: View {
                 #endif
                 
                 modelContext.processPendingChanges()
+                refreshDeferredFileList()
                 
             } catch {
                 modelContext.delete(file)
@@ -1358,6 +1360,7 @@ struct FolderFilesView: View {
                 
                 // CRITICAL: Process pending changes to avoid "store went missing" error
                 modelContext.processPendingChanges()
+                refreshDeferredFileList()
                 
             } catch {
                 // If save fails, remove the file from context

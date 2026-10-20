@@ -144,6 +144,14 @@ struct SceneListView: View {
     
     /// Act grouping: tracks which act sections are expanded (Drama only)
     @State private var actExpandedSections: Set<String> = []
+
+    private var chapterDisclosureStateKey: String {
+        "sceneList.lastOpenedChapterSection.\(project.id.uuidString)"
+    }
+
+    private var actDisclosureStateKey: String {
+        "sceneList.lastOpenedActSection.\(project.id.uuidString)"
+    }
     
     // MARK: - Init
     
@@ -838,14 +846,18 @@ struct SceneListView: View {
         .onAppear {
             initializeHeaderFooterFields()
             
-            // Expand all chapter sections by default on first appear
-            if chapterExpandedSections.isEmpty, let groups = chapterGroups {
-                chapterExpandedSections = Set(groups.map { $0.id })
+            if let groups = chapterGroups {
+                chapterExpandedSections = FileListDisclosureState.restoredSectionIDs(
+                    storageKey: chapterDisclosureStateKey,
+                    validSectionIDs: groups.map(\.id)
+                )
             }
             
-            // Expand all act sections by default on first appear (Drama)
-            if actExpandedSections.isEmpty, let groups = actGroups {
-                actExpandedSections = Set(groups.map { $0.id })
+            if let groups = actGroups {
+                actExpandedSections = FileListDisclosureState.restoredSectionIDs(
+                    storageKey: actDisclosureStateKey,
+                    validSectionIDs: groups.map(\.id)
+                )
             }
         }
     }
@@ -1283,6 +1295,10 @@ struct SceneListView: View {
                     chapterExpandedSections.remove(group.id)
                 } else {
                     chapterExpandedSections.insert(group.id)
+                    FileListDisclosureState.saveLastOpenedSection(
+                        group.id,
+                        storageKey: chapterDisclosureStateKey
+                    )
                 }
             }
         } label: {
@@ -1943,6 +1959,10 @@ struct SceneListView: View {
                     actExpandedSections.remove(group.id)
                 } else {
                     actExpandedSections.insert(group.id)
+                    FileListDisclosureState.saveLastOpenedSection(
+                        group.id,
+                        storageKey: actDisclosureStateKey
+                    )
                 }
             }
         } label: {
