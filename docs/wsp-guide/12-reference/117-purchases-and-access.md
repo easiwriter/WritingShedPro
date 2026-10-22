@@ -1,6 +1,6 @@
 # Purchases and Access
 
-Writing Shed Pro uses one of two purchase systems. The system shown to you depends on the version of Writing Shed Pro that you originally obtained, not the version currently installed.
+Writing Shed Pro preserves existing legacy purchases and offers Full Access for new core-feature purchases. Trial eligibility depends on the version of Writing Shed Pro that you originally obtained, not the version currently installed.
 
 ## Before Version 19: Legacy Module Purchases
 
@@ -12,16 +12,18 @@ The legacy system provides limited access before purchase:
 - Up to one file in each project
 - Reading and editing within those limits
 
-You can make a one-time purchase for an individual writing module:
+Previously purchased writing modules remain valid:
 
 - Prose Writer
 - Poetry Writer
 - Fiction Writer
 - Drama Writer
 
-An individual module purchase removes the project and file limits for that project type. The **All-in Bundle** is a one-time purchase that unlocks all four modules. Existing module and bundle purchases remain valid and can be restored from the Store.
+An existing individual module purchase removes the project and file limits for that project type. An existing **All-in Bundle** purchase unlocks all four modules. These purchases remain valid and can be restored from the Store, but are no longer offered for sale.
 
-Legacy users are not moved to the version 19 trial system when they update.
+When a feature is blocked by a purchase limit, the paywall now offers **Writing Shed Pro Full Access**, the version 20 one-time purchase, instead of an individual module or bundle. Full Access unlocks all core writing types, project and file creation, importing, exporting, and printing. This also applies to version 19 users classified on the legacy purchase model because of an existing legacy purchase.
+
+Legacy users are not required to activate a trial or repurchase features they already own. The Store offers them Full Access rather than a new trial.
 
 ## Version 19 and Later: Trial and Full Access
 
@@ -40,7 +42,7 @@ When the trial expires, your existing projects and files remain available to rea
 
 Use **Restore Purchases** in the Store when reinstalling Writing Shed Pro or using another device with the same Apple Account. Restoring does not charge you again.
 
-For legacy users, restoration recovers owned modules or the All-in Bundle. For version 19 and later users, restoration recovers the trial status and Full Access purchase.
+Restoration recovers existing module and All-in Bundle purchases, as well as Full Access and any applicable trial status. Full Access is recognised for every user, regardless of their original purchase model.
 
 ## Manuscript Analyst
 

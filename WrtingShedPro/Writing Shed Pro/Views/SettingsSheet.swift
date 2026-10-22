@@ -20,6 +20,19 @@ struct SettingsSheet: View {
     @State private var receiveOperatorMessages = SupportMessagesService.receiveOperatorMessages
     @State private var allowCriticalOperatorMessages = SupportMessagesService.allowCriticalWhenOptedOut
     @State private var showRestartOnboardingConfirmation = false
+
+#if DEBUG || targetEnvironment(simulator)
+    private var paywallCaptureModeBinding: Binding<Bool> {
+        Binding(
+            get: { EntitlementManager.shared.isPaywallCaptureModeEnabled },
+            set: { isEnabled in
+                Task {
+                    await EntitlementManager.shared.setPaywallCaptureModeEnabled(isEnabled)
+                }
+            }
+        )
+    }
+#endif
     
     var body: some View {
         NavigationStack {
@@ -40,16 +53,21 @@ struct SettingsSheet: View {
                         Label("Auto-open last project on launch", systemImage: "arrowshape.turn.up.right")
                     }
 
-                    if let trialStatusText = entitlementManager.trialStatusText {
+                    if entitlementManager.purchaseModel == .trialAndFullAccess || entitlementManager.hasFullAccess {
                         Button {
                             dismissSheet()
                             state.showStore = true
                         } label: {
                             VStack(alignment: .leading, spacing: 3) {
                                 Label(
-                                    trialStatusText,
-                                    systemImage: entitlementManager.isCoreReadOnly ? "lock.fill" : "clock"
+                                    NSLocalizedString("iap.new.title", comment: "Purchase settings entry"),
+                                    systemImage: "cart"
                                 )
+                                if let trialStatusText = entitlementManager.trialStatusText {
+                                    Text(trialStatusText)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                                 if let expirationDate = entitlementManager.trialExpirationDate {
                                     Text(
                                         String(
@@ -148,6 +166,17 @@ struct SettingsSheet: View {
                     } label: {
                         Label("Sync Troubleshooting", systemImage: "arrow.triangle.2.circlepath")
                     }
+                    #else
+                    if Write_App.isLocalRecoveryModeEnabled ||
+                        Write_App.partialStoreBlockedThisLaunch ||
+                        UserDefaults.standard.bool(forKey: Write_App.sourceReseedPendingKey) {
+                        Button {
+                            dismissSheet()
+                            state.showSyncDiagnostics = true
+                        } label: {
+                            Label("Sync Troubleshooting", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                    }
                     #endif
                     
                     Button {
@@ -190,16 +219,7 @@ struct SettingsSheet: View {
                     }
 #endif
 
-                    Toggle(isOn: Binding(
-                        get: {
-                            EntitlementManager.shared.isPaywallCaptureModeEnabled
-                        },
-                        set: { isEnabled in
-                            Task {
-                                await EntitlementManager.shared.setPaywallCaptureModeEnabled(isEnabled)
-                            }
-                        }
-                    )) {
+                    Toggle(isOn: paywallCaptureModeBinding) {
                         Label("Force Paywall Capture Mode", systemImage: "camera.aperture")
                     }
 

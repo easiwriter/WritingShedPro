@@ -378,22 +378,20 @@ struct FileReaderView: View {
             #endif
         }
 
-        // Some imported heading styles carry paragraph indents that shift text right.
-        // Normalize indents so headings and body start at the same left edge, like WSP.
+        let scaleFactor = fontSize / 16.0
         mutable.enumerateAttribute(.paragraphStyle, in: NSRange(location: 0, length: mutable.length)) { value, range, _ in
             guard let paragraph = value as? NSParagraphStyle else { return }
-            let needsNormalization = paragraph.firstLineHeadIndent != 0
-                || paragraph.headIndent != 0
-                || paragraph.tailIndent != 0
-                || paragraph.lineBreakMode != .byWordWrapping
-            if needsNormalization {
-                let normalized = paragraph.mutableCopy() as! NSMutableParagraphStyle
-                normalized.firstLineHeadIndent = 0
-                normalized.headIndent = 0
-                normalized.tailIndent = 0
-                normalized.lineBreakMode = .byWordWrapping
-                mutable.addAttribute(.paragraphStyle, value: normalized, range: range)
-            }
+            let scaled = paragraph.mutableCopy() as! NSMutableParagraphStyle
+            scaled.lineSpacing *= scaleFactor
+            scaled.paragraphSpacingBefore *= scaleFactor
+            scaled.paragraphSpacing *= scaleFactor
+            scaled.firstLineHeadIndent *= scaleFactor
+            scaled.headIndent *= scaleFactor
+            scaled.tailIndent *= scaleFactor
+            scaled.minimumLineHeight *= scaleFactor
+            scaled.maximumLineHeight *= scaleFactor
+            scaled.lineBreakMode = .byWordWrapping
+            mutable.addAttribute(.paragraphStyle, value: scaled, range: range)
         }
         
         return mutable

@@ -36,6 +36,66 @@ struct WSPExportData: Codable {
     var citationEntries: [WSPCitationEntryData]?
     var indexEntries: [WSPIndexEntryData]?
     var contributorEntries: [WSPContributorEntryData]?
+    var stylesheet: WSPStyleSheetData?
+}
+
+// MARK: - Stylesheet Data
+
+struct WSPStyleSheetData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var isSystemStyleSheet: Bool = false
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var textStyles: [WSPTextStyleData] = []
+    var imageStyles: [WSPImageStyleData]?
+}
+
+struct WSPTextStyleData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var displayName: String = ""
+    var displayOrder: Int = 0
+    var fontFamily: String?
+    var fontName: String?
+    var fontSize: CGFloat = 17
+    var isBold: Bool = false
+    var isItalic: Bool = false
+    var isUnderlined: Bool = false
+    var isStrikethrough: Bool = false
+    var textColorHex: String?
+    var alignmentRaw: Int = 0
+    var lineSpacing: CGFloat = 0
+    var paragraphSpacingBefore: CGFloat = 0
+    var paragraphSpacingAfter: CGFloat = 0
+    var firstLineIndent: CGFloat = 0
+    var headIndent: CGFloat = 0
+    var tailIndent: CGFloat = 0
+    var lineHeightMultiple: CGFloat = 0
+    var minimumLineHeight: CGFloat = 0
+    var maximumLineHeight: CGFloat = 0
+    var numberFormatRaw: String = "none"
+    var numberAdornmentRaw: String = "period"
+    var followOnStyleName: String?
+    var parentStyleName: String?
+    var styleCategoryRaw: String = "text"
+    var isSystemStyle: Bool = false
+    var includeInTOC: Bool = false
+    var tocLevel: Int = 0
+}
+
+struct WSPImageStyleData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var displayName: String = ""
+    var displayOrder: Int = 0
+    var defaultScale: CGFloat = 1.0
+    var defaultAlignmentRaw: String = "center"
+    var hasCaptionByDefault: Bool = false
+    var defaultCaptionStyle: String = "UICTFontTextStyleCaption1"
+    var defaultSpacingAbove: CGFloat?
+    var defaultSpacingBelow: CGFloat?
+    var isSystemStyle: Bool = false
 }
 
 // MARK: - Project Data

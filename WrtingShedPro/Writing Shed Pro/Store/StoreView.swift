@@ -9,16 +9,36 @@ import SwiftUI
 import StoreKit
 import StoreKitManager
 
-/// Purchase option tabs
-enum PurchaseTab: String, CaseIterable {
-    case bundle = "Bundle Deal"
-    case individual = "Individual"
+@MainActor
+enum OfferCodeRedemptionPresenter {
+    static func present(onEntitlementsRefreshed: (() -> Void)? = nil) {
+        #if !targetEnvironment(macCatalyst)
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+            return
+        }
+        Task {
+            do {
+                try await AppStore.presentOfferCodeRedeemSheet(in: windowScene)
+                try? await Task.sleep(for: .seconds(2))
+                await EntitlementManager.shared.refreshEntitlements()
+                onEntitlementsRefreshed?()
+            } catch {
+                print("Failed to present offer code sheet: \(error)")
+            }
+        }
+        #else
+        if let url = URL(string: "https://apps.apple.com/redeem") {
+            UIApplication.shared.open(url)
+        }
+        #endif
+    }
 }
 
-/// Main store view for purchasing Writing Shed Pro modules
+/// Main store view for Full Access, eligible trials, and Manuscript Analyst.
 @available(macCatalyst 15, macOS 14.4, iOS 17.4, *)
 struct StoreView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.requestReview) private var requestReview
     @StateObject private var storeManager = StoreKitPurchaseManager.shared
 
     var requiresAccessSelection = false
@@ -35,20 +55,6 @@ struct StoreView: View {
     @State private var showRestoreSuccess = false
     @State private var purchaseInProgress: String?
     @State private var loadedProducts: [Product] = []
-    @State private var selectedTab: PurchaseTab = .bundle
-    
-    /// Available tabs - excludes bundle if user has purchased any individual module
-    private var availableTabs: [PurchaseTab] {
-        if EntitlementManager.shared.hasAnyIndividualModulePurchase {
-            return [.individual]  // Only show individual tab
-        }
-        return PurchaseTab.allCases
-    }
-    
-    /// Whether to show the tab picker (only if more than one tab available)
-    private var showTabPicker: Bool {
-        availableTabs.count > 1
-    }
     
     var body: some View {
         NavigationView {
@@ -61,36 +67,16 @@ struct StoreView: View {
                         loadingView
                     } else if let error = errorMessage {
                         errorView(error)
-                    } else if EntitlementManager.shared.purchaseModel == .trialAndFullAccess {
-                        newModelStoreContent
-                    } else {
-                        // Tab picker to switch between views (hidden if only one tab available)
-                        if showTabPicker {
-                            purchaseTabPicker
-                        }
-                        
-                        // Content based on selected tab
-                        switch selectedTab {
-                        case .bundle:
-                            bundleTabContent
-                        case .individual:
-                            individualTabContent
-                        }
-                        
-                        // Restore purchases
                         restoreSection
-                        
-                        // Terms and privacy
-                        legalSection
+                    } else {
+                        purchaseContent
                     }
                 }
                 .padding()
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle(
-                EntitlementManager.shared.purchaseModel == .trialAndFullAccess
-                    ? NSLocalizedString("iap.new.title", comment: "New IAP store title")
-                    : "Writing Modules"
+                NSLocalizedString("iap.new.title", comment: "New IAP store title")
             )
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -113,6 +99,7 @@ struct StoreView: View {
                         EntitlementManager.shared.recordVerifiedPurchase(transaction)
                         await SalesReporter.recordSale(for: transaction)
                         await EntitlementManager.shared.refreshEntitlements()
+                        await requestFullAccessReviewIfNeeded(for: transaction)
                     }
                 }
             }
@@ -132,18 +119,6 @@ struct StoreView: View {
             } message: {
                 Text(purchaseError ?? "")
             }
-            .onAppear {
-                // Route initial tab based on the highlighted product from upgrade prompts.
-                if let highlightedProduct {
-                    selectedTab = highlightedProduct == .allInBundle ? .bundle : .individual
-                }
-
-                // If user has purchased any individual module, default to individual tab
-                // (bundle is no longer a good deal for them).
-                if EntitlementManager.shared.hasAnyIndividualModulePurchase {
-                    selectedTab = .individual
-                }
-            }
         }
     }
     
@@ -162,9 +137,7 @@ struct StoreView: View {
                 )
             
             Text(
-                EntitlementManager.shared.purchaseModel == .trialAndFullAccess
-                    ? NSLocalizedString("iap.new.heading", comment: "New IAP heading")
-                    : "Unlock Your Writing Potential"
+                NSLocalizedString("iap.new.heading", comment: "New IAP heading")
             )
                 .font(.headline)
                 .fontWeight(.bold)
@@ -172,7 +145,7 @@ struct StoreView: View {
             Text(
                 EntitlementManager.shared.purchaseModel == .trialAndFullAccess
                     ? NSLocalizedString("iap.new.subheading", comment: "New IAP subheading")
-                    : "Choose a bundle or purchase modules individually"
+                    : NSLocalizedString("iap.fullAccess.legacySubheading", comment: "Full Access upgrade for legacy users")
             )
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -181,15 +154,16 @@ struct StoreView: View {
         .padding(.vertical, 8)
     }
 
-    private var newModelStoreContent: some View {
+    private var purchaseContent: some View {
         VStack(spacing: 16) {
-            if EntitlementManager.shared.requiresTrialActivation,
+            if EntitlementManager.shared.purchaseModel == .trialAndFullAccess,
                let trialProduct = product(for: .tenDayTrial) {
                 ModuleCardView(
                     wspProduct: .tenDayTrial,
                     storeProduct: trialProduct,
-                    isPurchased: false,
-                    isHighlighted: true,
+                    isPurchased: EntitlementManager.shared.hasActivatedTrial
+                        || EntitlementManager.shared.hasFullAccess,
+                    isHighlighted: EntitlementManager.shared.requiresTrialActivation,
                     isLoading: purchaseInProgress == trialProduct.id,
                     onPurchase: { await purchase(trialProduct) },
                     onRedeemCode: { presentOfferCodeRedemption() }
@@ -213,7 +187,7 @@ struct StoreView: View {
                 )
             }
 
-            if EntitlementManager.shared.hasFullAccess {
+            if EntitlementManager.shared.canPurchaseManuscriptAnalyst {
                 analystSubscriptionSection
             } else {
                 Label(
@@ -229,94 +203,6 @@ struct StoreView: View {
         }
     }
     
-    private var purchaseTabPicker: some View {
-        Picker("Purchase Option", selection: $selectedTab) {
-            ForEach(PurchaseTab.allCases, id: \.self) { tab in
-                Text(tab.rawValue).tag(tab)
-            }
-        }
-        .pickerStyle(.segmented)
-        .padding(.horizontal, 4)
-    }
-    
-    private var bundleTabContent: some View {
-        VStack(spacing: 16) {
-            // Bundle card
-            if let bundleProduct = product(for: .allInBundle) {
-                BundleCardView(
-                    product: bundleProduct,
-                    isPurchased: EntitlementManager.shared.hasBundle,
-                    isLoading: purchaseInProgress == bundleProduct.id,
-                    savingsPercentage: bundleSavingsPercentage,
-                    onPurchase: { await purchase(bundleProduct) },
-                    onRedeemCode: { presentOfferCodeRedemption() }
-                )
-            }
-            
-
-            analystSubscriptionSection
-            // Hint to see individual options
-            if !EntitlementManager.shared.hasBundle {
-                Button {
-                    withAnimation {
-                        selectedTab = .individual
-                    }
-                } label: {
-                    HStack {
-                        Text("Or buy just what you need")
-                            .font(.subheadline)
-                        Image(systemName: "arrow.right.circle")
-                    }
-                    .foregroundColor(.secondary)
-                }
-            }
-        }
-    }
-    
-    private var individualTabContent: some View {
-        VStack(spacing: 16) {
-            // Quick link back to bundle (hidden if user already has bundle or any individual purchase)
-            if !EntitlementManager.shared.hasBundle && !EntitlementManager.shared.hasAnyIndividualModulePurchase {
-                Button {
-                    withAnimation {
-                        selectedTab = .bundle
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "gift.fill")
-                            .foregroundColor(.purple)
-                        Text(bundleSavingsCalloutText)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        Image(systemName: "arrow.right.circle")
-                    }
-                    .foregroundColor(.purple)
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
-                    .background(Color.purple.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-            }
-            
-            // Individual modules
-            ForEach(WSPProduct.individualModules, id: \.rawValue) { wspProduct in
-                if let storeProduct = product(for: wspProduct) {
-                    ModuleCardView(
-                        wspProduct: wspProduct,
-                        storeProduct: storeProduct,
-                        isPurchased: EntitlementManager.shared.isModulePurchased(wspProduct),
-                        isHighlighted: highlightedProduct == wspProduct,
-                        isLoading: purchaseInProgress == storeProduct.id,
-                        onPurchase: { await purchase(storeProduct) },
-                        onRedeemCode: { presentOfferCodeRedemption() }
-                    )
-                }
-            }
-
-            analystSubscriptionSection
-        }
-    }
-
     @ViewBuilder
     private var analystSubscriptionSection: some View {
         if let analystProduct = product(for: .manuscriptAnalystSubscription) {
@@ -400,28 +286,7 @@ struct StoreView: View {
     
     /// Present the App Store offer code redemption sheet
     private func presentOfferCodeRedemption() {
-        #if !targetEnvironment(macCatalyst)
-        // On iOS, use the offer code redemption sheet
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
-            return
-        }
-        Task {
-            do {
-                try await AppStore.presentOfferCodeRedeemSheet(in: windowScene)
-                
-                // Refresh entitlements after redemption
-                try? await Task.sleep(for: .seconds(2))
-                await EntitlementManager.shared.refreshEntitlements()
-            } catch {
-                print("Failed to present offer code sheet: \(error)")
-            }
-        }
-        #else
-        // On Mac Catalyst, direct users to the App Store
-        if let url = URL(string: "https://apps.apple.com/redeem") {
-            UIApplication.shared.open(url)
-        }
-        #endif
+        OfferCodeRedemptionPresenter.present()
     }
     
     private var legalSection: some View {
@@ -444,32 +309,23 @@ struct StoreView: View {
         loadedProducts.first { $0.id == wspProduct.rawValue }
     }
 
-    private var bundleSavingsPercentage: Int? {
-        WSPBundleSavings.percentage(products: loadedProducts)
-    }
-
-    private var bundleSavingsCalloutText: String {
-        if let bundleSavingsPercentage {
-            return "Save \(bundleSavingsPercentage)% with the All-In Bundle"
-        }
-        return "Save with the All-In Bundle"
-    }
-    
     private func loadProducts() async {
         isLoading = true
         errorMessage = nil
         
         do {
             // Load products with our product IDs
-            let allIDs = WSPProduct.allCases.map { $0.rawValue }
+            let allIDs = WSPProduct.productsForSale(
+                purchaseModel: EntitlementManager.shared.purchaseModel
+            ).map(\.rawValue)
             let products = try await Product.products(for: allIDs)
             
             await MainActor.run {
                 loadedProducts = products
                 isLoading = false
                 
-                if products.isEmpty {
-                    errorMessage = "No products available. Please try again later."
+                if !products.contains(where: { $0.id == WSPProduct.fullAccess.rawValue }) {
+                    errorMessage = NSLocalizedString("iap.fullAccess.unavailable", comment: "Full Access product unavailable")
                 }
                 
                 #if DEBUG
@@ -477,8 +333,8 @@ struct StoreView: View {
                 #endif
             }
 
-            // Auto-trigger the payment sheet if requested (e.g. bundle CTA in upgrade prompt)
-            if let target = autoPurchaseProduct,
+            // Retired module requests use the current Full Access product.
+            if let target = autoPurchaseProduct?.currentPurchaseProduct,
                let storeProduct = products.first(where: { $0.id == target.rawValue }) {
                 await purchase(storeProduct)
             }
@@ -533,6 +389,7 @@ struct StoreView: View {
                     await MainActor.run {
                         dismiss()
                     }
+                    await requestFullAccessReviewIfNeeded(for: transaction)
                 }
             case .userCancelled:
                 break
@@ -560,11 +417,24 @@ struct StoreView: View {
         
         purchaseInProgress = nil
     }
+
+    private func requestFullAccessReviewIfNeeded(for transaction: StoreKit.Transaction) async {
+        guard transaction.productID == WSPProduct.fullAccess.rawValue,
+              ReviewManager.shared.shouldRequestReviewAfterFullAccessPurchase(
+                transactionID: String(transaction.id),
+                purchaseDate: transaction.originalPurchaseDate
+              ) else { return }
+
+        ReviewManager.shared.recordReviewRequest(reason: .fullAccessPurchase)
+                dismiss()
+        try? await Task.sleep(nanoseconds: 750_000_000)
+        requestReview()
+    }
     
     private func restorePurchases() async {
         do {
             try await AppStore.sync()
-            await EntitlementManager.shared.refreshEntitlements()
+            await EntitlementManager.shared.refreshEntitlements(refreshPurchaseModel: true)
             showRestoreSuccess = true
         } catch {
             #if DEBUG
@@ -610,7 +480,12 @@ struct ModuleCardView: View {
                 
                 // Price / Status
                 if isPurchased {
-                    Label("Owned", systemImage: "checkmark.circle.fill")
+                    Label(
+                        wspProduct == .tenDayTrial
+                            ? NSLocalizedString("iap.trial.activated", comment: "Trial activation status")
+                            : "Owned",
+                        systemImage: "checkmark.circle.fill"
+                    )
                         .font(.subheadline)
                         .foregroundColor(.green)
                 } else if isLoading {
@@ -650,117 +525,6 @@ struct ModuleCardView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .stroke(isHighlighted ? wspProduct.themeColor : Color.clear, lineWidth: 2)
-        )
-    }
-}
-
-// MARK: - Bundle Card View
-
-@available(macCatalyst 15, macOS 14.4, iOS 17.4, *)
-struct BundleCardView: View {
-    let product: Product
-    let isPurchased: Bool
-    let isLoading: Bool
-    let savingsPercentage: Int?
-    let onPurchase: () async -> Void
-    let onRedeemCode: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            // Best Value badge
-            if !isPurchased {
-                Text(savingsPercentage.map { "BEST VALUE - SAVE \($0)%" } ?? "BEST VALUE")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(Color.green)
-                    .clipShape(Capsule())
-            }
-            
-            // Title
-            HStack {
-                Image(systemName: "gift.fill")
-                    .font(.title)
-                    .foregroundColor(.purple)
-                Text("All-In Bundle")
-                    .font(.title2)
-                    .fontWeight(.bold)
-            }
-            
-            // Description
-            Text("Unlock all four writing modules with one purchase")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            
-            // Included modules
-            HStack(spacing: 20) {
-                ForEach(WSPProduct.individualModules, id: \.rawValue) { module in
-                    VStack(spacing: 4) {
-                        Image(systemName: module.iconName)
-                            .font(.title3)
-                            .foregroundColor(module.themeColor)
-                        Text(module.displayName.components(separatedBy: " ").first ?? "")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .padding(.vertical, 8)
-            
-            // Price / Status
-            if isPurchased {
-                Label("All Modules Owned", systemImage: "checkmark.circle.fill")
-                    .font(.headline)
-                    .foregroundColor(.green)
-            } else if isLoading {
-                ProgressView()
-                    .padding()
-            } else {
-                Button {
-                    Task { await onPurchase() }
-                } label: {
-                    Text("Get All for \(product.displayPrice)")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(
-                            LinearGradient(
-                                colors: [.purple, .blue],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                }
-                
-                // Offer code link
-                Button {
-                    onRedeemCode()
-                } label: {
-                    Label("Have an offer code?", systemImage: "ticket")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.top, 4)
-            }
-        }
-        .padding()
-        .background(Color(uiColor: .secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(
-                    LinearGradient(
-                        colors: [.purple.opacity(0.5), .blue.opacity(0.5)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 2
-                )
         )
     }
 }

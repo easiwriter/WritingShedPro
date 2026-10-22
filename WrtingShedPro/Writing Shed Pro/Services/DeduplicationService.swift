@@ -231,28 +231,7 @@ class DeduplicationService {
 
         let exactIDGroups = Dictionary(grouping: projects, by: \Project.id)
         let exactIDKeepers = Set(exactIDGroups.map { _, group in preferredProject(in: group).persistentModelID })
-        let exactIDCollapsedProjects = projects.filter { exactIDKeepers.contains($0.persistentModelID) }
-
-        // Collapse active rows that have the same normalized name and type. This is
-        // presentation-only and never mutates storage. Project-name validation blocks
-        // creating same-name/same-type projects, so visible duplicates here are sync
-        // clone rows even when recovery changed metadata or relationships are mid-sync.
-        // This is a presentation-only filter and never mutates storage.
-        let groups = Dictionary(grouping: exactIDCollapsedProjects, by: presentationFamilyKey(for:))
-        var keptPersistentIDs = Set<PersistentIdentifier>()
-
-        for (_, group) in groups {
-            if group.count == 1, let only = group.first {
-                keptPersistentIDs.insert(only.persistentModelID)
-                continue
-            }
-
-            let keeper = preferredProject(in: group)
-            keptPersistentIDs.insert(keeper.persistentModelID)
-        }
-
-        // Preserve the incoming order from callers.
-        return exactIDCollapsedProjects.filter { keptPersistentIDs.contains($0.persistentModelID) }
+        return projects.filter { exactIDKeepers.contains($0.persistentModelID) }
     }
 
     /// Returns whether a proposed name conflicts with ANY project (including hidden/trashed duplicates).
@@ -405,6 +384,10 @@ class DeduplicationService {
             
             // Only deduplicate within same-creation-date groups
             for dateGroup in dateGroups where dateGroup.count > 1 {
+                // Separate UUIDs can represent independent imports or recovery
+                // baselines even when their names and creation dates match.
+                guard Set(dateGroup.map(\.id)).count == 1 else { continue }
+
                 let sorted = dateGroup.sorted(by: shouldPrefer(_:_:))
                 let keeper = sorted[0]
                 let duplicates = Array(sorted.dropFirst())
@@ -1098,17 +1081,7 @@ class DeduplicationService {
     }
 
     private static func isSameSyncedDuplicateFamily(_ lhs: Project, as rhs: Project) -> Bool {
-        guard lhs.type == rhs.type else { return false }
-        guard normalizedNameKey(for: lhs.name) == normalizedNameKey(for: rhs.name) else { return false }
-
-        switch (lhs.creationDate, rhs.creationDate) {
-        case let (.some(lhsDate), .some(rhsDate)):
-            return lhsDate == rhsDate
-        case (.none, .none):
-            return lhs.id == rhs.id
-        default:
-            return lhs.id == rhs.id
-        }
+        lhs.id == rhs.id
     }
     
     /// Score a project by how much content it has.

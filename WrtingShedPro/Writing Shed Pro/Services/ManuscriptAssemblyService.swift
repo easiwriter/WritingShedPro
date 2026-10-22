@@ -1037,10 +1037,22 @@ final class ManuscriptAssemblyService {
     
     /// Get a subfolder of the Manuscript folder by name
     private func getManuscriptSubfolder(_ project: Project, named name: String) -> Folder? {
-        guard let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }) else {
+        let projectID = project.id
+        let manuscriptDescriptor = FetchDescriptor<Folder>(
+            predicate: #Predicate<Folder> { folder in
+                folder.name == "Manuscript" && folder.project?.id == projectID
+            }
+        )
+        guard let manuscriptFolder = try? context.fetch(manuscriptDescriptor).first else {
             return nil
         }
-        return manuscriptFolder.subfolders?.first { $0.name == name }
+        let manuscriptFolderID = manuscriptFolder.id
+        let subfolderDescriptor = FetchDescriptor<Folder>(
+            predicate: #Predicate<Folder> { folder in
+                folder.name == name && folder.parentFolder?.id == manuscriptFolderID
+            }
+        )
+        return try? context.fetch(subfolderDescriptor).first
     }
     
     /// Collect files from a folder (non-recursive), respecting includedInManuscript flag

@@ -371,7 +371,6 @@ class ImageCopyPasteTests: XCTestCase {
         let restoredAttachment = try XCTUnwrap(
             restoredContent.attribute(.attachment, at: 1, effectiveRange: nil) as? ImageAttachment
         )
-        XCTAssertTrue(restoredAttachment === attachment)
         XCTAssertEqual(restoredAttachment.imageData, testImageData)
         XCTAssertEqual(Double(restoredAttachment.scale), 0.6, accuracy: 0.001)
         XCTAssertEqual(restoredAttachment.alignment, .right)

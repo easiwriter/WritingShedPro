@@ -8,7 +8,7 @@ struct AddProjectSheet: View {
     @State var details = ""
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
-    @State private var selectedStyleSheet: StyleSheet?
+    @State private var selectedStyleSheetID: UUID?
     @State private var availableStyleSheets: [StyleSheet] = []
     
     // Fiction-specific state
@@ -66,11 +66,12 @@ struct AddProjectSheet: View {
                 }
                 
                 Section(NSLocalizedString("addProject.stylesheet", comment: "Section header for stylesheet selection")) {
-                    Picker(NSLocalizedString("addProject.stylesheetPicker", comment: "Field label for stylesheet picker"), selection: $selectedStyleSheet) {
+                    Picker(NSLocalizedString("addProject.stylesheetPicker", comment: "Field label for stylesheet picker"), selection: $selectedStyleSheetID) {
                         ForEach(availableStyleSheets, id: \.id) { sheet in
-                            Text(sheet.name).tag(sheet as StyleSheet?)
+                            Text(sheet.name).tag(sheet.id as UUID?)
                         }
                     }
+                    .pickerStyle(.menu)
                     .accessibilityLabel(NSLocalizedString("addProject.stylesheetAccessibility", comment: "Accessibility label for stylesheet picker"))
                 }
                 
@@ -123,7 +124,7 @@ struct AddProjectSheet: View {
                 fictionClass: selectedType == .fiction ? selectedFictionClass : nil,
                 storyStructure: selectedStoryStructure,
                 details: details,
-                styleSheet: selectedStyleSheet,
+                styleSheet: availableStyleSheets.first(where: { $0.id == selectedStyleSheetID }),
                 allProjects: allProjects,
                 modelContext: modelContext
             )
@@ -145,7 +146,7 @@ struct AddProjectSheet: View {
             availableStyleSheets = StyleSheetService.uniqueStyleSheets(from: sheets)
             
             // Select default stylesheet by default
-            selectedStyleSheet = availableStyleSheets.first(where: { $0.isSystemStyleSheet })
+            selectedStyleSheetID = availableStyleSheets.first(where: { $0.isSystemStyleSheet })?.id
         }
     }
 }

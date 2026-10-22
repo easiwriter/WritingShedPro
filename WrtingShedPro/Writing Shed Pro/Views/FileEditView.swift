@@ -2159,6 +2159,13 @@ struct FileEditView: View {
         return !file.isBackMatterFile && !file.isTOCFile
     }
 
+    private func presentExpiredTrialPromptIfNeeded() {
+        guard EntitlementManager.shared.isCoreReadOnly,
+              upgradePromptReason == nil,
+              let projectType = file.project?.type else { return }
+        upgradePromptReason = .fileLimit(projectType: projectType)
+    }
+
     private var missingSyncedBodyBanner: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "icloud.and.arrow.down")
@@ -2247,6 +2254,9 @@ struct FileEditView: View {
                 showCommentsList: { showCommentsList = true }
             ))
             .upgradePrompt(reason: $upgradePromptReason)
+            .onAppear {
+                presentExpiredTrialPromptIfNeeded()
+            }
             .onDisappear {
                 // Unregister stylesheet from provider
                 StyleSheetProvider.shared.unregister(
@@ -2268,11 +2278,17 @@ struct FileEditView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 refreshRemoteContentAndStylesIfSafe()
+                presentExpiredTrialPromptIfNeeded()
             }
             .onChange(of: EntitlementManager.shared.canModifyContent) { wasEditable, isEditable in
                 guard wasEditable, !isEditable else { return }
                 flushPendingEditorChanges(reason: "editor-access-expired-flush")
                 textViewCoordinator.textView?.resignFirstResponder()
+                presentExpiredTrialPromptIfNeeded()
+            }
+            .onChange(of: EntitlementManager.shared.coreAccessState) { _, accessState in
+                guard accessState == .trialExpired else { return }
+                presentExpiredTrialPromptIfNeeded()
             }
             .onReceive(NotificationCenter.default.publisher(for: .writingShedProSyncDidUpdateLocalData)) { _ in
                 refreshRemoteContentAndStylesIfSafe()
@@ -3523,7 +3539,7 @@ struct FileEditView: View {
         }
     }
 
-    private static func isMissingSyncedBody(_ version: Version?) -> Bool {
+    static func isMissingSyncedBody(_ version: Version?) -> Bool {
         guard let version,
               version.content.isEmpty,
               let data = version.effectiveFormattedContent,
@@ -3533,7 +3549,7 @@ struct FileEditView: View {
             return false
         }
 
-        return true
+        return AttributedStringSerializer.verifiedSourceText(in: data) != ""
     }
 
     private func updateValidationBadgeAsync() {
@@ -7371,9 +7387,20 @@ struct FileEditView: View {
         #if DEBUG
         print("⌨️ insertTab() called")
         #endif
+
+        guard let textView = textViewCoordinator.textView else { return }
+
+        let editorSelection = textView.selectedRange
+        guard editorSelection.location != NSNotFound else { return }
+
+        let contentLength = attributedContent.length
+        let safeLocation = min(editorSelection.location, contentLength)
+        let safeLength = min(editorSelection.length, contentLength - safeLocation)
+        let safeSelection = NSRange(location: safeLocation, length: safeLength)
+        selectedRange = safeSelection
         
         // Check if we're in a list paragraph - if so, increase indent instead of inserting tab
-        let paragraphRange = (attributedContent.string as NSString).paragraphRange(for: selectedRange)
+        let paragraphRange = (attributedContent.string as NSString).paragraphRange(for: safeSelection)
         
         #if DEBUG
         print("⌨️ insertTab - paragraphRange: \(paragraphRange), selectedRange: \(selectedRange)")
@@ -7416,8 +7443,6 @@ struct FileEditView: View {
         #if DEBUG
         print("⌨️ insertTab - not in list, inserting tab character")
         #endif
-        
-        guard let textView = textViewCoordinator.textView else { return }
         
         // Insert tab character at current selection
         let tabString = "\t"
@@ -10361,4 +10386,3 @@ private struct ImageStyleEditorSheetContent: View {
     }
 }
 /// Helper view to encapsulate the caption style logic for ImageStyleEditorView
-

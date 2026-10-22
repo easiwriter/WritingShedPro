@@ -42,15 +42,6 @@ final class Feature036Tests: XCTestCase {
         super.tearDown()
     }
 
-    private func poetryCollectionLinks(collectionID: UUID? = nil, fileID: UUID? = nil) throws -> [TextFileCollectionLink] {
-        let links = try modelContext.fetch(FetchDescriptor<TextFileCollectionLink>())
-        return links.filter { link in
-            let collectionMatches = collectionID.map { link.poetryCollectionID == $0 || link.poetryCollection?.id == $0 } ?? true
-            let fileMatches = fileID.map { link.textFileID == $0 || link.textFile?.id == $0 } ?? true
-            return collectionMatches && fileMatches
-        }
-    }
-    
     // MARK: - Helper Methods
     
     private func createProject(name: String, type: ProjectType, fictionClass: FictionClass? = nil) -> Project {
@@ -113,8 +104,9 @@ final class Feature036Tests: XCTestCase {
         
         try modelContext.save()
         
-        XCTAssertEqual(try poetryCollectionLinks(collectionID: collection.id).count, 2)
-        XCTAssertEqual(try poetryCollectionLinks(fileID: file1.id).first?.poetryCollectionID, collection.id)
+        XCTAssertEqual(collection.textFiles?.count, 2)
+        XCTAssertEqual(file1.poetryCollection?.id, collection.id)
+        XCTAssertEqual(file2.poetryCollection?.id, collection.id)
     }
     
     func testPoetryCollectionDeleteNullifiesTextFiles() throws {
@@ -132,11 +124,8 @@ final class Feature036Tests: XCTestCase {
         modelContext.delete(collection)
         try modelContext.save()
         
-        // The file survives and the join is nullified rather than cascade-deleted.
-        // CloudKit can deliver the relationship update separately from either record.
-        let links = try poetryCollectionLinks(fileID: file.id)
-        XCTAssertEqual(links.count, 1)
-        XCTAssertNil(links.first?.poetryCollection)
+        // The file survives and its direct relationship is nullified.
+        XCTAssertEqual(try modelContext.fetch(FetchDescriptor<TextFile>()).count, 1)
         XCTAssertNil(file.poetryCollection)
     }
     
@@ -807,8 +796,8 @@ final class Feature036Tests: XCTestCase {
         
         // Poems should be assigned to the new collection
         let collectionID = try XCTUnwrap(collections.first?.id)
-        XCTAssertEqual(try poetryCollectionLinks(collectionID: collectionID, fileID: poem1.id).count, 1)
-        XCTAssertEqual(try poetryCollectionLinks(collectionID: collectionID, fileID: poem2.id).count, 1)
+        XCTAssertEqual(poem1.poetryCollection?.id, collectionID)
+        XCTAssertEqual(poem2.poetryCollection?.id, collectionID)
     }
     
     func testMigrationRemovesCollectionsFolderFromNonPoetry() throws {

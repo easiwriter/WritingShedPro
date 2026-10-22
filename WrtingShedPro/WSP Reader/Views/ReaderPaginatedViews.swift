@@ -380,24 +380,16 @@ private enum ReaderTextNormalizer {
     static func normalize(_ source: NSAttributedString, preserveParagraphStyles: Bool = false) -> NSAttributedString {
         guard source.length > 0 else { return source }
 
-        if preserveParagraphStyles {
-            return source
-        }
-
         let mutable = NSMutableAttributedString(attributedString: source)
         let fullRange = NSRange(location: 0, length: mutable.length)
 
-        // Imported paragraph styles can carry aggressive indents or non-wrapping modes.
-        // Strip them entirely, then apply a deterministic reader style.
-        mutable.removeAttribute(.paragraphStyle, range: fullRange)
-
-        let baseParagraph = NSMutableParagraphStyle()
-        baseParagraph.lineBreakMode = .byWordWrapping
-        baseParagraph.firstLineHeadIndent = 0
-        baseParagraph.headIndent = 0
-        baseParagraph.tailIndent = 0
-        baseParagraph.lineBreakStrategy = []
-        mutable.addAttribute(.paragraphStyle, value: baseParagraph, range: fullRange)
+        mutable.enumerateAttribute(.paragraphStyle, in: fullRange) { value, range, _ in
+            guard let paragraph = value as? NSParagraphStyle,
+                  paragraph.lineBreakMode != .byWordWrapping else { return }
+            let normalized = paragraph.mutableCopy() as! NSMutableParagraphStyle
+            normalized.lineBreakMode = .byWordWrapping
+            mutable.addAttribute(.paragraphStyle, value: normalized, range: range)
+        }
 
         return mutable
     }

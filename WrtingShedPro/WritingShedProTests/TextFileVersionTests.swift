@@ -46,6 +46,21 @@ final class TextFileVersionTests: XCTestCase {
     func testNewFileHasOneVersion() {
         XCTAssertEqual(testFile.versions?.count, 1, "New file should have exactly one version")
     }
+
+    func testSerializedEmptyVersionIsNotTreatedAsMissingSyncedBody() {
+        let emptyContent = NSAttributedString(string: "")
+        testFile.currentVersion?.attributedContent = emptyContent
+
+        XCTAssertFalse(FileEditView.isMissingSyncedBody(testFile.currentVersion))
+    }
+
+    func testUnverifiedEmptyPayloadIsTreatedAsMissingSyncedBody() {
+        testFile.currentVersion?.content = ""
+        testFile.currentVersion?.formattedContent = Data("incomplete".utf8)
+        testFile.currentVersion?.formattedContentSourceTextLength = 0
+
+        XCTAssertTrue(FileEditView.isMissingSyncedBody(testFile.currentVersion))
+    }
     
     func testAddVersionCreatesNewVersion() {
         let initialCount = testFile.versions?.count ?? 0

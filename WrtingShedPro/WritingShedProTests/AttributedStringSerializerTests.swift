@@ -31,6 +31,23 @@ final class AttributedStringSerializerTests: XCTestCase {
         XCTAssertEqual(version.content, currentText)
         XCTAssertFalse(version.hasFormattedContentSyncMismatch)
     }
+
+    @MainActor
+    func testVersionRebasesStaleFormattedPayloadOntoCurrentPlainText() {
+        let formattedText = "Before\nAfter"
+        let currentText = "Before\nNew sentence\nAfter"
+        let version = Version(content: currentText)
+        let encoded = AttributedStringSerializer.encode(NSAttributedString(string: formattedText))
+
+        // WSP import previously labelled the older rich payload with the newer plain-text fingerprint.
+        version.setFormattedContentData(encoded, sourceText: currentText)
+
+        XCTAssertTrue(version.hasFormattedContentSyncMismatch)
+        XCTAssertTrue(version.reconcileContentFromFormattedPayloadIfPossible())
+        XCTAssertEqual(version.content, currentText)
+        XCTAssertEqual(version.attributedContent?.string, currentText)
+        XCTAssertFalse(version.hasFormattedContentSyncMismatch)
+    }
     
     // MARK: - Plain Text Round Trip
     

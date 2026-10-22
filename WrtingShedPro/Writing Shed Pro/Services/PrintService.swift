@@ -773,12 +773,11 @@ class PrintService {
         let printSizeContent = removePlatformScaling(from: content.attributedString)
         
         // Transfer non-Sendable values to the background queue.
-        // SwiftData models and contexts remain confined to the executor that created them.
+        // These are only read (not mutated) on the background thread, so this is safe.
         nonisolated(unsafe) let bgContent = printSizeContent
         nonisolated(unsafe) let bgSetup = setup
-        let projectID = project.id
-        let projectName = project.name ?? "Manuscript"
-        let modelContainer = context.container
+        nonisolated(unsafe) let bgProject = project
+        nonisolated(unsafe) let bgContext = context
         let bgHasFrontCover = content.hasFrontCover
         let bgHasBackCover = content.hasBackCover
         let bgFrontMatterFileCount = content.frontMatterFileCount
@@ -791,24 +790,13 @@ class PrintService {
         
         return await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                let renderContext = ModelContext(modelContainer)
-                let descriptor = FetchDescriptor<Project>(
-                    predicate: #Predicate<Project> { project in
-                        project.id == projectID
-                    }
-                )
-                guard let renderProject = try? renderContext.fetch(descriptor).first else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-
                 let result = createPDFWithProgress(
                     from: bgContent,
                     pageSetup: bgSetup,
-                    title: projectName,
+                    title: bgProject.name ?? "Manuscript",
                     version: nil,
-                    project: renderProject,
-                    context: renderContext,
+                    project: bgProject,
+                    context: bgContext,
                     layoutProgress: layoutProgress,
                     renderProgress: renderProgress,
                     hasFrontCover: bgHasFrontCover,
@@ -1026,8 +1014,7 @@ class PrintService {
         // because it avoids the slow multi-container NSLayoutManager layout.
         let textString = content.string
         let hasFootnotes = version != nil || !assembledFootnotes.isEmpty
-        let hasImages = containsImageAttachments(in: content)
-        if !hasFootnotes && !hasImages && textString.contains("\u{000C}") {
+        if !hasFootnotes && textString.contains("\u{000C}") {
             #if DEBUG
             print("   ⚡ Using FAST PATH (form-feed split, no footnotes)")
             #endif
@@ -1454,17 +1441,6 @@ class PrintService {
         #endif
         return pdfData as Data
     }
-
-    private static func containsImageAttachments(in content: NSAttributedString) -> Bool {
-        var hasImageAttachment = false
-        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length), options: []) { value, _, stop in
-            if value is ImageAttachment {
-                hasImageAttachment = true
-                stop.pointee = true
-            }
-        }
-        return hasImageAttachment
-    }
     
     /// Prepare an attributed string for PDF rendering (shared between fast and standard paths)
     private static func prepareAttributedStringForPDF(_ mutable: NSMutableAttributedString) {
@@ -1574,10 +1550,7 @@ class PrintService {
             defer { scanLocation = NSMaxRange(paragraphRange) }
             
             guard paragraphRange.location < length else { continue }
-            let attrLocation = NumberingLayoutManager.firstContentCharacterLocation(
-                in: paragraphRange,
-                text: text
-            )
+            let attrLocation = min(paragraphRange.location, length - 1)
             guard attrLocation >= 0 else { continue }
             
             let attrs = tempStorage.attributes(at: attrLocation, effectiveRange: nil)
@@ -1635,14 +1608,9 @@ class PrintService {
             }
             
             // Get line position from temp layout manager
-            let contentRange = NSRange(
-                location: attrLocation,
-                length: max(NSMaxRange(paragraphRange) - attrLocation, 0)
-            )
-            let glyphRange = tempLM.glyphRange(forCharacterRange: contentRange, actualCharacterRange: nil)
+            let glyphRange = tempLM.glyphRange(forCharacterRange: paragraphRange, actualCharacterRange: nil)
             guard glyphRange.length > 0 else { return }
             let lineFragmentRect = tempLM.lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
-            let glyphLocation = tempLM.location(forGlyphAt: glyphRange.location)
             
             let paragraphFont = attrs[.font] as? UIFont ?? style.generateFont(applyPlatformScaling: false)
             let paragraphColor = (attrs[.foregroundColor] as? UIColor)?.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light)) ?? UIColor.black
@@ -1664,14 +1632,9 @@ class PrintService {
                 numberX = drawRect.origin.x + style.firstLineIndent
             }
             
-            let numberY = NumberingLayoutManager.numberDrawingY(
-                originY: drawRect.origin.y,
-                lineFragmentMinY: lineFragmentRect.minY,
-                glyphBaselineOffset: glyphLocation.y,
-                font: paragraphFont
-            )
+            let baselineY = drawRect.origin.y + lineFragmentRect.origin.y + (lineFragmentRect.height - numberSize.height) / 2
             
-            let numberRect = CGRect(x: numberX, y: numberY, width: numberSize.width, height: numberSize.height)
+            let numberRect = CGRect(x: numberX, y: baselineY, width: numberSize.width, height: numberSize.height)
             numberString.draw(in: numberRect, withAttributes: numberAttributes)
         }
     }
@@ -1690,8 +1653,12 @@ class PrintService {
         pageCharOffset: Int = 0,
         context: CGContext
     ) {
-        let baseFont = UIFont.systemFont(ofSize: 12)
+        let font = UIFont.systemFont(ofSize: 12)
         let textColor = UIColor.darkGray
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: textColor
+        ]
         
         let labelHeight: CGFloat = min(rect.height, 20)
         let verticalCenter = rect.origin.y + (rect.height - labelHeight) / 2
@@ -1752,46 +1719,28 @@ class PrintService {
             return result
         }
         
+        let paragraphStyle = NSMutableParagraphStyle()
+
         let leftText = resolve(left)
+        if !leftText.isEmpty {
+            paragraphStyle.alignment = .left
+            let attrs = attributes.merging([.paragraphStyle: paragraphStyle.copy()]) { _, new in new }
+            leftText.draw(in: CGRect(x: rect.origin.x, y: verticalCenter, width: rect.width / 3, height: labelHeight), withAttributes: attrs)
+        }
+
         let centerText = resolve(center)
+        if !centerText.isEmpty {
+            paragraphStyle.alignment = .center
+            let attrs = attributes.merging([.paragraphStyle: paragraphStyle.copy()]) { _, new in new }
+            centerText.draw(in: CGRect(x: rect.origin.x + rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight), withAttributes: attrs)
+        }
+
         let rightText = resolve(right)
-        let headerItems: [(text: String, alignment: NSTextAlignment, rect: CGRect)]
-        let populatedCount = [leftText, centerText, rightText].filter { !$0.isEmpty }.count
-        if populatedCount == 1 {
-            let text = !leftText.isEmpty ? leftText : (!centerText.isEmpty ? centerText : rightText)
-            let alignment: NSTextAlignment = !leftText.isEmpty ? .left : (!centerText.isEmpty ? .center : .right)
-            headerItems = [(text, alignment, CGRect(x: rect.origin.x, y: verticalCenter, width: rect.width, height: labelHeight))]
-        } else {
-            headerItems = [
-                (leftText, .left, CGRect(x: rect.origin.x, y: verticalCenter, width: rect.width / 3, height: labelHeight)),
-                (centerText, .center, CGRect(x: rect.origin.x + rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight)),
-                (rightText, .right, CGRect(x: rect.origin.x + 2 * rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight))
-            ]
+        if !rightText.isEmpty {
+            paragraphStyle.alignment = .right
+            let attrs = attributes.merging([.paragraphStyle: paragraphStyle.copy()]) { _, new in new }
+            rightText.draw(in: CGRect(x: rect.origin.x + 2 * rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight), withAttributes: attrs)
         }
-
-        for item in headerItems where !item.text.isEmpty {
-            let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.alignment = item.alignment
-            let font = fittingHeaderFooterFont(for: item.text, baseFont: baseFont, maxWidth: item.rect.width)
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .foregroundColor: textColor,
-                .paragraphStyle: paragraphStyle
-            ]
-            item.text.draw(in: item.rect, withAttributes: attributes)
-        }
-    }
-
-    private static func fittingHeaderFooterFont(for text: String, baseFont: UIFont, maxWidth: CGFloat) -> UIFont {
-        guard !text.isEmpty, maxWidth > 0 else { return baseFont }
-        var fontSize = baseFont.pointSize
-        while fontSize > 7 {
-            let font = baseFont.withSize(fontSize)
-            let width = (text as NSString).size(withAttributes: [.font: font]).width
-            if width <= maxWidth { return font }
-            fontSize -= 0.5
-        }
-        return baseFont.withSize(7)
     }
     
     // MARK: - Font Scaling Helper

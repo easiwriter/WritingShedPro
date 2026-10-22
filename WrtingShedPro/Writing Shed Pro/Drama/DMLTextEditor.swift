@@ -43,7 +43,7 @@ struct DMLTextEditor: UIViewRepresentable {
         textView.text = text
         textView.isEditable = isEditable
         textView.selectedRange = selectedRange
-        textView.layoutManager.allowsNonContiguousLayout = false
+        textView.layoutManager.allowsNonContiguousLayout = true
         
         // Store reference in coordinator
         context.coordinator.textView = textView
@@ -109,6 +109,7 @@ struct DMLTextEditor: UIViewRepresentable {
         
         func textViewDidChange(_ textView: UITextView) {
             pendingTextChangeWorkItem?.cancel()
+            (textView.layoutManager as? NumberingLayoutManager)?.suppressDecorativeDrawing(for: 0.12)
             let updatedText = textView.text ?? ""
             let updatedSelection = textView.selectedRange
             let workItem = DispatchWorkItem { [weak self] in
@@ -116,6 +117,7 @@ struct DMLTextEditor: UIViewRepresentable {
                 self.pendingTextChangeWorkItem = nil
                 self.parent.text = updatedText
                 self.parent.selectedRange = updatedSelection
+                textView.setNeedsDisplay()
             }
             pendingTextChangeWorkItem = workItem
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: workItem)

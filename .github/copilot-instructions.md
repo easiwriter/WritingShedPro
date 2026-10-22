@@ -109,4 +109,10 @@ if folder.project == nil && folder.parentFolder == nil {
 **CRITICAL: Do not commit MP4 files**
 - Exclude all `.mp4` assets from git commits by default
 - If a video must be shared, use external hosting or Git LFS instead of normal git
+
+## Xcode Build Responsibility
+- **Do not run Xcode builds automatically.** The user performs iOS, macOS, and Mac Catalyst builds.
+- After code changes, tell the user which target/configuration to build and whether an incremental or clean build is needed.
+- Recommend an incremental build by default. Recommend a clean build only when changes affect dependencies, generated artifacts, project/build configuration, or when stale build output is a plausible cause.
+- Run an Xcode build only when the user explicitly asks the agent to run it.
 <!-- MANUAL ADDITIONS END -->

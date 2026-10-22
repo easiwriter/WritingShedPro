@@ -1,6 +1,5 @@
-// Reader-specific version settings.
-// Inherit shared repo-level settings, then override reader app versions.
+// WSP Reader version settings.
 #include "../Versioning.xcconfig"
 
-CURRENT_PROJECT_VERSION = 2.2
-MARKETING_VERSION = 8.1is
+CURRENT_PROJECT_VERSION = 2.3.1
+MARKETING_VERSION = 8.3

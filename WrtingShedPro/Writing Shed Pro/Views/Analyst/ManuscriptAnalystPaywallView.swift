@@ -34,6 +34,11 @@ struct ManuscriptAnalystPaywallView: View {
         .fullScreenCover(isPresented: $showFullAccessStore) {
             StoreView(highlightedProduct: .fullAccess)
         }
+        .onChange(of: EntitlementManager.shared.canUseManuscriptAnalyst()) { _, canUseAnalyst in
+            if canUseAnalyst {
+                completeSubscriptionFlow()
+            }
+        }
     }
 
     private var fullAccessRequiredContent: some View {
@@ -189,6 +194,17 @@ struct ManuscriptAnalystPaywallView: View {
             }
             .disabled(isPurchasing)
 
+            Button(action: { presentOfferCodeRedemption() }) {
+                Label(
+                    NSLocalizedString("analyst.paywall.redeemOfferCode", comment: "Redeem an Analyst subscription offer code"),
+                    systemImage: "ticket"
+                )
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            }
+            .buttonStyle(.bordered)
+            .disabled(isPurchasing)
+
             Button(action: { cancelFlow() }) {
                 Text("Cancel")
                     .frame(maxWidth: .infinity)
@@ -246,6 +262,18 @@ struct ManuscriptAnalystPaywallView: View {
         }
     }
 
+    private func presentOfferCodeRedemption() {
+        OfferCodeRedemptionPresenter.present {
+            completeSubscriptionFlow()
+        }
+    }
+
+    private func completeSubscriptionFlow() {
+        guard EntitlementManager.shared.canUseManuscriptAnalyst() else { return }
+        onSubscribe?()
+        dismiss()
+    }
+
     private func purchaseSubscription() async {
         guard EntitlementManager.shared.canPurchaseManuscriptAnalyst else {
             purchaseError = NSLocalizedString(
@@ -270,8 +298,7 @@ struct ManuscriptAnalystPaywallView: View {
                     await transaction.finish()
                     EntitlementManager.shared.recordVerifiedPurchase(transaction.productID)
                     await EntitlementManager.shared.refreshEntitlements()
-                    onSubscribe?()
-                    dismiss()
+                    completeSubscriptionFlow()
                 }
             case .userCancelled:
                 break

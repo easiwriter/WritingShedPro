@@ -37,6 +37,11 @@ private struct TrialWarning: Identifiable {
     }
 }
 
+private struct AppUpdateNotice: Identifiable {
+    let version: String
+    var id: String { version }
+}
+
 // MARK: - Custom UTTypes for Writing Shed files
 extension UTType {
     /// Writing Shed legacy export format (.wsd)
@@ -75,6 +80,7 @@ struct ContentViewBody: View {
     @State private var didProcessLaunchProjectRestore = false
     @State private var importAfterSettingsDismissal = false
     @State private var trialWarning: TrialWarning?
+    @State private var appUpdateNotice: AppUpdateNotice?
 
     private var trashedProjects: [Project] {
         projects.filter { $0.isTrashed == true }
@@ -99,7 +105,13 @@ struct ContentViewBody: View {
     }
 
     var body: some View {
-        navigationRoot
+        Group {
+            if entitlementManager.isLoaded && entitlementManager.requiresTrialActivation {
+                StoreView(requiresAccessSelection: true)
+            } else {
+                navigationRoot
+            }
+        }
     }
 
     private var navigationRoot: some View {
@@ -117,7 +129,7 @@ struct ContentViewBody: View {
         }
     }
 
-    private var navigationStackContent: some View {
+    private var projectListWithLifecycle: some View {
         projectListSection
             .environment(\.editMode, $state.editMode)
             #if !targetEnvironment(macCatalyst)
@@ -141,8 +153,8 @@ struct ContentViewBody: View {
                     ReviewManager.shared.recordAppLaunch()
                     
                     // Request review if appropriate (respects timing rules)
-                    if ReviewManager.shared.shouldRequestReview() {
-                        ReviewManager.shared.recordReviewRequest()
+                    if let reason = ReviewManager.shared.automaticRequestReason() {
+                        ReviewManager.shared.recordReviewRequest(reason: reason)
                         await MainActor.run {
                             requestReview()
                         }
@@ -150,6 +162,14 @@ struct ContentViewBody: View {
                 }
 
                 restoreLastOpenedProjectIfNeeded()
+                evaluateOnboardingWhenAccessIsReady()
+                evaluateTrialMilestones()
+                evaluateAppUpdateNotice()
+            }
+            .task {
+                if !entitlementManager.isLoaded {
+                    await entitlementManager.configure()
+                }
                 evaluateOnboardingWhenAccessIsReady()
                 evaluateTrialMilestones()
             }
@@ -168,6 +188,28 @@ struct ContentViewBody: View {
                 evaluateOnboardingWhenAccessIsReady()
                 evaluateTrialMilestones()
             }
+            .onChange(of: entitlementManager.isLoaded) { _, _ in
+                evaluateOnboardingWhenAccessIsReady()
+                evaluateAppUpdateNotice()
+            }
+            .onChange(of: state.showOnboarding) { _, _ in
+                evaluateAppUpdateNotice()
+            }
+            .onChange(of: state.showNewSupportMessagesAlert) { _, isPresented in
+                if !isPresented {
+                    evaluateAppUpdateNotice()
+                }
+            }
+            .onChange(of: state.hasCompletedSupportMessageCheck) { _, hasCompleted in
+                if hasCompleted {
+                    evaluateAppUpdateNotice()
+                }
+            }
+            .onChange(of: trialWarning?.id) { _, warningID in
+                if warningID == nil {
+                    evaluateAppUpdateNotice()
+                }
+            }
             .onChange(of: entitlementManager.currentEvaluationDate) { _, _ in
                 evaluateTrialMilestones()
             }
@@ -179,6 +221,10 @@ struct ContentViewBody: View {
             .toolbar {
                 ContentViewToolbar(state: state, projects: projects, onHandleImportMenu: onHandleImportMenu)
             }
+    }
+
+    private var projectListWithPrimarySheets: some View {
+        projectListWithLifecycle
             .sheet(isPresented: $state.showAddProject) {
                 AddProjectSheet(isPresented: $state.showAddProject)
             }
@@ -218,22 +264,15 @@ struct ContentViewBody: View {
                     PublicationHistoryView(project: nil)
                 }
             }
+    }
+
+    private var projectListWithSecondarySheets: some View {
+        projectListWithPrimarySheets
             .sheet(isPresented: $state.showAbout) {
                 AboutView()
             }
             .sheet(isPresented: $state.showStore) {
                 StoreView()
-            }
-            .fullScreenCover(
-                isPresented: Binding(
-                    get: {
-                        entitlementManager.isLoaded && entitlementManager.requiresTrialActivation
-                    },
-                    set: { _ in }
-                )
-            ) {
-                StoreView(requiresAccessSelection: true)
-                    .interactiveDismissDisabled()
             }
             .sheet(item: $state.projectForPageSetup) { project in
                 PageSetupForm(project: project)
@@ -254,6 +293,10 @@ struct ContentViewBody: View {
                     .presentationDetents([.large])
                     .modifier(PagePresentationSizingModifier())
             }
+    }
+
+    private var projectListWithAlerts: some View {
+        projectListWithSecondarySheets
             .fileImporter(
                 isPresented: $state.showingJSONImportPicker,
                 allowedContentTypes: [
@@ -293,6 +336,11 @@ struct ContentViewBody: View {
                     secondaryButton: .cancel(Text(NSLocalizedString("iap.fullAccess.notNow", comment: "Not now")))
                 )
             }
+            .alert(item: $appUpdateNotice, content: appUpdateAlert)
+    }
+
+    private var navigationStackContent: some View {
+        projectListWithAlerts
             .navigationDestination(for: TextFile.self) { file in
                 editorDestination(for: file)
                     .alert(NSLocalizedString("onboarding.editorIntro.title", comment: "Editor introduction title"), isPresented: $state.showOnboardingEditorIntro) {
@@ -312,6 +360,47 @@ struct ContentViewBody: View {
         guard entitlementManager.isLoaded,
               entitlementManager.coreAccessState.allowsAppEntry else { return }
         onEvaluateOnboarding()
+    }
+
+    private func appUpdateAlert(for notice: AppUpdateNotice) -> Alert {
+        let title = Text(NSLocalizedString("whatsNew.update.title", comment: "App updated alert title"))
+        let messageFormat = NSLocalizedString("whatsNew.update.message", comment: "App updated alert message")
+        let message = Text(String(format: messageFormat, notice.version))
+        let viewTitle = Text(NSLocalizedString("whatsNew.update.view", comment: "View What's New button"))
+        let doneTitle = Text(NSLocalizedString("common.done", comment: "Done"))
+
+        return Alert(
+            title: title,
+            message: message,
+            primaryButton: .default(viewTitle) {
+                presentWhatsNew(for: notice.version)
+            },
+            secondaryButton: .cancel(doneTitle) {
+                AppUpdateDetector.markPresented(version: notice.version)
+            }
+        )
+    }
+
+    private func presentWhatsNew(for version: String) {
+        AppUpdateDetector.markPresented(version: version)
+        Task { @MainActor in
+            await Task.yield()
+            state.htmlManualSection = "12-whats-new"
+            state.showHTMLManual = true
+        }
+    }
+
+    private func evaluateAppUpdateNotice() {
+        guard appUpdateNotice == nil,
+              entitlementManager.isLoaded,
+              entitlementManager.coreAccessState.allowsAppEntry,
+              !state.showOnboarding,
+              !state.showNewSupportMessagesAlert,
+              state.hasCompletedSupportMessageCheck,
+              trialWarning == nil,
+              let version = AppUpdateDetector.pendingVersion() else { return }
+
+        appUpdateNotice = AppUpdateNotice(version: version)
     }
 
     private func evaluateTrialMilestones() {

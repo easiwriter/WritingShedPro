@@ -40,6 +40,18 @@ struct ReaderManuscriptPageSetup {
     }
 }
 
+final class WSPReaderCaptionNumberingContext {
+    private var offsetsByFileID: [String: [String: Int]] = [:]
+
+    func setOffsets(_ offsets: [String: Int], forFileID fileID: String) {
+        offsetsByFileID[fileID] = offsets
+    }
+
+    func offsets(forFileID fileID: String) -> [String: Int] {
+        offsetsByFileID[fileID] ?? [:]
+    }
+}
+
 /// Represents a parsed WSP document for reading
 @Observable
 class WSPDocument {
@@ -57,6 +69,7 @@ class WSPDocument {
     let dramaScriptType: String?
     let exportDate: Date?
     let appVersion: String
+    let stylesheet: WSPStyleSheetData?
     
     /// Whether this is a Manual project type (for TOC navigation)
     var isManualProject: Bool {
@@ -340,19 +353,34 @@ class WSPDocument {
         self.dramaScriptType = wspData.project.dramaScriptType
         self.exportDate = wspData.exportDate
         self.appVersion = wspData.appVersion
+        self.stylesheet = wspData.stylesheet
         self.manuscriptPageSetup = Self.parseManuscriptPageSetup(from: wspData.project, projectName: self.projectName)
         
         // Parse folders, sorted by userOrder to match WSP display order
         let sectionLookup = Self.sectionNameLookup(from: wspData)
 
         let fileCollectionLookup = Self.fileCollectionLookup(from: wspData, sectionNameByID: sectionLookup)
+        let captionNumberingContext = WSPReaderCaptionNumberingContext()
 
         let parsedFolders = wspData.folders
-            .map { WSPReaderFolder(from: $0, sectionNameByID: sectionLookup, fileCollectionNameByID: fileCollectionLookup) }
+            .map { WSPReaderFolder(from: $0, sectionNameByID: sectionLookup, fileCollectionNameByID: fileCollectionLookup, stylesheet: wspData.stylesheet, captionNumberingContext: captionNumberingContext) }
             .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
         self.folders = parsedFolders
 
         let flattenedFiles = parsedFolders.flatMap { Self.collectFilesStatic(from: $0) }
+        let orderedManuscriptFiles = flattenedFiles
+            .filter { $0.isTOCFile }
+            .sorted(by: Self.manuscriptSort)
+            + flattenedFiles
+                .filter { $0.includedInManuscript && !$0.isTOCFile }
+                .sorted(by: Self.manuscriptSort)
+        var captionCounts: [String: Int] = [:]
+        for file in orderedManuscriptFiles {
+            captionNumberingContext.setOffsets(captionCounts, forFileID: file.id)
+            if let version = file.currentVersion {
+                captionCounts = version.captionNumberCounts(startingNumbers: captionCounts)
+            }
+        }
         let fileByID = Dictionary(uniqueKeysWithValues: flattenedFiles.map { ($0.id, $0) })
         
         // Parse publications
@@ -594,16 +622,16 @@ struct WSPReaderFolder: Identifiable {
     let files: [WSPReaderFile]
     let subfolders: [WSPReaderFolder]
     
-    init(from data: WSPFolderData, sectionNameByID: [String: String] = [:], fileCollectionNameByID: [String: String] = [:]) {
+    init(from data: WSPFolderData, sectionNameByID: [String: String] = [:], fileCollectionNameByID: [String: String] = [:], stylesheet: WSPStyleSheetData? = nil, captionNumberingContext: WSPReaderCaptionNumberingContext? = nil) {
         self.id = data.id
         self.name = data.name
         self.userOrder = data.userOrder
         self.files = data.textFiles
             .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
-            .map { WSPReaderFile(from: $0, sectionNameByID: sectionNameByID, fileCollectionNameByID: fileCollectionNameByID) }
+            .map { WSPReaderFile(from: $0, sectionNameByID: sectionNameByID, fileCollectionNameByID: fileCollectionNameByID, stylesheet: stylesheet, captionNumberingContext: captionNumberingContext) }
         self.subfolders = data.subfolders
             .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
-            .map { WSPReaderFolder(from: $0, sectionNameByID: sectionNameByID, fileCollectionNameByID: fileCollectionNameByID) }
+            .map { WSPReaderFolder(from: $0, sectionNameByID: sectionNameByID, fileCollectionNameByID: fileCollectionNameByID, stylesheet: stylesheet, captionNumberingContext: captionNumberingContext) }
     }
     
     /// Get folder icon based on name
@@ -636,7 +664,7 @@ struct WSPReaderFile: Identifiable, Hashable {
     let poetryFormName: String?
     let collectionName: String?
     
-    init(from data: WSPTextFileData, sectionNameByID: [String: String] = [:], fileCollectionNameByID: [String: String] = [:]) {
+    init(from data: WSPTextFileData, sectionNameByID: [String: String] = [:], fileCollectionNameByID: [String: String] = [:], stylesheet: WSPStyleSheetData? = nil, captionNumberingContext: WSPReaderCaptionNumberingContext? = nil) {
         self.id = data.id
         self.name = data.name
         self.createdDate = data.createdDate
@@ -651,7 +679,14 @@ struct WSPReaderFile: Identifiable, Hashable {
         } else {
             self.coverImageData = nil
         }
-        self.versions = data.versions.map { WSPReaderVersion(from: $0) }
+        self.versions = data.versions.map {
+            WSPReaderVersion(
+                from: $0,
+                stylesheet: stylesheet,
+                fileID: data.id,
+                captionNumberingContext: captionNumberingContext
+            )
+        }
         self.workflowStatus = data.workflowStatus
         self.poetryFormName = data.poetryFormName
         let preferredCollectionID = data.poetryCollectionId
@@ -715,11 +750,19 @@ final class WSPReaderVersion: Identifiable {
     let notes: String?
     let comments: [WSPReaderComment]
     let footnotes: [WSPReaderFootnote]
+    private let stylesheet: WSPStyleSheetData?
+    private let fileID: String
+    private let captionNumberingContext: WSPReaderCaptionNumberingContext?
 
     /// Decoded once on first access, then returned from cache.
     private var _attributedContent: NSAttributedString?
 
-    init(from data: WSPVersionData) {
+    init(
+        from data: WSPVersionData,
+        stylesheet: WSPStyleSheetData? = nil,
+        fileID: String = "",
+        captionNumberingContext: WSPReaderCaptionNumberingContext? = nil
+    ) {
         self.id = data.id
         self.content = data.content
         self.formattedContentBase64 = data.formattedContentBase64
@@ -730,6 +773,9 @@ final class WSPReaderVersion: Identifiable {
         self.notes = data.notes
         self.comments = (data.comments ?? []).map { WSPReaderComment(from: $0) }
         self.footnotes = (data.footnotes ?? []).map { WSPReaderFootnote(from: $0) }
+        self.stylesheet = stylesheet
+        self.fileID = fileID
+        self.captionNumberingContext = captionNumberingContext
     }
 
     /// Get formatted attributed string — decoded on first call, cached thereafter.
@@ -745,7 +791,12 @@ final class WSPReaderVersion: Identifiable {
            let data = Data(base64Encoded: base64),
            !data.isEmpty {
             // Primary format: binary PropertyList ([WSPAttributeValues]) written by AttributedStringSerializer
-            if let decoded = WSPAttributeDecoder.decode(data, text: content) {
+            if let decoded = WSPAttributeDecoder.decode(
+                data,
+                text: content,
+                stylesheet: stylesheet,
+                startingCaptionNumbers: captionNumberingContext?.offsets(forFileID: fileID) ?? [:]
+            ) {
                 return decoded
             }
             // Legacy format: RTF data (Word imports, Writing Shed 1.x)
@@ -774,6 +825,19 @@ final class WSPReaderVersion: Identifiable {
             .paragraphStyle: paragraphStyle
         ])
         #endif
+    }
+
+    fileprivate func captionNumberCounts(startingNumbers: [String: Int]) -> [String: Int] {
+        guard let base64 = formattedContentBase64,
+              let data = Data(base64Encoded: base64),
+              !data.isEmpty else {
+            return startingNumbers
+        }
+        return WSPAttributeDecoder.captionNumberCounts(
+            after: data,
+            stylesheet: stylesheet,
+            startingNumbers: startingNumbers
+        )
     }
 }
 

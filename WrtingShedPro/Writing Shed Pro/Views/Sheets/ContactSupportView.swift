@@ -24,9 +24,9 @@ struct MailComposeView: UIViewControllerRepresentable {
     let subject: String
     let body: String
     var attachments: [Attachment] = []
-    var onDismiss: () -> Void
+    var onFinish: (MFMailComposeResult, Error?) -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(onDismiss: onDismiss) }
+    func makeCoordinator() -> Coordinator { Coordinator(onFinish: onFinish) }
 
     func makeUIViewController(context: Context) -> MFMailComposeViewController {
         let vc = MFMailComposeViewController()
@@ -43,12 +43,12 @@ struct MailComposeView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {}
 
     class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
-        let onDismiss: () -> Void
-        init(onDismiss: @escaping () -> Void) { self.onDismiss = onDismiss }
+        let onFinish: (MFMailComposeResult, Error?) -> Void
+        init(onFinish: @escaping (MFMailComposeResult, Error?) -> Void) { self.onFinish = onFinish }
         func mailComposeController(_ controller: MFMailComposeViewController,
                                    didFinishWith result: MFMailComposeResult,
                                    error: Error?) {
-            controller.dismiss(animated: true) { self.onDismiss() }
+            controller.dismiss(animated: true) { self.onFinish(result, error) }
         }
     }
 }
@@ -92,6 +92,7 @@ struct ContactSupportView: View {
     @State private var showValidationAlert = false
     @State private var validationMessage = ""
     @State private var showSupportResponse = false
+    @State private var mailResultMessage: String?
     @State private var includeSyncDiagnostics = true
 
     // Robot-check: simple arithmetic challenge
@@ -161,7 +162,7 @@ struct ContactSupportView: View {
                     subject: draft.subject,
                     body: draft.body,
                     attachments: draft.attachments,
-                    onDismiss: { closeSheet() }
+                    onFinish: handleMailResult
                 )
             }
             .sheet(isPresented: $showSupportResponse) {
@@ -216,6 +217,15 @@ struct ContactSupportView: View {
                 }
             } message: {
                 Text(supportService.errorMessage ?? "")
+            }
+            .alert(NSLocalizedString("support.mail.resultTitle", comment: ""),
+                   isPresented: .init(
+                       get: { mailResultMessage != nil },
+                       set: { if !$0 { mailResultMessage = nil } }
+                   )) {
+                Button("OK", role: .cancel) { mailResultMessage = nil }
+            } message: {
+                Text(mailResultMessage ?? "")
             }
         }
     }
@@ -395,6 +405,21 @@ struct ContactSupportView: View {
             mailComposeDraft = draft
         } else {
             showMailUnavailable = true
+        }
+    }
+
+    private func handleMailResult(_ result: MFMailComposeResult, error: Error?) {
+        switch result {
+        case .sent:
+            closeSheet()
+        case .saved:
+            mailResultMessage = NSLocalizedString("support.mail.saved", comment: "")
+        case .failed:
+            mailResultMessage = error?.localizedDescription ?? NSLocalizedString("support.mail.failed", comment: "")
+        case .cancelled:
+            break
+        @unknown default:
+            mailResultMessage = NSLocalizedString("support.mail.failed", comment: "")
         }
     }
 

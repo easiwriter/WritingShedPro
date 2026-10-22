@@ -44,6 +44,8 @@ final class TextFileCollectionLink {
     init(textFile: TextFile? = nil, poetryCollection: PoetryCollection? = nil, userOrder: Int? = nil) {
         self.textFileID = textFile?.id
         self.poetryCollectionID = poetryCollection?.id
+        self.textFile = textFile
+        self.poetryCollection = poetryCollection
         self.userOrder = userOrder
     }
 

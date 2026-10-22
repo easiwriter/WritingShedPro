@@ -13,8 +13,16 @@ import SwiftUI
 /// Manages App Store review prompts with intelligent timing to avoid annoying users
 /// Thread-safe: Can be called from any thread
 final class ReviewManager: ObservableObject {
+
+    enum AutomaticRequestReason {
+        case standard
+        case fullAccessPurchase
+        case fullAccessFollowUp
+    }
     
     static let shared = ReviewManager()
+
+    private let fullAccessTransactionLock = NSLock()
     
     private init() {}
     
@@ -26,6 +34,9 @@ final class ReviewManager: ObservableObject {
         static let firstLaunchDate = "firstLaunchDate"
         static let appLaunchCount = "appLaunchCount"
         static let significantEventCount = "significantEventCount"
+        static let fullAccessTransactionID = "review.fullAccessTransactionID"
+        static let fullAccessFollowUpDate = "review.fullAccessFollowUpDate"
+        static let fullAccessFollowUpRequested = "review.fullAccessFollowUpRequested"
     }
     
     // MARK: - Configuration
@@ -44,6 +55,8 @@ final class ReviewManager: ObservableObject {
     
     /// Minimum significant events before requesting review
     private let minimumSignificantEvents = 10
+
+    private let fullAccessFollowUpInterval: TimeInterval = 28 * 24 * 60 * 60
     
     // MARK: - Public Methods
     
@@ -103,6 +116,38 @@ final class ReviewManager: ObservableObject {
         #if DEBUG
         print("📱 Review: App launch recorded (total: \(count + 1))")
         #endif
+    }
+
+    /// Records a new Full Access conversion and schedules its four-week follow-up.
+    /// Returns true only once for a given StoreKit transaction.
+    func shouldRequestReviewAfterFullAccessPurchase(
+        transactionID: String,
+        purchaseDate: Date
+    ) -> Bool {
+        fullAccessTransactionLock.lock()
+        defer { fullAccessTransactionLock.unlock() }
+
+        guard UserDefaults.standard.string(forKey: Keys.fullAccessTransactionID) != transactionID else {
+            return false
+        }
+
+        UserDefaults.standard.set(transactionID, forKey: Keys.fullAccessTransactionID)
+        UserDefaults.standard.set(
+            purchaseDate.addingTimeInterval(fullAccessFollowUpInterval),
+            forKey: Keys.fullAccessFollowUpDate
+        )
+        UserDefaults.standard.set(false, forKey: Keys.fullAccessFollowUpRequested)
+        return true
+    }
+
+    func automaticRequestReason() -> AutomaticRequestReason? {
+        if let followUpDate = UserDefaults.standard.object(forKey: Keys.fullAccessFollowUpDate) as? Date,
+           Date() >= followUpDate,
+           !UserDefaults.standard.bool(forKey: Keys.fullAccessFollowUpRequested) {
+            return .fullAccessFollowUp
+        }
+
+        return shouldRequestReview() ? .standard : nil
     }
     
     // MARK: - Public Methods
@@ -168,7 +213,10 @@ final class ReviewManager: ObservableObject {
         return true
     }
     
-    func recordReviewRequest() {
+    func recordReviewRequest(reason: AutomaticRequestReason = .standard) {
+        if reason == .fullAccessFollowUp {
+            UserDefaults.standard.set(true, forKey: Keys.fullAccessFollowUpRequested)
+        }
         UserDefaults.standard.set(Date(), forKey: Keys.lastReviewRequestDate)
         
         let count = UserDefaults.standard.integer(forKey: Keys.reviewRequestCount)
@@ -189,6 +237,9 @@ final class ReviewManager: ObservableObject {
         UserDefaults.standard.removeObject(forKey: Keys.firstLaunchDate)
         UserDefaults.standard.removeObject(forKey: Keys.appLaunchCount)
         UserDefaults.standard.removeObject(forKey: Keys.significantEventCount)
+        UserDefaults.standard.removeObject(forKey: Keys.fullAccessTransactionID)
+        UserDefaults.standard.removeObject(forKey: Keys.fullAccessFollowUpDate)
+        UserDefaults.standard.removeObject(forKey: Keys.fullAccessFollowUpRequested)
         #if DEBUG
         print("📱 Review: All tracking data reset")
         #endif

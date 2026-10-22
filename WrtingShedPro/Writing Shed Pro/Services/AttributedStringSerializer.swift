@@ -132,6 +132,59 @@ struct AttributedStringSerializer {
         return false
     }
 
+    /// Rebases formatting from the payload's verified source text onto newer plain text.
+    /// Formatting outside the changed range is preserved, including text attachments.
+    static func rebasedData(_ data: Data, from sourceText: String, to targetText: String) -> Data? {
+        guard sourceText != targetText else { return data }
+
+        let source = sourceText as NSString
+        let target = targetText as NSString
+        var commonPrefixLength = 0
+        let maximumPrefixLength = min(source.length, target.length)
+
+        while commonPrefixLength < maximumPrefixLength,
+              source.character(at: commonPrefixLength) == target.character(at: commonPrefixLength) {
+            commonPrefixLength += 1
+        }
+
+        var commonSuffixLength = 0
+        while commonSuffixLength < source.length - commonPrefixLength,
+              commonSuffixLength < target.length - commonPrefixLength,
+              source.character(at: source.length - commonSuffixLength - 1)
+                == target.character(at: target.length - commonSuffixLength - 1) {
+            commonSuffixLength += 1
+        }
+
+        let sourceChangeRange = NSRange(
+            location: commonPrefixLength,
+            length: source.length - commonPrefixLength - commonSuffixLength
+        )
+        let targetChangeRange = NSRange(
+            location: commonPrefixLength,
+            length: target.length - commonPrefixLength - commonSuffixLength
+        )
+        let replacementText = target.substring(with: targetChangeRange)
+        let attributed = NSMutableAttributedString(attributedString: decode(data, text: sourceText))
+
+        let inheritedAttributes: [NSAttributedString.Key: Any]
+        if attributed.length > 0 {
+            let attributeIndex = min(commonPrefixLength, attributed.length - 1)
+            inheritedAttributes = attributed.attributes(at: attributeIndex, effectiveRange: nil)
+                .filter { $0.key != .attachment }
+        } else {
+            inheritedAttributes = [
+                .font: UIFont.preferredFont(forTextStyle: .body),
+                .textStyle: UIFont.TextStyle.body.attributeValue
+            ]
+        }
+
+        attributed.replaceCharacters(
+            in: sourceChangeRange,
+            with: NSAttributedString(string: replacementText, attributes: inheritedAttributes)
+        )
+        return encode(attributed)
+    }
+
     /// Returns true when encoded runs contain heading text styles applied to
     /// short inline fragments inside a paragraph (known legacy corruption pattern).
     static func containsInlineHeadingStyleArtifacts(in data: Data, text: String) -> Bool {

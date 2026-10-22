@@ -7,6 +7,30 @@
 
 import Foundation
 
+enum AppUpdateDetector {
+    private static let lastLaunchedVersionKey = "lastLaunchedMarketingVersion"
+
+    static var currentVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    }
+
+    static func pendingVersion(defaults: UserDefaults = .standard) -> String? {
+        let version = currentVersion
+        guard !version.isEmpty else { return nil }
+
+        guard let previousVersion = defaults.string(forKey: lastLaunchedVersionKey) else {
+            defaults.set(version, forKey: lastLaunchedVersionKey)
+            return nil
+        }
+
+        return previousVersion == version ? nil : version
+    }
+
+    static func markPresented(version: String, defaults: UserDefaults = .standard) {
+        defaults.set(version, forKey: lastLaunchedVersionKey)
+    }
+}
+
 /// Service that opens a specific section in the Writing Shed Pro HTML Guide.
 ///
 /// When a user taps "Learn More" on a tip, this service posts a notification

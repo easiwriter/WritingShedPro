@@ -58,6 +58,7 @@ final class ContentViewState {
     var showContactSupport = false
     var showSupportMessages = false
     var showNewSupportMessagesAlert = false
+    var hasCompletedSupportMessageCheck = false
     var pendingSupportMessageAlertVersions: [String: TimeInterval] = [:]
     
     // Help & Manual

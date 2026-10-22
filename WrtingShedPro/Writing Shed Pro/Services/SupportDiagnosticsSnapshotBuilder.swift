@@ -10,6 +10,12 @@ enum SupportDiagnosticsSnapshotBuilder {
         let now = Date()
         lines.append("Sync & Data Health Snapshot")
         lines.append("Generated: \(now.formatted(date: .complete, time: .standard))")
+        #if DEBUG
+        lines.append("buildConfiguration: Debug")
+        #else
+        lines.append("buildConfiguration: Release")
+        #endif
+        lines.append("bundleIdentifier: \(Bundle.main.bundleIdentifier ?? "unknown")")
         lines.append("syncBackend: Ensembles")
         lines.append("cloudContainer: iCloud.com.appworks.writingshedpro")
         lines.append("activeEnsemblesContainer: \(Write_App.activeEnsemblesContainer != nil)")
@@ -18,6 +24,8 @@ enum SupportDiagnosticsSnapshotBuilder {
         lines.append("observedEnsemblesDataThisLaunch: \(Write_App.hasObservedEnsemblesDataThisLaunch)")
         lines.append("observedPartialEnsemblesStoreThisLaunch: \(Write_App.hasObservedPartialEnsemblesStoreThisLaunch)")
         lines.append("observedCatastrophicEmptyEnsemblesStoreThisLaunch: \(Write_App.hasObservedCatastrophicEmptyEnsemblesStoreThisLaunch)")
+        lines.append("storeUnregisteredBlockedThisLaunch: \(Write_App.storeUnregisteredBlockedThisLaunch)")
+        lines.append("partialStoreBlockedThisLaunch: \(Write_App.partialStoreBlockedThisLaunch)")
         lines.append("localSyncResetQueued: \(UserDefaults.standard.bool(forKey: Write_App.resetLocalEnsemblesStoreOnNextLaunchKey))")
         if let ensemblesContainer = Write_App.activeEnsemblesContainer {
             lines.append("ensemblesIsAttached: \(ensemblesContainer.isAttached)")

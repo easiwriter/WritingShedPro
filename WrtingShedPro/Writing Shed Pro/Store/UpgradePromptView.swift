@@ -19,15 +19,13 @@ struct UpgradePromptView: View {
     
     /// State for showing the store
     @State private var showStore = false
-    @State private var highlightedStoreProduct: WSPProduct?
-    @State private var bundleSavingsPercentage: Int?
 
     private var isNewPurchaseModel: Bool {
         EntitlementManager.shared.purchaseModel == .trialAndFullAccess
     }
 
     private var targetProduct: WSPProduct {
-        isNewPurchaseModel ? .fullAccess : reason.requiredProduct
+        .fullAccess
     }
     
     var body: some View {
@@ -38,12 +36,12 @@ struct UpgradePromptView: View {
                 .foregroundStyle(iconGradient)
             
             // Title
-            Text(isNewPurchaseModel ? NSLocalizedString("iap.readOnly.title", comment: "Full Access required") : reason.title)
+            Text(NSLocalizedString("iap.readOnly.title", comment: "Full Access required"))
                 .font(.title2)
                 .fontWeight(.semibold)
             
             // Message
-            Text(isNewPurchaseModel ? NSLocalizedString("iap.readOnly.message", comment: "Trial expired read-only message") : reason.message)
+            Text(isNewPurchaseModel ? NSLocalizedString("iap.readOnly.message", comment: "Trial expired read-only message") : NSLocalizedString("iap.fullAccess.legacyMessage", comment: "Legacy feature requires Full Access"))
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
@@ -65,13 +63,10 @@ struct UpgradePromptView: View {
             // Buttons
             VStack(spacing: 12) {
                 Button {
-                    highlightedStoreProduct = targetProduct
                     showStore = true
                 } label: {
                     Text(
-                        isNewPurchaseModel
-                            ? NSLocalizedString("iap.fullAccess.unlock", comment: "Unlock Full Access")
-                            : "View \(reason.requiredProduct.displayName)"
+                        NSLocalizedString("iap.fullAccess.unlock", comment: "Unlock Full Access")
                     )
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
@@ -79,26 +74,6 @@ struct UpgradePromptView: View {
                         .background(productColor)
                         .foregroundColor(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
-                }
-                
-                // Also show bundle option if not already requesting it AND user has no purchases yet
-                // (Bundle not worth showing if they already bought individual modules)
-                     if !isNewPurchaseModel,
-                         reason.requiredProduct != .allInBundle,
-                         !EntitlementManager.shared.hasAnyPurchase {
-                    Button {
-                        highlightedStoreProduct = .allInBundle
-                        showStore = true
-                    } label: {
-                        HStack {
-                            Text("Or get the")
-                            Text("All-In Bundle")
-                                .fontWeight(.semibold)
-                            Text(bundleSavingsText)
-                                .foregroundColor(.green)
-                        }
-                        .font(.subheadline)
-                    }
                 }
                 
                 Button("Not Now") {
@@ -111,13 +86,10 @@ struct UpgradePromptView: View {
         .padding()
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
-        .task {
-            await loadBundleSavingsPercentage()
-        }
         .fullScreenCover(isPresented: $showStore) {
             StoreView(
-                highlightedProduct: highlightedStoreProduct,
-                autoPurchaseProduct: highlightedStoreProduct == .allInBundle ? .allInBundle : nil
+                highlightedProduct: targetProduct,
+                autoPurchaseProduct: targetProduct
             )
         }
         .onChange(of: showStore) { _, isShowing in
@@ -191,30 +163,6 @@ struct UpgradePromptView: View {
         }
     }
 
-    private var bundleSavingsText: String {
-        if let bundleSavingsPercentage {
-            return "- Save \(bundleSavingsPercentage)%"
-        }
-        return "- Best value"
-    }
-
-    private func loadBundleSavingsPercentage() async {
-        guard bundleSavingsPercentage == nil else { return }
-
-        do {
-            let productIDs = WSPProduct.individualModules.map(\.rawValue) + [WSPProduct.allInBundle.rawValue]
-            let products = try await Product.products(for: productIDs)
-            let percentage = WSPBundleSavings.percentage(products: products)
-
-            await MainActor.run {
-                bundleSavingsPercentage = percentage
-            }
-        } catch {
-            #if DEBUG
-            print("Failed to load bundle savings percentage: \(error)")
-            #endif
-        }
-    }
 }
 
 // MARK: - Alert Modifier for Upgrade Prompts

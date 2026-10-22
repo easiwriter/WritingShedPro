@@ -31,14 +31,17 @@ struct SyncDiagnosticsView: View {
     @State private var snapshotCopied = false
     @State private var syncStatusMessage = ""
     @State private var showLocalResetConfirmation = false
+    @State private var showPublishRecoveryBaselineConfirmation = false
     @State private var showRemoveEnsemblesCloudDataConfirmation = false
     @State private var showRemoveLegacyCloudDataConfirmation = false
     @State private var localResetQueued = false
     @State private var localRecoveryModeQueued = UserDefaults.standard.bool(forKey: Write_App.localRecoveryModeOnNextLaunchKey)
     @State private var ensemblesCloudDataRemovedThisSession = false
     @State private var lastSafetyBackupName: String?
+    @State private var lastRecoveryExportName: String?
+    @State private var didRestoreRecoveredInduction = false
+    @State private var didRepairRecoveredInductionHeading = false
     @State private var lastRefreshed: Date?
-    @State private var diagnosticsRefreshID = UUID()
 
     var body: some View {
         NavigationStack {
@@ -58,6 +61,13 @@ struct SyncDiagnosticsView: View {
                 titleVisibility: .visible,
                 actions: localResetDialogActions,
                 message: localResetDialogMessage
+            )
+            .confirmationDialog(
+                "Publish this Mac as the recovery baseline?",
+                isPresented: $showPublishRecoveryBaselineConfirmation,
+                titleVisibility: .visible,
+                actions: publishRecoveryBaselineDialogActions,
+                message: publishRecoveryBaselineDialogMessage
             )
             .confirmationDialog(
                 "Remove all Writing Shed Pro sync cloud data?",
@@ -84,7 +94,6 @@ struct SyncDiagnosticsView: View {
             dataHealthSection
             supportSection
         }
-        .id(diagnosticsRefreshID)
     }
 
     private var syncBackendSection: some View {
@@ -116,6 +125,19 @@ struct SyncDiagnosticsView: View {
             .disabled(Write_App.activeEnsemblesContainer == nil)
 
             Button {
+                showPublishRecoveryBaselineConfirmation = true
+            } label: {
+                Label("Publish Recovery Baseline", systemImage: "icloud.and.arrow.up")
+            }
+            .disabled(
+                Write_App.activeEnsemblesContainer == nil ||
+                Write_App.isLocalRecoveryModeEnabled ||
+                Write_App.currentEnsemblesSeedPolicy != "mergeAllData (existing store)" ||
+                projectCount == 0 || folderCount == 0 || fileCount == 0 || versionCount == 0 ||
+                !isEnsemblesIdle
+            )
+
+            Button {
                 Task { await verifyEnsemblesZoneContent() }
             } label: {
                 Label("Verify Sync Zones", systemImage: "icloud.and.arrow.down")
@@ -131,6 +153,36 @@ struct SyncDiagnosticsView: View {
                 createLocalSafetyBackup(reason: "manual")
             } label: {
                 Label("Create Local Safety Backup", systemImage: "externaldrive.badge.plus")
+            }
+
+            if Write_App.isLocalRecoveryModeEnabled {
+                Button {
+                    prepareV4SourceAttach()
+                } label: {
+                    Label("Prepare Verified V4 Source Attach", systemImage: "checkmark.shield")
+                }
+                .disabled(Write_App.activeEnsemblesContainer != nil || projectCount == 0)
+
+                Button {
+                    exportRecoveryCandidates()
+                } label: {
+                    Label("Export All Recovery Candidates", systemImage: "square.and.arrow.up.on.square")
+                }
+                .disabled(Write_App.activeEnsemblesContainer != nil || projectCount == 0)
+
+                Button {
+                    restoreRecoveredInduction()
+                } label: {
+                    Label("Restore Recovered Induction Text", systemImage: "text.badge.checkmark")
+                }
+                .disabled(Write_App.activeEnsemblesContainer != nil || didRestoreRecoveredInduction)
+
+                Button {
+                    repairRecoveredInductionHeading()
+                } label: {
+                    Label("Repair Induction Title 2 Spacing", systemImage: "text.line.last.and.arrowtriangle.forward")
+                }
+                .disabled(Write_App.activeEnsemblesContainer != nil || didRepairRecoveredInductionHeading)
             }
 
             Button(role: .destructive) {
@@ -160,7 +212,7 @@ struct SyncDiagnosticsView: View {
             }
 
             if localResetQueued {
-                Text("Local reset queued. Quit and relaunch this Mac app to back up the local store and re-import from sync.")
+                Text("Local reset queued. Quit and relaunch the app to back up this device's local store and re-import from sync.")
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
@@ -175,6 +227,13 @@ struct SyncDiagnosticsView: View {
                 Text("Safety backup created: \(lastSafetyBackupName)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            if let lastRecoveryExportName {
+                Text("Recovery exports created: \(lastRecoveryExportName)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
             }
 
             if ensemblesCloudDataRemovedThisSession {
@@ -304,7 +363,19 @@ struct SyncDiagnosticsView: View {
     }
 
     private func localResetDialogMessage() -> some View {
-        Text("This only affects this Mac. The app will detach this Mac from Ensembles, then on next launch back up its local SQLite store and Ensembles event cache, remove the local copies, and re-import from the sync cloud. Do not use this if this Mac has unsynced work that is not on your iOS devices.")
+        Text("This only affects this device. The app will detach it from Ensembles, then on next launch back up its local SQLite store and Ensembles event cache, remove the local copies, and re-import from the sync cloud. Do not use this if this device has unsynced work that is not on your other devices.")
+    }
+
+    @ViewBuilder
+    private func publishRecoveryBaselineDialogActions() -> some View {
+        Button("Publish Recovery Baseline") {
+            Task { await publishRecoveryBaseline() }
+        }
+        Button("Cancel", role: .cancel) { }
+    }
+
+    private func publishRecoveryBaselineDialogMessage() -> some View {
+        Text("Use this only on the verified source Mac after removing the old sync zones, while every follower app is closed. A safety backup will be created first, then this Mac's complete local store will be force-rebased into a new cloud baseline. Never use this action on an empty or partial follower.")
     }
 
     private var isEnsemblesIdle: Bool {
@@ -347,7 +418,7 @@ struct SyncDiagnosticsView: View {
             guard activity == "none" else {
                 UserDefaults.standard.set(true, forKey: Write_App.detachLocalEnsemblesBeforeResetOnNextLaunchKey)
                 localResetQueued = true
-                syncStatusMessage = "Detach queued. Quit and relaunch this Mac app; after detach completes, quit and relaunch once more for the local reset."
+                syncStatusMessage = "Detach queued. Quit and relaunch the app; after detach completes, quit and relaunch once more for the local reset."
                 Write_App.logToFile("🔌 [Ensembles] Queued launch-time detach before local reset because activity=\(activity)")
                 return
             }
@@ -364,9 +435,11 @@ struct SyncDiagnosticsView: View {
             }
         }
 
+        UserDefaults.standard.removeObject(forKey: Write_App.localRecoveryModeOnNextLaunchKey)
         UserDefaults.standard.set(true, forKey: Write_App.resetLocalEnsemblesStoreOnNextLaunchKey)
         localResetQueued = true
-        syncStatusMessage = "Local reset queued. Quit and relaunch this Mac app."
+        localRecoveryModeQueued = false
+        syncStatusMessage = "Local reset queued. Quit and relaunch the app."
     }
 
     @MainActor
@@ -430,8 +503,51 @@ struct SyncDiagnosticsView: View {
             Write_App.logToFile("🗑️ [Ensembles] Removed backed-up local Ensembles history for fresh source reseed")
         }
         UserDefaults.standard.removeObject(forKey: Write_App.excludeLocalDataOnNextEnsemblesAttachKey)
+        UserDefaults.standard.removeObject(forKey: Write_App.v3BaselinePublishedKey)
+        UserDefaults.standard.set(true, forKey: Write_App.sourceReseedPendingKey)
         Write_App.clearEnsemblesCloudKitListingCaches()
         Write_App.logToFile("✅ [Ensembles] Source reseed prepared with mergeAllData policy")
+    }
+
+    @MainActor
+    private func prepareV4SourceAttach() {
+        guard Write_App.isLocalRecoveryModeEnabled,
+              Write_App.activeEnsemblesContainer == nil else {
+            syncStatusMessage = "V4 source preparation requires isolated Local Recovery Mode."
+            return
+        }
+
+        let context = ModelContext(modelContext.container)
+        let counts = [
+            "projects": fetchCount(Project.self, in: context),
+            "folders": fetchCount(Folder.self, in: context),
+            "files": fetchCount(TextFile.self, in: context),
+            "versions": fetchCount(Version.self, in: context),
+            "publications": fetchCount(Publication.self, in: context),
+            "scenes": fetchCount(StoryScene.self, in: context)
+        ]
+
+        guard let projects = counts["projects"], projects > 0,
+              let folders = counts["folders"], folders > 0,
+              let files = counts["files"], files > 0,
+              let versions = counts["versions"], versions > 0,
+              versions * 10 >= files else {
+            syncStatusMessage = "V4 source preparation blocked: this store is empty or partial."
+            Write_App.logErrorToFile("🛑 [Ensembles] Refused to arm V4 source attach for counts=\(counts)")
+            return
+        }
+
+        guard createLocalSafetyBackup(reason: "prepare-v4-source-attach") != nil else {
+            syncStatusMessage = "V4 source preparation blocked: safety backup failed."
+            return
+        }
+
+        UserDefaults.standard.set(counts, forKey: Write_App.verifiedSourceCountsKey)
+        UserDefaults.standard.set(true, forKey: Write_App.sourceReseedPendingKey)
+        UserDefaults.standard.removeObject(forKey: Write_App.localRecoveryModeOnNextLaunchKey)
+        localRecoveryModeQueued = false
+        syncStatusMessage = "Verified V4 source armed with \(projects) projects, \(folders) folders, \(files) files and \(versions) versions. Quit and relaunch to attach."
+        Write_App.logToFile("✅ [Ensembles] Armed exact V4 source fingerprint counts=\(counts); next launch may attach only this store")
     }
 
     @discardableResult
@@ -476,6 +592,225 @@ struct SyncDiagnosticsView: View {
         lastSafetyBackupName = backupDirectory.lastPathComponent
         Write_App.logToFile("💾 [Ensembles] Safety backup created before \(reason): \(backupDirectory.lastPathComponent) files=\(copiedCount)")
         return backupDirectory
+    }
+
+    @MainActor
+    private func exportRecoveryCandidates() {
+        guard Write_App.isLocalRecoveryModeEnabled,
+              Write_App.activeEnsemblesContainer == nil else {
+            syncStatusMessage = "Recovery export blocked: Local Recovery Mode is not isolated from Ensembles."
+            return
+        }
+
+        do {
+            let projects = try modelContext.fetch(FetchDescriptor<Project>())
+                .filter { !$0.isTrashed }
+            let timestamp = Int(Date().timeIntervalSince1970)
+            let directoryName = "WSPRecoveryExports_\(timestamp)"
+            let directory = URL.documentsDirectory.appending(
+                path: directoryName,
+                directoryHint: .isDirectory
+            )
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+
+            let exportService = JSONExportService()
+            for project in projects {
+                let safeName = (project.name ?? "Untitled").map { character in
+                    character.isLetter || character.isNumber || character == " " || character == "-" || character == "_"
+                        ? character
+                        : "_"
+                }
+                let idPrefix = project.id.uuidString.prefix(8)
+                let filename = "\(String(safeName))__\(idPrefix).wsp"
+                try exportService.exportProject(
+                    project,
+                    to: directory.appending(path: filename)
+                )
+            }
+
+            lastRecoveryExportName = directoryName
+            syncStatusMessage = "Exported \(projects.count) recovery candidates to Documents/\(directoryName)."
+            Write_App.logToFile("🛟 [Recovery] Exported \(projects.count) project candidates to \(directoryName)")
+        } catch {
+            syncStatusMessage = "Recovery export failed: \(error.localizedDescription)"
+            Write_App.logErrorToFile("❌ [Recovery] Candidate export failed: \(error.localizedDescription)")
+        }
+    }
+
+    @MainActor
+    private func restoreRecoveredInduction() {
+        let expectedProjectID = "DDECC671-BA40-45DF-857C-9930AC455E76"
+        let expectedFileID = "F01C1484-5593-4362-B2D1-14E4B0D88F54"
+        let expectedVersionID = "A753926D-A942-4D4E-9EE5-4AE9496B7DDF"
+        let rolledBackTextHash = "4a362a192a66ef0d2ffac5ea185720d409ad9edae3522cd489f632ddea07a415"
+        let recoveredTextHash = "a65d00f6d78b466a1b376aa1e20116f79b287f3ff4996fcd3874104bef37ea47"
+
+        guard Write_App.isLocalRecoveryModeEnabled,
+              Write_App.activeEnsemblesContainer == nil else {
+            syncStatusMessage = "Induction restore blocked: Local Recovery Mode is not isolated from Ensembles."
+            return
+        }
+
+        let textURL = URL.documentsDirectory.appending(path: "InductionRecovery-1403.txt")
+        let richURL = URL.documentsDirectory.appending(path: "InductionRecovery-1403.plist")
+
+        do {
+            let recoveredText = try String(contentsOf: textURL, encoding: .utf8)
+            let recoveredRichData = try Data(contentsOf: richURL)
+
+            guard AttributedStringSerializer.sourceTextHash(for: recoveredText) == recoveredTextHash,
+                  AttributedStringSerializer.sourceTextLength(for: recoveredText) == 1403,
+                  !AttributedStringSerializer.hasContentFingerprintMismatch(
+                    in: recoveredRichData,
+                    text: recoveredText
+                  ) else {
+                syncStatusMessage = "Induction restore blocked: recovered text or rich-content fingerprint is invalid."
+                return
+            }
+
+            let versions = try modelContext.fetch(FetchDescriptor<Version>())
+            guard let version = versions.first(where: { $0.id.uuidString == expectedVersionID }),
+                  let file = version.textFile,
+                  file.id.uuidString == expectedFileID,
+                  file.name == "Induction",
+                  version.content.count == 713,
+                  AttributedStringSerializer.sourceTextHash(for: version.content) == rolledBackTextHash else {
+                syncStatusMessage = "Induction restore blocked: the expected rolled-back Version was not found unchanged."
+                return
+            }
+
+            var folder = file.parentFolder
+            var owningProject: Project?
+            while let currentFolder = folder {
+                if let project = currentFolder.project {
+                    owningProject = project
+                    break
+                }
+                folder = currentFolder.parentFolder
+            }
+
+            guard let owningProject,
+                  owningProject.id.uuidString == expectedProjectID,
+                  owningProject.name == "Memoirs of a Software Engineer" else {
+                syncStatusMessage = "Induction restore blocked: the Version is not owned by the expected Memoirs project."
+                return
+            }
+
+            version.content = recoveredText
+            version.setFormattedContentData(recoveredRichData, sourceText: recoveredText)
+            file.modifiedDate = Date()
+            owningProject.modifiedDate = Date()
+            try EnsemblesSaveGate.save(modelContext, reason: "sync-diagnostics-restore-induction")
+
+            guard version.content.count == 1403,
+                  !version.hasFormattedContentSyncMismatch else {
+                modelContext.rollback()
+                syncStatusMessage = "Induction restore failed post-save verification."
+                return
+            }
+
+            didRestoreRecoveredInduction = true
+            syncStatusMessage = "Restored the verified 1,403-character Induction revision with its recovered formatting."
+            Write_App.logToFile("✅ [Recovery] Restored verified Induction Version \(expectedVersionID)")
+        } catch {
+            modelContext.rollback()
+            syncStatusMessage = "Induction restore failed: \(error.localizedDescription)"
+            Write_App.logErrorToFile("❌ [Recovery] Induction restore failed: \(error.localizedDescription)")
+        }
+    }
+
+    @MainActor
+    private func repairRecoveredInductionHeading() {
+        let expectedProjectID = "DDECC671-BA40-45DF-857C-9930AC455E76"
+        let expectedFileID = "F01C1484-5593-4362-B2D1-14E4B0D88F54"
+        let expectedVersionID = "A753926D-A942-4D4E-9EE5-4AE9496B7DDF"
+        let expectedTextHash = "a65d00f6d78b466a1b376aa1e20116f79b287f3ff4996fcd3874104bef37ea47"
+        let heading = "Ferranti Automation Systems"
+
+        guard Write_App.isLocalRecoveryModeEnabled,
+              Write_App.activeEnsemblesContainer == nil else {
+            syncStatusMessage = "Title 2 repair blocked: Local Recovery Mode is not isolated from Ensembles."
+            return
+        }
+
+        do {
+            let versions = try modelContext.fetch(FetchDescriptor<Version>())
+            guard let version = versions.first(where: { $0.id.uuidString == expectedVersionID }),
+                  let file = version.textFile,
+                  file.id.uuidString == expectedFileID,
+                  file.name == "Induction",
+                  AttributedStringSerializer.sourceTextHash(for: version.content) == expectedTextHash,
+                  !version.hasFormattedContentSyncMismatch,
+                  let attributedContent = version.attributedContent else {
+                syncStatusMessage = "Title 2 repair blocked: the verified recovered Induction Version was not found unchanged."
+                return
+            }
+
+            var folder = file.parentFolder
+            var owningProject: Project?
+            while let currentFolder = folder {
+                if let project = currentFolder.project {
+                    owningProject = project
+                    break
+                }
+                folder = currentFolder.parentFolder
+            }
+
+            guard let owningProject,
+                  owningProject.id.uuidString == expectedProjectID,
+                  owningProject.name == "Memoirs of a Software Engineer" else {
+                syncStatusMessage = "Title 2 repair blocked: Induction is not owned by the expected Memoirs project."
+                return
+            }
+
+            let headingRange = (attributedContent.string as NSString).range(of: heading)
+            guard headingRange.location != NSNotFound else {
+                syncStatusMessage = "Title 2 repair blocked: the expected heading was not found."
+                return
+            }
+
+            let repairedContent = TextFormatter.applyStyle(
+                named: UIFont.TextStyle.title2.rawValue,
+                to: attributedContent,
+                range: headingRange,
+                project: owningProject,
+                context: modelContext
+            )
+
+            guard repairedContent.string == version.content,
+                  let paragraphStyle = repairedContent.attribute(
+                    .paragraphStyle,
+                    at: headingRange.location,
+                    effectiveRange: nil
+                  ) as? NSParagraphStyle,
+                  paragraphStyle.paragraphSpacing == 12 else {
+                syncStatusMessage = "Title 2 repair blocked: applying the style did not produce the expected 12-point spacing."
+                return
+            }
+
+            version.attributedContent = repairedContent
+            file.modifiedDate = Date()
+            owningProject.modifiedDate = Date()
+            try EnsemblesSaveGate.save(modelContext, reason: "sync-diagnostics-repair-induction-title2")
+
+            guard AttributedStringSerializer.sourceTextHash(for: version.content) == expectedTextHash,
+                  !version.hasFormattedContentSyncMismatch else {
+                modelContext.rollback()
+                syncStatusMessage = "Title 2 repair failed post-save verification."
+                return
+            }
+
+            didRepairRecoveredInductionHeading = true
+            syncStatusMessage = "Reapplied Title 2 to the Induction heading with 12-point spacing after."
+            Write_App.logToFile("✅ [Recovery] Repaired Induction Title 2 paragraph spacing")
+        } catch {
+            modelContext.rollback()
+            syncStatusMessage = "Title 2 repair failed: \(error.localizedDescription)"
+            Write_App.logErrorToFile("❌ [Recovery] Induction Title 2 repair failed: \(error.localizedDescription)")
+        }
     }
 
     private func removeEnsemblesCloudData() async throws {
@@ -581,8 +916,10 @@ struct SyncDiagnosticsView: View {
                 recordZoneIDs: [zoneID],
                 configurationsByRecordZoneID: [zoneID: configuration]
             )
-            operation.timeoutIntervalForRequest = 15
-            operation.timeoutIntervalForResource = 30
+            let operationConfiguration = CKOperation.Configuration()
+            operationConfiguration.timeoutIntervalForRequest = 15
+            operationConfiguration.timeoutIntervalForResource = 30
+            operation.configuration = operationConfiguration
 
             operation.recordWasChangedBlock = { recordID, result in
                 switch result {
@@ -669,6 +1006,12 @@ struct SyncDiagnosticsView: View {
     @MainActor
     private func runManualSync() async {
         guard let container = Write_App.activeEnsemblesContainer else { return }
+        guard !Write_App.storeUnregisteredBlockedThisLaunch,
+              !Write_App.partialStoreBlockedThisLaunch else {
+            syncStatusMessage = "Sync is blocked because the local store is quarantined. Copy diagnostics before recovery."
+            Write_App.logErrorToFile("⛔️ [Ensembles] Diagnostics manual sync blocked by sync quarantine")
+            return
+        }
         syncStatusMessage = "Syncing..."
         Write_App.logToFile("🔄 [Ensembles] Manual sync started from diagnostics (isAttached=\(container.isAttached), activity=\(String(describing: container.currentActivity)))")
         let storeHasDataBeforeSync = Write_App.recordFirstEnsemblesDataAvailableIfNeeded(modelContainer: modelContext.container, reason: "diagnostics manual sync preflight")
@@ -690,6 +1033,62 @@ struct SyncDiagnosticsView: View {
         } catch {
             syncStatusMessage = "Sync failed. Copy diagnostics."
             Write_App.logErrorToFile("❌ [Ensembles] Manual sync failed from diagnostics: \(Write_App.detailedErrorDescription(error))")
+        }
+        refreshCounts()
+    }
+
+    @MainActor
+    private func publishRecoveryBaseline() async {
+        guard !Write_App.isLocalRecoveryModeEnabled,
+              Write_App.currentEnsemblesSeedPolicy == "mergeAllData (existing store)",
+              let container = Write_App.activeEnsemblesContainer,
+              container.isAttached,
+              String(describing: container.currentActivity) == "none" else {
+            syncStatusMessage = "Recovery baseline blocked: this device is not an attached, idle source store."
+            Write_App.logErrorToFile("⚠️ [Ensembles] Recovery baseline publication blocked by source-state guard")
+            return
+        }
+
+        let freshContext = ModelContext(modelContext.container)
+        let sourceProjectCount = fetchCount(Project.self, in: freshContext)
+        let sourceFolderCount = fetchCount(Folder.self, in: freshContext)
+        let sourceFileCount = fetchCount(TextFile.self, in: freshContext)
+        let sourceVersionCount = fetchCount(Version.self, in: freshContext)
+        guard sourceProjectCount > 0,
+              sourceFolderCount > 0,
+              sourceFileCount > 0,
+              sourceVersionCount > 0 else {
+            syncStatusMessage = "Recovery baseline blocked: the source store is empty or incomplete."
+            Write_App.logErrorToFile("⚠️ [Ensembles] Recovery baseline publication blocked for incomplete store projects=\(sourceProjectCount) folders=\(sourceFolderCount) files=\(sourceFileCount) versions=\(sourceVersionCount)")
+            return
+        }
+
+        guard createLocalSafetyBackup(reason: "publish-recovery-baseline") != nil else {
+            syncStatusMessage = "Recovery baseline blocked: the safety backup failed."
+            return
+        }
+
+        syncStatusMessage = "Publishing this Mac's recovery baseline..."
+        Write_App.logToFile("🛟 [Ensembles] Publishing verified source recovery baseline projects=\(sourceProjectCount) folders=\(sourceFolderCount) files=\(sourceFileCount) versions=\(sourceVersionCount)")
+        do {
+            try await container.sync(options: .forceRebase)
+            guard Write_App.recordFirstEnsemblesDataAvailableIfNeeded(
+                modelContainer: modelContext.container,
+                reason: "recovery baseline publication"
+            ) else {
+                syncStatusMessage = "Recovery baseline publication finished, but source verification failed. Keep followers closed and copy diagnostics."
+                Write_App.logErrorToFile("❌ [Ensembles] Recovery baseline publication failed post-sync source verification")
+                return
+            }
+
+            UserDefaults.standard.set(true, forKey: Write_App.v3BaselinePublishedKey)
+            UserDefaults.standard.removeObject(forKey: Write_App.sourceReseedPendingKey)
+            Write_App.recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: "recovery baseline publication")
+            syncStatusMessage = "Recovery baseline published. Verify Sync Zones before opening a follower."
+            Write_App.logToFile("✅ [Ensembles] Verified source recovery baseline published with forced rebase")
+        } catch {
+            syncStatusMessage = "Recovery baseline publication failed. Keep followers closed and copy diagnostics."
+            Write_App.logErrorToFile("❌ [Ensembles] Recovery baseline publication failed: \(Write_App.detailedErrorDescription(error))")
         }
         refreshCounts()
     }
@@ -718,7 +1117,6 @@ struct SyncDiagnosticsView: View {
         detachedSceneCount = countDetachedScenes(in: freshContext)
         tombstoneCount = DeduplicationService.tombstoneCount
         lastRefreshed = Date()
-        diagnosticsRefreshID = UUID()
     }
 
     @MainActor

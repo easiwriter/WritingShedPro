@@ -1,0 +1,5 @@
+// WSP Messages Operator version settings.
+#include "../Versioning.xcconfig"
+
+CURRENT_PROJECT_VERSION = 1.1
+MARKETING_VERSION = 1.0

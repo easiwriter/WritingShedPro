@@ -34,23 +34,16 @@ final class UpgradePromptReasonTests: XCTestCase {
     
     // MARK: - Required Product Tests
     
-    func testRequiredProductMapsCorrectly() {
-        XCTAssertEqual(
-            UpgradePromptReason.projectLimit(projectType: .prose).requiredProduct,
-            .proseWriter
-        )
-        XCTAssertEqual(
-            UpgradePromptReason.fileLimit(projectType: .poetry).requiredProduct,
-            .poetryWriter
-        )
-        XCTAssertEqual(
-            UpgradePromptReason.exportBlocked(projectType: .fiction).requiredProduct,
-            .fictionWriter
-        )
-        XCTAssertEqual(
-            UpgradePromptReason.printBlocked(projectType: .drama).requiredProduct,
-            .dramaWriter
-        )
+    func testAllBlockedActionsRequireFullAccess() {
+        for type in ProjectType.allCases {
+            let reasons: [UpgradePromptReason] = [
+                .projectLimit(projectType: type), .fileLimit(projectType: type),
+                .exportBlocked(projectType: type), .printBlocked(projectType: type)
+            ]
+            for reason in reasons {
+                XCTAssertEqual(reason.requiredProduct, .fullAccess)
+            }
+        }
     }
     
     // MARK: - Title Tests
@@ -90,9 +83,9 @@ final class UpgradePromptReasonTests: XCTestCase {
         }
     }
     
-    func testMessagesContainModuleName() {
+    func testMessagesContainFullAccessName() {
         let reason = UpgradePromptReason.projectLimit(projectType: .poetry)
-        XCTAssertTrue(reason.message.contains("Poetry Writer"))
+        XCTAssertTrue(reason.message.contains(WSPProduct.fullAccess.displayName))
     }
     
     func testMessagesContainProjectType() {

@@ -72,6 +72,7 @@
 		D786773A2F9DF4F80087BC02 /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
 		D7A1B2C3D4E5F6A700000001 /* Versioning.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Versioning.xcconfig; sourceTree = SOURCE_ROOT; };
 		D7B100000000000000000001 /* WSP Reader/Versioning.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "WSP Reader/Versioning.xcconfig"; sourceTree = SOURCE_ROOT; };
+		D7B200000000000000000001 /* WSP Messages Operator/Versioning.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "WSP Messages Operator/Versioning.xcconfig"; sourceTree = SOURCE_ROOT; };
 		D7MSGAPP0000000000000001 /* WSP Messages Operator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WSP Messages Operator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D7QLEXT002F05000000000001 /* WSPQuickLook.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WSPQuickLook.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -80,6 +81,9 @@
 		D741DF8F2EA76295003629E8 /* Exceptions for "Writing Shed Pro" folder in "Writing Shed Pro" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"Crash Logs/BrUUBWewppWmoD8FZnf-RU.xccrashpoint",
+				"Crash Logs/COYyHa0onhSr8wvS1G8oz.xccrashpoint",
+				"Crash Logs/DZedIs80dR0V2cW0acSp1B.xccrashpoint",
 				Info.plist,
 			);
 			target = D741DF6B2EA76292003629E8 /* Writing Shed Pro */;
@@ -96,6 +100,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				Versioning.xcconfig,
 			);
 			target = D7MSGAPP0000000000000007 /* WSP Messages Operator */;
 		};
@@ -213,6 +218,7 @@
 			isa = PBXGroup;
 			children = (
 				D7B100000000000000000001 /* WSP Reader/Versioning.xcconfig */,
+				D7B200000000000000000001 /* WSP Messages Operator/Versioning.xcconfig */,
 				D7A1B2C3D4E5F6A700000001 /* Versioning.xcconfig */,
 			);
 			name = "Recovered References";
@@ -643,7 +649,7 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Writing Shed Pro/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Writing Shed Pro";
+				INFOPLIST_KEY_CFBundleDisplayName = "Writing Shed Pro Dev";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSRemindersUsageDescription = "Writing Shed Pro uses Reminders to help you follow up on submissions and track publication deadlines. You can create optional reminders for submission follow-ups and approaching deadlines.";
@@ -664,7 +670,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				OTHER_SWIFT_FLAGS = "$(inherited) -Xfrontend -warn-long-function-bodies=1000 -Xfrontend -warn-long-expression-type-checking=1000";
-				PRODUCT_BUNDLE_IDENTIFIER = com.appworks.writingshedpro;
+				PRODUCT_BUNDLE_IDENTIFIER = com.appworks.writingshedpro.debug;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -935,6 +941,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "WSP Reader/Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -981,6 +988,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "WSP Reader/Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -1124,6 +1132,7 @@
 		};
 		D7MSGAPP0000000000000009 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D7B200000000000000000001 /* WSP Messages Operator/Versioning.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -1135,6 +1144,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "WSP Messages Operator/Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -1168,6 +1178,7 @@
 		};
 		D7MSGAPP000000000000000A /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D7B200000000000000000001 /* WSP Messages Operator/Versioning.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -1179,6 +1190,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "WSP Messages Operator/Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -1229,7 +1241,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.appworks.writingshedpro.WSPQuickLook;
+				PRODUCT_BUNDLE_IDENTIFIER = com.appworks.writingshedpro.debug.WSPQuickLook;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				SKIP_INSTALL = YES;

@@ -42,21 +42,23 @@ struct Write_App: App {
     static let resetLocalEnsemblesStoreOnNextLaunchKey = "resetLocalEnsemblesStoreOnNextLaunch"
     static let detachLocalEnsemblesBeforeResetOnNextLaunchKey = "detachLocalEnsemblesBeforeResetOnNextLaunch"
     static let excludeLocalDataOnNextEnsemblesAttachKey = "excludeLocalDataOnNextEnsemblesAttach"
-    static let v3BaselinePublishedKey = "WritingShedProConfigurationV3BaselinePublished"
+    static let sourceReseedPendingKey = "sourceReseedPending"
+    static let verifiedSourceCountsKey = "WritingShedProConfigurationV4VerifiedSourceCounts"
+    static let v3BaselinePublishedKey = "WritingShedProConfigurationV4BaselinePublished"
     private static let modelConfigurationName = "WritingShedProConfigurationV2"
     #if DEBUG
-    static let ensembleIdentifier = "WritingShedProConfigurationV3Debug"
+    static let ensembleIdentifier = "WritingShedProConfigurationV4Debug"
     #else
-    static let ensembleIdentifier = "WritingShedProConfigurationV3"
+    static let ensembleIdentifier = "WritingShedProConfigurationV4"
     #endif
 
-    static var isLocalRecoveryModeEnabled: Bool {
+    static let isLocalRecoveryModeEnabled: Bool = {
         let environment = ProcessInfo.processInfo.environment
         let arguments = ProcessInfo.processInfo.arguments
         return arguments.contains("--wsp-local-recovery") ||
             environment["WSP_LOCAL_RECOVERY"] == "1" ||
             UserDefaults.standard.bool(forKey: localRecoveryModeOnNextLaunchKey)
-    }
+    }()
 
     private static var shouldAutoSyncEnsembles: Bool {
         if UserDefaults.standard.bool(forKey: detachLocalEnsemblesBeforeResetOnNextLaunchKey) { return false }
@@ -219,6 +221,7 @@ struct Write_App: App {
         let ensemblesContainer = Write_App.makePreopenedEnsemblesContainer(
             schema: schema,
             storeURL: storeURL,
+            localStoreWasMissingAtLaunch: localStoreWasMissingAtLaunch,
             cloudFileSystem: cloudFileSystem,
             configuration: configuration
         )
@@ -372,6 +375,7 @@ struct Write_App: App {
     private static func makePreopenedEnsemblesContainer(
         schema: Schema,
         storeURL: URL,
+        localStoreWasMissingAtLaunch: Bool,
         cloudFileSystem: CloudFileSystem,
         configuration: EnsembleContainerConfiguration
     ) -> SwiftDataEnsembleContainer? {
@@ -379,7 +383,43 @@ struct Write_App: App {
         do {
             let localContainer = try Write_App.makeLocalModelContainer(schema: schema, storeURL: storeURL)
             localContainer.mainContext.autosaveEnabled = false
-            Write_App.logToFile("✅ [Ensembles] Local ModelContainer opened before Ensembles attach")
+            let context = ModelContext(localContainer)
+            let projectCount = try context.fetchCount(FetchDescriptor<Project>())
+            let folderCount = try context.fetchCount(FetchDescriptor<Folder>())
+            let fileCount = try context.fetchCount(FetchDescriptor<TextFile>())
+            let versionCount = try context.fetchCount(FetchDescriptor<Version>())
+            let publicationCount = try context.fetchCount(FetchDescriptor<Publication>())
+            let sceneCount = try context.fetchCount(FetchDescriptor<StoryScene>())
+            let requiresVerifiedSource = UserDefaults.standard.bool(forKey: Write_App.sourceReseedPendingKey)
+            let expectedCounts = UserDefaults.standard.dictionary(forKey: Write_App.verifiedSourceCountsKey) as? [String: Int]
+            let actualCounts = [
+                "projects": projectCount,
+                "folders": folderCount,
+                "files": fileCount,
+                "versions": versionCount,
+                "publications": publicationCount,
+                "scenes": sceneCount
+            ]
+            let matchesVerifiedSource = expectedCounts == actualCounts
+            let isPartial = Write_App.isPartialEnsemblesStore(
+                projectCount: projectCount,
+                folderCount: folderCount,
+                fileCount: fileCount,
+                versionCount: versionCount,
+                publicationCount: publicationCount,
+                sceneCount: sceneCount
+            )
+
+            Write_App.logToFile("🔎 [Ensembles] Pre-attach store URL=\(storeURL.standardizedFileURL.path) existedAtLaunch=\(!localStoreWasMissingAtLaunch) verifiedSourceRequired=\(requiresVerifiedSource) verifiedSourceMatches=\(matchesVerifiedSource) projects=\(projectCount) folders=\(folderCount) files=\(fileCount) versions=\(versionCount) publications=\(publicationCount) scenes=\(sceneCount)")
+
+            if isPartial || (requiresVerifiedSource && !matchesVerifiedSource) {
+                Write_App.storeUnregisteredBlockedThisLaunch = true
+                Write_App.initialEnsemblesImportUnavailable = true
+                Write_App.logErrorToFile("🛑 [Ensembles] Pre-attach store verification blocked V4 attachment; preserving local store without sync")
+                return nil
+            }
+
+            Write_App.logToFile("✅ [Ensembles] Local ModelContainer verified before Ensembles attach")
             return SwiftDataEnsembleContainer(
                 name: Write_App.ensembleIdentifier,
                 modelContainer: localContainer,
@@ -604,11 +644,6 @@ struct Write_App: App {
                 .environment(writeCoalescer)
                 .environment(syncHealthMonitor)
                 .task {
-                    // Configure EntitlementManager for in-app purchases
-                    if #available(macCatalyst 15, macOS 14.4, iOS 17.4, *) {
-                        await EntitlementManager.shared.configure()
-                    }
-                    
                     // Defer iCloud status check to avoid blocking app launch
                     try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
                     if Write_App.isLocalRecoveryModeEnabled {
@@ -731,8 +766,17 @@ struct Write_App: App {
     }
 
     static func recordFirstSuccessfulEnsemblesSyncThisLaunch(reason: String) {
+        if storeUnregisteredBlockedThisLaunch {
+            storeUnregisteredBlockedThisLaunch = false
+            logToFile("✅ [Ensembles] Cleared recovered store-unregistered block after successful sync (reason=\(reason))")
+        }
         guard !hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch else { return }
         hasCompletedFirstSuccessfulEnsemblesSyncThisLaunch = true
+        if UserDefaults.standard.bool(forKey: sourceReseedPendingKey) {
+            UserDefaults.standard.removeObject(forKey: sourceReseedPendingKey)
+            UserDefaults.standard.removeObject(forKey: verifiedSourceCountsKey)
+            logToFile("✅ [Ensembles] Cleared one-time verified source fingerprint after successful V4 sync")
+        }
         logToFile("✅ [Ensembles] First successful sync completed this launch (reason=\(reason))")
         NotificationCenter.default.post(name: .writingShedProSyncDidUpdateLocalData, object: nil)
     }
@@ -927,6 +971,9 @@ struct Write_App: App {
             return childCount > 0
         }
         if folderCount == 0 {
+            return true
+        }
+        if fileCount >= 10 && versionCount * 10 < fileCount {
             return true
         }
         return projectCount > 1 && fileCount == 0 && versionCount == 0 && publicationCount == 0

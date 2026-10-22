@@ -1,69 +1,56 @@
 # What's New
 
-This section highlights the latest features and improvements in Writing Shed Pro.
+Writing Shed Pro 20 simplifies upgrades with a single Full Access purchase while preserving your existing writing-module purchases.
 
-## Version 1.0
+## Version 20
 
-Welcome to the first release of Writing Shed Pro! Here's everything you can do:
+### Full Access for Legacy Users
+- Existing Prose, Poetry, Fiction, Drama, and All-in Bundle purchases remain valid and can still be restored.
+- Individual writing modules and the All-in Bundle are no longer offered for sale. If an action requires an upgrade, you are now offered the one-time **Writing Shed Pro Full Access** purchase instead.
+- Full Access unlocks all four writing types, unlimited projects and files, importing, exporting, and printing. Once purchased and verified, no further core-feature purchase prompts are required.
+- For example, if you already own Poetry Writer and need to unlock Fiction, the Full Access purchase unlocks Fiction, Prose, and Drama as well as Poetry.
+- This applies to all users on the legacy purchase model, including version 19 users with existing legacy purchases. You do not need to start a trial or repurchase features you already own.
+- **Manuscript Analyst remains a separate subscription** and is not included with Full Access.
 
-### Core Features
-- Create and manage writing projects
-- Organize work in folders with drag-to-reorder support
-- Rich text editing with bold, italic, underline, and strikethrough
-- Customizable paragraph styles with stylesheet editor
-- iCloud sync across all your devices
+## Version 19.1
 
-### Poetry Tools
-- Smart poetry templates for 30+ traditional forms
-- Real-time syllable counting
-- Stress pattern analysis for metered verse
-- Rhyme scheme visualization
-- Form reference panel while writing
+### Publication History
+- Review publication activity for an individual project or across all projects.
+- See each file's project, publication, submission date, response, and status in one chronological table.
+- Print the complete publication history as a landscape report.
 
-### Fiction Tools
-- Novel, short fiction, and verse novel project types
-- Scene and chapter management
-- Plot element tracking with story structure templates
-- Character and location management
-- Monomyth (Hero's Journey) support
+### Search and Navigation
+- Search for filenames across a project as well as text within files.
+- Reveal a search result directly in its containing folder.
+- Navigate quickly between numbered manuscript sections and subsections.
+- Open the last project automatically at launch when the option is enabled in Settings.
 
-### Drama Tools
-- Drama Markup Language (DML) for easy script writing
-- Film and stage play format output
-- Automatic dialogue formatting
-- Scene headings and transitions
+### Manuscript Analyst
+- Writing Pattern Assessment now highlights notable structural and stylistic patterns in submitted text.
+- Results include a confidence label, summary, and line-referenced observations where relevant.
+- The assessment is editorial guidance only and does not claim to identify authorship or prove the use of AI.
 
-### Publishing
-- PDF, RTF, ePub, and DocX export
-- Professional pagination
-- Footnotes with page positioning
-- Printing support on iOS and macOS
-- Collection and submission tracking
+### Editing and Styles
+- Choose specific font faces, including regular, light, bold, italic, and bold italic variants, in the stylesheet editor.
+- Improved paragraph-style inheritance, heading numbering, indentation, and follow-on styles.
+- Pasted rich text now adopts the destination Body style while retaining appropriate formatting.
+- Improved spelling, formatting, caret, and rich-text persistence across editing sessions and devices.
 
-### Search and Replace
-- Find text in files, collections, or entire projects
-- Case-sensitive and whole-word options
-- Regular expression support
-- Replace across multiple files
+### Images and References
+- Apply image borders and control their appearance through image styles.
+- Improved image insertion, resizing, serialization, and style reapplication.
+- Improved footnote and reference-marker editing, numbering, preview, and export reliability.
 
-### Poetry Collections
-- Dedicated poetry collections with their own names, synopses, and file links
-- Collections can be added to the manuscript body matter for assembly and export
+### Collections and Planning
+- Newly added collection items now appear at the end of the collection.
+- Collection and scene lists present cleaner filename-only rows.
+- Improved character, location, scene, plot-element, book, and collection editing on Mac.
 
-### Manuscript Body Matter
-- Unified body matter folder for organising your manuscript
-- Add, remove, and reorder items with a dedicated management interface
-- Poetry collections, fiction books, and chapters can be included in body matter
-
-### Scene Grouping
-- Fiction scenes grouped by chapter with collapsible sections and expand/collapse controls
-- Drama scenes grouped by act with the same collapsible grouping
-- Unassigned scenes appear in a separate section
-
-### Submission Reminders
-- Date-based reminders for submissions and publication deadlines
-- System notifications with alerts and sound
-- Manage reminders from submission and publication detail views
+### Reliability and Access
+- More reliable synchronization and recovery across devices.
+- Faster editor loading and more responsive typing and saving.
+- Improved manuscript previews, generated matter, PDF headings, and page layout.
+- Updated trial and purchase access options.
 
 ## See Also
 - [Introduction](11-introduction.md)

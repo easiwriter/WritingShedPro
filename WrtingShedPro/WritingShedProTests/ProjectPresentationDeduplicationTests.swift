@@ -4,7 +4,7 @@ import SwiftData
 
 final class ProjectPresentationDeduplicationTests: XCTestCase {
 
-    func testPresentedProjectsKeepsRichestSyncedDuplicate() {
+    func testPresentedProjectsKeepsDistinctIDsEvenWhenOneHasMoreContent() {
         let creationDate = Date(timeIntervalSince1970: 1_710_000_000)
         let sparse = Project(name: "The Republic of Heaven", type: .prose, creationDate: creationDate)
         let rich = Project(name: "The Republic of Heaven", type: .prose, creationDate: creationDate)
@@ -16,11 +16,10 @@ final class ProjectPresentationDeduplicationTests: XCTestCase {
 
         let visible = DeduplicationService.presentedProjects(from: [sparse, rich])
 
-        XCTAssertEqual(visible.count, 1)
-        XCTAssertEqual(visible.first?.id, rich.id)
+        XCTAssertEqual(Set(visible.map(\.id)), Set([sparse.id, rich.id]))
     }
 
-    func testPresentedProjectsCollapsesStructurallyIdenticalRecoveryClones() {
+    func testPresentedProjectsKeepsStructurallyIdenticalProjectsWithDistinctIDs() {
         let first = Project(name: "Poems 2026", type: .poetry, creationDate: Date(timeIntervalSince1970: 1_710_000_000))
         let second = Project(name: "Poems 2026", type: .poetry, creationDate: Date(timeIntervalSince1970: 1_720_000_000))
 
@@ -36,10 +35,10 @@ final class ProjectPresentationDeduplicationTests: XCTestCase {
 
         let visible = DeduplicationService.presentedProjects(from: [first, second])
 
-        XCTAssertEqual(visible.count, 1)
+        XCTAssertEqual(Set(visible.map(\.id)), Set([first.id, second.id]))
     }
 
-    func testPresentedProjectsCollapsesSameNameTypeRecoveryClonesEvenWhenRelationshipsDiffer() {
+    func testPresentedProjectsKeepsSameNameTypeProjectsWhenRelationshipsDiffer() {
         let populated = Project(name: "Poems 2026", type: .poetry, creationDate: Date(timeIntervalSince1970: 1_710_000_000))
         let relationshipLagging = Project(name: "Poems 2026", type: .poetry, creationDate: Date(timeIntervalSince1970: 1_720_000_000))
 
@@ -50,8 +49,18 @@ final class ProjectPresentationDeduplicationTests: XCTestCase {
 
         let visible = DeduplicationService.presentedProjects(from: [populated, relationshipLagging])
 
+        XCTAssertEqual(Set(visible.map(\.id)), Set([populated.id, relationshipLagging.id]))
+    }
+
+    func testPresentedProjectsCollapsesRowsWithSameUUID() {
+        let first = Project(name: "Poems 2026", type: .poetry)
+        let second = Project(name: "Poems 2026", type: .poetry)
+        second.id = first.id
+
+        let visible = DeduplicationService.presentedProjects(from: [first, second])
+
         XCTAssertEqual(visible.count, 1)
-        XCTAssertEqual(visible.first?.id, populated.id)
+        XCTAssertEqual(visible.first?.id, first.id)
     }
 
     func testPresentedProjectsDoesNotCollapseUnnamedProjects() {
@@ -114,11 +123,12 @@ final class ProjectPresentationDeduplicationTests: XCTestCase {
         XCTAssertEqual(remaining.first?.name, "Poem Shed")
     }
 
-    @MainActor func testSyncedDuplicateFamilyMatchesSameNameTypeAndCreationDate() throws {
+    @MainActor func testSyncedDuplicateFamilyMatchesOnlySameUUID() throws {
         let creationDate = Date(timeIntervalSince1970: 1_710_000_000)
         let original = Project(name: "The Republic of Heaven", type: .poetry, creationDate: creationDate)
         let clone = Project(name: "The Republic of Heaven", type: .poetry, creationDate: creationDate)
-        let recreated = Project(name: "The Republic of Heaven", type: .poetry, creationDate: creationDate.addingTimeInterval(60))
+        clone.id = original.id
+        let recreated = Project(name: "The Republic of Heaven", type: .poetry, creationDate: creationDate)
 
         let schema = Schema([Project.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -131,7 +141,8 @@ final class ProjectPresentationDeduplicationTests: XCTestCase {
 
         let family = DeduplicationService.syncedDuplicateFamily(for: original, context: context)
 
-        XCTAssertEqual(Set(family.map(\.id)), Set([original.id, clone.id]))
-        XCTAssertFalse(family.contains(where: { $0.id == recreated.id }))
+        XCTAssertEqual(family.count, 2)
+        XCTAssertTrue(family.allSatisfy { $0.id == original.id })
+        XCTAssertFalse(family.contains(where: { $0.persistentModelID == recreated.persistentModelID }))
     }
 }

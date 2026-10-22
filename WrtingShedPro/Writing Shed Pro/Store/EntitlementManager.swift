@@ -17,6 +17,17 @@ enum PurchaseModel: String, Equatable {
     case trialAndFullAccess
 }
 
+enum OriginalAppVersionScheme {
+    case marketingVersion
+    case buildNumber
+}
+
+enum ProjectImportAccess: Equatable {
+    case allowed
+    case projectLimit
+    case fileLimit
+}
+
 enum CoreAccessState: Equatable {
     case loading
     case activationRequired
@@ -46,12 +57,38 @@ enum CoreAccessState: Equatable {
 
 enum EntitlementPolicy {
     static let cutoverVersion = "19.0"
+    static let cutoverBuildNumber = "503"
     static let trialDuration: TimeInterval = 10 * 24 * 60 * 60
 
-    static func purchaseModel(for originalAppVersion: String) -> PurchaseModel {
-        compareVersions(originalAppVersion, cutoverVersion) == .orderedAscending
+    static func purchaseModel(
+        for originalAppVersion: String,
+        versionScheme: OriginalAppVersionScheme = .marketingVersion
+    ) -> PurchaseModel {
+        let cutover = versionScheme == .buildNumber ? cutoverBuildNumber : cutoverVersion
+        return compareVersions(originalAppVersion, cutover) == .orderedAscending
             ? .legacy
             : .trialAndFullAccess
+    }
+
+    static func purchaseModel(
+        for originalAppVersion: String,
+        isSandboxEnvironment: Bool,
+        versionScheme: OriginalAppVersionScheme = .marketingVersion
+    ) -> PurchaseModel {
+        isSandboxEnvironment
+            ? .trialAndFullAccess
+            : purchaseModel(for: originalAppVersion, versionScheme: versionScheme)
+    }
+
+    static func purchaseModel(
+        appTransactionModel: PurchaseModel?,
+        entitlementIDs: Set<String>
+    ) -> PurchaseModel? {
+        let legacyProductIDs = Set(WSPProduct.legacyCoreProducts.map(\.rawValue))
+        if !entitlementIDs.isDisjoint(with: legacyProductIDs) {
+            return .legacy
+        }
+        return appTransactionModel
     }
 
     static func coreAccessState(
@@ -60,12 +97,12 @@ enum EntitlementPolicy {
         trialStartDate: Date?,
         now: Date
     ) -> CoreAccessState {
-        guard let purchaseModel else { return .loading }
-        guard purchaseModel == .trialAndFullAccess else { return .legacy }
-
         if entitlementIDs.contains(WSPProduct.fullAccess.rawValue) {
             return .fullAccess
         }
+
+        guard let purchaseModel else { return .loading }
+        guard purchaseModel == .trialAndFullAccess else { return .legacy }
 
         guard entitlementIDs.contains(WSPProduct.tenDayTrial.rawValue),
               let trialStartDate else {
@@ -83,10 +120,60 @@ enum EntitlementPolicy {
         coreAccessState: CoreAccessState,
         isLegacyProductUnlocked: Bool
     ) -> Bool {
+        if coreAccessState == .fullAccess { return true }
         if purchaseModel == .trialAndFullAccess {
             return coreAccessState.allowsCoreMutations
         }
         return isLegacyProductUnlocked || existingCount < freeTierLimit
+    }
+
+    static func isModulePurchased(
+        _ product: WSPProduct,
+        purchaseModel: PurchaseModel?,
+        coreAccessState: CoreAccessState,
+        entitlementIDs: Set<String>
+    ) -> Bool {
+        if WSPProduct.legacyCoreProducts.contains(product) {
+            if coreAccessState == .fullAccess { return true }
+            if purchaseModel == .trialAndFullAccess {
+                return coreAccessState.allowsCoreMutations
+            }
+            return entitlementIDs.contains(WSPProduct.allInBundle.rawValue)
+                || entitlementIDs.contains(product.rawValue)
+        }
+        return entitlementIDs.contains(product.rawValue)
+    }
+
+    static func projectImportAccess(
+        existingProjectCount: Int,
+        importedFileCount: Int,
+        projectLimit: Int,
+        fileLimit: Int,
+        purchaseModel: PurchaseModel?,
+        coreAccessState: CoreAccessState,
+        isLegacyProductUnlocked: Bool
+    ) -> ProjectImportAccess {
+        guard canCreate(
+            existingCount: existingProjectCount,
+            freeTierLimit: projectLimit,
+            purchaseModel: purchaseModel,
+            coreAccessState: coreAccessState,
+            isLegacyProductUnlocked: isLegacyProductUnlocked
+        ) else {
+            return .projectLimit
+        }
+
+        guard importedFileCount == 0 || canCreate(
+            existingCount: importedFileCount - 1,
+            freeTierLimit: fileLimit,
+            purchaseModel: purchaseModel,
+            coreAccessState: coreAccessState,
+            isLegacyProductUnlocked: isLegacyProductUnlocked
+        ) else {
+            return .fileLimit
+        }
+
+        return .allowed
     }
 
     static func canPurchaseManuscriptAnalyst(
@@ -188,34 +275,43 @@ final class EntitlementManager {
     private var hasConfirmedNetworkPath = false
     private var isNetworkReachable = true
 
-#if DEBUG
+#if DEBUG || targetEnvironment(simulator)
     private static let paywallCaptureModeKey = "debug.paywallCaptureMode"
-    private static let expiredTrialSimulationKey = "debug.expiredTrialSimulation"
+#endif
+#if DEBUG
+    private(set) var isExpiredTrialSimulationEnabled = false
 #endif
     
     // MARK: - Initialization
     
     private init() {
+#if targetEnvironment(simulator)
+        if UserDefaults.standard.object(forKey: Self.paywallCaptureModeKey) == nil {
+            UserDefaults.standard.set(true, forKey: Self.paywallCaptureModeKey)
+        }
+#endif
         if let rawValue = UserDefaults.standard.string(forKey: PersistenceKey.purchaseModel) {
             purchaseModel = PurchaseModel(rawValue: rawValue)
         }
         trialStartDate = UserDefaults.standard.object(forKey: PersistenceKey.trialStartDate) as? Date
         latestTrustedDate = UserDefaults.standard.object(forKey: PersistenceKey.latestTrustedDate) as? Date
+    #if DEBUG
+        UserDefaults.standard.removeObject(forKey: "debug.expiredTrialSimulation")
+    #endif
     }
 
-#if DEBUG
+#if DEBUG || targetEnvironment(simulator)
     var isPaywallCaptureModeEnabled: Bool {
         UserDefaults.standard.bool(forKey: Self.paywallCaptureModeKey)
-    }
-
-    var isExpiredTrialSimulationEnabled: Bool {
-        UserDefaults.standard.bool(forKey: Self.expiredTrialSimulationKey)
     }
 
     func setPaywallCaptureModeEnabled(_ enabled: Bool) async {
         UserDefaults.standard.set(enabled, forKey: Self.paywallCaptureModeKey)
         if enabled {
             locallyVerifiedProductIDs.removeAll()
+            purchaseModel = .trialAndFullAccess
+        } else {
+            await resolvePurchaseModel()
         }
         await refreshEntitlements()
     }
@@ -223,11 +319,20 @@ final class EntitlementManager {
     func resetPaywallCaptureState() async {
         UserDefaults.standard.removeObject(forKey: Self.paywallCaptureModeKey)
         locallyVerifiedProductIDs.removeAll()
+        await resolvePurchaseModel()
         await refreshEntitlements()
     }
+#endif
 
+#if DEBUG
     func setExpiredTrialSimulationEnabled(_ enabled: Bool) {
-        UserDefaults.standard.set(enabled, forKey: Self.expiredTrialSimulationKey)
+        if enabled, let trialStartDate {
+            let trialIdentifier = String(Int(trialStartDate.timeIntervalSince1970))
+            UserDefaults.standard.removeObject(
+                forKey: "iap.trial.warning.\(trialIdentifier).expired"
+            )
+        }
+        isExpiredTrialSimulationEnabled = enabled
         refreshTimeState()
     }
 #endif
@@ -243,11 +348,19 @@ final class EntitlementManager {
             purchaseManager.configure(from: config)
         }
         await resolvePurchaseModel()
+#if DEBUG || targetEnvironment(simulator)
+        if isPaywallCaptureModeEnabled {
+            purchaseModel = .trialAndFullAccess
+        }
+#endif
         await refreshEntitlements()
     }
     
     /// Refresh entitlements from StoreKit
-    func refreshEntitlements() async {
+    func refreshEntitlements(refreshPurchaseModel: Bool = false) async {
+        if refreshPurchaseModel {
+            await resolvePurchaseModel()
+        }
         // Avoid false offline warnings at startup: NWPathMonitor.currentPath can be
         // stale/unspecified until the first async path callback arrives.
         let hasConfirmedPath = hasConfirmedNetworkPath
@@ -255,7 +368,7 @@ final class EntitlementManager {
         await purchaseManager.checkEntitlement()
         let verifiedSnapshot = await loadCurrentEntitlements()
         let verifiedEntitlements = verifiedSnapshot.productIDs
-#if DEBUG
+#if DEBUG || targetEnvironment(simulator)
         if isPaywallCaptureModeEnabled {
             cachedEntitlements = locallyVerifiedProductIDs
         } else {
@@ -264,6 +377,19 @@ final class EntitlementManager {
 #else
         cachedEntitlements = verifiedEntitlements.union(locallyVerifiedProductIDs)
 #endif
+        let reconciledPurchaseModel = EntitlementPolicy.purchaseModel(
+            appTransactionModel: purchaseModel,
+            entitlementIDs: cachedEntitlements
+        )
+        if reconciledPurchaseModel != purchaseModel {
+            purchaseModel = reconciledPurchaseModel
+            if let reconciledPurchaseModel {
+                UserDefaults.standard.set(
+                    reconciledPurchaseModel.rawValue,
+                    forKey: PersistenceKey.purchaseModel
+                )
+            }
+        }
     if let verifiedTrialStartDate = verifiedSnapshot.trialStartDate {
         recordTrialStartDate(verifiedTrialStartDate)
     }
@@ -330,7 +456,16 @@ final class EntitlementManager {
         do {
             switch try await AppTransaction.shared {
             case .verified(let appTransaction):
-                let resolvedModel = EntitlementPolicy.purchaseModel(for: appTransaction.originalAppVersion)
+                #if os(macOS) && !targetEnvironment(macCatalyst)
+                let versionScheme = OriginalAppVersionScheme.marketingVersion
+                #else
+                let versionScheme = OriginalAppVersionScheme.buildNumber
+                #endif
+                let resolvedModel = EntitlementPolicy.purchaseModel(
+                    for: appTransaction.originalAppVersion,
+                    isSandboxEnvironment: appTransaction.environment != .production,
+                    versionScheme: versionScheme
+                )
                 purchaseModel = resolvedModel
                 UserDefaults.standard.set(resolvedModel.rawValue, forKey: PersistenceKey.purchaseModel)
             case .unverified:
@@ -419,6 +554,10 @@ final class EntitlementManager {
         coreAccessState == .activationRequired
     }
 
+    var hasActivatedTrial: Bool {
+        cachedEntitlements.contains(WSPProduct.tenDayTrial.rawValue)
+    }
+
     var isCoreReadOnly: Bool {
         coreAccessState == .trialExpired
     }
@@ -456,17 +595,12 @@ final class EntitlementManager {
         guard isLoaded else {
             return false
         }
-        if purchaseModel == .trialAndFullAccess,
-           product.projectType != nil || product == .allInBundle {
-            return coreAccessState == .trialActive(expiresAt: trialExpirationDate ?? .distantPast)
-            || coreAccessState == .fullAccess
-        }
-
-        // Check cached entitlements first (includes locally verified purchases
-        // that Transaction.currentEntitlements may not yet reflect on iOS).
-        let cachedBundle = cachedEntitlements.contains(WSPProduct.allInBundle.rawValue)
-        let cachedProduct = cachedEntitlements.contains(product.rawValue)
-        return cachedBundle || cachedProduct
+        return EntitlementPolicy.isModulePurchased(
+            product,
+            purchaseModel: purchaseModel,
+            coreAccessState: coreAccessState,
+            entitlementIDs: cachedEntitlements
+        )
     }
     
     /// Check if a project type is unlocked (purchased or bundle)
@@ -573,6 +707,22 @@ final class EntitlementManager {
             isLegacyProductUnlocked: isProjectTypeUnlocked(projectType)
         )
     }
+
+    func projectImportAccess(
+        projectType: ProjectType,
+        existingProjectCount: Int,
+        importedFileCount: Int
+    ) -> ProjectImportAccess {
+        EntitlementPolicy.projectImportAccess(
+            existingProjectCount: existingProjectCount,
+            importedFileCount: importedFileCount,
+            projectLimit: Self.freeTierMaxProjectsPerType,
+            fileLimit: Self.freeTierMaxFilesPerProject,
+            purchaseModel: purchaseModel,
+            coreAccessState: coreAccessState,
+            isLegacyProductUnlocked: isProjectTypeUnlocked(projectType)
+        )
+    }
     
     /// Check if user can export from a project of the given type
     func canExport(projectType: ProjectType) -> Bool {
@@ -644,7 +794,7 @@ enum UpgradePromptReason {
     
     /// The product needed to unlock this feature
     var requiredProduct: WSPProduct {
-        WSPProduct.product(for: projectType)
+        .fullAccess
     }
     
     /// User-facing title for the prompt

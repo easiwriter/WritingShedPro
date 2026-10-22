@@ -529,6 +529,38 @@ final class Version {
         return AttributedStringSerializer.hasContentFingerprintMismatch(in: effectiveFormattedContent, text: content)
     }
 
+    @discardableResult
+    func reconcileContentFromFormattedPayloadIfPossible() -> Bool {
+        guard hasFormattedContentSyncMismatch,
+              let formattedData = effectiveFormattedContent,
+              let sourceText = AttributedStringSerializer.verifiedSourceText(in: formattedData),
+              sourceText != content else {
+            return false
+        }
+
+        let currentContentMatchesOuterFingerprint =
+            formattedContentSourceTextLength == AttributedStringSerializer.sourceTextLength(for: content) &&
+            formattedContentSourceTextHash == AttributedStringSerializer.sourceTextHash(for: content)
+
+        if currentContentMatchesOuterFingerprint,
+           let rebasedData = AttributedStringSerializer.rebasedData(
+               formattedData,
+               from: sourceText,
+               to: content
+           ) {
+            setFormattedContentData(rebasedData, sourceText: content)
+        } else {
+            content = sourceText
+            formattedContentSourceTextHash = AttributedStringSerializer.sourceTextHash(for: sourceText)
+            formattedContentSourceTextLength = AttributedStringSerializer.sourceTextLength(for: sourceText)
+        }
+
+        _cachedAttributedContent = nil
+        _cachedFormattedContentHash = nil
+        _cachedPlainContentHash = nil
+        return !hasFormattedContentSyncMismatch
+    }
+
     func setFormattedContentData(_ data: Data?, sourceText: String? = nil) {
         formattedContent = data
         formattedContentSyncData = data
@@ -1086,4 +1118,3 @@ final class TrashItem {
         return originalFolder != nil
     }
 }
-

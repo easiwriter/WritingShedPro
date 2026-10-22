@@ -37,6 +37,9 @@ fastlane/test_output/
 *.swiftpm
 # Logs
 *.log
+*.xccrashpoint/
+# JavaScript dependencies
+node_modules/
 # Environment
 .env*
 # Coverage

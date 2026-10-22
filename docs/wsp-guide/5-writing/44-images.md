@@ -20,24 +20,45 @@ Writing Shed Pro supports inline images in your documents. Add photos, illustrat
 
 ## Image Properties
 
-Tap an image to select it and access its properties:
-You can also use the image controls button in the editor toolbar when an image is selected.
+Tap an image to select it, then open **Image Properties** from the image controls button in the editor toolbar.
+
+### Image Style
+Choose one of the image styles defined in the project's stylesheet. Selecting a style loads that style's settings into the Image Properties form.
+
+- **Reset to Style** discards changes in the form and reloads the selected style's current definition. It does not alter the image until you apply the settings.
+- **Apply to Image** applies the displayed settings only to the selected image.
+- **Update Style** replaces the selected style's definition with the displayed settings. After confirmation, every image using that style is reformatted. Projects that share the same stylesheet are updated as well.
 
 ### Scale
 Adjust the image size:
-- 10% to 200% of original
-- Slider or type exact value
+
+- 10% to 200% of the available text-column width
+- Use the minus and plus buttons or type an exact percentage
 - Maintains aspect ratio
+
+### Spacing
+Set **Space Above** and **Space Below** in points to control the vertical space around the image paragraph.
 
 ### Alignment
 Control horizontal position:
+
 - **Left**: Image aligns to left margin
 - **Center**: Image centers in the text column
 - **Right**: Image aligns to right margin
-- **Inline**: Image flows with text like a character
+
+### Border
+Choose a rectangular border preset:
+
+- **None**: No border
+- **Thin**: 1-point border
+- **Medium**: 2-point border
+- **Thick**: 4-point border
+
+Use **Border Padding** to set the gap, in points, between the image and its border. The caption remains below and outside the border.
 
 ### Caption
 Add a caption below the image:
+
 1. Toggle **Show Caption** on
 2. Enter caption text
 3. Select caption style
@@ -48,17 +69,22 @@ Images can use styles defined in your project's stylesheet:
 
 ### Default Image Style
 New images use the default style with:
+
 - Centered alignment
 - 100% scale
-- No caption (initially)
+- Configurable spacing and border settings
+- Optional caption
 
 ### Custom Image Styles
 Create styles for different image uses:
+
 - **Figure**: Centered, 80% scale, numbered caption
 - **Photo**: Full width, minimal caption
-- **Diagram**: Centered, specific scale
+- **Diagram**: Centered, specific scale and border
 
-Apply styles by tapping an image and selecting the style.
+Create and edit image styles in the **Stylesheet Editor**. An image style controls scale, alignment, spacing, caption defaults, border thickness, and border padding.
+
+Apply a style by selecting an image, opening Image Properties, choosing the style, and tapping **Apply to Image**. Use **Update Style** when you want the current settings to become the style definition and reformat all images assigned to it.
 
 ## Working with Captions
 
@@ -72,6 +98,7 @@ Captions help readers understand your images:
 
 ### Caption Styles
 Caption styles control:
+
 - Font and size
 - Alignment (relative to image)
 - Numbering (Figure 1, Figure 2, etc.)
@@ -87,8 +114,9 @@ Or drag and drop within the document.
 
 ### Resize an Image
 1. Tap the image
-2. Adjust the scale slider
-3. Or type an exact percentage
+2. Open Image Properties
+3. Use the scale buttons or type an exact percentage
+4. Tap **Apply to Image**
 
 ### Replace an Image
 1. Delete the current image
@@ -109,6 +137,7 @@ Or drag and drop within the document.
 
 ### File Size
 Large images increase:
+
 - Document file size
 - iCloud sync time
 - Export time
@@ -177,6 +206,10 @@ RTF export does not include inline images. Writing Shed Pro warns you before exp
 ### Image Too Large/Small
 - Adjust the scale in image properties
 - Check default image style settings
+
+### Only One Image Changed
+- **Apply to Image** intentionally changes only the selected image
+- Use **Update Style** and confirm the update to reformat every image assigned to that style
 
 ## See Also
 - [The Editor](41-the-editor.md)

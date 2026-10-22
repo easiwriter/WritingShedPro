@@ -16,6 +16,9 @@ public enum ImportError: Error, LocalizedError {
     case invalidData
     case decodingFailed
     case fileNotFound
+    case projectLimit
+    case fileLimit
+    case accessCheckFailed
     case unknownError
 
     public var errorDescription: String? {
@@ -28,6 +31,15 @@ public enum ImportError: Error, LocalizedError {
             return "The selected file could not be decoded as a Writing Shed Pro project."
         case .fileNotFound:
             return "The selected file could not be found."
+        case .projectLimit:
+            return NSLocalizedString("onboarding.error.projectLimit", comment: "Project limit reached")
+        case .fileLimit:
+            return NSLocalizedString("onboarding.error.fileLimit", comment: "File limit reached")
+        case .accessCheckFailed:
+            return NSLocalizedString(
+                "contentView.importError.accessCheckFailed",
+                comment: "Unable to verify project import access"
+            )
         case .unknownError:
             return "The project could not be imported."
         }
@@ -35,6 +47,7 @@ public enum ImportError: Error, LocalizedError {
 }
 
 /// Handles import of JSON files exported from Writing Shed v1
+@MainActor
 class JSONImportService {
     
     // MARK: - Properties
@@ -155,6 +168,10 @@ class JSONImportService {
         
         // Create project
         let projectType = ProjectType(rawValue: data.project.type) ?? .prose
+        try validateImportAccess(
+            projectType: projectType,
+            importedFileCount: countTextFiles(in: data.folders)
+        )
         DeduplicationService.clearTombstone(name: data.project.name, typeRaw: projectType.rawValue)
         var projectName = data.project.name
         projectName = ensureUniqueName(projectName)
@@ -1046,6 +1063,11 @@ class JSONImportService {
     private func importFromLegacyWSD(jsonData: Data) throws -> Project {
         let decoder = JSONDecoder()
         let writingShedData = try decoder.decode(WritingShedData.self, from: jsonData)
+        let projectClassification = classifyLegacyProject(writingShedData)
+        try validateImportAccess(
+            projectType: projectClassification.projectType,
+            importedFileCount: writingShedData.textFileDatas.count
+        )
         
         // Debug logging
         #if DEBUG
@@ -1184,26 +1206,15 @@ class JSONImportService {
         projectName = ensureUniqueName(projectName)
         DeduplicationService.clearTombstone(name: projectName, typeRaw: nil)
         
-        // Try to get project type from the nested project JSON first
-        var projectType: ProjectType = .prose
-        var isNovel = false
-        
-        var isShortStories = false
-        
-        if let projectData = data.project.data(using: .utf8),
-           let projectDict = try? JSONSerialization.jsonObject(with: projectData) as? [String: Any],
-           let typeString = projectDict["projectType"] as? String {
-            projectType = mapProjectType(typeString)
-            isNovel = typeString.lowercased() == "novel"
-            isShortStories = typeString.lowercased() == "short stories"
+        let classification = classifyLegacyProject(data)
+        let projectType = classification.projectType
+
+        if let typeString = classification.sourceType {
             #if DEBUG
             print("[JSONImport] Project type from JSON: \(typeString) -> \(projectType)")
-            print("[JSONImport] isNovel: \(isNovel), isShortStories: \(isShortStories)")
+            print("[JSONImport] isNovel: \(classification.isNovel), isShortStories: \(classification.isShortStories)")
             print("[JSONImport] typeString.lowercased(): '\(typeString.lowercased())'")
             #endif
-        } else {
-            // Fall back to projectModel field
-            projectType = mapProjectType(data.projectModel)
         }
         
         // Create project
@@ -1216,12 +1227,12 @@ class JSONImportService {
         project.modifiedDate = Date()
         
         // Set fictionClass for Novel projects
-        if isNovel {
+        if classification.isNovel {
             project.fictionClass = .novel
             #if DEBUG
             print("[JSONImport] Set fictionClass to .novel")
             #endif
-        } else if isShortStories {
+        } else if classification.isShortStories {
             project.fictionClass = .shortFiction
             #if DEBUG
             print("[JSONImport] Set fictionClass to .shortFiction")
@@ -1229,6 +1240,70 @@ class JSONImportService {
         }
         
         return project
+    }
+
+    private struct LegacyProjectClassification {
+        let projectType: ProjectType
+        let sourceType: String?
+        let isNovel: Bool
+        let isShortStories: Bool
+    }
+
+    private func classifyLegacyProject(_ data: WritingShedData) -> LegacyProjectClassification {
+        guard let projectData = data.project.data(using: .utf8),
+              let projectDict = try? JSONSerialization.jsonObject(with: projectData) as? [String: Any],
+              let typeString = projectDict["projectType"] as? String else {
+            return LegacyProjectClassification(
+                projectType: mapProjectType(data.projectModel),
+                sourceType: nil,
+                isNovel: false,
+                isShortStories: false
+            )
+        }
+
+        let normalizedType = typeString.lowercased()
+        return LegacyProjectClassification(
+            projectType: mapProjectType(typeString),
+            sourceType: typeString,
+            isNovel: normalizedType == "novel",
+            isShortStories: normalizedType == "short stories"
+        )
+    }
+
+    private func countTextFiles(in folders: [WSPFolderData]) -> Int {
+        folders.reduce(into: 0) { count, folder in
+            count += folder.textFiles.count
+            count += countTextFiles(in: folder.subfolders)
+        }
+    }
+
+    private func validateImportAccess(
+        projectType: ProjectType,
+        importedFileCount: Int
+    ) throws {
+        let projects: [Project]
+        do {
+            projects = try modelContext.fetch(FetchDescriptor<Project>())
+        } catch {
+            throw ImportError.accessCheckFailed
+        }
+
+        let existingProjectCount = ProjectGateCounterService.activeProjectCount(
+            ofType: projectType,
+            in: projects
+        )
+        switch EntitlementManager.shared.projectImportAccess(
+            projectType: projectType,
+            existingProjectCount: existingProjectCount,
+            importedFileCount: importedFileCount
+        ) {
+        case .allowed:
+            return
+        case .projectLimit:
+            throw ImportError.projectLimit
+        case .fileLimit:
+            throw ImportError.fileLimit
+        }
     }
     
     /// Remove date/timestamp info from project name

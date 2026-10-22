@@ -279,12 +279,14 @@ struct ContentView: View {
 
     @MainActor
     private func checkForNewSupportMessagesIfNeeded() async {
+        state.hasCompletedSupportMessageCheck = false
         let service = SupportMessagesService()
         let pendingVersions = await service.pendingNewMessageAlertVersions()
         if !pendingVersions.isEmpty {
             state.pendingSupportMessageAlertVersions = pendingVersions
             state.showNewSupportMessagesAlert = true
         }
+        state.hasCompletedSupportMessageCheck = true
     }
     
     /// Start a periodic passive sync watchdog while app is foregrounded.

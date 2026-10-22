@@ -129,6 +129,16 @@ enum WSPProduct: String, CaseIterable, Identifiable {
     static var legacyCoreProducts: [WSPProduct] {
         individualModules + [.allInBundle]
     }
+
+    var currentPurchaseProduct: WSPProduct {
+        Self.legacyCoreProducts.contains(self) ? .fullAccess : self
+    }
+
+    static func productsForSale(purchaseModel: PurchaseModel?) -> [WSPProduct] {
+        purchaseModel == .trialAndFullAccess
+            ? [.tenDayTrial, .fullAccess, .manuscriptAnalystSubscription]
+            : [.fullAccess, .manuscriptAnalystSubscription]
+    }
 }
 
 enum WSPBundleSavings {

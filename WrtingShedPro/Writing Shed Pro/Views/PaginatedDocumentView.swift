@@ -38,6 +38,11 @@ struct PaginatedDocumentView: View {
         let manager: PaginatedTextLayoutManager
         let footnotes: [ManuscriptFootnote]
     }
+
+    private var captionNumberOffsets: [String: Int] {
+        ManuscriptAssemblyService(context: modelContext)
+            .captionNumberOffsets(for: textFile, in: project)
+    }
     
     // No longer using global page setup; use per-project pageSetup
     
@@ -94,7 +99,7 @@ struct PaginatedDocumentView: View {
             
             // Register stylesheet with provider so ImageAttachment can access it
             if let styleSheet = project.styleSheet {
-                StyleSheetProvider.shared.register(
+                _ = StyleSheetProvider.shared.register(
                     styleSheet: styleSheet,
                     for: textFile.id,
                     ownerID: styleSheetRegistrationOwnerID
@@ -329,7 +334,11 @@ struct PaginatedDocumentView: View {
         let textStorage = NSTextStorage(attributedString: printSizeContent)
         
         // Update caption numbers for image attachments (Feature 016)
-        ImageAttachment.updateCaptionNumbers(in: textStorage, styleSheet: project.styleSheet)
+        ImageAttachment.updateCaptionNumbers(
+            in: textStorage,
+            styleSheet: project.styleSheet,
+            startingNumbers: captionNumberOffsets
+        )
         
         // Reconcile footnote marker styles with the project stylesheet.
         // The serialized data may contain stale marker styles if the stylesheet
@@ -396,7 +405,11 @@ struct PaginatedDocumentView: View {
                 )
                 
                 // Update caption numbers for image attachments (Feature 016)
-                ImageAttachment.updateCaptionNumbers(in: existingManager.textStorage, styleSheet: project.styleSheet)
+                ImageAttachment.updateCaptionNumbers(
+                    in: existingManager.textStorage,
+                    styleSheet: project.styleSheet,
+                    startingNumbers: captionNumberOffsets
+                )
                 
                 // Reconcile footnote marker styles with the project stylesheet
                 FootnoteAttachment.reconcileMarkerStyles(in: existingManager.textStorage, stylesheet: project.styleSheet)

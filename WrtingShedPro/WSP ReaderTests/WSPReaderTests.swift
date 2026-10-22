@@ -55,6 +55,154 @@ private func makeFolder(
     return folder
 }
 
+// MARK: - Attributed String Decoder Tests
+
+final class WSPAttributeDecoderTests: XCTestCase {
+
+    func testImageCaptionIsRenderedAfterAttachment() throws {
+        let onePixelPNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        let runs: [[String: Any]] = [[
+            "location": 0,
+            "length": 1,
+            "isImageAttachment": true,
+            "imageData": onePixelPNG,
+            "imageScale": 1.0,
+            "hasCaption": true,
+            "captionPrefix": "Figure",
+            "captionText": "Test caption",
+            "captionStyle": "Caption"
+        ]]
+        let data = try PropertyListSerialization.data(
+            fromPropertyList: runs,
+            format: .binary,
+            options: 0
+        )
+
+        let decoded = try XCTUnwrap(WSPAttributeDecoder.decode(data, text: "\u{FFFC}"))
+
+        XCTAssertNotNil(decoded.attribute(.attachment, at: 0, effectiveRange: nil))
+        XCTAssertTrue(decoded.string.contains("Figure Test caption"))
+    }
+
+    func testImageAlignmentAndSpacingArePreserved() throws {
+        let onePixelPNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        let runs: [[String: Any]] = [[
+            "location": 0,
+            "length": 1,
+            "isImageAttachment": true,
+            "imageData": onePixelPNG,
+            "imageAlignment": "right",
+            "imageSpacingAbove": 12.0,
+            "imageSpacingBelow": 18.0
+        ]]
+        let data = try PropertyListSerialization.data(fromPropertyList: runs, format: .binary, options: 0)
+
+        let decoded = try XCTUnwrap(WSPAttributeDecoder.decode(data, text: "\u{FFFC}"))
+        let paragraph = try XCTUnwrap(decoded.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)
+
+        XCTAssertEqual(paragraph.alignment, .right)
+        XCTAssertEqual(paragraph.paragraphSpacingBefore, 12)
+        XCTAssertEqual(paragraph.paragraphSpacing, 18)
+    }
+
+    func testParagraphSpacingIsDecoded() throws {
+        let runs: [[String: Any]] = [[
+            "location": 0,
+            "length": 7,
+            "lineHeightMultiple": 1.4,
+            "lineSpacing": 3.0,
+            "spaceBefore": 9.0,
+            "spaceAfter": 11.0
+        ]]
+        let data = try PropertyListSerialization.data(fromPropertyList: runs, format: .binary, options: 0)
+
+        let decoded = try XCTUnwrap(WSPAttributeDecoder.decode(data, text: "Heading"))
+        let paragraph = try XCTUnwrap(decoded.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)
+
+        XCTAssertEqual(paragraph.lineHeightMultiple, 1.4, accuracy: 0.001)
+        XCTAssertEqual(paragraph.lineSpacing, 3)
+        XCTAssertEqual(paragraph.paragraphSpacingBefore, 9)
+        XCTAssertEqual(paragraph.paragraphSpacing, 11)
+    }
+
+    func testHeadingNumbersAreMaterializedFromStylesheet() throws {
+        let runs: [[String: Any]] = [
+            ["location": 0, "length": 4, "textStyle": "Heading1"],
+            ["location": 4, "length": 3, "textStyle": "Heading1"]
+        ]
+        let data = try PropertyListSerialization.data(fromPropertyList: runs, format: .binary, options: 0)
+        var headingStyle = WSPTextStyleData()
+        headingStyle.name = "Heading1"
+        headingStyle.numberFormatRaw = "decimal"
+        headingStyle.numberAdornmentRaw = "period"
+        var stylesheet = WSPStyleSheetData()
+        stylesheet.textStyles = [headingStyle]
+
+        let decoded = try XCTUnwrap(WSPAttributeDecoder.decode(data, text: "One\nTwo", stylesheet: stylesheet))
+
+        XCTAssertEqual(decoded.string, "1.\tOne\n2.\tTwo")
+    }
+
+    func testCaptionNumbersContinueAcrossManuscriptFiles() throws {
+        let onePixelPNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        func captionVersion(id: String, caption: String) throws -> WSPVersionData {
+            let runs: [[String: Any]] = [[
+                "location": 0,
+                "length": 1,
+                "isImageAttachment": true,
+                "imageData": onePixelPNG,
+                "hasCaption": true,
+                "captionPrefix": "Figure",
+                "captionText": caption,
+                "captionStyle": "Caption"
+            ]]
+            let payload = try PropertyListSerialization.data(fromPropertyList: runs, format: .binary, options: 0)
+            var version = WSPVersionData()
+            version.id = id
+            version.content = "\u{FFFC}"
+            version.formattedContentBase64 = payload.base64EncodedString()
+            return version
+        }
+
+        var firstFile = WSPTextFileData()
+        firstFile.id = "first"
+        firstFile.name = "First"
+        firstFile.userOrder = 1
+        firstFile.versions = [try captionVersion(id: "v1", caption: "First image")]
+        var secondFile = WSPTextFileData()
+        secondFile.id = "second"
+        secondFile.name = "Second"
+        secondFile.userOrder = 2
+        secondFile.versions = [try captionVersion(id: "v2", caption: "Second image")]
+        var folder = WSPFolderData()
+        folder.id = "folder"
+        folder.name = "Chapters"
+        folder.textFiles = [firstFile, secondFile]
+
+        var captionStyle = WSPTextStyleData()
+        captionStyle.name = "Caption"
+        captionStyle.numberFormatRaw = "decimal"
+        captionStyle.numberAdornmentRaw = "period"
+        var stylesheet = WSPStyleSheetData()
+        stylesheet.textStyles = [captionStyle]
+        var export = WSPExportData()
+        export.project.name = "Caption Numbering"
+        export.folders = [folder]
+        export.stylesheet = stylesheet
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("caption-numbering.wsp")
+        try encoder.encode(export).write(to: url)
+
+        let document = try WSPDocument(url: url)
+        let second = try XCTUnwrap(document.file(withID: "second"))
+        let first = try XCTUnwrap(document.file(withID: "first"))
+
+        XCTAssertTrue(second.attributedContent.string.contains("Figure 2. Second image"))
+        XCTAssertTrue(first.attributedContent.string.contains("Figure 1. First image"))
+    }
+}
+
 // MARK: - ReaderAppState Local Comment Tests
 
 @MainActor

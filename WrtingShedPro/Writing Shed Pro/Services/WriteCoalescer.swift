@@ -517,6 +517,7 @@ final class WriteCoalescer {
             "delete",
             "trash",
             "remove",
+            "rename",
             "reset",
             "repair",
             "deduplication",

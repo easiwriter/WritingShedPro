@@ -1302,6 +1302,7 @@
 "iap.new.heading" = "Choose Your Access";
 "iap.new.subheading" = "Start your free 10-day trial or unlock Writing Shed Pro permanently.";
 "iap.trial.noRenewal" = "The free trial lasts exactly 10 days. It does not renew and you will not be charged automatically.";
+"iap.trial.activated" = "Activated";
 "iap.analyst.requiresFullAccess" = "Manuscript Analyst requires Full Access and a separate subscription.";
 "iap.purchase.unavailable" = "Purchase Unavailable";
 "iap.trial.daysRemaining" = "Trial: %d days remaining";
@@ -1314,6 +1315,9 @@
 "iap.trial.warning.oneDay.title" = "Less Than 1 Day Left";
 "iap.trial.warning.oneDay.message" = "Your trial ends in less than 24 hours. After it expires, your work remains readable but editing, printing, and export are blocked.";
 "iap.fullAccess.unlock" = "Unlock Full Access";
+"iap.fullAccess.legacySubheading" = "Keep your existing purchases, or unlock all core writing features permanently with Full Access.";
+"iap.fullAccess.legacyMessage" = "Your existing purchases remain valid. Unlock Full Access to remove project and file limits and enable export and printing for all writing types. Manuscript Analyst requires a separate subscription.";
+"iap.fullAccess.unavailable" = "Full Access is currently unavailable from the App Store. Please try again later or restore an existing purchase.";
 "iap.fullAccess.notNow" = "Not Now";
 "iap.readOnly.title" = "Full Access Required";
 "iap.readOnly.message" = "Your trial has expired. Your work remains available to read, but Full Access is required to make changes, print, or export.";
@@ -1374,6 +1378,7 @@
 "contentView.deleteAll.confirmTitle" = "Delete All Projects?";
 "contentView.deleteAll.confirmMessage" = "This will permanently delete all %d project(s) and their contents. This action cannot be undone.";
 "contentView.importError.accessDenied" = "Unable to access the selected file. Please try again.";
+"contentView.importError.accessCheckFailed" = "Writing Shed Pro could not verify whether this project is within your purchase limits. No project was imported. Please try again.";
 "contentView.importError.emptyFile" = "The selected file is empty or corrupt.";
 "contentView.importError.failed" = "Failed to import project: %@";
 "contentView.importError.selectFailed" = "Failed to select file: %@";
@@ -2421,6 +2426,11 @@
 "button.save" = "Save";
 "button.done" = "Done";
 
+/* What's New update notice */
+"whatsNew.update.title" = "Writing Shed Pro Updated";
+"whatsNew.update.message" = "Writing Shed Pro has been updated to version %@.";
+"whatsNew.update.view" = "What’s New";
+
 /* Missing static localization keys from code usage */
 "accessibility.cancel" = "Cancel";
 "button.close" = "Close";
@@ -3069,6 +3079,9 @@
 "support.mail.unavailableTitle" = "Cannot Send Email";
 "support.mail.unavailable" = "Mail is not configured on this device. You can copy the message and email it to easiwriter@writing-shed.com manually.";
 "support.mail.copyToClipboard" = "Copy to Clipboard";
+"support.mail.resultTitle" = "Support Email";
+"support.mail.saved" = "The message was saved as a draft and has not been sent.";
+"support.mail.failed" = "Mail could not send the support message. Please try again or copy the message and send it manually.";
 "support.error.title" = "Support Unavailable";
 "support.error.unavailable" = "The support service is temporarily unavailable. You can email the developer instead.";
 "support.error.rateLimit" = "Too many requests. Please try again later or email the developer.";
@@ -3148,6 +3161,7 @@
 "analyst.paywall.firstMonth" = "First Month";
 "analyst.paywall.free" = "FREE";
 "analyst.paywall.startTrial" = "Start Free Trial";
+"analyst.paywall.redeemOfferCode" = "Redeem Offer Code";
 "analyst.paywall.maybeLater" = "Maybe Later";
 "analyst.paywall.terms" = "Trial terms";
 "analyst.paywall.trialDetails" = "First month free, then $5.99/month. Cancel anytime. Billed to your App Store account.";
