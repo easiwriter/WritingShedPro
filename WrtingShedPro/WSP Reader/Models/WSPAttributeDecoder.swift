@@ -512,6 +512,13 @@ enum WSPAttributeDecoder {
         let r = CGFloat((value >> 16) & 0xFF) / 255
         let g = CGFloat((value >>  8) & 0xFF) / 255
         let b = CGFloat( value        & 0xFF) / 255
+        if a == 1, r == 0, g == 0, b == 0 {
+            #if canImport(UIKit)
+            return .label
+            #elseif canImport(AppKit)
+            return .labelColor
+            #endif
+        }
 #if canImport(UIKit)
         return UIColor(red: r, green: g, blue: b, alpha: a)
 #elseif canImport(AppKit)

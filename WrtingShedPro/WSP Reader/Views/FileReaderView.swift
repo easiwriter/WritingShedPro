@@ -394,7 +394,11 @@ struct FileReaderView: View {
             mutable.addAttribute(.paragraphStyle, value: scaled, range: range)
         }
         
+        #if canImport(UIKit)
+        return ReaderTextAppearance.stripAdaptiveColors(from: mutable)
+        #else
         return mutable
+        #endif
     }
 
     private var readerBackground: Color {
@@ -994,5 +998,3 @@ struct CommentsSheet: View {
         return formatter.string(from: date)
     }
 }
-
-

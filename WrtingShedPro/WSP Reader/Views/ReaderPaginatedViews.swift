@@ -308,6 +308,38 @@ struct ReaderRenderedPage: Identifiable {
     }
 }
 
+enum ReaderTextAppearance {
+    static func stripAdaptiveColors(from source: NSAttributedString) -> NSAttributedString {
+        let result = NSMutableAttributedString(attributedString: source)
+        let fullRange = NSRange(location: 0, length: result.length)
+        var rangesToReplace: [NSRange] = []
+
+        result.enumerateAttribute(.foregroundColor, in: fullRange) { value, range, _ in
+            guard let color = value as? UIColor else {
+                rangesToReplace.append(range)
+                return
+            }
+
+            let resolvedColor = color.resolvedColor(with: UITraitCollection.current)
+            var red: CGFloat = 0
+            var green: CGFloat = 0
+            var blue: CGFloat = 0
+            var alpha: CGFloat = 0
+            guard resolvedColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha),
+                  alpha > 0,
+                  abs(red - green) < 0.01,
+                  abs(green - blue) < 0.01 else { return }
+            rangesToReplace.append(range)
+        }
+
+        for range in rangesToReplace {
+            result.addAttribute(.foregroundColor, value: UIColor.label, range: range)
+        }
+
+        return result
+    }
+}
+
 private struct ReaderRenderedPageView: View {
     let page: ReaderRenderedPage
     let layout: ReaderPaginationLayout
@@ -578,6 +610,8 @@ private struct ReaderVirtualPageScrollView: UIViewRepresentable {
     let layout: ReaderPaginationLayout
     var onLinkTap: ((URL) -> Bool)? = nil
 
+    @Environment(\.colorScheme) private var colorScheme
+
     func makeCoordinator() -> Coordinator {
         Coordinator(onLinkTap: onLinkTap)
     }
@@ -623,7 +657,12 @@ private struct ReaderVirtualPageScrollView: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIScrollView, context: Context) {
         context.coordinator.onLinkTap = onLinkTap
-        context.coordinator.render(pages: pages, layout: layout)
+        context.coordinator.render(
+            pages: pages,
+            layout: layout,
+            colorScheme: colorScheme,
+            traitCollection: uiView.traitCollection
+        )
     }
 
     final class Coordinator: NSObject, UITextViewDelegate {
@@ -635,8 +674,17 @@ private struct ReaderVirtualPageScrollView: UIViewRepresentable {
             self.onLinkTap = onLinkTap
         }
 
-        func render(pages: [ReaderRenderedPage], layout: ReaderPaginationLayout) {
+        func render(
+            pages: [ReaderRenderedPage],
+            layout: ReaderPaginationLayout,
+            colorScheme: ColorScheme,
+            traitCollection: UITraitCollection
+        ) {
             guard let stackView else { return }
+
+            let userInterfaceStyle = traitCollection.userInterfaceStyle == .unspecified
+                ? (colorScheme == .dark ? UIUserInterfaceStyle.dark : .light)
+                : traitCollection.userInterfaceStyle
 
             stackView.arrangedSubviews.forEach { subview in
                 stackView.removeArrangedSubview(subview)
@@ -644,17 +692,26 @@ private struct ReaderVirtualPageScrollView: UIViewRepresentable {
             }
 
             for page in pages {
-                let pageView = makePageView(page: page, layout: layout)
+                let pageView = makePageView(
+                    page: page,
+                    layout: layout,
+                    userInterfaceStyle: userInterfaceStyle
+                )
                 stackView.addArrangedSubview(pageView)
             }
         }
 
-        private func makePageView(page: ReaderRenderedPage, layout: ReaderPaginationLayout) -> UIView {
+        private func makePageView(
+            page: ReaderRenderedPage,
+            layout: ReaderPaginationLayout,
+            userInterfaceStyle: UIUserInterfaceStyle
+        ) -> UIView {
             let displaySize = layout.displayedPageSize
             let scaledPageRect = CGRect(origin: .zero, size: displaySize)
 
             let pageView = UIView(frame: scaledPageRect)
             pageView.translatesAutoresizingMaskIntoConstraints = false
+            pageView.overrideUserInterfaceStyle = userInterfaceStyle
             pageView.backgroundColor = .systemBackground
             pageView.layer.cornerRadius = 8
             pageView.layer.shadowColor = UIColor.black.cgColor
@@ -696,6 +753,8 @@ private struct ReaderVirtualPageScrollView: UIViewRepresentable {
                 textView.isEditable = false
                 textView.isSelectable = true
                 textView.isScrollEnabled = false
+                textView.overrideUserInterfaceStyle = userInterfaceStyle
+                textView.textColor = .label
                 textView.backgroundColor = .clear
                 textView.textContainerInset = .zero
                 textView.textContainer.lineFragmentPadding = 0

@@ -8,6 +8,9 @@
 
 import XCTest
 @testable import WSP_Reader
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // MARK: - Helpers
 
@@ -124,6 +127,45 @@ final class WSPAttributeDecoderTests: XCTestCase {
         XCTAssertEqual(paragraph.paragraphSpacingBefore, 9)
         XCTAssertEqual(paragraph.paragraphSpacing, 11)
     }
+
+    #if canImport(UIKit)
+    func testBlackFormattedTextAdaptsToDarkAppearance() throws {
+        let runs: [[String: Any]] = [[
+            "location": 0,
+            "length": 4,
+            "textColorHex": "000000"
+        ]]
+        let data = try PropertyListSerialization.data(fromPropertyList: runs, format: .binary, options: 0)
+        let decoded = try XCTUnwrap(WSPAttributeDecoder.decode(data, text: "Text"))
+        let color = try XCTUnwrap(decoded.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor)
+
+        XCTAssertTrue(color.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark)).isEqual(UIColor.white))
+        XCTAssertTrue(color.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light)).isEqual(UIColor.black))
+    }
+
+    func testReaderTextAppearanceMakesGrayscaleTextAdaptive() throws {
+        let source = NSAttributedString(
+            string: "Text",
+            attributes: [.foregroundColor: UIColor(white: 0.2, alpha: 1)]
+        )
+
+        let adaptedText = ReaderTextAppearance.stripAdaptiveColors(from: source)
+        let color = try XCTUnwrap(adaptedText.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor)
+
+        XCTAssertTrue(color.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark)).isEqual(UIColor.white))
+        XCTAssertTrue(color.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light)).isEqual(UIColor.black))
+    }
+
+    func testReaderTextAppearanceAddsAdaptiveColorWhenMissing() throws {
+        let source = NSAttributedString(string: "Text")
+
+        let adaptedText = ReaderTextAppearance.stripAdaptiveColors(from: source)
+        let color = try XCTUnwrap(adaptedText.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor)
+
+        XCTAssertTrue(color.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark)).isEqual(UIColor.white))
+        XCTAssertTrue(color.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light)).isEqual(UIColor.black))
+    }
+    #endif
 
     func testHeadingNumbersAreMaterializedFromStylesheet() throws {
         let runs: [[String: Any]] = [

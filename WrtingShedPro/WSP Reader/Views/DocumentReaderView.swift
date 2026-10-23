@@ -689,7 +689,11 @@ struct ManuscriptReaderView: View {
             mutable.addAttribute(.paragraphStyle, value: scaled, range: range)
         }
 
+        #if canImport(UIKit)
+        return ReaderTextAppearance.stripAdaptiveColors(from: mutable)
+        #else
         return mutable
+        #endif
     }
 
     private func headerFooterRow(left: String, center: String, right: String) -> some View {
