@@ -6,7 +6,7 @@ import SwiftData
 /// Phase 2: Now supports database-backed forms (predefined + custom)
 @Observable
 final class PoetryFormService {
-    
+
     // MARK: - Singleton
     
     static let shared = PoetryFormService()
@@ -51,8 +51,20 @@ final class PoetryFormService {
         PoetryFormMigrationService.removeDuplicateCustomForms(modelContext: context)
     }
     
+    /// Ensure the service has a model context, without re-running migrations.
+    /// Views that display forms call this so custom forms are available even
+    /// when launch-time configuration hasn't completed yet (it is deferred
+    /// behind a delay and, under Ensembles, an initial sync). Without a
+    /// context the service silently falls back to the bundled JSON, which
+    /// contains no custom forms.
+    func ensureConfigured(with context: ModelContext) {
+        guard modelContext == nil else { return }
+        modelContext = context
+        clearCache()
+    }
+
     // MARK: - Public Methods
-    
+
     /// Load all poetry forms (predefined + custom) from the database
     /// Falls back to JSON if database is not configured
     /// Results are cached for subsequent calls
@@ -207,7 +219,7 @@ final class PoetryFormService {
         model.isCustom = true
         context.insert(model)
         
-        Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+        persistCustomFormChange(reason: "poetry-form-save-custom")
         clearCache()
         
         #if DEBUG
@@ -261,7 +273,7 @@ final class PoetryFormService {
             existingModel.templateContent = form.templateContent
             existingModel.modifiedDate = Date()
             
-            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+            persistCustomFormChange(reason: "poetry-form-update-custom")
             clearCache()
             
             #if DEBUG
@@ -310,7 +322,7 @@ final class PoetryFormService {
             }
             
             context.delete(existingModel)
-            Task { @MainActor in WriteCoalescer.shared?.requestSave() }
+            persistCustomFormChange(reason: "poetry-form-delete-custom")
             clearCache()
             
             #if DEBUG
@@ -325,6 +337,26 @@ final class PoetryFormService {
         }
     }
     
+    /// Persist a custom form change as soon as the sync gate allows it.
+    /// A plain coalesced save can be deferred indefinitely while Ensembles is
+    /// busy, so a quit before the gate opens would silently lose the change.
+    /// When an immediate flush is blocked, the request stays pending and the
+    /// coalescer retries once sync is idle.
+    private func persistCustomFormChange(reason: String) {
+        Task { @MainActor in
+            guard let coalescer = WriteCoalescer.shared else { return }
+            do {
+                try coalescer.requestSaveAndFlush(reason: reason)
+            } catch {
+                #if DEBUG
+                print("[PoetryFormService] ⏳ Save deferred (\(reason)): \(error.localizedDescription)")
+                #endif
+                // Keep the save pending so the coalescer retries later.
+                coalescer.requestSave(reason: reason)
+            }
+        }
+    }
+
     /// Count files using a specific poetry form
     /// Used to warn users before deleting a form
     func countFilesUsingForm(_ formId: UUID, in context: ModelContext? = nil) -> Int {

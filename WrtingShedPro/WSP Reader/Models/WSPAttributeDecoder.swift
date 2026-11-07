@@ -56,6 +56,8 @@ private struct WSPAttributeValues: Codable {
     var captionText: String?
     var captionStyle: String?
     var isCommentAttachment: Bool?
+    var commentID: String?
+    var commentIsResolved: Bool?
     var isFootnoteAttachment: Bool?
     var isReferenceAttachment: Bool?
     var referenceType: String?
@@ -161,9 +163,17 @@ enum WSPAttributeDecoder {
                 continue
             }
 
-            // Skip non-image attachment placeholders
-            if v.isCommentAttachment == true ||
-               v.isFootnoteAttachment == true || v.isReferenceAttachment == true {
+            if v.isCommentAttachment == true {
+                let attachment = WSPCommentMarker.attachment(
+                    commentID: v.commentID ?? "",
+                    isResolved: v.commentIsResolved ?? false
+                )
+                result.addAttribute(.attachment, value: attachment, range: NSRange(location: loc, length: len))
+                continue
+            }
+
+            // Skip unsupported attachment placeholders
+            if v.isFootnoteAttachment == true || v.isReferenceAttachment == true {
                 continue
             }
 
@@ -320,6 +330,7 @@ enum WSPAttributeDecoder {
                 result[style.name] = style
             }
         }
+
         let parentStyles = stylesheet.textStyles.reduce(into: [String: String]()) { result, style in
             if let parent = style.parentStyleName, !parent.isEmpty {
                 result[style.name] = parent
@@ -556,5 +567,87 @@ enum WSPAttributeDecoder {
         case 4: return .natural
         default: return nil
         }
+    }
+}
+
+enum WSPCommentMarker {
+    static let localMarkerKey = NSAttributedString.Key("WSPReader.LocalCommentMarker")
+
+    static func insertLocalMarkers(
+        for comments: [ReaderLocalComment],
+        into content: NSMutableAttributedString
+    ) {
+        let anchoredComments = comments.compactMap { comment -> (position: Int, comment: ReaderLocalComment)? in
+            guard let position = comment.characterPosition,
+                  position >= 0,
+                  position <= content.length else {
+                return nil
+            }
+            return (position, comment)
+        }
+        .sorted { $0.position > $1.position }
+
+        for anchoredComment in anchoredComments {
+            let marker = NSMutableAttributedString(
+                attributedString: NSAttributedString(
+                    attachment: attachment(
+                        commentID: anchoredComment.comment.id,
+                        isResolved: anchoredComment.comment.isResolved
+                    )
+                )
+            )
+            marker.addAttribute(
+                localMarkerKey,
+                value: anchoredComment.comment.id,
+                range: NSRange(location: 0, length: marker.length)
+            )
+            content.insert(marker, at: anchoredComment.position)
+        }
+    }
+
+    static func attachment(
+        commentID: String,
+        isResolved: Bool
+    ) -> WSPReaderCommentAttachment {
+        let attachment = WSPReaderCommentAttachment(commentID: commentID)
+        let iconSize: CGFloat = 22
+
+        #if canImport(UIKit)
+        let configuration = UIImage.SymbolConfiguration(pointSize: iconSize, weight: .regular)
+        attachment.image = UIImage(systemName: "bubble.left.fill", withConfiguration: configuration)?
+            .withTintColor(isResolved ? .systemGray : .systemBlue, renderingMode: .alwaysOriginal)
+        #elseif canImport(AppKit)
+        let configuration = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .regular)
+            .applying(
+                NSImage.SymbolConfiguration(
+                    paletteColors: [isResolved ? .systemGray : .systemBlue]
+                )
+            )
+        attachment.image = NSImage(
+            systemSymbolName: "bubble.left.fill",
+            accessibilityDescription: isResolved ? "Resolved comment" : "Comment"
+        )
+        .flatMap { $0.withSymbolConfiguration(configuration) }
+        #endif
+
+        attachment.bounds = CGRect(x: 0, y: -4, width: iconSize, height: iconSize)
+        return attachment
+    }
+}
+
+final class WSPReaderCommentAttachment: NSTextAttachment {
+    let commentID: String
+
+    init(commentID: String) {
+        self.commentID = commentID
+        super.init(data: nil, ofType: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        guard let commentID = coder.decodeObject(forKey: "commentID") as? String else {
+            return nil
+        }
+        self.commentID = commentID
+        super.init(coder: coder)
     }
 }

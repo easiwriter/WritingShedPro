@@ -14,6 +14,47 @@ import XCTest
 @available(macCatalyst 15, macOS 14.4, iOS 17.4, *)
 @MainActor
 final class EntitlementManagerTests: XCTestCase {
+    func testTrialMilestonesWaitForEntitlementsToLoad() {
+        let states: [CoreAccessState] = [
+            .loading, .activationRequired, .trialActive(expiresAt: Date()),
+            .trialExpired, .fullAccess, .legacy
+        ]
+        for state in states {
+            XCTAssertFalse(EntitlementPolicy.shouldEvaluateTrialMilestones(
+                isLoaded: false, coreAccessState: state
+            ))
+        }
+    }
+
+    func testTrialMilestonesOnlyApplyToConfirmedTrialStates() {
+        for state in [CoreAccessState.loading, .activationRequired, .fullAccess, .legacy] {
+            XCTAssertFalse(EntitlementPolicy.shouldEvaluateTrialMilestones(
+                isLoaded: true, coreAccessState: state
+            ))
+        }
+        for state in [CoreAccessState.trialActive(expiresAt: Date()), .trialExpired] {
+            XCTAssertTrue(EntitlementPolicy.shouldEvaluateTrialMilestones(
+                isLoaded: true, coreAccessState: state
+            ))
+        }
+    }
+
+    func testFullAccessWithExpiredTrialHistoryDoesNotTriggerTrialMilestones() {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let expiredTrialStart = now.addingTimeInterval(-EntitlementPolicy.trialDuration)
+        let state = EntitlementPolicy.coreAccessState(
+            purchaseModel: .trialAndFullAccess,
+            entitlementIDs: [WSPProduct.fullAccess.rawValue],
+            trialStartDate: expiredTrialStart,
+            now: now
+        )
+
+        XCTAssertEqual(state, .fullAccess)
+        XCTAssertFalse(EntitlementPolicy.shouldEvaluateTrialMilestones(
+            isLoaded: true, coreAccessState: state
+        ))
+    }
+
     func testFullAccessTakesPrecedenceOverCohortAndTrialState() {
         let now = Date(timeIntervalSince1970: 1_000_000)
         let models: [PurchaseModel?] = [nil, .legacy, .trialAndFullAccess]
@@ -115,7 +156,7 @@ final class EntitlementManagerTests: XCTestCase {
             XCTAssertTrue(Set(products).isDisjoint(with: Set(WSPProduct.legacyCoreProducts)))
         }
         XCTAssertFalse(WSPProduct.productsForSale(purchaseModel: .legacy).contains(.tenDayTrial))
-        XCTAssertTrue(WSPProduct.productsForSale(purchaseModel: .trialAndFullAccess).contains(.tenDayTrial))
+        XCTAssertFalse(WSPProduct.productsForSale(purchaseModel: .trialAndFullAccess).contains(.tenDayTrial))
     }
 
     func testFullAccessRemovalRestoresLegacyModuleLimits() {
@@ -195,7 +236,7 @@ final class EntitlementManagerTests: XCTestCase {
         )
     }
 
-    func testNewModelRequiresActivationWithoutEntitlement() {
+    func testNewModelRequiresARecordedAutomaticTrialStart() {
         XCTAssertEqual(
             EntitlementPolicy.coreAccessState(
                 purchaseModel: .trialAndFullAccess,
@@ -207,14 +248,13 @@ final class EntitlementManagerTests: XCTestCase {
         )
     }
 
-    func testTrialIsActiveForExactly240Hours() {
+    func testTrialIsActiveForExactly240HoursWithoutTrialIAPEntitlement() {
         let start = Date(timeIntervalSince1970: 1_000_000)
-        let entitlements = Set([WSPProduct.tenDayTrial.rawValue])
 
         XCTAssertEqual(
             EntitlementPolicy.coreAccessState(
                 purchaseModel: .trialAndFullAccess,
-                entitlementIDs: entitlements,
+                entitlementIDs: [],
                 trialStartDate: start,
                 now: start.addingTimeInterval(EntitlementPolicy.trialDuration - 1)
             ),
@@ -223,11 +263,99 @@ final class EntitlementManagerTests: XCTestCase {
         XCTAssertEqual(
             EntitlementPolicy.coreAccessState(
                 purchaseModel: .trialAndFullAccess,
-                entitlementIDs: entitlements,
+                entitlementIDs: [],
                 trialStartDate: start,
                 now: start.addingTimeInterval(EntitlementPolicy.trialDuration)
             ),
             .trialExpired
+        )
+    }
+
+    func testAutomaticTrialStartsNowWhenNoExistingTrialExists() {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+
+        XCTAssertEqual(
+            EntitlementPolicy.resolvedTrialStartDate(
+                purchaseModel: .trialAndFullAccess,
+                entitlementIDs: [],
+                persistedStartDate: nil,
+                verifiedStartDate: nil,
+                now: now
+            ),
+            now
+        )
+    }
+
+    func testExistingStoreKitTrialDateIsPreservedDuringMigration() {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let existingTrialStart = now.addingTimeInterval(-3 * 24 * 60 * 60)
+
+        XCTAssertEqual(
+            EntitlementPolicy.resolvedTrialStartDate(
+                purchaseModel: .trialAndFullAccess,
+                entitlementIDs: [WSPProduct.tenDayTrial.rawValue],
+                persistedStartDate: nil,
+                verifiedStartDate: existingTrialStart,
+                now: now
+            ),
+            existingTrialStart
+        )
+    }
+
+    func testPersistedInProgressTrialDateIsPreservedWithoutStoreKitResult() {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let persistedStart = now.addingTimeInterval(-3 * 24 * 60 * 60)
+
+        XCTAssertEqual(
+            EntitlementPolicy.resolvedTrialStartDate(
+                purchaseModel: .trialAndFullAccess,
+                entitlementIDs: [],
+                persistedStartDate: persistedStart,
+                verifiedStartDate: nil,
+                now: now
+            ),
+            persistedStart
+        )
+    }
+
+    func testEarlierExistingTrialDateWinsDuringReconciliation() {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let persistedStart = now.addingTimeInterval(-2 * 24 * 60 * 60)
+        let verifiedStart = now.addingTimeInterval(-3 * 24 * 60 * 60)
+
+        XCTAssertEqual(
+            EntitlementPolicy.resolvedTrialStartDate(
+                purchaseModel: .trialAndFullAccess,
+                entitlementIDs: [WSPProduct.tenDayTrial.rawValue],
+                persistedStartDate: persistedStart,
+                verifiedStartDate: verifiedStart,
+                now: now
+            ),
+            verifiedStart
+        )
+    }
+
+    func testLegacyUserDoesNotReceiveAnAutomaticTrialStart() {
+        XCTAssertNil(
+            EntitlementPolicy.resolvedTrialStartDate(
+                purchaseModel: .legacy,
+                entitlementIDs: [],
+                persistedStartDate: nil,
+                verifiedStartDate: nil,
+                now: Date()
+            )
+        )
+    }
+
+    func testFullAccessDoesNotCreateAnAutomaticTrialStart() {
+        XCTAssertNil(
+            EntitlementPolicy.resolvedTrialStartDate(
+                purchaseModel: .trialAndFullAccess,
+                entitlementIDs: [WSPProduct.fullAccess.rawValue],
+                persistedStartDate: nil,
+                verifiedStartDate: nil,
+                now: Date()
+            )
         )
     }
 

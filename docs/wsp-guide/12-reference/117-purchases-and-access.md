@@ -29,12 +29,8 @@ Legacy users are not required to activate a trial or repurchase features they al
 
 If you first obtain Writing Shed Pro in version 19 or later, you use the Trial and Full Access system.
 
-You can choose either:
-
-- **10-Day Free Trial**: full access to the core writing features for exactly 10 days. It is a one-time trial and does not renew or charge automatically.
-- **Writing Shed Pro Full Access**: a one-time purchase that permanently unlocks all core project types and writing features.
-
-You can purchase Full Access without starting the trial first.
+- **10-Day Free Trial**: starts automatically the first time you open Writing Shed Pro. There is nothing to choose or activate. It gives full access to the core writing features for exactly 10 days, is one-time only, and does not renew or charge automatically.
+- **Writing Shed Pro Full Access**: a one-time purchase that permanently unlocks all core project types and writing features. You can buy it at any time, during or after the trial.
 
 When the trial expires, your existing projects and files remain available to read. Creating or changing content, importing, printing, and exporting require Full Access. Your work is not deleted when the trial expires.
 
@@ -43,6 +39,8 @@ When the trial expires, your existing projects and files remain available to rea
 Use **Restore Purchases** in the Store when reinstalling Writing Shed Pro or using another device with the same Apple Account. Restoring does not charge you again.
 
 Restoration recovers existing module and All-in Bundle purchases, as well as Full Access and any applicable trial status. Full Access is recognised for every user, regardless of their original purchase model.
+
+Writing Shed Pro never opens the Store by itself at launch. Trial reminders, including the one-time notice when the trial ends, wait until your purchases have loaded and can be dismissed. Full Access and legacy owners do not receive them, even if an earlier trial date is still saved. The Store remains available from Settings.
 
 ## Manuscript Analyst
 

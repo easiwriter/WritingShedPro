@@ -148,23 +148,31 @@ original transaction IDs are stored in `verified_store_transactions`.
 The app persists each successfully verified transaction ID and does not report
 it again on later entitlement refreshes or app launches. Failed requests remain
 eligible for retry. This persisted state is only a network optimization and is
-not used to grant entitlements.
+not used to grant entitlements. Only production StoreKit transactions are
+reported; sandbox and Xcode transactions are excluded from production sales.
 
 Verification failures are stored in `transaction_verification_failures`.
-HTTP 401/403 responses are classified as `appleRejected`; service and
-configuration failures are classified as `temporaryFailure`. Repeated failures
-update the same transaction row and increment its attempt count. A later
-successful verification marks the row resolved. The authenticated
+Transactions Apple cannot find or validate are classified as `appleRejected`;
+Apple credential, service, and configuration failures are classified as
+`temporaryFailure`. Repeated failures update the same transaction row and
+increment its attempt count; the count is retries, not sales. A later successful
+verification marks the row resolved. The authenticated
 `GET /api/admin/sales` response includes the latest 100 failure records for the
-Messages Operator sales screen.
+Messages Operator sales screen. `DELETE /api/admin/sales/verification-failures`
+clears these diagnostic rows without deleting sales.
 
 The sales event table is idempotent by StoreKit transaction ID. Legacy module
-and Manuscript Analyst purchases retain their existing monthly totals. Version
-19+ trial cohorts are reported as:
+and Manuscript Analyst purchases retain their existing monthly totals. StoreKit
+trial product cohorts are reported as:
 
 - `trial`: trials activated in the selected month that have not converted.
 - `convertedTrial`: trials activated in the selected month that later bought Full Access.
 - `fullAccess`: direct Full Access purchases with no preceding trial, grouped by purchase month.
+
+These totals are device-reported operational telemetry, not a replacement for
+App Store Connect. They can be lower when customers have not launched a version
+containing the reporter. Automatic local trials have no StoreKit transaction
+and therefore are not included in StoreKit trial totals.
 
 `ensureSalesTables` adds the nullable conversion columns to an existing D1
 database on first use. Apply the schema command when creating a fresh database.

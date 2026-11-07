@@ -8,6 +8,7 @@
 
 import Foundation
 import Observation
+import CryptoKit
 #if canImport(UIKit)
 import UIKit
 #elseif canImport(AppKit)
@@ -37,6 +38,27 @@ struct ReaderManuscriptPageSetup {
             footerRight: "",
             pageBreakBetweenFiles: true
         )
+    }
+
+}
+
+enum WSPAnnotatedExportError: LocalizedError {
+    case missingCharacterPosition(commentID: String)
+    case invalidCharacterPosition(commentID: String, position: Int, textLength: Int)
+    case invalidCommentIdentifier(String)
+    case unsupportedFormattedContent(versionID: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingCharacterPosition(let commentID):
+            return "Reader comment \(commentID) has no text position."
+        case .invalidCharacterPosition(let commentID, let position, let textLength):
+            return "Reader comment \(commentID) has position \(position), outside the text length \(textLength)."
+        case .invalidCommentIdentifier(let commentID):
+            return "Reader comment \(commentID) does not have a valid identifier."
+        case .unsupportedFormattedContent(let versionID):
+            return "Version \(versionID) uses formatted content that cannot be updated with Reader comments."
+        }
     }
 }
 
@@ -400,37 +422,17 @@ class WSPDocument {
 
     // MARK: - Annotated Export
 
-    /// Builds a new WSP JSON payload with the given reader comments appended to
-    /// each matching version's `notes` field as plain text.
-    ///
-    /// We deliberately avoid the `comments` array: those require a valid
-    /// NSTextAttachment anchor ID in the attributed string. Injecting comments
-    /// with empty attachmentIDs causes Writing Shed Pro to fail to resolve the
-    /// anchor and can corrupt the displayed content. The `notes` field is plain
-    /// text and is safe to write to without any text-range dependency.
+    /// Builds a new WSP JSON payload with Reader comments embedded as native
+    /// comment attachments in each matching text version.
     func exportDataMergingLocalComments(_ readerComments: [ReaderLocalComment]) throws -> Data {
         var export = rawExportData
+        let commentsByVersionID = Dictionary(grouping: readerComments, by: \.versionID)
 
-        // Build a lookup: versionID → formatted notes lines
-        var notesByVersionID: [String: [String]] = [:]
-        let dateFmt = DateFormatter()
-        dateFmt.dateStyle = .medium
-        dateFmt.timeStyle = .short
-        for rc in readerComments {
-            let line = "[\(rc.author), \(dateFmt.string(from: rc.createdAt))]: \(rc.text)"
-            notesByVersionID[rc.versionID, default: []].append(line)
-        }
-
-        guard !notesByVersionID.isEmpty else {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            return try encoder.encode(export)
-        }
-
-        // Walk all folders → textFiles → versions and append to notes
-        for fi in export.folders.indices {
-            mergeNotes(into: &export.folders[fi], lookup: notesByVersionID)
+        for folderIndex in export.folders.indices {
+            try mergeReaderComments(
+                into: &export.folders[folderIndex],
+                commentsByVersionID: commentsByVersionID
+            )
         }
 
         let encoder = JSONEncoder()
@@ -439,23 +441,160 @@ class WSPDocument {
         return try encoder.encode(export)
     }
 
-    private func mergeNotes(into folder: inout WSPFolderData, lookup: [String: [String]]) {
-        for fi in folder.textFiles.indices {
-            for vi in folder.textFiles[fi].versions.indices {
-                let versionID = folder.textFiles[fi].versions[vi].id
-                guard let lines = lookup[versionID], !lines.isEmpty else { continue }
-                let header = "--- Reader Comments ---"
-                let block = ([header] + lines).joined(separator: "\n")
-                let existing = folder.textFiles[fi].versions[vi].notes ?? ""
-                // Avoid appending duplicate blocks if exported more than once
-                if !existing.contains(header) {
-                    folder.textFiles[fi].versions[vi].notes = existing.isEmpty ? block : existing + "\n\n" + block
-                }
+    private func mergeReaderComments(
+        into folder: inout WSPFolderData,
+        commentsByVersionID: [String: [ReaderLocalComment]]
+    ) throws {
+        for fileIndex in folder.textFiles.indices {
+            let fileID = folder.textFiles[fileIndex].id
+            for versionIndex in folder.textFiles[fileIndex].versions.indices {
+                let versionID = folder.textFiles[fileIndex].versions[versionIndex].id
+                let comments = (commentsByVersionID[versionID] ?? []).filter { $0.fileID == fileID }
+                guard !comments.isEmpty else { continue }
+                try mergeReaderComments(
+                    comments,
+                    into: &folder.textFiles[fileIndex].versions[versionIndex]
+                )
             }
         }
-        for si in folder.subfolders.indices {
-            mergeNotes(into: &folder.subfolders[si], lookup: lookup)
+
+        for subfolderIndex in folder.subfolders.indices {
+            try mergeReaderComments(
+                into: &folder.subfolders[subfolderIndex],
+                commentsByVersionID: commentsByVersionID
+            )
         }
+    }
+
+    private func mergeReaderComments(
+        _ readerComments: [ReaderLocalComment],
+        into version: inout WSPVersionData
+    ) throws {
+        var existingComments = version.comments ?? []
+        let existingIDs = Set(existingComments.map(\.id))
+        let commentsToInsert = readerComments
+            .filter { !existingIDs.contains($0.id) }
+            .sorted {
+                ($0.characterPosition ?? Int.max, $0.createdAt)
+                    < ($1.characterPosition ?? Int.max, $1.createdAt)
+            }
+        guard !commentsToInsert.isEmpty else { return }
+
+        var content = version.content as NSString
+        var attributeRuns = try decodedAttributeRuns(for: version)
+        var existingFootnotes = version.footnotes ?? []
+        var insertedMarkerCount = 0
+
+        for comment in commentsToInsert {
+            guard let basePosition = comment.characterPosition else {
+                throw WSPAnnotatedExportError.missingCharacterPosition(commentID: comment.id)
+            }
+            guard UUID(uuidString: comment.id) != nil else {
+                throw WSPAnnotatedExportError.invalidCommentIdentifier(comment.id)
+            }
+            let originalTextLength = content.length - insertedMarkerCount
+            guard basePosition >= 0, basePosition <= originalTextLength else {
+                throw WSPAnnotatedExportError.invalidCharacterPosition(
+                    commentID: comment.id,
+                    position: basePosition,
+                    textLength: originalTextLength
+                )
+            }
+
+            let insertionPosition = basePosition + insertedMarkerCount
+            shiftAttributeRuns(&attributeRuns, forInsertionAt: insertionPosition)
+            for index in existingComments.indices
+                where existingComments[index].characterPosition >= insertionPosition {
+                existingComments[index].characterPosition += 1
+            }
+            for index in existingFootnotes.indices
+                where existingFootnotes[index].characterPosition >= insertionPosition {
+                existingFootnotes[index].characterPosition += 1
+            }
+            attributeRuns.append([
+                "location": insertionPosition,
+                "length": 1,
+                "isCommentAttachment": true,
+                "commentID": comment.id,
+                "commentIsResolved": comment.isResolved
+            ])
+
+            let mutableContent = NSMutableString(string: content)
+            mutableContent.insert("\u{FFFC}", at: insertionPosition)
+            content = mutableContent.copy() as! NSString
+            insertedMarkerCount += 1
+
+            existingComments.append(
+                WSPCommentData(
+                    id: comment.id,
+                    text: comment.text,
+                    author: comment.author,
+                    characterPosition: insertionPosition,
+                    attachmentID: comment.id,
+                    createdAt: comment.createdAt,
+                    resolvedAt: comment.resolvedAt
+                )
+            )
+        }
+
+        let updatedContent = content as String
+        if attributeRuns.isEmpty {
+            attributeRuns.append([:])
+        }
+        attributeRuns[0]["sourceText"] = updatedContent
+        attributeRuns[0]["sourceTextHash"] = sourceTextHash(for: updatedContent)
+        attributeRuns[0]["sourceTextLength"] = content.length
+
+        let attributesData = try PropertyListSerialization.data(
+            fromPropertyList: attributeRuns,
+            format: .binary,
+            options: 0
+        )
+        version.content = updatedContent
+        version.formattedContentBase64 = attributesData.base64EncodedString()
+        version.comments = existingComments
+        version.footnotes = existingFootnotes
+    }
+
+    private func decodedAttributeRuns(for version: WSPVersionData) throws -> [[String: Any]] {
+        guard let base64 = version.formattedContentBase64,
+              let data = Data(base64Encoded: base64),
+              !data.isEmpty else {
+            let textLength = (version.content as NSString).length
+            return textLength > 0 ? [["location": 0, "length": textLength]] : []
+        }
+        guard let propertyList = try? PropertyListSerialization.propertyList(
+            from: data,
+            options: [],
+            format: nil
+        ),
+        let runs = propertyList as? [[String: Any]] else {
+            throw WSPAnnotatedExportError.unsupportedFormattedContent(versionID: version.id)
+        }
+        return runs
+    }
+
+    private func shiftAttributeRuns(
+        _ runs: inout [[String: Any]],
+        forInsertionAt position: Int
+    ) {
+        for index in runs.indices {
+            guard let location = runs[index]["location"] as? Int,
+                  let length = runs[index]["length"] as? Int else {
+                continue
+            }
+            if location >= position {
+                runs[index]["location"] = location + 1
+            } else if location + length > position {
+                runs[index]["length"] = length + 1
+            }
+        }
+    }
+
+    private func sourceTextHash(for text: String) -> String {
+        SHA256.hash(data: Data(text.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
     }
     
     // MARK: - Helpers
@@ -848,6 +987,7 @@ struct WSPReaderComment: Identifiable {
     let text: String
     let author: String
     let characterPosition: Int
+    let attachmentID: String
     let createdAt: Date
     let isResolved: Bool
     
@@ -856,6 +996,7 @@ struct WSPReaderComment: Identifiable {
         self.text = data.text
         self.author = data.author
         self.characterPosition = data.characterPosition
+        self.attachmentID = data.attachmentID
         self.createdAt = data.createdAt
         self.isResolved = data.resolvedAt != nil
     }

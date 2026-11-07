@@ -93,6 +93,7 @@ struct PoetryFormManagementView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("common.done", comment: "Done")) {
                         dismiss()
+                        dismissPresentedSheetOnCatalyst()
                     }
                 }
                 

@@ -30,6 +30,8 @@ struct FileReaderView: View {
     @State private var displayContent: NSAttributedString = NSAttributedString()
     /// Visual zoom scale driven by pinch and the ±/reset buttons.
     @State private var contentScale: CGFloat = 1.0
+    @State private var selectedCommentPosition: Int?
+    @State private var showPositionPrompt = false
     /// Baseline scale accumulated across successive pinch gestures.
     @State private var lastScale: CGFloat = 1.0
     /// Current visible page in paginated reader mode.
@@ -75,7 +77,9 @@ struct FileReaderView: View {
                     isTOCFile: file.isTOCFile,
                     zoomScale: contentScale,
                     pageCount: $totalPageCount,
-                    onLinkTap: handleLinkTap
+                    onLinkTap: handleLinkTap,
+                    onSelectionChange: { selectedCommentPosition = $0 },
+                    onCommentTap: { presentComments(.detail(commentID: $0)) }
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
@@ -94,16 +98,7 @@ struct FileReaderView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Comments") {
-                        onShowComments?(CommentsContext(
-                            fileID: file.id,
-                            versionID: selectedVersion?.id
-                                ?? file.currentVersion?.id
-                                ?? file.versions.first?.id
-                                ?? "",
-                            originalComments: comments
-                        ))
-                    }
+                    commentsMenu
                 }
             }
             #else
@@ -116,19 +111,15 @@ struct FileReaderView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Comments") {
-                        onShowComments?(CommentsContext(
-                            fileID: file.id,
-                            versionID: selectedVersion?.id
-                                ?? file.currentVersion?.id
-                                ?? file.versions.first?.id
-                                ?? "",
-                            originalComments: comments
-                        ))
-                    }
+                    commentsMenu
                 }
             }
             #endif
+        }
+        .alert("Place the Comment", isPresented: $showPositionPrompt) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Tap in the document text to place the cursor, then choose Comments > Add Comment.")
         }
         .onAppear {
             #if targetEnvironment(macCatalyst)
@@ -140,8 +131,10 @@ struct FileReaderView: View {
             lastScale = contentScale
             displayContent = buildScaledContent()
         }
+
         .onChange(of: file.id) {
             selectedVersionIndex = file.currentVersionIndex
+            selectedCommentPosition = nil
             #if targetEnvironment(macCatalyst)
             contentScale = 1.0
             appState.readerContentScale = 1.0
@@ -153,6 +146,7 @@ struct FileReaderView: View {
         }
         .onChange(of: fontSize) { displayContent = buildScaledContent() }
         .onChange(of: selectedVersionIndex) {
+            selectedCommentPosition = nil
             #if targetEnvironment(macCatalyst)
             contentScale = 1.0
             appState.readerContentScale = 1.0
@@ -162,6 +156,46 @@ struct FileReaderView: View {
             lastScale = contentScale
             displayContent = buildScaledContent()
         }
+        .onChange(of: localCommentMarkerSignature) {
+            displayContent = buildScaledContent()
+        }
+    }
+
+    private var commentsMenu: some View {
+        Menu {
+            Button {
+                presentComments(.list)
+            } label: {
+                Label("Show Comments", systemImage: "list.bullet")
+            }
+
+            Button {
+                guard selectedCommentPosition != nil else {
+                    showPositionPrompt = true
+                    return
+                }
+                presentComments(.add)
+            } label: {
+                Label("Add Comment", systemImage: "plus.bubble")
+            }
+        } label: {
+            Label("Comments", systemImage: "text.bubble")
+        }
+    }
+
+    private func presentComments(_ presentation: CommentsPresentation) {
+        onShowComments?(
+            CommentsContext(
+                fileID: file.id,
+                versionID: selectedVersion?.id
+                    ?? file.currentVersion?.id
+                    ?? file.versions.first?.id
+                    ?? "",
+                originalComments: comments,
+                characterPosition: selectedCommentPosition,
+                presentation: presentation
+            )
+        )
     }
 
     @ViewBuilder
@@ -358,6 +392,7 @@ struct FileReaderView: View {
             original = selectedVersion?.attributedContent ?? NSAttributedString()
         }
         let mutable = NSMutableAttributedString(attributedString: original)
+        addLocalCommentMarkers(to: mutable)
         
         // Scale fonts to match user preference
         mutable.enumerateAttribute(.font, in: NSRange(location: 0, length: mutable.length)) { value, range, _ in
@@ -399,6 +434,27 @@ struct FileReaderView: View {
         #else
         return mutable
         #endif
+    }
+
+    private func addLocalCommentMarkers(to content: NSMutableAttributedString) {
+        let localComments = appState.localComments(
+            forFileID: file.id,
+            versionID: selectedVersion?.id ?? "",
+            documentName: documentName
+        )
+        WSPCommentMarker.insertLocalMarkers(for: localComments, into: content)
+    }
+
+    private var localCommentMarkerSignature: String {
+        appState.localComments(
+            forFileID: file.id,
+            versionID: selectedVersion?.id ?? "",
+            documentName: documentName
+        )
+        .map {
+            "\($0.id):\($0.characterPosition.map(String.init) ?? "none"):\($0.resolvedAt?.timeIntervalSince1970 ?? 0)"
+        }
+        .joined(separator: "|")
     }
 
     private var readerBackground: Color {
@@ -815,27 +871,70 @@ struct CommentsSheet: View {
     let fileID: String
     let versionID: String
     let documentName: String
+    let characterPosition: Int?
+    let presentation: CommentsPresentation
     @Environment(ReaderAppState.self) private var appState
 
     // When true, the compose form replaces the list inside the same NavigationStack.
-    @State private var composing = false
+    @State private var composing: Bool
     @State private var newCommentText = ""
     @State private var showAuthorPrompt = false
     @State private var pendingAuthorName = ""
+    @State private var showPositionPrompt = false
+    @State private var selectedCommentID: String?
+    @State private var editedCommentText = ""
+    @State private var isEditingComment = false
+    @State private var showDeleteConfirmation = false
     @FocusState private var editorFocused: Bool
+
+    init(
+        onRequestClose: @escaping () -> Void,
+        originalComments: [WSPReaderComment],
+        fileID: String,
+        versionID: String,
+        documentName: String,
+        characterPosition: Int?,
+        presentation: CommentsPresentation
+    ) {
+        self.onRequestClose = onRequestClose
+        self.originalComments = originalComments
+        self.fileID = fileID
+        self.versionID = versionID
+        self.documentName = documentName
+        self.characterPosition = characterPosition
+        self.presentation = presentation
+
+        switch presentation {
+        case .list:
+            _composing = State(initialValue: false)
+            _selectedCommentID = State(initialValue: nil)
+        case .add:
+            _composing = State(initialValue: true)
+            _selectedCommentID = State(initialValue: nil)
+        case .detail(let commentID):
+            _composing = State(initialValue: false)
+            _selectedCommentID = State(initialValue: commentID)
+        }
+    }
 
     private var localComments: [ReaderLocalComment] {
         appState.localComments(forFileID: fileID, versionID: versionID, documentName: documentName)
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            headerBar
-            Divider()
-            if composing {
-                composeView
+        Group {
+            if let selectedCommentID {
+                commentDetailView(commentID: selectedCommentID)
             } else {
-                listView
+                VStack(spacing: 0) {
+                    headerBar
+                    Divider()
+                    if composing {
+                        composeView
+                    } else {
+                        listView
+                    }
+                }
             }
         }
         .alert("Your Name", isPresented: $showAuthorPrompt) {
@@ -851,6 +950,17 @@ struct CommentsSheet: View {
             }
         } message: {
             Text("Enter your name so the author knows who left this comment.")
+        }
+        .alert("Place the Comment", isPresented: $showPositionPrompt) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Tap in the document text to place the cursor, then open Comments and add the comment.")
+        }
+        .onAppear {
+            if case .add = presentation, appState.readerAuthorName.isEmpty {
+                composing = false
+                showAuthorPrompt = true
+            }
         }
         #if targetEnvironment(macCatalyst)
         .frame(minWidth: 460, idealWidth: 520, minHeight: 400, idealHeight: 480)
@@ -876,6 +986,10 @@ struct CommentsSheet: View {
                     .font(.headline)
                 Spacer()
                 Button {
+                    guard characterPosition != nil else {
+                        showPositionPrompt = true
+                        return
+                    }
                     if appState.readerAuthorName.isEmpty {
                         pendingAuthorName = ""
                         showAuthorPrompt = true
@@ -904,8 +1018,17 @@ struct CommentsSheet: View {
             if !localComments.isEmpty {
                 Section("Your Comments") {
                     ForEach(localComments) { comment in
-                        commentRow(author: comment.author, text: comment.text,
-                                   date: comment.createdAt, isResolved: false)
+                        Button {
+                            openCommentDetail(id: comment.id, text: comment.text)
+                        } label: {
+                            commentRow(
+                                author: comment.author,
+                                text: comment.text,
+                                date: comment.createdAt,
+                                isResolved: comment.isResolved
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                     .onDelete { offsets in
                         let ids = offsets.map { localComments[$0].id }
@@ -916,8 +1039,17 @@ struct CommentsSheet: View {
             if !originalComments.isEmpty {
                 Section("Original Comments") {
                     ForEach(originalComments) { comment in
-                        commentRow(author: comment.author, text: comment.text,
-                                   date: comment.createdAt, isResolved: comment.isResolved)
+                        Button {
+                            openCommentDetail(id: comment.id, text: comment.text)
+                        } label: {
+                            commentRow(
+                                author: comment.author,
+                                text: comment.text,
+                                date: comment.createdAt,
+                                isResolved: comment.isResolved
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -960,11 +1092,170 @@ struct CommentsSheet: View {
             author: appState.readerAuthorName,
             versionID: versionID,
             fileID: fileID,
-            documentName: documentName
+            documentName: documentName,
+            characterPosition: characterPosition
         )
         appState.addLocalComment(comment)
         newCommentText = ""
         composing = false
+    }
+
+    private func openCommentDetail(id: String, text: String) {
+        editedCommentText = text
+        isEditingComment = false
+        selectedCommentID = id
+    }
+
+    @ViewBuilder
+    private func commentDetailView(commentID: String) -> some View {
+        if let localComment = localComments.first(where: { $0.id == commentID }) {
+            commentDetailContent(
+                id: localComment.id,
+                author: localComment.author,
+                text: localComment.text,
+                date: localComment.createdAt,
+                isResolved: localComment.isResolved,
+                canModify: true
+            )
+        } else if let originalComment = originalComments.first(where: {
+            $0.id == commentID || $0.attachmentID == commentID
+        }) {
+            commentDetailContent(
+                id: originalComment.id,
+                author: originalComment.author,
+                text: originalComment.text,
+                date: originalComment.createdAt,
+                isResolved: originalComment.isResolved,
+                canModify: false
+            )
+        } else {
+            ContentUnavailableView("Comment Not Found", systemImage: "text.bubble")
+                .toolbar {
+                    Button("Done") { onRequestClose() }
+                }
+        }
+    }
+
+    private func commentDetailContent(
+        id: String,
+        author: String,
+        text: String,
+        date: Date,
+        isResolved: Bool,
+        canModify: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: isResolved ? "checkmark.circle.fill" : "bubble.left.fill")
+                    .foregroundStyle(isResolved ? .green : .blue)
+                    .font(.title3)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(author.isEmpty ? "Anonymous" : author)
+                        .font(.headline)
+                    Text(date, format: .dateTime.day().month().year().hour().minute())
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+                Button("Done") { onRequestClose() }
+                    .fontWeight(.medium)
+            }
+
+            Divider()
+
+            if isEditingComment {
+                TextEditor(text: $editedCommentText)
+                    .frame(minHeight: 200, maxHeight: 400)
+                    .padding(8)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+            } else {
+                ScrollView {
+                    Text(text)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                }
+                .frame(minHeight: 100, maxHeight: 400)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+            }
+
+            if canModify {
+                if isEditingComment {
+                    HStack(spacing: 12) {
+                        Button {
+                            let trimmed = editedCommentText.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !trimmed.isEmpty else { return }
+                            appState.updateLocalComment(id: id, text: trimmed)
+                            isEditingComment = false
+                        } label: {
+                            Label("Save", systemImage: "checkmark")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button {
+                            editedCommentText = text
+                            isEditingComment = false
+                        } label: {
+                            Label("Cancel", systemImage: "xmark")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                } else {
+                    VStack(spacing: 8) {
+                        HStack(spacing: 8) {
+                            Button {
+                                editedCommentText = text
+                                isEditingComment = true
+                            } label: {
+                                Label("Edit", systemImage: "pencil.circle")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button {
+                                appState.toggleLocalCommentResolution(id: id)
+                            } label: {
+                                Label(
+                                    isResolved ? "Reopen" : "Resolve",
+                                    systemImage: isResolved ? "arrow.uturn.backward" : "checkmark.circle"
+                                )
+                                .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(isResolved ? .blue : .green)
+                        }
+
+                        Button(role: .destructive) {
+                            showDeleteConfirmation = true
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            } else {
+                Label("Original WSP comments are read-only in Reader.", systemImage: "lock")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .confirmationDialog(
+            "Delete Comment?",
+            isPresented: $showDeleteConfirmation
+        ) {
+            Button("Delete", role: .destructive) {
+                appState.deleteLocalComment(id: id)
+                onRequestClose()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This comment and its marker will be removed.")
+        }
     }
 
     // MARK: - Helpers

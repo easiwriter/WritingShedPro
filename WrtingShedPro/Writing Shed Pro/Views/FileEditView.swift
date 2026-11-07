@@ -2502,6 +2502,7 @@ struct FileEditView: View {
                         ToolbarItem(placement: .confirmationAction) {
                             Button(NSLocalizedString("poetryMetrics.done", comment: "Done")) {
                                 showPoetryMetrics = false
+                                dismissPresentedSheetOnCatalyst()
                             }
                         }
                     }
@@ -5754,12 +5755,16 @@ struct FileEditView: View {
             
             // Delete comments from database
             for attachment in comments {
-                if let commentsArray = self.file.currentVersion?.comments,
-                   let comment = commentsArray.first(where: { $0.attachmentID == attachment.commentID }) {
-                    self.modelContext.delete(comment)
+                if let comment = CommentManager.shared.getCommentByAttachment(
+                    attachmentID: attachment.commentID,
+                    context: self.modelContext
+                ) {
+                    CommentManager.shared.deleteComment(comment, context: self.modelContext)
                     #if DEBUG
                     print("💬 Deleted comment from database: \(attachment.commentID.uuidString.prefix(8))")
                     #endif
+                } else {
+                    print("⚠️ Comment model not found for deleted marker: \(attachment.commentID)")
                 }
             }
             
@@ -5785,7 +5790,7 @@ struct FileEditView: View {
             self.updateBackMatterFiles()
             
             // Save changes
-            self.saveChanges()
+            self.saveChanges(reason: "mixed-attachment-delete")
             
             // Reset flag after update completes
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -5941,17 +5946,21 @@ struct FileEditView: View {
             
             // Delete the comment(s) from the database
             for attachment in attachments {
-                if let comments = self.file.currentVersion?.comments,
-                   let comment = comments.first(where: { $0.attachmentID == attachment.commentID }) {
-                    self.modelContext.delete(comment)
+                if let comment = CommentManager.shared.getCommentByAttachment(
+                    attachmentID: attachment.commentID,
+                    context: self.modelContext
+                ) {
+                    CommentManager.shared.deleteComment(comment, context: self.modelContext)
                     #if DEBUG
                     print("💬 Deleted comment from database: \(attachment.commentID.uuidString.prefix(8))")
                     #endif
+                } else {
+                    print("⚠️ Comment model not found for deleted marker: \(attachment.commentID)")
                 }
             }
             
             // Save changes
-            self.saveChanges()
+            self.saveChanges(reason: "comment-marker-delete")
             
             // Reset flag after update completes
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -6983,7 +6992,7 @@ struct FileEditView: View {
         file.currentVersion?.attributedContent = updatedContent
         previousContent = updatedContent.string
         file.modifiedDate = Date()
-        WriteCoalescer.shared?.requestSave()
+        WriteCoalescer.shared?.requestSave(reason: "comment-delete")
         attributedContent = updatedContent
 
         #if DEBUG

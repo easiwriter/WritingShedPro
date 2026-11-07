@@ -67,6 +67,48 @@ final class OperatorSalesService {
         await performRequestAndDecode(request)
     }
 
+    func clearVerificationFailures(settings: OperatorSettingsStore) async {
+        guard let baseURL = URL(string: settings.endpoint) else {
+            errorMessage = "Invalid endpoint URL"
+            return
+        }
+
+        var request = URLRequest(
+            url: baseURL.appendingPathComponent("api/admin/sales/verification-failures")
+        )
+        request.httpMethod = "DELETE"
+        request.timeoutInterval = 20
+        request.setValue("******", forHTTPHeaderField: "Authorization")
+
+        isLoading = true
+        defer { isLoading = false }
+        errorMessage = nil
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                errorMessage = "No server response"
+                return
+            }
+            guard http.statusCode == 200 else {
+                errorMessage = "Request failed (\(http.statusCode))"
+                return
+            }
+
+            let decoded = try JSONDecoder().decode(
+                OperatorClearVerificationFailuresResponse.self,
+                from: data
+            )
+            guard decoded.ok else {
+                errorMessage = "The service did not clear verification diagnostics"
+                return
+            }
+            verificationFailures = []
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     private func performRequestAndDecode(_ request: URLRequest) async {
         isLoading = true
         defer { isLoading = false }

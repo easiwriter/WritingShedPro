@@ -2,6 +2,7 @@ import SwiftUI
 
 struct OperatorSalesView: View {
     @State private var service = OperatorSalesService()
+    @State private var showClearVerificationConfirmation = false
     @Bindable var settings: OperatorSettingsStore
 
     var body: some View {
@@ -83,7 +84,7 @@ struct OperatorSalesView: View {
                 } header: {
                     Text("Sales")
                 } footer: {
-                    Text("Unconverted and converted trials are grouped by trial activation month. Direct Full Access purchases are grouped by purchase month. Total Full Access combines converted trials and direct purchases and is not added again to Total.")
+                    Text("These totals include verified reports received from production app launches; App Store Connect remains authoritative. Unconverted and converted trials are grouped by trial activation month. Direct Full Access purchases are grouped by purchase month.")
                 }
 
                 Section {
@@ -123,11 +124,15 @@ struct OperatorSalesView: View {
                             }
                             .padding(.vertical, 2)
                         }
+
+                        Button("Clear Verification Diagnostics", role: .destructive) {
+                            showClearVerificationConfirmation = true
+                        }
                     }
                 } header: {
                     Text("Transaction Verification")
                 } footer: {
-                    Text("Apple Rejected indicates a definitive 401 or 403 response. Temporary Failure indicates that Apple verification or the service was unavailable. A later successful verification marks the entry Resolved.")
+                    Text("Attempt counts are repeated reports of the same transaction, not numbers of sales. Apple Rejected indicates that Apple could not find or validate the production transaction. Temporary Failure indicates that Apple verification or the service was unavailable.")
                 }
             }
             .navigationTitle("WSP Sales")
@@ -156,6 +161,20 @@ struct OperatorSalesView: View {
                 Button("OK", role: .cancel) { service.errorMessage = nil }
             } message: {
                 Text(service.errorMessage ?? "")
+            }
+            .confirmationDialog(
+                "Clear all verification diagnostics?",
+                isPresented: $showClearVerificationConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Clear Diagnostics", role: .destructive) {
+                    Task {
+                        await service.clearVerificationFailures(settings: settings)
+                    }
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("This removes diagnostic retry records only. It does not delete recorded sales.")
             }
         }
     }

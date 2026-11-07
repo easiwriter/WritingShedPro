@@ -196,9 +196,38 @@ class ReaderAppState {
         saveLocalComments()
     }
 
+    func updateLocalComment(id: String, text: String) {
+        guard let index = localComments.firstIndex(where: { $0.id == id }) else { return }
+        localComments[index].text = text
+        saveLocalComments()
+    }
+
+    func toggleLocalCommentResolution(id: String) {
+        guard let index = localComments.firstIndex(where: { $0.id == id }) else { return }
+        localComments[index].resolvedAt = localComments[index].resolvedAt == nil ? Date() : nil
+        saveLocalComments()
+    }
+
     func deleteLocalComment(id: String) {
         localComments.removeAll { $0.id == id }
         saveLocalComments()
+    }
+
+    func deleteLocalComments(ids: Set<String>) {
+        guard !ids.isEmpty else { return }
+        localComments.removeAll { ids.contains($0.id) }
+        saveLocalComments()
+    }
+
+    func reconcileLocalComments(with document: WSPDocument) {
+        guard let exportDate = document.exportDate else { return }
+        let countBeforeReconciliation = localComments.count
+        localComments.removeAll {
+            $0.documentName == document.projectName && $0.createdAt <= exportDate
+        }
+        if localComments.count != countBeforeReconciliation {
+            saveLocalComments()
+        }
     }
 
     func hasLocalComments(forDocument documentName: String) -> Bool {
@@ -249,6 +278,7 @@ class ReaderAppState {
                 }
 
                 DispatchQueue.main.async {
+                    self?.reconcileLocalComments(with: document)
                     self?.currentDocument = document
                     self?.isLoadingDocument = false
                     self?.addRecentDocument(
@@ -374,7 +404,12 @@ struct ReaderLocalComment: Codable, Identifiable {
     var fileID: String
     /// Project name used to scope comments to a specific document
     var documentName: String
+    /// Character offset in the rendered version where the marker is anchored.
+    var characterPosition: Int? = nil
     var createdAt: Date = Date()
+    var resolvedAt: Date? = nil
+
+    var isResolved: Bool { resolvedAt != nil }
 }
 
 struct RecentDocument: Codable, Identifiable {

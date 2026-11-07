@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
     ANALYST_PRODUCT_ID,
+    APIException,
     DEFAULT_APP_BUNDLE_ID,
     decodeJWSTransaction,
     validateAnalystTransaction,
@@ -159,4 +160,52 @@ test("rejects a server transaction for a different product", async () => {
 
     assert.equal(result.verified, false);
     assert.equal(result.status, 403);
+});
+
+test("treats rejected Apple credentials as a temporary service failure", async () => {
+    const env = {
+        APPLE_IAP_PRIVATE_KEY: "private-key",
+        APPLE_IAP_KEY_ID: "key-id",
+        APPLE_IAP_ISSUER_ID: "issuer-id",
+    };
+    const result = await verifyStoreTransaction(
+        transactionID,
+        "com.writingshedpro.fullaccess",
+        env,
+        () => ({
+            getTransactionInfo: async () => {
+                throw new APIException(401, "Unauthorized");
+            },
+        })
+    );
+
+    assert.deepEqual(result, {
+        verified: false,
+        status: 503,
+        error: "Transaction verification unavailable",
+    });
+});
+
+test("treats a transaction missing from production as invalid", async () => {
+    const env = {
+        APPLE_IAP_PRIVATE_KEY: "private-key",
+        APPLE_IAP_KEY_ID: "key-id",
+        APPLE_IAP_ISSUER_ID: "issuer-id",
+    };
+    const result = await verifyStoreTransaction(
+        transactionID,
+        "com.writingshedpro.fullaccess",
+        env,
+        () => ({
+            getTransactionInfo: async () => {
+                throw new APIException(404, "Transaction not found");
+            },
+        })
+    );
+
+    assert.deepEqual(result, {
+        verified: false,
+        status: 401,
+        error: "Valid transaction required",
+    });
 });

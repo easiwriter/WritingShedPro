@@ -16,6 +16,8 @@ struct ReaderSingleFilePaginatedView: View {
     let zoomScale: CGFloat
     @Binding var pageCount: Int
     var onLinkTap: ((URL) -> Bool)? = nil
+    var onSelectionChange: ((Int) -> Void)? = nil
+    var onCommentTap: ((String) -> Void)? = nil
 
     @State private var pages: [ReaderRenderedPage] = []
 
@@ -26,7 +28,9 @@ struct ReaderSingleFilePaginatedView: View {
             ReaderVirtualPageScrollView(
                 pages: pages,
                 layout: layout,
-                onLinkTap: onLinkTap
+                onLinkTap: onLinkTap,
+                onSelectionChange: onSelectionChange,
+                onCommentTap: onCommentTap
             )
             .onAppear {
                 repaginate(using: layout)
@@ -46,8 +50,9 @@ struct ReaderSingleFilePaginatedView: View {
     private func repaginate(using layout: ReaderPaginationLayout) {
         let normalized = ReaderTextNormalizer.normalize(attributedString, preserveParagraphStyles: isTOCFile)
         let segments = TextPaginator.paginate(attributedString: normalized, pageSize: layout.paginationTextRectSize)
+        var sourceOffset = 0
         let resolved = (segments.isEmpty ? [NSAttributedString(string: "")] : segments).enumerated().map { index, segment in
-            ReaderRenderedPage(
+            let page = ReaderRenderedPage(
                 pageNumber: index + 1,
                 fileName: fileName,
                 headerLeft: nil,
@@ -56,11 +61,25 @@ struct ReaderSingleFilePaginatedView: View {
                 footerLeft: nil,
                 footerCenter: nil,
                 footerRight: nil,
+                sourceOffset: sourceOffset,
                 body: .text(segment)
             )
+            sourceOffset += segment.length - localMarkerCount(
+                in: segment,
+                range: NSRange(location: 0, length: segment.length)
+            )
+            return page
         }
         pages = resolved
         pageCount = max(resolved.count, 1)
+    }
+
+    private func localMarkerCount(in text: NSAttributedString, range: NSRange) -> Int {
+        var count = 0
+        text.enumerateAttribute(WSPCommentMarker.localMarkerKey, in: range) { value, _, _ in
+            if value != nil { count += 1 }
+        }
+        return count
     }
 }
 
@@ -300,7 +319,32 @@ struct ReaderRenderedPage: Identifiable {
     let footerLeft: String?
     let footerCenter: String?
     let footerRight: String?
+    let sourceOffset: Int?
     let body: Body
+
+    init(
+        pageNumber: Int,
+        fileName: String,
+        headerLeft: String?,
+        headerCenter: String?,
+        headerRight: String?,
+        footerLeft: String?,
+        footerCenter: String?,
+        footerRight: String?,
+        sourceOffset: Int? = nil,
+        body: Body
+    ) {
+        self.pageNumber = pageNumber
+        self.fileName = fileName
+        self.headerLeft = headerLeft
+        self.headerCenter = headerCenter
+        self.headerRight = headerRight
+        self.footerLeft = footerLeft
+        self.footerCenter = footerCenter
+        self.footerRight = footerRight
+        self.sourceOffset = sourceOffset
+        self.body = body
+    }
 
     enum Body {
         case text(NSAttributedString)
@@ -609,11 +653,17 @@ private struct ReaderVirtualPageScrollView: UIViewRepresentable {
     let pages: [ReaderRenderedPage]
     let layout: ReaderPaginationLayout
     var onLinkTap: ((URL) -> Bool)? = nil
+    var onSelectionChange: ((Int) -> Void)? = nil
+    var onCommentTap: ((String) -> Void)? = nil
 
     @Environment(\.colorScheme) private var colorScheme
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onLinkTap: onLinkTap)
+        Coordinator(
+            onLinkTap: onLinkTap,
+            onSelectionChange: onSelectionChange,
+            onCommentTap: onCommentTap
+        )
     }
 
     func makeUIView(context: Context) -> UIScrollView {
@@ -657,6 +707,8 @@ private struct ReaderVirtualPageScrollView: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIScrollView, context: Context) {
         context.coordinator.onLinkTap = onLinkTap
+        context.coordinator.onSelectionChange = onSelectionChange
+        context.coordinator.onCommentTap = onCommentTap
         context.coordinator.render(
             pages: pages,
             layout: layout,
@@ -669,9 +721,21 @@ private struct ReaderVirtualPageScrollView: UIViewRepresentable {
         weak var scrollView: UIScrollView?
         weak var stackView: UIStackView?
         var onLinkTap: ((URL) -> Bool)?
+        var onSelectionChange: ((Int) -> Void)?
+        var onCommentTap: ((String) -> Void)?
+        private weak var selectedTextView: UITextView?
+        private var sourceOffsets: [ObjectIdentifier: Int] = [:]
+        private var lastRenderKey: String?
+        private static let cursorViewTag = 72_831
 
-        init(onLinkTap: ((URL) -> Bool)?) {
+        init(
+            onLinkTap: ((URL) -> Bool)?,
+            onSelectionChange: ((Int) -> Void)?,
+            onCommentTap: ((String) -> Void)?
+        ) {
             self.onLinkTap = onLinkTap
+            self.onSelectionChange = onSelectionChange
+            self.onCommentTap = onCommentTap
         }
 
         func render(
@@ -685,11 +749,21 @@ private struct ReaderVirtualPageScrollView: UIViewRepresentable {
             let userInterfaceStyle = traitCollection.userInterfaceStyle == .unspecified
                 ? (colorScheme == .dark ? UIUserInterfaceStyle.dark : .light)
                 : traitCollection.userInterfaceStyle
+            let renderKey = [
+                pages.map(\.id.uuidString).joined(separator: "|"),
+                String(describing: layout.displayedPageSize.width),
+                String(describing: layout.displayedPageSize.height),
+                String(userInterfaceStyle.rawValue)
+            ].joined(separator: ":")
+            guard renderKey != lastRenderKey else { return }
+            lastRenderKey = renderKey
 
             stackView.arrangedSubviews.forEach { subview in
                 stackView.removeArrangedSubview(subview)
                 subview.removeFromSuperview()
             }
+            selectedTextView = nil
+            sourceOffsets.removeAll()
 
             for page in pages {
                 let pageView = makePageView(
@@ -769,6 +843,12 @@ private struct ReaderVirtualPageScrollView: UIViewRepresentable {
                     .foregroundColor: UIColor.systemBrown,
                     .underlineStyle: NSUnderlineStyle.single.rawValue,
                 ]
+                if let sourceOffset = page.sourceOffset {
+                    sourceOffsets[ObjectIdentifier(textView)] = sourceOffset
+                    let tapGesture = UITapGestureRecognizer(target: self, action: #selector(placeCommentCursor(_:)))
+                    tapGesture.cancelsTouchesInView = false
+                    textView.addGestureRecognizer(tapGesture)
+                }
                 pageView.addSubview(textView)
             case .cover(let imageData, let title):
                 let coverContainer = UIView(frame: CGRect(
@@ -842,6 +922,69 @@ private struct ReaderVirtualPageScrollView: UIViewRepresentable {
             container.addSubview(centerLabel)
             container.addSubview(rightLabel)
             return container
+        }
+
+        @objc private func placeCommentCursor(_ gesture: UITapGestureRecognizer) {
+            guard gesture.state == .ended,
+                  let textView = gesture.view as? UITextView,
+                  let sourceOffset = sourceOffsets[ObjectIdentifier(textView)] else {
+                return
+            }
+
+            let point = gesture.location(in: textView)
+            guard let textPosition = textView.closestPosition(to: point) else { return }
+            let localPosition = textView.offset(from: textView.beginningOfDocument, to: textPosition)
+            let attachmentPositions = [localPosition, localPosition - 1]
+                .filter { $0 >= 0 && $0 < textView.attributedText.length }
+            for position in attachmentPositions {
+                if let attachment = textView.attributedText.attribute(
+                    .attachment,
+                    at: position,
+                    effectiveRange: nil
+                ) as? WSPReaderCommentAttachment {
+                    onCommentTap?(attachment.commentID)
+                    return
+                }
+            }
+            if textView.attributedText.length > 0 {
+                let attributePosition = min(localPosition, textView.attributedText.length - 1)
+                if textView.attributedText.attribute(.link, at: attributePosition, effectiveRange: nil) != nil {
+                    return
+                }
+            }
+
+            selectedTextView?.viewWithTag(Self.cursorViewTag)?.removeFromSuperview()
+            textView.selectedRange = NSRange(location: localPosition, length: 0)
+
+            var caretRect = textView.caretRect(for: textPosition)
+            caretRect.size.width = 2
+            if caretRect.height < 12 {
+                caretRect.size.height = textView.font?.lineHeight ?? 17
+            }
+            let cursorView = UIView(frame: caretRect)
+            cursorView.tag = Self.cursorViewTag
+            cursorView.backgroundColor = .systemBlue
+            cursorView.isUserInteractionEnabled = false
+            textView.addSubview(cursorView)
+            UIView.animate(
+                withDuration: 0.6,
+                delay: 0,
+                options: [.autoreverse, .repeat, .allowUserInteraction]
+            ) {
+                cursorView.alpha = 0.2
+            }
+
+            selectedTextView = textView
+            var precedingMarkerCount = 0
+            if localPosition > 0 {
+                textView.attributedText.enumerateAttribute(
+                    WSPCommentMarker.localMarkerKey,
+                    in: NSRange(location: 0, length: localPosition)
+                ) { value, _, _ in
+                    if value != nil { precedingMarkerCount += 1 }
+                }
+            }
+            onSelectionChange?(sourceOffset + localPosition - precedingMarkerCount)
         }
 
         func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange) -> Bool {

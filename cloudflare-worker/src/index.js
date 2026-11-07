@@ -199,6 +199,10 @@ export default {
             return handleAdminSales(request, env);
         }
 
+        if (pathname === "/api/admin/sales/verification-failures") {
+            return handleAdminSalesVerificationFailures(request, env);
+        }
+
         if (pathname.startsWith("/api/admin/tutorial-videos")) {
             return handleAdminTutorialVideos(request, env, pathname);
         }
@@ -1761,6 +1765,34 @@ async function handleAdminSales(request, env) {
         );
     } catch (err) {
         console.error("Failed to fetch sales:", err);
+        return jsonResponse({ error: "Sales service unavailable" }, 502);
+    }
+}
+
+async function handleAdminSalesVerificationFailures(request, env) {
+    if (!isAuthorizedAdminRequest(request, env)) {
+        return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
+    if (request.method !== "DELETE") {
+        return jsonResponse({ error: "Method not allowed" }, 405);
+    }
+
+    if (!env.MESSAGES_DB) {
+        return jsonResponse({ error: "Sales service unavailable" }, 500);
+    }
+
+    try {
+        await ensureTransactionVerificationFailuresTable(env);
+        const result = await env.MESSAGES_DB
+            .prepare("DELETE FROM transaction_verification_failures")
+            .run();
+        return jsonResponse({
+            ok: true,
+            deletedCount: result?.meta?.changes ?? 0,
+        }, 200);
+    } catch (error) {
+        console.error("Failed to clear transaction verification failures:", error);
         return jsonResponse({ error: "Sales service unavailable" }, 502);
     }
 }

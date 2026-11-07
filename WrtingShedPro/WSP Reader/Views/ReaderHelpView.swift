@@ -63,13 +63,13 @@ struct ReaderHelpView: View {
                     helpSection(
                         icon: "text.bubble",
                         title: "Adding Comments",
-                        body: "Open any file and tap Comments in the toolbar. Add your notes in the comments panel. Your comments are stored locally in Reader until you export an annotated copy."
+                        body: "Open a file, tap in the text to place the comment cursor, then choose Comments > Add Comment. Use Comments > Show Comments to browse all feedback. Your comments are stored locally in Reader until you export an annotated copy."
                     )
 
                     helpSection(
                         icon: "square.and.arrow.up",
                         title: "Sending Comments Back",
-                        body: "In the document toolbar, use Export Annotated Copy to create a new .wsp file that includes your feedback. Send that file back to the author. In Writing Shed Pro, reader feedback is added to version notes under a Reader Comments section."
+                        body: "In the document toolbar, use Export Annotated Copy to create a new .wsp file that includes your feedback. Send that file back to the author. In Writing Shed Pro, each Reader comment appears as a marker in the text."
                     )
 
                     helpSection(

@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		D77298CC300A57D900E084E3 /* Writing Shed Pro.storekit in Resources */ = {isa = PBXBuildFile; fileRef = D77298CB300A57D900E084E3 /* Writing Shed Pro.storekit */; };
 		D786773B2F9DF4F80087BC02 /* TestPlan.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = D786773A2F9DF4F80087BC02 /* TestPlan.xctestplan */; };
-		D79879872F2F4874007DE592 /* StoreKitManager in Frameworks */ = {isa = PBXBuildFile; productRef = D79879862F2F4874007DE592 /* StoreKitManager */; };
 		D7B1F4D72EACFFE400B7F3C8 /* ToolbarSUI in Frameworks */ = {isa = PBXBuildFile; productRef = D7B1F4D62EACFFE400B7F3C8 /* ToolbarSUI */; };
 		D7E3A3012FF86B0000E35003 /* Ensembles in Frameworks */ = {isa = PBXBuildFile; productRef = D7E3A3002FF86B0000E35003 /* Ensembles */; };
 		D7E3A3032FF86B0000E35003 /* EnsemblesSwiftData in Frameworks */ = {isa = PBXBuildFile; productRef = D7E3A3022FF86B0000E35003 /* EnsemblesSwiftData */; };
@@ -169,7 +168,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				D7B1F4D72EACFFE400B7F3C8 /* ToolbarSUI in Frameworks */,
-				D79879872F2F4874007DE592 /* StoreKitManager in Frameworks */,
 				D7E3A3012FF86B0000E35003 /* Ensembles in Frameworks */,
 				D7E3A3032FF86B0000E35003 /* EnsemblesSwiftData in Frameworks */,
 				D7E3A3052FF86B0000E35003 /* EnsemblesCloudKit in Frameworks */,
@@ -278,7 +276,6 @@
 			name = "Writing Shed Pro";
 			packageProductDependencies = (
 				D7B1F4D62EACFFE400B7F3C8 /* ToolbarSUI */,
-				D79879862F2F4874007DE592 /* StoreKitManager */,
 				D7E3A3002FF86B0000E35003 /* Ensembles */,
 				D7E3A3022FF86B0000E35003 /* EnsemblesSwiftData */,
 				D7E3A3042FF86B0000E35003 /* EnsemblesCloudKit */,
@@ -479,7 +476,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				D7B1F4D52EACFFE400B7F3C8 /* XCRemoteSwiftPackageReference "ToolbarSUI" */,
-				D79879852F2F4874007DE592 /* XCRemoteSwiftPackageReference "StoreKitManager" */,
 				D7E3A2FF2FF86B0000E35003 /* XCRemoteSwiftPackageReference "Ensembles3" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -1362,14 +1358,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		D79879852F2F4874007DE592 /* XCRemoteSwiftPackageReference "StoreKitManager" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/easiwriter/StoreKitManager";
-			requirement = {
-				branch = master;
-				kind = branch;
-			};
-		};
 		D7B1F4D52EACFFE400B7F3C8 /* XCRemoteSwiftPackageReference "ToolbarSUI" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/easiwriter/ToolbarSUI";
@@ -1389,11 +1377,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		D79879862F2F4874007DE592 /* StoreKitManager */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D79879852F2F4874007DE592 /* XCRemoteSwiftPackageReference "StoreKitManager" */;
-			productName = StoreKitManager;
-		};
 		D7B1F4D62EACFFE400B7F3C8 /* ToolbarSUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = D7B1F4D52EACFFE400B7F3C8 /* XCRemoteSwiftPackageReference "ToolbarSUI" */;

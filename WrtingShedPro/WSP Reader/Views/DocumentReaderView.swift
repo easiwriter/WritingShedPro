@@ -11,11 +11,19 @@ import SwiftUI
 
 // MARK: - Comments Context
 
+enum CommentsPresentation {
+    case list
+    case add
+    case detail(commentID: String)
+}
+
 struct CommentsContext: Identifiable {
     let id = UUID()
     let fileID: String
     let versionID: String
     let originalComments: [WSPReaderComment]
+    let characterPosition: Int?
+    let presentation: CommentsPresentation
 }
 import UIKit
 #elseif canImport(AppKit)
@@ -78,7 +86,9 @@ struct DocumentReaderView: View {
                 originalComments: ctx.originalComments,
                 fileID: ctx.fileID,
                 versionID: ctx.versionID,
-                documentName: document.projectName
+                documentName: document.projectName,
+                characterPosition: ctx.characterPosition,
+                presentation: ctx.presentation
             )
             .environment(appState)
         }
@@ -322,7 +332,9 @@ struct DocumentReaderView: View {
                 originalComments: ctx.originalComments,
                 fileID: ctx.fileID,
                 versionID: ctx.versionID,
-                documentName: document.projectName
+                documentName: document.projectName,
+                characterPosition: ctx.characterPosition,
+                presentation: ctx.presentation
             )
             .environment(appState)
             .frame(width: 520, height: 480)
@@ -452,6 +464,7 @@ struct DocumentReaderView: View {
 
                 DispatchQueue.main.async {
                     exportInProgress = false
+                    appState.deleteLocalComments(ids: Set(allLocalComments.map(\.id)))
                     exportedFileURL = fileURL
                     showExportPicker = true
                 }

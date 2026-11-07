@@ -7,7 +7,6 @@
 
 import SwiftUI
 import StoreKit
-import StoreKitManager
 
 /// A reusable view for showing upgrade prompts when users hit free tier limits.
 /// Displays context-specific messaging and provides path to purchase.

@@ -9,7 +9,6 @@ import Foundation
 import Network
 import StoreKit
 import SwiftData
-import StoreKitManager
 import Observation
 
 enum PurchaseModel: String, Equatable {
@@ -60,6 +59,19 @@ enum EntitlementPolicy {
     static let cutoverBuildNumber = "503"
     static let trialDuration: TimeInterval = 10 * 24 * 60 * 60
 
+    static func shouldEvaluateTrialMilestones(
+        isLoaded: Bool,
+        coreAccessState: CoreAccessState
+    ) -> Bool {
+        guard isLoaded else { return false }
+        switch coreAccessState {
+        case .trialActive, .trialExpired:
+            return true
+        case .loading, .activationRequired, .fullAccess, .legacy:
+            return false
+        }
+    }
+
     static func purchaseModel(
         for originalAppVersion: String,
         versionScheme: OriginalAppVersionScheme = .marketingVersion
@@ -104,13 +116,36 @@ enum EntitlementPolicy {
         guard let purchaseModel else { return .loading }
         guard purchaseModel == .trialAndFullAccess else { return .legacy }
 
-        guard entitlementIDs.contains(WSPProduct.tenDayTrial.rawValue),
-              let trialStartDate else {
+        guard let trialStartDate else {
             return .activationRequired
         }
 
         let expirationDate = trialStartDate.addingTimeInterval(trialDuration)
         return now < expirationDate ? .trialActive(expiresAt: expirationDate) : .trialExpired
+    }
+
+    static func resolvedTrialStartDate(
+        purchaseModel: PurchaseModel?,
+        entitlementIDs: Set<String>,
+        persistedStartDate: Date?,
+        verifiedStartDate: Date?,
+        now: Date
+    ) -> Date? {
+        guard purchaseModel == .trialAndFullAccess,
+              !entitlementIDs.contains(WSPProduct.fullAccess.rawValue) else {
+            return persistedStartDate
+        }
+
+        switch (persistedStartDate, verifiedStartDate) {
+        case let (persisted?, verified?):
+            return min(persisted, verified)
+        case let (persisted?, nil):
+            return persisted
+        case let (nil, verified?):
+            return verified
+        case (nil, nil):
+            return now
+        }
     }
 
     static func canCreate(
@@ -213,7 +248,7 @@ enum EntitlementPolicy {
 // MARK: - Entitlement Manager
 
 /// Manages purchase entitlements and free tier gating for Writing Shed Pro.
-/// Uses StoreKitManager package for all StoreKit 2 interactions.
+/// Uses StoreKit 2 to load and reconcile verified purchase entitlements.
 @available(macCatalyst 15, macOS 14.4, iOS 17.4, *)
 @Observable
 @MainActor
@@ -236,11 +271,6 @@ final class EntitlementManager {
     
     // MARK: - Properties
     
-    /// Reference to the StoreKit purchase manager
-    private var purchaseManager: StoreKitPurchaseManager {
-        StoreKitPurchaseManager.shared
-    }
-    
     /// Cached entitlement state for quick access
     private(set) var cachedEntitlements: Set<String> = []
     
@@ -250,7 +280,8 @@ final class EntitlementManager {
     /// Purchase model derived from Apple's verified original app version.
     private(set) var purchaseModel: PurchaseModel?
 
-    /// Authoritative start of the non-consumable trial transaction.
+    /// Authoritative trial start, migrated from StoreKit for existing trials
+    /// or recorded locally when a new-model user first launches.
     private(set) var trialStartDate: Date?
 
     /// Latest trusted wall-clock value, used to prevent clock rollback extending a trial.
@@ -258,6 +289,10 @@ final class EntitlementManager {
 
     /// Updated by the foreground lifecycle so computed trial state changes at expiry.
     private(set) var currentEvaluationDate: Date = Date()
+
+    /// True only when this app session created a trial start for a user who had
+    /// neither a persisted start date nor a historical StoreKit trial.
+    private(set) var didStartAutomaticTrialThisSession = false
 
     /// Product IDs verified directly from purchase transactions within this session.
     /// Merged into cachedEntitlements so we don't lose a purchase just because
@@ -274,6 +309,7 @@ final class EntitlementManager {
     private let networkQueue = DispatchQueue(label: "com.writingshedpro.entitlement.network")
     private var hasConfirmedNetworkPath = false
     private var isNetworkReachable = true
+    private var transactionUpdatesTask: Task<Void, Never>?
 
 #if DEBUG || targetEnvironment(simulator)
     private static let paywallCaptureModeKey = "debug.paywallCaptureMode"
@@ -342,11 +378,7 @@ final class EntitlementManager {
     /// Configure the manager and load initial entitlements
     func configure() async {
         startNetworkMonitoring()
-        // Configure StoreKitPurchaseManager with the subscription config so it
-        // starts the transaction listener and registers valid product IDs.
-        if let config = SubscriptionConfigLoader.loadLocalizedConfig() {
-            purchaseManager.configure(from: config)
-        }
+        startListeningForTransactionUpdates()
         await resolvePurchaseModel()
 #if DEBUG || targetEnvironment(simulator)
         if isPaywallCaptureModeEnabled {
@@ -365,7 +397,6 @@ final class EntitlementManager {
         // stale/unspecified until the first async path callback arrives.
         let hasConfirmedPath = hasConfirmedNetworkPath
         let wasOffline = hasConfirmedPath ? !isNetworkReachable : false
-        await purchaseManager.checkEntitlement()
         let verifiedSnapshot = await loadCurrentEntitlements()
         let verifiedEntitlements = verifiedSnapshot.productIDs
 #if DEBUG || targetEnvironment(simulator)
@@ -390,12 +421,26 @@ final class EntitlementManager {
                 )
             }
         }
-    if let verifiedTrialStartDate = verifiedSnapshot.trialStartDate {
-        recordTrialStartDate(verifiedTrialStartDate)
-    }
-    if !wasOffline {
-        recordTrustedDate(Date())
-    }
+        let isNewAutomaticTrial = purchaseModel == .trialAndFullAccess
+            && !cachedEntitlements.contains(WSPProduct.fullAccess.rawValue)
+            && trialStartDate == nil
+            && verifiedSnapshot.trialStartDate == nil
+        let resolvedTrialStartDate = EntitlementPolicy.resolvedTrialStartDate(
+            purchaseModel: purchaseModel,
+            entitlementIDs: cachedEntitlements,
+            persistedStartDate: trialStartDate,
+            verifiedStartDate: verifiedSnapshot.trialStartDate,
+            now: Date()
+        )
+        if let resolvedTrialStartDate {
+            recordTrialStartDate(resolvedTrialStartDate)
+        }
+        if isNewAutomaticTrial {
+            didStartAutomaticTrialThisSession = true
+        }
+        if !wasOffline {
+            recordTrustedDate(Date())
+        }
         isLoaded = true
 
         // Show the offline warning only if we got no entitlements AND we were
@@ -412,8 +457,41 @@ final class EntitlementManager {
         }
         
         #if DEBUG
-        print("📦 [EntitlementManager] Loaded entitlements: \(cachedEntitlements) (storeKitManager=\(purchaseManager.entitledProductIDs), offline=\(wasOffline), pathConfirmed=\(hasConfirmedPath))")
+        print("📦 [EntitlementManager] Loaded entitlements: \(cachedEntitlements) (offline=\(wasOffline), pathConfirmed=\(hasConfirmedPath))")
         #endif
+    }
+
+    private func startListeningForTransactionUpdates() {
+        guard transactionUpdatesTask == nil else { return }
+        transactionUpdatesTask = Task { [weak self] in
+            for await result in Transaction.updates {
+                guard let self else { return }
+                await self.handleTransactionUpdate(result)
+            }
+        }
+    }
+
+    private func handleTransactionUpdate(_ result: VerificationResult<Transaction>) async {
+        switch result {
+        case .verified(let transaction):
+            guard WSPProduct.allProductIDs.contains(transaction.productID) else { return }
+            guard transaction.revocationDate == nil,
+                  transaction.expirationDate.map({ $0 > Date() }) ?? true else {
+                recordVerifiedPurchase(transaction)
+                await transaction.finish()
+                await refreshEntitlements()
+                return
+            }
+
+            recordVerifiedPurchase(transaction)
+            await transaction.finish()
+            await SalesReporter.recordSale(for: transaction)
+            await refreshEntitlements()
+        case .unverified(_, let error):
+            #if DEBUG
+            print("⚠️ [EntitlementManager] Ignoring unverified transaction update: \(error.localizedDescription)")
+            #endif
+        }
     }
 
     private func loadCurrentEntitlements() async -> VerifiedEntitlementSnapshot {
@@ -550,14 +628,6 @@ final class EntitlementManager {
         currentEvaluationDate = Date()
     }
 
-    var requiresTrialActivation: Bool {
-        coreAccessState == .activationRequired
-    }
-
-    var hasActivatedTrial: Bool {
-        cachedEntitlements.contains(WSPProduct.tenDayTrial.rawValue)
-    }
-
     var isCoreReadOnly: Bool {
         coreAccessState == .trialExpired
     }
@@ -652,7 +722,9 @@ final class EntitlementManager {
     }
 
     func recordVerifiedPurchase(_ transaction: Transaction) {
-        guard transaction.revocationDate == nil else {
+        guard WSPProduct.allProductIDs.contains(transaction.productID),
+              transaction.revocationDate == nil,
+              transaction.expirationDate.map({ $0 > Date() }) ?? true else {
             locallyVerifiedProductIDs.remove(transaction.productID)
             cachedEntitlements.remove(transaction.productID)
             return

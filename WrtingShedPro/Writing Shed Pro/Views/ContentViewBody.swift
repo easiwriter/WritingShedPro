@@ -13,6 +13,7 @@ private struct TrialWarning: Identifiable {
     enum Kind: String {
         case threeDays
         case oneDay
+        case expired
     }
 
     let kind: Kind
@@ -24,6 +25,8 @@ private struct TrialWarning: Identifiable {
             return NSLocalizedString("iap.trial.warning.threeDays.title", comment: "Three trial days remain")
         case .oneDay:
             return NSLocalizedString("iap.trial.warning.oneDay.title", comment: "One trial day remains")
+        case .expired:
+            return NSLocalizedString("iap.trial.warning.expired.title", comment: "Trial has ended")
         }
     }
 
@@ -33,6 +36,8 @@ private struct TrialWarning: Identifiable {
             return NSLocalizedString("iap.trial.warning.threeDays.message", comment: "Three trial days warning")
         case .oneDay:
             return NSLocalizedString("iap.trial.warning.oneDay.message", comment: "One trial day warning")
+        case .expired:
+            return NSLocalizedString("iap.trial.warning.expired.message", comment: "Trial ended, work is read-only")
         }
     }
 }
@@ -79,7 +84,10 @@ struct ContentViewBody: View {
     @State private var showProjectTrash = false
     @State private var didProcessLaunchProjectRestore = false
     @State private var importAfterSettingsDismissal = false
+    @State private var showTrialStartNotice = false
     @State private var trialWarning: TrialWarning?
+    @State private var isConfirmingTrialMilestone = false
+    @State private var hasConfirmedTrialMilestoneEntitlements = false
     @State private var appUpdateNotice: AppUpdateNotice?
 
     private var trashedProjects: [Project] {
@@ -105,13 +113,7 @@ struct ContentViewBody: View {
     }
 
     var body: some View {
-        Group {
-            if entitlementManager.isLoaded && entitlementManager.requiresTrialActivation {
-                StoreView(requiresAccessSelection: true)
-            } else {
-                navigationRoot
-            }
-        }
+        navigationRoot
     }
 
     private var navigationRoot: some View {
@@ -163,6 +165,7 @@ struct ContentViewBody: View {
 
                 restoreLastOpenedProjectIfNeeded()
                 evaluateOnboardingWhenAccessIsReady()
+                evaluateTrialStartNotice()
                 evaluateTrialMilestones()
                 evaluateAppUpdateNotice()
             }
@@ -171,6 +174,7 @@ struct ContentViewBody: View {
                     await entitlementManager.configure()
                 }
                 evaluateOnboardingWhenAccessIsReady()
+                evaluateTrialStartNotice()
                 evaluateTrialMilestones()
             }
             .onChange(of: projects.count) { _, _ in
@@ -186,22 +190,32 @@ struct ContentViewBody: View {
             }
             .onChange(of: entitlementManager.coreAccessState) { _, _ in
                 evaluateOnboardingWhenAccessIsReady()
+                evaluateTrialStartNotice()
                 evaluateTrialMilestones()
             }
             .onChange(of: entitlementManager.isLoaded) { _, _ in
                 evaluateOnboardingWhenAccessIsReady()
+                evaluateTrialStartNotice()
                 evaluateAppUpdateNotice()
             }
             .onChange(of: state.showOnboarding) { _, _ in
+                evaluateTrialStartNotice()
                 evaluateAppUpdateNotice()
             }
             .onChange(of: state.showNewSupportMessagesAlert) { _, isPresented in
                 if !isPresented {
+                    evaluateTrialStartNotice()
                     evaluateAppUpdateNotice()
                 }
             }
             .onChange(of: state.hasCompletedSupportMessageCheck) { _, hasCompleted in
                 if hasCompleted {
+                    evaluateTrialStartNotice()
+                    evaluateAppUpdateNotice()
+                }
+            }
+            .onChange(of: showTrialStartNotice) { _, isPresented in
+                if !isPresented {
                     evaluateAppUpdateNotice()
                 }
             }
@@ -326,6 +340,14 @@ struct ContentViewBody: View {
             } message: {
                 Text(NSLocalizedString("messages.launchAlert.body", comment: ""))
             }
+            .alert(
+                NSLocalizedString("iap.trial.started.title", comment: "Automatic trial started title"),
+                isPresented: $showTrialStartNotice
+            ) {
+                Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) { }
+            } message: {
+                Text(NSLocalizedString("iap.trial.started.message", comment: "Automatic trial started message"))
+            }
             .alert(item: $trialWarning) { warning in
                 Alert(
                     title: Text(warning.title),
@@ -397,28 +419,69 @@ struct ContentViewBody: View {
               !state.showOnboarding,
               !state.showNewSupportMessagesAlert,
               state.hasCompletedSupportMessageCheck,
+              !showTrialStartNotice,
               trialWarning == nil,
               let version = AppUpdateDetector.pendingVersion() else { return }
 
         appUpdateNotice = AppUpdateNotice(version: version)
     }
 
-    private func evaluateTrialMilestones() {
-        guard entitlementManager.purchaseModel == .trialAndFullAccess,
+    private func evaluateTrialStartNotice() {
+        guard !showTrialStartNotice,
+              entitlementManager.isLoaded,
+              entitlementManager.didStartAutomaticTrialThisSession,
+              case .trialActive = entitlementManager.coreAccessState,
+              !state.showOnboarding,
+              !state.showNewSupportMessagesAlert,
+              state.hasCompletedSupportMessageCheck,
               let trialStartDate = entitlementManager.trialStartDate else { return }
 
         let trialIdentifier = String(Int(trialStartDate.timeIntervalSince1970))
-        if entitlementManager.isCoreReadOnly {
-            let key = "iap.trial.warning.\(trialIdentifier).expired"
-            guard !UserDefaults.standard.bool(forKey: key) else { return }
-            UserDefaults.standard.set(true, forKey: key)
-            state.showStore = true
+        let key = "iap.trial.notice.\(trialIdentifier).started"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
+        showTrialStartNotice = true
+    }
+
+    private var isTrialMilestoneEligible: Bool {
+        EntitlementPolicy.shouldEvaluateTrialMilestones(
+            isLoaded: entitlementManager.isLoaded,
+            coreAccessState: entitlementManager.coreAccessState
+        ) && entitlementManager.purchaseModel == .trialAndFullAccess
+    }
+
+    private func evaluateTrialMilestones() {
+        guard isTrialMilestoneEligible, !isConfirmingTrialMilestone else { return }
+        if hasConfirmedTrialMilestoneEntitlements {
+            presentTrialMilestoneIfNeeded()
             return
         }
 
+        // StoreKit can return incomplete entitlements on the first read after
+        // launch (notably on Mac Catalyst), which briefly makes Full Access or
+        // legacy owners look like expired trial users. Re-verify before prompting.
+        isConfirmingTrialMilestone = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            await entitlementManager.refreshEntitlements()
+            isConfirmingTrialMilestone = false
+            hasConfirmedTrialMilestoneEntitlements = true
+            presentTrialMilestoneIfNeeded()
+        }
+    }
+
+    private func presentTrialMilestoneIfNeeded() {
+        guard isTrialMilestoneEligible,
+              let trialStartDate = entitlementManager.trialStartDate else { return }
+
+        let trialIdentifier = String(Int(trialStartDate.timeIntervalSince1970))
         guard let remaining = entitlementManager.trialTimeRemaining else { return }
+        // Launch never opens the Store on its own; an ended trial gets a
+        // dismissible notice like the other trial reminders.
         let warning: TrialWarning?
-        if remaining <= 24 * 60 * 60 {
+        if entitlementManager.isCoreReadOnly {
+            warning = TrialWarning(kind: .expired)
+        } else if remaining <= 24 * 60 * 60 {
             warning = TrialWarning(kind: .oneDay)
         } else if remaining <= 3 * 24 * 60 * 60 {
             warning = TrialWarning(kind: .threeDays)

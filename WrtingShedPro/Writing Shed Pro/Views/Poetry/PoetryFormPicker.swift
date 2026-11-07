@@ -4,6 +4,7 @@ import SwiftUI
 /// Groups forms by category and shows form details on selection
 struct PoetryFormPicker: View {
     @Binding var selectedForm: PoetryForm?
+    @Environment(\.modelContext) private var modelContext
     @State private var expandedCategories: Set<PoetryFormCategory> = Set(PoetryFormCategory.allCases)
     @State private var showingManagement = false
     @State private var showingFormEditor = false
@@ -120,6 +121,7 @@ struct PoetryFormPicker: View {
     }
     
     private func loadForms() {
+        service.ensureConfigured(with: modelContext)  // Launch config may not have run yet
         service.clearCache()  // Clear cache to ensure fresh data
         categories = service.getCategories()
         formsByCategory = service.getFormsByCategory()
@@ -383,6 +385,7 @@ struct PoetryFormPicker: View {
 /// Uses flat list structure to avoid duplication issues
 struct PoetryFormPickerCompact: View {
     @Binding var selectedForm: PoetryForm?
+    @Environment(\.modelContext) private var modelContext
     @State private var isExpanded = true  // Start expanded
     @State private var formsByCategory: [PoetryFormCategory: [PoetryForm]] = [:]
     @State private var categories: [PoetryFormCategory] = []
@@ -574,6 +577,7 @@ struct PoetryFormPickerCompact: View {
     }
     
     private func loadForms() {
+        service.ensureConfigured(with: modelContext)  // Launch config may not have run yet
         service.clearCache()  // Clear cache to ensure fresh data
         categories = service.getCategories()
         formsByCategory = service.getFormsByCategory()
@@ -620,6 +624,7 @@ struct PoetryFormPickerSheet: View {
     @State private var formToDelete: PoetryForm?
     @State private var deleteAffectedFilesCount = 0
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     
     private let service = PoetryFormService.shared
     
@@ -731,6 +736,7 @@ struct PoetryFormPickerSheet: View {
     }
     
     private func loadForms() {
+        service.ensureConfigured(with: modelContext)  // Launch config may not have run yet
         service.clearCache()  // Clear cache to ensure fresh data
         categories = service.getCategories()
         formsByCategory = service.getFormsByCategory()

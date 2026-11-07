@@ -7,7 +7,6 @@
 
 import SwiftUI
 import StoreKit
-import StoreKitManager
 
 @MainActor
 enum OfferCodeRedemptionPresenter {
@@ -34,14 +33,11 @@ enum OfferCodeRedemptionPresenter {
     }
 }
 
-/// Main store view for Full Access, eligible trials, and Manuscript Analyst.
+/// Main store view for Full Access and Manuscript Analyst.
 @available(macCatalyst 15, macOS 14.4, iOS 17.4, *)
 struct StoreView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.requestReview) private var requestReview
-    @StateObject private var storeManager = StoreKitPurchaseManager.shared
-
-    var requiresAccessSelection = false
     
     /// Optional: highlight a specific product (from upgrade prompt)
     var highlightedProduct: WSPProduct?
@@ -81,27 +77,13 @@ struct StoreView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    if !requiresAccessSelection {
-                        Button("Not Now") {
-                            dismiss()
-                        }
+                    Button("Not Now") {
+                        dismiss()
                     }
                 }
             }
             .task {
                 await loadProducts()
-            }
-            .task {
-                // Listen for transaction updates (required by StoreKit to catch completed purchases)
-                for await result in Transaction.updates {
-                    if case .verified(let transaction) = result {
-                        await transaction.finish()
-                        EntitlementManager.shared.recordVerifiedPurchase(transaction)
-                        await SalesReporter.recordSale(for: transaction)
-                        await EntitlementManager.shared.refreshEntitlements()
-                        await requestFullAccessReviewIfNeeded(for: transaction)
-                    }
-                }
             }
             .alert("Purchases Restored", isPresented: $showRestoreSuccess) {
                 Button("OK", role: .cancel) { }
@@ -156,31 +138,12 @@ struct StoreView: View {
 
     private var purchaseContent: some View {
         VStack(spacing: 16) {
-            if EntitlementManager.shared.purchaseModel == .trialAndFullAccess,
-               let trialProduct = product(for: .tenDayTrial) {
-                ModuleCardView(
-                    wspProduct: .tenDayTrial,
-                    storeProduct: trialProduct,
-                    isPurchased: EntitlementManager.shared.hasActivatedTrial
-                        || EntitlementManager.shared.hasFullAccess,
-                    isHighlighted: EntitlementManager.shared.requiresTrialActivation,
-                    isLoading: purchaseInProgress == trialProduct.id,
-                    onPurchase: { await purchase(trialProduct) },
-                    onRedeemCode: { presentOfferCodeRedemption() }
-                )
-
-                Text(NSLocalizedString("iap.trial.noRenewal", comment: "Trial does not renew or charge"))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
             if let fullAccessProduct = product(for: .fullAccess) {
                 ModuleCardView(
                     wspProduct: .fullAccess,
                     storeProduct: fullAccessProduct,
                     isPurchased: EntitlementManager.shared.hasFullAccess,
-                    isHighlighted: !EntitlementManager.shared.requiresTrialActivation,
+                    isHighlighted: true,
                     isLoading: purchaseInProgress == fullAccessProduct.id,
                     onPurchase: { await purchase(fullAccessProduct) },
                     onRedeemCode: { presentOfferCodeRedemption() }
@@ -360,17 +323,6 @@ struct StoreView: View {
             return
         }
 
-        #if DEBUG
-        if product.id == WSPProduct.tenDayTrial.rawValue,
-           EntitlementManager.shared.isPaywallCaptureModeEnabled {
-            await EntitlementManager.shared.setPaywallCaptureModeEnabled(false)
-            if !EntitlementManager.shared.requiresTrialActivation {
-                dismiss()
-                return
-            }
-        }
-        #endif
-
         purchaseInProgress = product.id
         
         do {
@@ -399,16 +351,6 @@ struct StoreView: View {
                 break
             }
         } catch {
-            if product.id == WSPProduct.tenDayTrial.rawValue {
-                try? await AppStore.sync()
-                await EntitlementManager.shared.refreshEntitlements()
-                if !EntitlementManager.shared.requiresTrialActivation {
-                    dismiss()
-                    purchaseInProgress = nil
-                    return
-                }
-            }
-
             purchaseError = error.localizedDescription
             #if DEBUG
             print("❌ Purchase failed: \(error.localizedDescription)")

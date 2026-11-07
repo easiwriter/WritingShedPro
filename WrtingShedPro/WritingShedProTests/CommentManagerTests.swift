@@ -278,7 +278,36 @@ final class CommentManagerTests: XCTestCase {
         let commentsAfter = manager.getComments(forVersion: testVersion, context: modelContext)
         XCTAssertEqual(commentsAfter.count, 0)
     }
-    
+
+    func testDeleteCommentFetchedByAttachmentID() throws {
+        let attachmentID = UUID()
+        _ = manager.createComment(
+            version: testVersion,
+            characterPosition: 4,
+            attachmentID: attachmentID,
+            text: "Imported Reader comment",
+            author: "Reader",
+            context: modelContext
+        )
+        try modelContext.save()
+
+        let fetched = try XCTUnwrap(
+            manager.getCommentByAttachment(
+                attachmentID: attachmentID,
+                context: modelContext
+            )
+        )
+        manager.deleteComment(fetched, context: modelContext)
+        try modelContext.save()
+
+        XCTAssertNil(
+            manager.getCommentByAttachment(
+                attachmentID: attachmentID,
+                context: modelContext
+            )
+        )
+    }
+
     func testDeleteMultipleComments() throws {
         let comment1 = manager.createComment(
             version: testVersion,

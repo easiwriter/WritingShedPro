@@ -1118,6 +1118,8 @@
 "publications.delete.message" = "This will also delete all associated submissions.";
 "publications.delete.confirmation.message" = "This will also delete all associated submissions.";
 "publications.delete.confirm" = "Delete";
+"publications.delete.failed.title" = "Delete Failed";
+"publications.delete.failed.message" = "The publication was not deleted because the local save failed: %@";
 
 /* Validation Errors */
 "publications.error.title" = "Error";
@@ -1300,9 +1302,11 @@
 // MARK: - New IAP Structure
 "iap.new.title" = "Writing Shed Pro Access";
 "iap.new.heading" = "Choose Your Access";
-"iap.new.subheading" = "Start your free 10-day trial or unlock Writing Shed Pro permanently.";
+"iap.new.subheading" = "Your free 10-day trial starts automatically. Unlock Writing Shed Pro permanently with Full Access at any time.";
 "iap.trial.noRenewal" = "The free trial lasts exactly 10 days. It does not renew and you will not be charged automatically.";
 "iap.trial.activated" = "Activated";
+"iap.trial.started.title" = "Your 10-Day Free Trial Has Started";
+"iap.trial.started.message" = "You have full access to Writing Shed Pro for the next 10 days. You will not be charged automatically when the trial ends.";
 "iap.analyst.requiresFullAccess" = "Manuscript Analyst requires Full Access and a separate subscription.";
 "iap.purchase.unavailable" = "Purchase Unavailable";
 "iap.trial.daysRemaining" = "Trial: %d days remaining";
@@ -1314,6 +1318,8 @@
 "iap.trial.warning.threeDays.message" = "Your full access trial ends in 3 days. Export any work you need before the trial expires, or unlock Writing Shed Pro to keep editing.";
 "iap.trial.warning.oneDay.title" = "Less Than 1 Day Left";
 "iap.trial.warning.oneDay.message" = "Your trial ends in less than 24 hours. After it expires, your work remains readable but editing, printing, and export are blocked.";
+"iap.trial.warning.expired.title" = "Your Free Trial Has Ended";
+"iap.trial.warning.expired.message" = "Your work is safe and remains readable. Unlock Full Access to keep creating, editing, importing, printing, and exporting.";
 "iap.fullAccess.unlock" = "Unlock Full Access";
 "iap.fullAccess.legacySubheading" = "Keep your existing purchases, or unlock all core writing features permanently with Full Access.";
 "iap.fullAccess.legacyMessage" = "Your existing purchases remain valid. Unlock Full Access to remove project and file limits and enable export and printing for all writing types. Manuscript Analyst requires a separate subscription.";

@@ -34,6 +34,10 @@ enum SalesReporter {
     private static let endpoint = URL(string: "https://wsp-support.wsp-support.workers.dev/api/sales")!
     private static let reportState = SalesReportState()
 
+    static func shouldReport(environment: AppStore.Environment) -> Bool {
+        environment == .production
+    }
+
     static func reconcileCurrentEntitlements() async {
         var reportedTrial = false
 
@@ -55,6 +59,7 @@ enum SalesReporter {
     static func recordSale(for transaction: Transaction) async {
         guard WSPProduct.allProductIDs.contains(transaction.productID) else { return }
         guard transaction.revocationDate == nil else { return }
+        guard shouldReport(environment: transaction.environment) else { return }
         guard await reportState.begin(transactionID: transaction.id) else { return }
 
         var request = URLRequest(url: endpoint)

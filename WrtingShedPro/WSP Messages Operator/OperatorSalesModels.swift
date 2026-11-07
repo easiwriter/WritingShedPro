@@ -46,6 +46,11 @@ struct OperatorSalesResponse: Codable {
     let verificationFailures: [OperatorVerificationFailure]?
 }
 
+struct OperatorClearVerificationFailuresResponse: Codable {
+    let ok: Bool
+    let deletedCount: Int
+}
+
 struct OperatorVerificationFailure: Identifiable, Codable, Equatable {
     let transactionID: String
     let productID: String

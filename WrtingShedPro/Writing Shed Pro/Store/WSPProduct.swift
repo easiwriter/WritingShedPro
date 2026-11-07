@@ -8,7 +8,6 @@
 import Foundation
 import SwiftUI
 import StoreKit
-import StoreKitManager
 
 // MARK: - Product Identifiers
 
@@ -134,10 +133,8 @@ enum WSPProduct: String, CaseIterable, Identifiable {
         Self.legacyCoreProducts.contains(self) ? .fullAccess : self
     }
 
-    static func productsForSale(purchaseModel: PurchaseModel?) -> [WSPProduct] {
-        purchaseModel == .trialAndFullAccess
-            ? [.tenDayTrial, .fullAccess, .manuscriptAnalystSubscription]
-            : [.fullAccess, .manuscriptAnalystSubscription]
+    static func productsForSale(purchaseModel _: PurchaseModel?) -> [WSPProduct] {
+        [.fullAccess, .manuscriptAnalystSubscription]
     }
 }
 

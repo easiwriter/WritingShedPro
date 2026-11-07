@@ -20,9 +20,11 @@ private func makeWSPFile(
     projectName: String = "Test Project",
     projectType: String = "prose",
     folders: [WSPFolderData] = [],
+    exportDate: Date? = nil,
     to directory: URL = FileManager.default.temporaryDirectory
 ) throws -> URL {
     var export = WSPExportData()
+    export.exportDate = exportDate
     export.project.name = projectName
     export.project.type = projectType
     export.folders = folders
@@ -61,6 +63,76 @@ private func makeFolder(
 // MARK: - Attributed String Decoder Tests
 
 final class WSPAttributeDecoderTests: XCTestCase {
+
+    func testLocalReaderCommentMarkerIsInsertedAtAnchoredPosition() throws {
+        let comment = ReaderLocalComment(
+            id: "reader-comment",
+            text: "Check this",
+            author: "Reader",
+            versionID: "v1",
+            fileID: "f1",
+            documentName: "Document",
+            characterPosition: 5
+        )
+        let content = NSMutableAttributedString(string: "Hello world")
+
+        WSPCommentMarker.insertLocalMarkers(for: [comment], into: content)
+
+        XCTAssertEqual(content.string, "Hello\u{FFFC} world")
+        XCTAssertNotNil(content.attribute(.attachment, at: 5, effectiveRange: nil))
+        XCTAssertEqual(
+            content.attribute(WSPCommentMarker.localMarkerKey, at: 5, effectiveRange: nil) as? String,
+            comment.id
+        )
+    }
+
+    func testUnanchoredReaderCommentDoesNotInsertMarker() {
+        let comment = ReaderLocalComment(
+            text: "Legacy comment",
+            author: "Reader",
+            versionID: "v1",
+            fileID: "f1",
+            documentName: "Document"
+        )
+        let content = NSMutableAttributedString(string: "Hello world")
+
+        WSPCommentMarker.insertLocalMarkers(for: [comment], into: content)
+
+        XCTAssertEqual(content.string, "Hello world")
+    }
+
+    func testCommentMarkerIsRenderedAsAttachment() throws {
+        let runs: [[String: Any]] = [[
+            "location": 5,
+            "length": 1,
+            "isCommentAttachment": true,
+            "commentID": UUID().uuidString,
+            "commentIsResolved": false
+        ]]
+        let data = try PropertyListSerialization.data(fromPropertyList: runs, format: .binary, options: 0)
+
+        let decoded = try XCTUnwrap(WSPAttributeDecoder.decode(data, text: "Hello\u{FFFC}"))
+        let attachment = try XCTUnwrap(decoded.attribute(.attachment, at: 5, effectiveRange: nil) as? NSTextAttachment)
+
+        XCTAssertNotNil(attachment.image)
+        XCTAssertEqual(attachment.bounds.size, CGSize(width: 22, height: 22))
+    }
+
+    func testResolvedCommentMarkerIsRenderedAsAttachment() throws {
+        let runs: [[String: Any]] = [[
+            "location": 0,
+            "length": 1,
+            "isCommentAttachment": true,
+            "commentID": UUID().uuidString,
+            "commentIsResolved": true
+        ]]
+        let data = try PropertyListSerialization.data(fromPropertyList: runs, format: .binary, options: 0)
+
+        let decoded = try XCTUnwrap(WSPAttributeDecoder.decode(data, text: "\u{FFFC}"))
+        let attachment = try XCTUnwrap(decoded.attribute(.attachment, at: 0, effectiveRange: nil) as? NSTextAttachment)
+
+        XCTAssertNotNil(attachment.image)
+    }
 
     func testImageCaptionIsRenderedAfterAttachment() throws {
         let onePixelPNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
@@ -286,6 +358,27 @@ final class ReaderAppStateLocalCommentTests: XCTestCase {
         XCTAssertTrue(appState.localComments.isEmpty)
     }
 
+    func testUpdateAndResolveLocalComment() {
+        let comment = ReaderLocalComment(
+            text: "Original",
+            author: "Reader",
+            versionID: "v1",
+            fileID: "tf1",
+            documentName: "Document",
+            characterPosition: 3
+        )
+        appState.localComments = [comment]
+
+        appState.updateLocalComment(id: comment.id, text: "Edited")
+        appState.toggleLocalCommentResolution(id: comment.id)
+
+        XCTAssertEqual(appState.localComments.first?.text, "Edited")
+        XCTAssertTrue(appState.localComments.first?.isResolved == true)
+
+        appState.toggleLocalCommentResolution(id: comment.id)
+        XCTAssertFalse(appState.localComments.first?.isResolved == true)
+    }
+
     func testFilterByFileAndVersion() {
         let c1 = ReaderLocalComment(text: "c1", author: "A", versionID: "v1", fileID: "f1", documentName: "Doc")
         let c2 = ReaderLocalComment(text: "c2", author: "A", versionID: "v2", fileID: "f1", documentName: "Doc")
@@ -314,6 +407,71 @@ final class ReaderAppStateLocalCommentTests: XCTestCase {
         XCTAssertEqual(appState.localComments.count, 1)
     }
 
+    func testDeleteLocalCommentsRemovesOnlyExportedIDs() {
+        let first = ReaderLocalComment(
+            id: "first",
+            text: "First",
+            author: "A",
+            versionID: "v1",
+            fileID: "f1",
+            documentName: "Doc"
+        )
+        let second = ReaderLocalComment(
+            id: "second",
+            text: "Second",
+            author: "A",
+            versionID: "v1",
+            fileID: "f1",
+            documentName: "Doc"
+        )
+        appState.localComments = [first, second]
+
+        appState.deleteLocalComments(ids: [first.id])
+
+        XCTAssertEqual(appState.localComments.map(\.id), [second.id])
+    }
+
+    func testNewerWSPExportReconcilesOlderLocalComments() throws {
+        let exportDate = Date(timeIntervalSince1970: 2_000)
+        let url = try makeWSPFile(
+            projectName: "Poetry forms",
+            exportDate: exportDate
+        )
+        let document = try WSPDocument(url: url)
+        let staleComment = ReaderLocalComment(
+            id: "stale",
+            text: "Deleted in WSP",
+            author: "Reader",
+            versionID: "v1",
+            fileID: "f1",
+            documentName: "Poetry forms",
+            createdAt: Date(timeIntervalSince1970: 1_000)
+        )
+        let newerComment = ReaderLocalComment(
+            id: "newer",
+            text: "Still local",
+            author: "Reader",
+            versionID: "v1",
+            fileID: "f1",
+            documentName: "Poetry forms",
+            createdAt: Date(timeIntervalSince1970: 3_000)
+        )
+        let otherDocumentComment = ReaderLocalComment(
+            id: "other",
+            text: "Other project",
+            author: "Reader",
+            versionID: "v1",
+            fileID: "f1",
+            documentName: "Other",
+            createdAt: Date(timeIntervalSince1970: 1_000)
+        )
+        appState.localComments = [staleComment, newerComment, otherDocumentComment]
+
+        appState.reconcileLocalComments(with: document)
+
+        XCTAssertEqual(Set(appState.localComments.map(\.id)), ["newer", "other"])
+    }
+
     func testMultipleCommentsOnSameVersion() {
         let comments = (0..<5).map {
             ReaderLocalComment(text: "Comment \($0)", author: "A", versionID: "v1", fileID: "f1", documentName: "Doc")
@@ -337,7 +495,9 @@ final class ReaderLocalCommentCodableTests: XCTestCase {
             versionID: "v99",
             fileID: "f42",
             documentName: "Poetry Collection",
-            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+            characterPosition: 14,
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            resolvedAt: Date(timeIntervalSince1970: 1_700_000_100)
         )
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -351,9 +511,35 @@ final class ReaderLocalCommentCodableTests: XCTestCase {
         XCTAssertEqual(decoded.versionID, original.versionID)
         XCTAssertEqual(decoded.fileID, original.fileID)
         XCTAssertEqual(decoded.documentName, original.documentName)
+        XCTAssertEqual(decoded.characterPosition, original.characterPosition)
+        XCTAssertEqual(
+            decoded.resolvedAt?.timeIntervalSince1970,
+            original.resolvedAt?.timeIntervalSince1970,
+            accuracy: 1.0
+        )
         XCTAssertEqual(decoded.createdAt.timeIntervalSince1970,
                        original.createdAt.timeIntervalSince1970,
                        accuracy: 1.0)
+    }
+
+    func testLegacyCommentWithoutCharacterPositionStillDecodes() throws {
+        let json = """
+        {
+          "id": "legacy",
+          "text": "Existing comment",
+          "author": "Reader",
+          "versionID": "v1",
+          "fileID": "f1",
+          "documentName": "Document",
+          "createdAt": "2023-11-14T22:13:20Z"
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        let decoded = try decoder.decode(ReaderLocalComment.self, from: Data(json.utf8))
+
+        XCTAssertNil(decoded.characterPosition)
     }
 }
 
@@ -449,8 +635,9 @@ final class AnnotatedExportTests: XCTestCase {
         XCTAssertEqual(roundTripped.project.name, "Clean Export")
     }
 
-    func testLocalCommentAppearsInVersionNotes() throws {
-        let folder = makeFolder(versionID: "v1", fileID: "tf1")
+    func testLocalCommentIsExportedAsInlineWSPComment() throws {
+        var folder = makeFolder(versionID: "v1", fileID: "tf1")
+        folder.textFiles[0].versions[0].content = "Hello world"
         let url = try makeWSPFile(projectName: "Annotated", folders: [folder])
         let doc = try WSPDocument(url: url)
 
@@ -459,44 +646,76 @@ final class AnnotatedExportTests: XCTestCase {
             author: "Alice",
             versionID: "v1",
             fileID: "tf1",
-            documentName: "Annotated"
+            documentName: "Annotated",
+            characterPosition: 5
         )
         let exportedData = try doc.exportDataMergingLocalComments([localComment])
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let parsed = try decoder.decode(WSPExportData.self, from: exportedData)
+        let version = try XCTUnwrap(parsed.folders.first?.textFiles.first?.versions.first)
+        let comment = try XCTUnwrap(version.comments?.first)
 
-        let notes = parsed.folders.first?.textFiles.first?.versions.first?.notes ?? ""
-        XCTAssertTrue(notes.contains("Lovely line"), "Comment text should appear in version notes")
-        XCTAssertTrue(notes.contains("Alice"), "Author name should appear in version notes")
-        XCTAssertTrue(notes.contains("--- Reader Comments ---"), "Header should be present")
+        XCTAssertEqual(version.content, "Hello\u{FFFC} world")
+        XCTAssertNil(version.notes)
+        XCTAssertEqual(comment.id, localComment.id)
+        XCTAssertEqual(comment.attachmentID, localComment.id)
+        XCTAssertEqual(comment.characterPosition, 5)
+        XCTAssertEqual(comment.text, "Lovely line")
+        XCTAssertEqual(comment.author, "Alice")
+
+        let attributesData = try XCTUnwrap(
+            version.formattedContentBase64.flatMap(Data.init(base64Encoded:))
+        )
+        let decodedContent = try XCTUnwrap(
+            WSPAttributeDecoder.decode(attributesData, text: version.content)
+        )
+        XCTAssertNotNil(decodedContent.attribute(.attachment, at: 5, effectiveRange: nil))
     }
 
-    func testCommentsArrayNotModifiedOnExport() throws {
-        let folder = makeFolder(versionID: "v1", fileID: "tf1")
+    func testResolvedReaderCommentExportsResolvedMetadataAndMarker() throws {
+        var folder = makeFolder(versionID: "v1", fileID: "tf1")
+        folder.textFiles[0].versions[0].content = "Hello"
         let url = try makeWSPFile(folders: [folder])
         let doc = try WSPDocument(url: url)
-
+        let resolvedAt = Date(timeIntervalSince1970: 1_700_000_100)
         let comment = ReaderLocalComment(
-            text: "A note",
-            author: "A",
+            text: "Resolved",
+            author: "Reader",
             versionID: "v1",
             fileID: "tf1",
-            documentName: doc.projectName
+            documentName: doc.projectName,
+            characterPosition: 2,
+            resolvedAt: resolvedAt
         )
+
         let exportedData = try doc.exportDataMergingLocalComments([comment])
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let parsed = try decoder.decode(WSPExportData.self, from: exportedData)
-        // The comments array should be untouched — reader comments go to notes only
-        let comments = parsed.folders.first?.textFiles.first?.versions.first?.comments ?? []
-        XCTAssertTrue(comments.isEmpty, "Reader comments must not be injected into the comments array")
+        let version = try XCTUnwrap(parsed.folders.first?.textFiles.first?.versions.first)
+        let exportedComment = try XCTUnwrap(version.comments?.first)
+        let attributesData = try XCTUnwrap(
+            version.formattedContentBase64.flatMap(Data.init(base64Encoded:))
+        )
+        let runs = try XCTUnwrap(
+            PropertyListSerialization.propertyList(
+                from: attributesData,
+                options: [],
+                format: nil
+            ) as? [[String: Any]]
+        )
+        let markerRun = try XCTUnwrap(runs.first(where: { $0["isCommentAttachment"] as? Bool == true }))
+
+        XCTAssertEqual(exportedComment.resolvedAt?.timeIntervalSince1970, resolvedAt.timeIntervalSince1970)
+        XCTAssertEqual(markerRun["commentIsResolved"] as? Bool, true)
     }
 
-    func testExistingNotesPreservedOnMerge() throws {
+    func testExistingNotesRemainUnchanged() throws {
         var version = WSPVersionData()
         version.id = "v1"
+        version.content = "Text"
         version.notes = "Existing author note"
         var file = WSPTextFileData()
         file.id = "tf1"
@@ -514,38 +733,91 @@ final class AnnotatedExportTests: XCTestCase {
             author: "Reader",
             versionID: "v1",
             fileID: "tf1",
-            documentName: doc.projectName
+            documentName: doc.projectName,
+            characterPosition: 2
         )
         let exportedData = try doc.exportDataMergingLocalComments([comment])
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let parsed = try decoder.decode(WSPExportData.self, from: exportedData)
-        let notes = parsed.folders.first?.textFiles.first?.versions.first?.notes ?? ""
-        XCTAssertTrue(notes.contains("Existing author note"), "Original notes must be preserved")
-        XCTAssertTrue(notes.contains("Reader note"), "Reader comment must be appended")
+        let exportedVersion = try XCTUnwrap(parsed.folders.first?.textFiles.first?.versions.first)
+
+        XCTAssertEqual(exportedVersion.notes, "Existing author note")
+        XCTAssertEqual(exportedVersion.comments?.first?.text, "Reader note")
     }
 
-    func testDuplicateExportDoesNotDoubleAppendNotes() throws {
-        let folder = makeFolder(versionID: "v1", fileID: "tf1")
+    func testMultipleCommentsUseFinalAttachmentPositions() throws {
+        var folder = makeFolder(versionID: "v1", fileID: "tf1")
+        folder.textFiles[0].versions[0].content = "abcdef"
         let url = try makeWSPFile(folders: [folder])
         let doc = try WSPDocument(url: url)
 
-        let comment = ReaderLocalComment(
-            text: "Once only",
+        let first = ReaderLocalComment(
+            text: "First",
             author: "A",
             versionID: "v1",
             fileID: "tf1",
-            documentName: doc.projectName
+            documentName: doc.projectName,
+            characterPosition: 1
         )
-        // Export twice — notes block should not appear twice
-        let _ = try doc.exportDataMergingLocalComments([comment])
-        let secondExport = try doc.exportDataMergingLocalComments([comment])
+        let second = ReaderLocalComment(
+            text: "Second",
+            author: "B",
+            versionID: "v1",
+            fileID: "tf1",
+            documentName: doc.projectName,
+            characterPosition: 4
+        )
+        let exportedData = try doc.exportDataMergingLocalComments([second, first])
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let parsed = try decoder.decode(WSPExportData.self, from: secondExport)
-        let notes = parsed.folders.first?.textFiles.first?.versions.first?.notes ?? ""
-        let occurrences = notes.components(separatedBy: "--- Reader Comments ---").count - 1
-        XCTAssertEqual(occurrences, 1, "Reader comments header should appear exactly once")
+        let parsed = try decoder.decode(WSPExportData.self, from: exportedData)
+        let version = try XCTUnwrap(parsed.folders.first?.textFiles.first?.versions.first)
+
+        XCTAssertEqual(version.content, "a\u{FFFC}bcd\u{FFFC}ef")
+        XCTAssertEqual(version.comments?.map(\.characterPosition), [1, 5])
+    }
+
+    func testExistingCommentAndFootnotePositionsShiftAfterInsertion() throws {
+        var folder = makeFolder(versionID: "v1", fileID: "tf1")
+        folder.textFiles[0].versions[0].content = "abcdef"
+        folder.textFiles[0].versions[0].comments = [
+            WSPCommentData(
+                id: UUID().uuidString,
+                text: "Existing",
+                author: "Author",
+                characterPosition: 4,
+                attachmentID: UUID().uuidString
+            )
+        ]
+        folder.textFiles[0].versions[0].footnotes = [
+            WSPFootnoteData(
+                id: UUID().uuidString,
+                text: "Footnote",
+                characterPosition: 5,
+                attachmentID: UUID().uuidString,
+                number: 1
+            )
+        ]
+        let url = try makeWSPFile(folders: [folder])
+        let doc = try WSPDocument(url: url)
+        let readerComment = ReaderLocalComment(
+            text: "Reader",
+            author: "Reader",
+            versionID: "v1",
+            fileID: "tf1",
+            documentName: doc.projectName,
+            characterPosition: 2
+        )
+
+        let exportedData = try doc.exportDataMergingLocalComments([readerComment])
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let parsed = try decoder.decode(WSPExportData.self, from: exportedData)
+        let version = try XCTUnwrap(parsed.folders.first?.textFiles.first?.versions.first)
+
+        XCTAssertEqual(version.comments?.first?.characterPosition, 5)
+        XCTAssertEqual(version.footnotes?.first?.characterPosition, 6)
     }
 
     func testCommentForWrongVersionNotMerged() throws {
@@ -558,21 +830,49 @@ final class AnnotatedExportTests: XCTestCase {
             author: "A",
             versionID: "v999",   // doesn't exist in this doc
             fileID: "tf1",
-            documentName: doc.projectName
+            documentName: doc.projectName,
+            characterPosition: 2
         )
         let exportedData = try doc.exportDataMergingLocalComments([wrongVersion])
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let parsed = try decoder.decode(WSPExportData.self, from: exportedData)
-        let notes = parsed.folders.first?.textFiles.first?.versions.first?.notes
-        XCTAssertNil(notes, "Notes should not be set when versionID doesn't match")
+        let version = try XCTUnwrap(parsed.folders.first?.textFiles.first?.versions.first)
+        XCTAssertEqual(version.content, "Hello world")
+        XCTAssertTrue((version.comments ?? []).isEmpty)
+    }
+
+    func testUnanchoredCommentFailsExport() throws {
+        let folder = makeFolder(versionID: "v1", fileID: "tf1")
+        let url = try makeWSPFile(folders: [folder])
+        let doc = try WSPDocument(url: url)
+        let comment = ReaderLocalComment(
+            text: "No anchor",
+            author: "A",
+            versionID: "v1",
+            fileID: "tf1",
+            documentName: doc.projectName
+        )
+
+        XCTAssertThrowsError(try doc.exportDataMergingLocalComments([comment])) { error in
+            guard case WSPAnnotatedExportError.missingCharacterPosition = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
     }
 
     func testExportProducesValidUTF8JSON() throws {
         let folder = makeFolder(versionID: "v1", fileID: "tf1")
         let url = try makeWSPFile(folders: [folder])
         let doc = try WSPDocument(url: url)
-        let comment = ReaderLocalComment(text: "Ünïcödé çhàr§", author: "Ré", versionID: "v1", fileID: "tf1", documentName: doc.projectName)
+        let comment = ReaderLocalComment(
+            text: "Ünïcödé çhàr§",
+            author: "Ré",
+            versionID: "v1",
+            fileID: "tf1",
+            documentName: doc.projectName,
+            characterPosition: 5
+        )
         let data = try doc.exportDataMergingLocalComments([comment])
         XCTAssertNotNil(String(data: data, encoding: .utf8))
     }

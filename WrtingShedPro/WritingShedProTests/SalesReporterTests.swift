@@ -2,6 +2,12 @@ import XCTest
 @testable import Writing_Shed_Pro
 
 final class SalesReporterTests: XCTestCase {
+    func testOnlyProductionTransactionsAreReportedAsSales() {
+        XCTAssertTrue(SalesReporter.shouldReport(environment: .production))
+        XCTAssertFalse(SalesReporter.shouldReport(environment: .sandbox))
+        XCTAssertFalse(SalesReporter.shouldReport(environment: .xcode))
+    }
+
     func testLegacyPayloadDoesNotIncludeTrialLink() throws {
         let payload = SalesReportPayload(
             transactionID: "legacy-transaction",

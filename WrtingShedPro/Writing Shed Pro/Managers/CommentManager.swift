@@ -99,7 +99,7 @@ final class CommentManager: ObservableObject {
     ///   - context: SwiftData model context
     func deleteComment(_ comment: CommentModel, context: ModelContext) {
         context.delete(comment)
-        WriteCoalescer.shared?.requestSave()
+        WriteCoalescer.shared?.requestSave(reason: "comment-delete")
     }
     
     /// Resolve a comment

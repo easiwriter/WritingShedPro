@@ -21,6 +21,8 @@ struct PublicationsListView: View {
     @State private var selectedPublicationIDs: Set<UUID> = []
     @State private var showDeleteConfirmation = false
     @State private var publicationsToDelete: [Publication] = []
+    @State private var showDeleteError = false
+    @State private var deleteErrorMessage = ""
     
     // Filter publications by type and project
     private var filteredPublications: [Publication] {
@@ -119,6 +121,14 @@ struct PublicationsListView: View {
             }
         } message: {
             Text("publications.delete.confirmation.message")
+        }
+        .alert(
+            NSLocalizedString("publications.delete.failed.title", comment: "Publication deletion failed"),
+            isPresented: $showDeleteError
+        ) {
+            Button("button.ok", role: .cancel) {}
+        } message: {
+            Text(deleteErrorMessage)
         }
         .onChange(of: editMode?.wrappedValue) { _, newValue in
             if newValue == .inactive {
@@ -239,9 +249,17 @@ struct PublicationsListView: View {
             print("✅ Successfully deleted \(publicationsToDelete.count) publication(s)")
             #endif
         } catch {
-            #if DEBUG
-            print("❌ Error saving after publication deletion: \(error)")
-            #endif
+            modelContext.rollback()
+            deleteErrorMessage = String(
+                format: NSLocalizedString(
+                    "publications.delete.failed.message",
+                    comment: "Publication deletion failed message"
+                ),
+                error.localizedDescription
+            )
+            showDeleteError = true
+            publicationsToDelete = []
+            return
         }
         
         publicationsToDelete = []

@@ -12,7 +12,7 @@ const APP_STORE_BASE_URLS = Object.freeze({
     [Environment.SANDBOX]: "https://api.storekit-sandbox.apple.com",
 });
 
-class APIException extends Error {
+export class APIException extends Error {
     constructor(httpStatusCode, errorMessage = null) {
         super(errorMessage || `Apple API request failed with HTTP ${httpStatusCode}`);
         this.httpStatusCode = httpStatusCode;
@@ -235,7 +235,15 @@ export async function verifyStoreTransaction(
 
         return { verified: true, transaction };
     } catch (error) {
-        if (error instanceof APIException && [400, 401, 404].includes(error.httpStatusCode)) {
+        if (error instanceof APIException && error.httpStatusCode === 401) {
+            console.error("Apple transaction verification credentials were rejected");
+            return {
+                verified: false,
+                status: 503,
+                error: "Transaction verification unavailable",
+            };
+        }
+        if (error instanceof APIException && [400, 404].includes(error.httpStatusCode)) {
             console.warn(
                 "Apple rejected transaction verification:",
                 error.httpStatusCode,
