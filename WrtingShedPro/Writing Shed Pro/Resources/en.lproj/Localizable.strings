@@ -1393,6 +1393,39 @@
 "contentView.importError.syncChangedBeforeSave" = "Sync changed while the project was being prepared. No project was imported. Please wait a moment, then try again.";
 "contentView.importError.syncChangedDuringImport" = "Sync changed before the import could finish. Check the project list before retrying to avoid creating a duplicate.";
 
+/* Scrivener Project Import */
+"scrivener.import.title" = "Import Scrivener Project";
+"scrivener.import.binderFolderName" = "Scrivener Binder";
+"scrivener.import.summary" = "Project";
+"scrivener.import.projectName" = "Name";
+"scrivener.import.contents" = "Contents";
+"scrivener.import.contentsCount" = "%1$d folders, %2$d documents";
+"scrivener.import.projectType" = "Create as";
+"scrivener.import.fictionClass" = "Fiction structure";
+"scrivener.import.dramaType" = "Script format";
+"scrivener.import.optionalItems" = "Optional Items";
+"scrivener.import.includeResearch" = "Import Research (%d documents)";
+"scrivener.import.includeTrash" = "Import Trash (%d documents)";
+"scrivener.import.optionalItemsNote" = "Research and Trash are skipped by default. Imported items from either group are excluded from manuscript assembly.";
+"scrivener.import.warnings" = "Items Not Fully Imported";
+"scrivener.import.moreWarnings" = "And %d more items.";
+"scrivener.import.compileNote" = "Scrivener documents excluded from Compile remain excluded from the Writing Shed Pro manuscript.";
+"scrivener.import.action" = "Import Project";
+"scrivener.import.mapping.prose" = "A standard Prose project is created. Original folders are preserved under Scrivener Binder; documents are available through Prose and top-level groups become Sections.";
+"scrivener.import.mapping.fiction" = "Binder folders are preserved. Top-level folders become chapters or books when the selected fiction structure uses them; documents become scenes.";
+"scrivener.import.mapping.poetry" = "A standard Poetry project is created. Binder folders are preserved under Scrivener Binder; poems are available through Poems and top-level groups become Collections.";
+"scrivener.import.mapping.drama" = "Binder folders are preserved as folders and mapped to acts; documents become scenes.";
+"scrivener.untitled" = "Untitled";
+"scrivener.error.invalidProject" = "The selected item is not a valid Scrivener project package.";
+"scrivener.error.unsupportedLegacyProject" = "This project uses the older Scrivener 1 format, which is not supported by this importer. Convert a copy of the project to Scrivener 3 format in Scrivener, then import the converted .scriv package.";
+"scrivener.error.invalidBinder" = "Could not read the Scrivener binder: %@";
+"scrivener.error.emptyBinder" = "The Scrivener project does not contain any binder items.";
+"scrivener.error.invalidDocument" = "Could not locate the content for Scrivener document \"%@\".";
+"scrivener.error.invalidRichText" = "Could not decode rich text for Scrivener document \"%@\".";
+"scrivener.warning.unsupportedItem" = "Unsupported Scrivener item \"%@\" was preserved as an empty folder.";
+"scrivener.warning.missingContent" = "No content file was found for Scrivener document \"%@\"; it was imported as an empty document.";
+"scrivener.warning.unsupportedAttachment" = "Some embedded attachments in Scrivener document \"%@\" could not be imported.";
+
 /* Markdown Import */
 "import.markdown.error.invalid" = "Invalid Markdown file";
 "import.markdown.error.encoding" = "Could not read file encoding";

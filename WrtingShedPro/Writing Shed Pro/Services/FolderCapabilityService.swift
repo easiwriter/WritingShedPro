@@ -2,6 +2,20 @@ import Foundation
 
 /// Defines what operations are allowed on specific folders based on their name and purpose
 struct FolderCapabilityService {
+    static var scrivenerBinderFolderName: String {
+        NSLocalizedString("scrivener.import.binderFolderName", comment: "Preserved Scrivener binder folder")
+    }
+
+    static func isInScrivenerBinder(_ folder: Folder?) -> Bool {
+        var current = folder
+        while let ancestor = current {
+            if ancestor.parentFolder == nil && ancestor.name == scrivenerBinderFolderName {
+                return true
+            }
+            current = ancestor.parentFolder
+        }
+        return false
+    }
     
     /// Folders that can ONLY contain subfolders (no files allowed)
     /// These are organizational containers for publications
@@ -48,6 +62,7 @@ struct FolderCapabilityService {
     
     /// Determines if a folder can contain subfolders
     static func canAddSubfolder(to folder: Folder) -> Bool {
+        if isInScrivenerBinder(folder) { return true }
         guard let folderName = folder.name else { return false }
         
         // Mixed content folders can contain subfolders
@@ -78,6 +93,7 @@ struct FolderCapabilityService {
     
     /// Determines if a folder can contain files
     static func canAddFile(to folder: Folder) -> Bool {
+        if isInScrivenerBinder(folder) { return true }
         guard let folderName = folder.name else { return false }
         
         // Read-only folders cannot have files added manually
@@ -107,6 +123,7 @@ struct FolderCapabilityService {
     /// Determines if this is a content folder (Poems, Scenes, Stories, Episodes, Scripts, Sections, Prose)
     /// These folders use workflow status filtering and drag-to-reorder
     static func isContentFolder(_ folder: Folder) -> Bool {
+        guard !isInScrivenerBinder(folder) else { return false }
         guard let folderName = folder.name else { return false }
         return ["Poems", "Scenes", "Stories", "Episodes", "Scripts", "Sections", "Prose"].contains(folderName)
     }

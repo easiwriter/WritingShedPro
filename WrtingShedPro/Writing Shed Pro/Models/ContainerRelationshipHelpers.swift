@@ -37,6 +37,28 @@ enum ContainerDisplayOrder {
 
 // MARK: - TextFile Container Helpers
 
+extension Project {
+    var poetryContentFiles: [TextFile] {
+        let directFiles = folders?.first(where: { $0.name == "Poems" })?.textFiles ?? []
+        let importedFiles = (poetryCollections ?? []).flatMap { $0.textFiles ?? [] }
+            .filter { FolderCapabilityService.isInScrivenerBinder($0.parentFolder) }
+        var seen = Set<UUID>()
+        return (directFiles + importedFiles).filter {
+            !$0.isDeleted && $0.trashItem == nil && seen.insert($0.id).inserted
+        }
+    }
+
+    var proseContentFiles: [TextFile] {
+        let directFiles = folders?.first(where: { $0.name == "Prose" })?.textFiles ?? []
+        let importedFiles = (sections ?? []).flatMap { $0.textFiles ?? [] }
+            .filter { FolderCapabilityService.isInScrivenerBinder($0.parentFolder) }
+        var seen = Set<UUID>()
+        return (directFiles + importedFiles).filter {
+            !$0.isDeleted && $0.trashItem == nil && seen.insert($0.id).inserted
+        }
+    }
+}
+
 extension TextFile {
     
     // MARK: Poetry Collection

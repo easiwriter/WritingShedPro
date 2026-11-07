@@ -15,7 +15,12 @@ struct ProjectTemplateService {
     /// - Parameters:
     ///   - project: The project to create folders for
     ///   - modelContext: The SwiftData model context for persistence
-    static func createDefaultFolders(for project: Project, in modelContext: ModelContext) {
+    ///   - requestSave: Disable when the caller owns an atomic import save.
+    static func createDefaultFolders(
+        for project: Project,
+        in modelContext: ModelContext,
+        requestSave: Bool = true
+    ) {
         // Get all folder keys in the correct order for this project type
         let orderedFolderKeys = getOrderedFolderKeys(for: project)
         
@@ -31,9 +36,11 @@ struct ProjectTemplateService {
             }
         }
         
-        Task { @MainActor in
-            WriteCoalescer.shared?.requestSave(reason: "project-template-default-folders")
-            WriteCoalescer.shared?.flush()
+        if requestSave {
+            Task { @MainActor in
+                WriteCoalescer.shared?.requestSave(reason: "project-template-default-folders")
+                WriteCoalescer.shared?.flush()
+            }
         }
         #if DEBUG
         print("✅ Created folder structure for project: \(project.name ?? "Unknown")")

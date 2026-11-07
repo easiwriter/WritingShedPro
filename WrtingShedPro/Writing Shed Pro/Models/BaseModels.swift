@@ -459,12 +459,14 @@ final class Folder {
     
     /// Check if this is a Front Matter folder
     var isFrontMatterFolder: Bool {
-        name == "Front Matter" || name == NSLocalizedString("folder.frontMatter", comment: "Front Matter")
+        !FolderCapabilityService.isInScrivenerBinder(self)
+            && (name == "Front Matter" || name == NSLocalizedString("folder.frontMatter", comment: "Front Matter"))
     }
     
     /// Check if this is a Back Matter folder
     var isBackMatterFolder: Bool {
-        name == "Back Matter" || name == NSLocalizedString("folder.backMatter", comment: "Back Matter")
+        !FolderCapabilityService.isInScrivenerBinder(self)
+            && (name == "Back Matter" || name == NSLocalizedString("folder.backMatter", comment: "Back Matter"))
     }
     
     /// Get the project for this folder, traversing parent chain if needed
@@ -900,7 +902,7 @@ final class TextFile {
     
     /// Check if this file is a back matter file (in Back Matter folder)
     var isBackMatterFile: Bool {
-        return parentFolder?.name == "Back Matter"
+        return parentFolder?.isBackMatterFolder == true
     }
     
     // MARK: - Container Compatibility Properties

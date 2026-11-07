@@ -28,7 +28,10 @@ extension FolderFilesView {
     /// Previously used @Query over ALL TextFiles (2167+) and filtered in Swift,
     /// causing 750-970ms re-fetches every ~1s during CloudKit sync WAL checkpoints.
     var allFiles: [TextFile] {
-        (folder.textFiles ?? []).filter { !$0.isDeleted }
+        if folder.name == "Poems", let project = folder.project, project.type == .poetry {
+            return project.poetryContentFiles
+        }
+        return (folder.textFiles ?? []).filter { !$0.isDeleted }
     }
 
     func fileCount(for status: WorkflowStatus?) -> Int {

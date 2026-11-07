@@ -42,6 +42,20 @@
 		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
+			<string>Scrivener Project</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.literatureandlatte.scrivener.project</string>
+			</array>
+			<key>LSTypeIsPackage</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
 			<string>Word Document</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
@@ -88,6 +102,23 @@
 	</array>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>com.apple.package</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Scrivener Project</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.literatureandlatte.scrivener.project</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>scriv</string>
+				</array>
+			</dict>
+		</dict>
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>

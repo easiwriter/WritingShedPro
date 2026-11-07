@@ -146,8 +146,7 @@ struct ProseListView: View {
         if let section = section {
             return (section.textFiles ?? []).filter { $0.trashItem == nil }
         }
-        guard let folder = proseFolder else { return [] }
-        return (folder.textFiles ?? []).filter { $0.trashItem == nil }
+        return project.proseContentFiles
     }
     
     private var sortedFiles: [TextFile] {

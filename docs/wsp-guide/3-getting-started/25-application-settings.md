@@ -13,7 +13,7 @@ Open the stylesheet editor to create and customise stylesheets for your document
 ## Import
 
 ### Import
-Import a `.wsp` file — a Writing Shed Pro project archive. Choose the file from your device or iCloud Drive, and it will be added to your project list. The `.wsp` format includes all project data: files, versions, folders, submissions, and metadata. See [Creating Projects](../4-projects/32-creating-projects.md) for details on what's included and the full import/export workflow.
+Import a `.wsp` Writing Shed Pro project archive or a Scrivener `.scriv` project package. Choose the file from your device or iCloud Drive, and it will be added to your project list. Scrivener imports let you choose the Writing Shed Pro project type and whether to include Research and Trash. See [Creating Projects](../4-projects/32-creating-projects.md) for details on the import options and mapping.
 
 ## Appearance (iPhone and iPad only)
 

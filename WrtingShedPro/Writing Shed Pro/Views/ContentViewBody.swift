@@ -58,6 +58,11 @@ extension UTType {
     static var writingShedPro: UTType {
         UTType(exportedAs: "com.writing-shed.wsp")
     }
+
+    static var scrivenerProject: UTType {
+        UTType(filenameExtension: "scriv", conformingTo: .package)
+            ?? UTType(importedAs: "com.literatureandlatte.scrivener.project", conformingTo: .package)
+    }
 }
 
 struct ContentViewBody: View {
@@ -70,6 +75,7 @@ struct ContentViewBody: View {
     let onSyncNow: () -> Void
     let onHandleImportMenu: () -> Void
     let onHandleJSONImport: (Result<[URL], Error>) -> Void
+    let onConfirmScrivenerImport: (ScrivenerProjectDraft, ScrivenerImportOptions) -> Void
     let onPrefetchProjectData: () -> Void
     let onRunMigrations: () -> Void
     @Bindable var onboardingCoordinator: OnboardingCoordinator
@@ -245,6 +251,23 @@ struct ContentViewBody: View {
             .sheet(isPresented: $showProjectTrash) {
                 ProjectTrashBinView()
             }
+            .sheet(
+                isPresented: Binding(
+                    get: { state.scrivenerImportDraft != nil },
+                    set: { if !$0 { state.scrivenerImportDraft = nil } }
+                )
+            ) {
+                if let draft = state.scrivenerImportDraft {
+                    ScrivenerImportSheet(
+                        draft: draft,
+                        onCancel: { state.scrivenerImportDraft = nil },
+                        onImport: { options in
+                            state.scrivenerImportDraft = nil
+                            onConfirmScrivenerImport(draft, options)
+                        }
+                    )
+                }
+            }
             .sheet(isPresented: $state.showSettings, onDismiss: {
                 guard importAfterSettingsDismissal else { return }
                 importAfterSettingsDismissal = false
@@ -316,7 +339,9 @@ struct ContentViewBody: View {
                 allowedContentTypes: [
                     .writingShedLegacy,
                     .writingShedPro,
-                    .json
+                    .json,
+                    .scrivenerProject,
+                    .folder
                 ],
                 allowsMultipleSelection: false
             ) { result in

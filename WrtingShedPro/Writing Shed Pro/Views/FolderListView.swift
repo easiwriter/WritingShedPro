@@ -1690,6 +1690,14 @@ struct FolderRowView: View {
             fileCount = totalBodyMatterFiles(project: folder.resolvedProject).count
             subfolderCount = folder.folders?.count ?? 0
             bodyMatterWordCount = totalBodyMatterWordCount(project: folder.resolvedProject)
+        } else if folder.name == "Prose", let project = folder.project, project.type == .prose {
+            fileCount = project.proseContentFiles.count
+            subfolderCount = 0
+            bodyMatterWordCount = 0
+        } else if folder.name == "Poems", let project = folder.project, project.type == .poetry {
+            fileCount = project.poetryContentFiles.count
+            subfolderCount = 0
+            bodyMatterWordCount = 0
         } else {
             fileCount = folder.textFiles?.count ?? 0
             subfolderCount = folder.folders?.count ?? 0

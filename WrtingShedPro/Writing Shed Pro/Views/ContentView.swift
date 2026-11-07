@@ -68,6 +68,7 @@ struct ContentView: View {
             onSyncNow: syncNowFromSettings,
             onHandleImportMenu: handleImportMenu,
             onHandleJSONImport: handleJSONImport,
+            onConfirmScrivenerImport: handleScrivenerImport,
             onPrefetchProjectData: prefetchProjectData,
             onRunMigrations: runMigrations,
             onboardingCoordinator: onboardingCoordinator,
@@ -188,7 +189,7 @@ struct ContentView: View {
             return
         }
         let ext = url.pathExtension.lowercased()
-        guard ext == "wsp" || ext == "wsd" || ext == "json" else { return }
+        guard ext == "wsp" || ext == "wsd" || ext == "json" || ext == "scriv" else { return }
         handleJSONImport(.success([url]))
     }
 
@@ -1096,6 +1097,14 @@ struct ContentView: View {
                 }
                 
                 do {
+                    if fileURL.pathExtension.caseInsensitiveCompare("scriv") == .orderedSame {
+                        let draft = try ScrivenerImportService.readProject(from: fileURL)
+                        await MainActor.run {
+                            state.scrivenerImportDraft = draft
+                        }
+                        return
+                    }
+
                     guard canBeginEnsemblesUserImport(reason: "JSON/WSP import") else {
                         await MainActor.run {
                             let messageKey = Write_App.isInEnsemblesMergeSaveCooldown()
@@ -1191,6 +1200,64 @@ struct ContentView: View {
             #if DEBUG
             print("[ContentView] File selection failed: \(error)")
             #endif
+        }
+    }
+
+    private func handleScrivenerImport(
+        _ draft: ScrivenerProjectDraft,
+        options: ScrivenerImportOptions
+    ) {
+        guard EntitlementManager.shared.canModifyContent else {
+            state.showStore = true
+            return
+        }
+
+        Task { @MainActor in
+            guard canBeginEnsemblesUserImport(reason: "Scrivener import") else {
+                let messageKey = Write_App.isInEnsemblesMergeSaveCooldown()
+                    ? "contentView.importError.syncFinalizing"
+                    : "contentView.importError.syncPreparing"
+                state.importErrorMessage = NSLocalizedString(
+                    messageKey,
+                    comment: "Sync is not ready for project import"
+                )
+                state.showImportError = true
+                return
+            }
+
+            DeduplicationService.pauseZombieDeletion(for: 180)
+            let importContext = ModelContext(modelContext.container)
+            importContext.autosaveEnabled = false
+
+            do {
+                let importer = ScrivenerImportService(modelContext: importContext)
+                let project = try importer.importProject(draft, options: options)
+                if let name = project.name {
+                    DeduplicationService.clearTombstone(name: name, typeRaw: project.typeRaw)
+                }
+            } catch let saveGateError as EnsemblesSaveGateError {
+                let messageKey: String
+                switch saveGateError {
+                case let .syncBusy(reason, _, _):
+                    messageKey = reason == "json-import-scrivener-final"
+                        ? "contentView.importError.syncChangedBeforeSave"
+                        : "contentView.importError.syncChangedDuringImport"
+                }
+                state.importErrorMessage = NSLocalizedString(
+                    messageKey,
+                    comment: "Sync changed during project import"
+                )
+                state.showImportError = true
+            } catch {
+                state.importErrorMessage = String(
+                    format: NSLocalizedString("contentView.importError.failed", comment: "Failed to import project"),
+                    error.localizedDescription
+                )
+                state.showImportError = true
+                #if DEBUG
+                print("[ContentView] Scrivener import failed: \(error)")
+                #endif
+            }
         }
     }
 

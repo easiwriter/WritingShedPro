@@ -106,14 +106,31 @@ Writing Shed Pro has no hard limit on the number of projects you can create. How
 
 ## Importing Projects
 
-You can import projects into Writing Shed Pro from `.wsp` files — the native project archive format.
+You can import `.wsp` project archives and Scrivener `.scriv` project packages into Writing Shed Pro.
 
 ### How to Import
 
-1. Open **Settings** (gear icon on the project list)
-2. Tap **Import**
-3. Select a `.wsp` file from your device or iCloud Drive
-4. The project is imported and appears in your project list
+1. Choose **Import** from the project list or Settings
+2. Select a `.wsp` file or Scrivener `.scriv` package from your device or iCloud Drive
+3. The project is imported and appears in your project list
+
+### Importing a Scrivener Project
+
+The importer supports Scrivener 2 packages with numeric document files in `Files/Docs` and Scrivener 3 packages with UUID-based files in `Files/Data`. Scrivener 1 projects using `binder.scrivproj` are not supported directly; convert a copy to Scrivener 3 format in Scrivener before importing. Keep the original project as a backup.
+
+Select the whole `.scriv` folder or package, not the `.scrivx` binder file inside it. On Mac, if the picker shows the project as a folder, select that folder and click **Import** without opening it. Keep the complete project together: document text is stored alongside the binder in `Files/Data`.
+
+Before importing, review the detected project name and binder contents, then choose whether to create a Prose, Fiction, Poetry, or Drama project. Fiction projects also ask for a fiction structure; Drama projects ask for a script format.
+
+The new project has the standard folders for the selected project type. Original Scrivener folders and their nesting are preserved under **Scrivener Binder**, not added as special folders at the project root. For example, a source folder named Characters remains ordinary binder content in a Prose project. Loose documents are kept directly in Scrivener Binder; no extra Imported Documents folder is created.
+
+Top-level binder folders are also mapped to Prose sections, Poetry collections, Fiction chapters/books, or Drama acts, as appropriate. Loose documents share an Imported Documents section or equivalent group. In Prose projects, imported documents are available through both **Prose** and **Sections**; in Poetry projects, they are available through **Poems** and **Collections**, without duplicating the documents. A text document that has child documents is preserved as a folder containing its own text followed by its children. Scrivener documents excluded from Compile remain excluded from the Writing Shed Pro manuscript. These mappings apply to new imports; existing imported projects are not changed automatically.
+
+Research and Trash are optional and are skipped by default. If imported, their files are kept in corresponding folders and excluded from manuscript assembly. Scrivener item types that Writing Shed Pro cannot import are identified in the review sheet and preserved as empty folders.
+
+### Sample Scrivener Projects
+
+To try the importer, download a Scrivener 3 `.scriv` package from the [PRONOM Research sample collection](https://github.com/digital-preservation/PRONOM_Research/tree/main/Submissions/Scrivener/Samples), such as `Scrivener3-s01.scriv`. The [Scrivener Starter project](https://github.com/carsomyr/scrivener_starter) is another reference, but uses an older content layout that the importer does not currently support. These are third-party examples; project layouts and Scrivener versions may differ.
 
 ### What's Included in a WSP File
 

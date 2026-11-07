@@ -36,6 +36,7 @@ final class ContentViewState {
     var showPublicationHistory = false
     var isImporting = false
     var showingJSONImportPicker = false
+    var scrivenerImportDraft: ScrivenerProjectDraft?
     var showImportError = false
     var importErrorMessage = ""
     var showOnboarding = false
