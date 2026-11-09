@@ -138,6 +138,9 @@ Public reporting endpoint:
 
 - `POST /api/sales` with `transactionID`, `productID`, and `purchaseDate`.
 - A Full Access conversion also sends `trialTransactionID` and `trialPurchaseDate`.
+- `POST /api/trials` records anonymous automatic-trial `started` and `expired`
+  lifecycle events. The Worker stores only a SHA-256 hash of the random
+  Keychain UUID sent by the app.
 
 The Worker ignores the client-supplied purchase date when recording a sale. It
 queries Apple's App Store Server API and requires the returned transaction ID,
@@ -169,10 +172,32 @@ trial product cohorts are reported as:
 - `convertedTrial`: trials activated in the selected month that later bought Full Access.
 - `fullAccess`: direct Full Access purchases with no preceding trial, grouped by purchase month.
 
-These totals are device-reported operational telemetry, not a replacement for
-App Store Connect. They can be lower when customers have not launched a version
-containing the reporter. Automatic local trials have no StoreKit transaction
-and therefore are not included in StoreKit trial totals.
+Device transaction totals are retained as operational diagnostics and are
+displayed separately from authoritative Apple totals. They can be lower when
+customers have not launched a version containing the reporter.
+
+Automatic free trials are reported separately from StoreKit. The admin response
+includes starts, scheduled 10-day ends, expiries observed when the app is opened,
+Full Access conversions, and trials active at the end of the selected period.
+Scheduled ends do not imply that the customer reopened the app.
+
+The Worker imports authoritative purchase and refund units from Apple's daily
+Sales and Trends Summary Sales reports. Apple publishes daily reports the
+following day. Configure an App Store Connect team API key with access to Sales
+and Trends, plus the vendor number:
+
+```bash
+npx wrangler secret put APP_STORE_CONNECT_KEY_ID
+npx wrangler secret put APP_STORE_CONNECT_ISSUER_ID
+npx wrangler secret put APP_STORE_CONNECT_PRIVATE_KEY
+npx wrangler secret put APP_STORE_CONNECT_VENDOR_NUMBER
+```
+
+The scheduled Worker task imports the previous day's report. The operator's
+**Sync Apple Reports** button calls
+`POST /api/admin/sales/apple-sync?month=YYYY-MM` to backfill or refresh all
+published daily reports in a selected month. Refund units are stored and shown
+separately rather than silently subtracted from purchases.
 
 `ensureSalesTables` adds the nullable conversion columns to an existing D1
 database on first use. Apply the schema command when creating a fresh database.

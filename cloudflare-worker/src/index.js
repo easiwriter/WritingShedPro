@@ -10,15 +10,27 @@ import {
     verifyStoreTransaction,
 } from "./apple-subscription.mjs";
 import {
+    AppStoreConnectError,
+    downloadDailySalesReport,
+    reportDatesForMonth,
+} from "./apple-sales-reports.mjs";
+import {
     createLegacyAnalystUpgradeResponse,
     isLegacyAnalystRequest,
 } from "./legacy-analyst-upgrade.mjs";
+import {
+    emptyTrialMetrics,
+    validateTrialEvent,
+} from "./trial-telemetry.mjs";
 
 // In-memory rate limiting (per-worker instance). For production with
 // multiple edge locations, consider Cloudflare KV or Rate Limiting rules.
 const rateLimitMap = new Map();
 const RATE_LIMIT_MAX = 5;           // requests per window
 const RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
+const trialRateLimitMap = new Map();
+const TRIAL_RATE_LIMIT_MAX = 20;
+const TRIAL_RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const MAX_QUERY_LENGTH = 2000;
 const MAX_DIAGNOSTICS_LENGTH = 12000;
@@ -137,6 +149,26 @@ function isRateLimited(ip) {
     return false;
 }
 
+function isTrialRateLimited(ip) {
+    const now = Date.now();
+    const entry = trialRateLimitMap.get(ip);
+    if (!entry || now - entry.windowStart > TRIAL_RATE_LIMIT_WINDOW_MS) {
+        trialRateLimitMap.set(ip, { windowStart: now, count: 1 });
+        return false;
+    }
+    entry.count++;
+    return entry.count > TRIAL_RATE_LIMIT_MAX;
+}
+
+function isAppleSalesConfigured(env) {
+    return [
+        env.APP_STORE_CONNECT_PRIVATE_KEY,
+        env.APP_STORE_CONNECT_KEY_ID,
+        env.APP_STORE_CONNECT_ISSUER_ID,
+        env.APP_STORE_CONNECT_VENDOR_NUMBER,
+    ].every((value) => typeof value === "string" && value.length > 0);
+}
+
 function publicationHistoryResponse(query) {
     const normalizedQuery = query.toLowerCase();
     const asksForPublicationHistory = /\bpublications?\s+history\b/.test(normalizedQuery)
@@ -187,6 +219,10 @@ export default {
             return handleRecordSale(request, env);
         }
 
+        if (pathname === "/api/trials") {
+            return handleRecordTrial(request, env);
+        }
+
         if (pathname === "/api/tutorial-videos") {
             return handleListTutorialVideos(request, env);
         }
@@ -199,6 +235,10 @@ export default {
             return handleAdminSales(request, env);
         }
 
+        if (pathname === "/api/admin/sales/apple-sync") {
+            return handleAdminAppleSalesSync(request, env);
+        }
+
         if (pathname === "/api/admin/sales/verification-failures") {
             return handleAdminSalesVerificationFailures(request, env);
         }
@@ -209,6 +249,13 @@ export default {
 
         // Default: support handler
         return handleSupport(request, env);
+    },
+
+    async scheduled(_controller, env, ctx) {
+        if (!isAppleSalesConfigured(env)) return;
+        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const month = yesterday.toISOString().slice(0, 7);
+        ctx.waitUntil(syncAppleSalesMonth(env, month, false));
     },
 };
 
@@ -1493,6 +1540,94 @@ async function handleAdminDeleteArchivedMessages(env) {
     }
 }
 
+async function handleRecordTrial(request, env) {
+    if (request.method !== "POST") {
+        return jsonResponse({ error: "Method not allowed" }, 405);
+    }
+    if (!env.MESSAGES_DB) {
+        return jsonResponse({ error: "Trial reporting unavailable" }, 500);
+    }
+    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+    if (isTrialRateLimited(ip)) {
+        return jsonResponse({ error: "Too many trial reports" }, 429);
+    }
+
+    let body;
+    try {
+        body = await request.json();
+    } catch {
+        return jsonResponse({ error: "Invalid JSON" }, 400);
+    }
+
+    const validation = validateTrialEvent(body);
+    if (validation.error) {
+        return jsonResponse({ error: validation.error }, 400);
+    }
+
+    const { trialID, event, startedAt, scheduledEndAt, observedAt } = validation.value;
+    const trialHash = await sha256Hex(trialID);
+    const now = Date.now();
+
+    try {
+        await ensureSalesTables(env);
+        await env.MESSAGES_DB
+            .prepare(`
+                INSERT INTO trial_events (
+                    trial_hash, started_at, scheduled_end_at,
+                    observed_expired_at, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(trial_hash) DO UPDATE SET
+                    started_at = MIN(trial_events.started_at, excluded.started_at),
+                    scheduled_end_at = MIN(trial_events.scheduled_end_at, excluded.scheduled_end_at),
+                    observed_expired_at = CASE
+                        WHEN excluded.observed_expired_at IS NULL
+                            THEN trial_events.observed_expired_at
+                        WHEN trial_events.observed_expired_at IS NULL
+                            THEN excluded.observed_expired_at
+                        ELSE MIN(trial_events.observed_expired_at, excluded.observed_expired_at)
+                    END,
+                    updated_at = excluded.updated_at
+            `)
+            .bind(
+                trialHash,
+                startedAt,
+                scheduledEndAt,
+                event === "expired" ? observedAt : null,
+                now,
+                now
+            )
+            .run();
+        await env.MESSAGES_DB
+            .prepare(`
+                UPDATE trial_events
+                SET converted_at = (
+                        SELECT converted_at
+                        FROM trial_conversion_links
+                        WHERE trial_conversion_links.trial_hash = trial_events.trial_hash
+                    ),
+                    conversion_transaction_id = (
+                        SELECT transaction_id
+                        FROM trial_conversion_links
+                        WHERE trial_conversion_links.trial_hash = trial_events.trial_hash
+                    ),
+                    updated_at = ?
+                WHERE trial_hash = ?
+                  AND EXISTS (
+                      SELECT 1
+                      FROM trial_conversion_links
+                      WHERE trial_conversion_links.trial_hash = trial_events.trial_hash
+                  )
+            `)
+            .bind(now, trialHash)
+            .run();
+        return jsonResponse({ ok: true }, 200);
+    } catch (error) {
+        console.error("Failed to record trial lifecycle:", error);
+        return jsonResponse({ error: "Trial reporting unavailable" }, 502);
+    }
+}
+
 async function handleRecordSale(request, env) {
     if (request.method !== "POST") {
         return jsonResponse({ error: "Method not allowed" }, 405);
@@ -1512,12 +1647,16 @@ async function handleRecordSale(request, env) {
     const productID = typeof body?.productID === "string" ? body.productID.trim() : "";
     const transactionID = typeof body?.transactionID === "string" ? body.transactionID.trim() : "";
     const projectType = PRODUCT_SALE_TYPES.get(productID);
+    const trialID = typeof body?.trialID === "string" ? body.trialID.trim().toLowerCase() : "";
 
     if (!projectType) {
         return jsonResponse({ error: "Invalid productID" }, 400);
     }
     if (!/^\d{1,64}$/.test(transactionID)) {
         return jsonResponse({ error: "Invalid transactionID" }, 400);
+    }
+    if (trialID && !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(trialID)) {
+        return jsonResponse({ error: "Invalid trialID" }, 400);
     }
 
     const verification = await verifyStoreTransaction(transactionID, productID, env);
@@ -1560,6 +1699,9 @@ async function handleRecordSale(request, env) {
         await ensureSalesTables(env);
         await resolveTransactionVerificationFailure(env, transactionID, productID, now);
         await recordVerifiedTransaction(env, transaction, now);
+        if (projectType === "fullAccess" && trialID) {
+            await recordTrialConversion(env, trialID, transactionID, purchaseDate, now);
+        }
 
         if (projectType === "fullAccess" && trialTransactionID) {
             const trialMonth = saleMonthFromTimestamp(trialPurchaseDate);
@@ -1658,6 +1800,109 @@ async function handleRecordSale(request, env) {
     }
 }
 
+async function recordTrialConversion(env, trialID, transactionID, convertedAt, now) {
+    const trialHash = await sha256Hex(trialID);
+    await env.MESSAGES_DB
+        .prepare(`
+            INSERT OR IGNORE INTO trial_conversion_links (
+                trial_hash, transaction_id, converted_at, created_at
+            )
+            VALUES (?, ?, ?, ?)
+        `)
+        .bind(trialHash, transactionID, convertedAt, now)
+        .run();
+    await env.MESSAGES_DB
+        .prepare(`
+            UPDATE trial_events
+            SET converted_at = COALESCE(converted_at, ?),
+                conversion_transaction_id = COALESCE(conversion_transaction_id, ?),
+                updated_at = ?
+            WHERE trial_hash = ?
+              AND (conversion_transaction_id IS NULL OR conversion_transaction_id = ?)
+        `)
+        .bind(convertedAt, transactionID, now, trialHash, transactionID)
+        .run();
+}
+
+async function handleAdminAppleSalesSync(request, env) {
+    if (!isAuthorizedAdminRequest(request, env)) {
+        return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+    if (request.method !== "POST") {
+        return jsonResponse({ error: "Method not allowed" }, 405);
+    }
+    if (!env.MESSAGES_DB) {
+        return jsonResponse({ error: "Sales service unavailable" }, 500);
+    }
+
+    const month = new URL(request.url).searchParams.get("month");
+    if (!isValidSaleMonth(month)) {
+        return jsonResponse({ error: "Invalid month" }, 400);
+    }
+
+    try {
+        const result = await syncAppleSalesMonth(env, month, true);
+        return jsonResponse({ ok: true, ...result }, 200);
+    } catch (error) {
+        if (error instanceof AppStoreConnectError) {
+            return jsonResponse({ error: error.message }, error.status);
+        }
+        console.error("Failed to sync Apple Sales and Trends:", error);
+        return jsonResponse({ error: "Apple sales sync unavailable" }, 502);
+    }
+}
+
+async function syncAppleSalesMonth(env, month, force) {
+    if (!env.MESSAGES_DB) {
+        throw new AppStoreConnectError(500, "Sales service unavailable");
+    }
+    await ensureSalesTables(env);
+
+    const dates = reportDatesForMonth(month);
+    let importedDays = 0;
+    for (const reportDate of dates) {
+        if (!force) {
+            const existing = await env.MESSAGES_DB
+                .prepare("SELECT 1 FROM apple_sales_report_days WHERE report_date = ?")
+                .bind(reportDate)
+                .first();
+            if (existing) continue;
+        }
+
+        const summaries = await downloadDailySalesReport(reportDate, env);
+        const statements = [
+            env.MESSAGES_DB
+                .prepare("DELETE FROM apple_sales_daily WHERE report_date = ?")
+                .bind(reportDate),
+            ...summaries.map((summary) => env.MESSAGES_DB
+                .prepare(`
+                    INSERT INTO apple_sales_daily (
+                        report_date, product_id, purchases, refunds, imported_at
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                `)
+                .bind(
+                    reportDate,
+                    summary.productID,
+                    summary.purchases,
+                    summary.refunds,
+                    Date.now()
+                )),
+            env.MESSAGES_DB
+                .prepare(`
+                    INSERT INTO apple_sales_report_days (report_date, imported_at)
+                    VALUES (?, ?)
+                    ON CONFLICT(report_date) DO UPDATE SET imported_at = excluded.imported_at
+                `)
+                .bind(reportDate, Date.now()),
+        ];
+        await env.MESSAGES_DB.batch(statements);
+        importedDays++;
+    }
+
+    return { month, importedDays, availableDays: dates.length };
+}
+
 async function handleAdminSales(request, env) {
     if (!isAuthorizedAdminRequest(request, env)) {
         return jsonResponse({ error: "Unauthorized" }, 401);
@@ -1683,6 +1928,11 @@ async function handleAdminSales(request, env) {
                 UNION
                 SELECT sale_month FROM sales_events
                 WHERE product_id IN (?, ?)
+                UNION
+                SELECT SUBSTR(report_date, 1, 7) AS sale_month FROM apple_sales_daily
+                UNION
+                SELECT STRFTIME('%Y-%m', started_at / 1000, 'unixepoch') AS sale_month
+                FROM trial_events
                 ORDER BY sale_month DESC
             `)
             .bind(TRIAL_PRODUCT_ID, FULL_ACCESS_PRODUCT_ID)
@@ -1727,6 +1977,70 @@ async function handleAdminSales(request, env) {
             updatedAt: row.updated_at,
         }));
 
+        const { results: appleRows } = await env.MESSAGES_DB
+            .prepare(`
+                SELECT
+                    product_id,
+                    SUM(purchases) AS purchases,
+                    SUM(refunds) AS refunds,
+                    MAX(imported_at) AS updated_at
+                FROM apple_sales_daily
+                WHERE SUBSTR(report_date, 1, 7) = ?
+                GROUP BY product_id
+                ORDER BY product_id
+            `)
+            .bind(selectedMonth)
+            .all();
+        const appleSales = (appleRows || []).map((row) => ({
+            productID: row.product_id,
+            purchases: row.purchases,
+            refunds: row.refunds,
+            updatedAt: row.updated_at,
+        }));
+
+        const { start, end } = saleMonthTimestampRange(selectedMonth);
+        const activeCutoff = Math.min(end - 1, Date.now());
+        const trialRow = await env.MESSAGES_DB
+            .prepare(`
+                SELECT
+                    SUM(CASE WHEN started_at >= ? AND started_at < ? THEN 1 ELSE 0 END) AS starts,
+                    SUM(CASE WHEN scheduled_end_at >= ? AND scheduled_end_at < ? THEN 1 ELSE 0 END) AS scheduled_ends,
+                    SUM(CASE WHEN observed_expired_at >= ? AND observed_expired_at < ? THEN 1 ELSE 0 END) AS observed_expiries,
+                    SUM(CASE WHEN converted_at >= ? AND converted_at < ? THEN 1 ELSE 0 END) AS conversions,
+                    SUM(CASE
+                        WHEN started_at <= ?
+                          AND scheduled_end_at > ?
+                          AND (converted_at IS NULL OR converted_at > ?)
+                        THEN 1 ELSE 0
+                    END) AS active_at_month_end
+                FROM trial_events
+            `)
+            .bind(
+                start, end,
+                start, end,
+                start, end,
+                start, end,
+                activeCutoff, activeCutoff, activeCutoff
+            )
+            .first();
+        const trialMetrics = {
+            ...emptyTrialMetrics(selectedMonth),
+            starts: trialRow?.starts ?? 0,
+            scheduledEnds: trialRow?.scheduled_ends ?? 0,
+            observedExpiries: trialRow?.observed_expiries ?? 0,
+            conversions: trialRow?.conversions ?? 0,
+            activeAtMonthEnd: trialRow?.active_at_month_end ?? 0,
+        };
+
+        const appleStatus = await env.MESSAGES_DB
+            .prepare(`
+                SELECT COUNT(*) AS imported_days, MAX(imported_at) AS last_imported_at
+                FROM apple_sales_report_days
+                WHERE SUBSTR(report_date, 1, 7) = ?
+            `)
+            .bind(selectedMonth)
+            .first();
+
         const { results: failureRows } = await env.MESSAGES_DB
             .prepare(`
                 SELECT
@@ -1759,7 +2073,20 @@ async function handleAdminSales(request, env) {
         }));
 
         return jsonResponse(
-            { months, selectedMonth, sales, verificationFailures },
+            {
+                months,
+                selectedMonth,
+                appleSales,
+                appleSalesStatus: {
+                    isConfigured: isAppleSalesConfigured(env),
+                    importedDays: appleStatus?.imported_days ?? 0,
+                    lastImportedAt: appleStatus?.last_imported_at ?? null,
+                },
+                trialMetrics,
+                deviceReportedSales: sales,
+                sales,
+                verificationFailures,
+            },
             200,
             { "Cache-Control": "no-store" }
         );
@@ -1817,8 +2144,16 @@ function saleMonthFromTimestamp(timestamp) {
     return `${year}-${month}`;
 }
 
+function saleMonthTimestampRange(month) {
+    const [year, monthNumber] = month.split("-").map(Number);
+    return {
+        start: Date.UTC(year, monthNumber - 1, 1),
+        end: Date.UTC(year, monthNumber, 1),
+    };
+}
+
 function isValidSaleMonth(month) {
-    return typeof month === "string" && /^\d{4}-\d{2}$/.test(month);
+    return typeof month === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
 }
 
 async function ensureSalesTables(env) {
@@ -1868,6 +2203,70 @@ async function ensureSalesTables(env) {
 
     await env.MESSAGES_DB
         .prepare("CREATE INDEX IF NOT EXISTS idx_monthly_sales_month ON monthly_sales(sale_month DESC)")
+        .run();
+
+    await env.MESSAGES_DB
+        .prepare(`
+            CREATE TABLE IF NOT EXISTS trial_events (
+                trial_hash TEXT PRIMARY KEY,
+                started_at INTEGER NOT NULL,
+                scheduled_end_at INTEGER NOT NULL,
+                observed_expired_at INTEGER,
+                converted_at INTEGER,
+                conversion_transaction_id TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+        `)
+        .run();
+
+    await env.MESSAGES_DB
+        .prepare("CREATE INDEX IF NOT EXISTS idx_trial_events_started ON trial_events(started_at)")
+        .run();
+
+    await env.MESSAGES_DB
+        .prepare("CREATE INDEX IF NOT EXISTS idx_trial_events_scheduled_end ON trial_events(scheduled_end_at)")
+        .run();
+
+    await env.MESSAGES_DB
+        .prepare(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_trial_events_conversion
+            ON trial_events(conversion_transaction_id)
+            WHERE conversion_transaction_id IS NOT NULL
+        `)
+        .run();
+
+    await env.MESSAGES_DB
+        .prepare(`
+            CREATE TABLE IF NOT EXISTS trial_conversion_links (
+                trial_hash TEXT PRIMARY KEY,
+                transaction_id TEXT NOT NULL UNIQUE,
+                converted_at INTEGER NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+        `)
+        .run();
+
+    await env.MESSAGES_DB
+        .prepare(`
+            CREATE TABLE IF NOT EXISTS apple_sales_daily (
+                report_date TEXT NOT NULL,
+                product_id TEXT NOT NULL,
+                purchases INTEGER NOT NULL DEFAULT 0,
+                refunds INTEGER NOT NULL DEFAULT 0,
+                imported_at INTEGER NOT NULL,
+                PRIMARY KEY (report_date, product_id)
+            )
+        `)
+        .run();
+
+    await env.MESSAGES_DB
+        .prepare(`
+            CREATE TABLE IF NOT EXISTS apple_sales_report_days (
+                report_date TEXT PRIMARY KEY,
+                imported_at INTEGER NOT NULL
+            )
+        `)
         .run();
 }
 

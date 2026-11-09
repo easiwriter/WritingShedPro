@@ -6,6 +6,9 @@ final class OperatorSalesService {
     var months: [String] = []
     var selectedMonth: String = ""
     var sales: [OperatorSalesRecord] = []
+    var appleSales: [OperatorAppleSalesRecord] = []
+    var appleSalesStatus: OperatorAppleSalesStatus?
+    var trialMetrics: OperatorTrialMetrics?
     var verificationFailures: [OperatorVerificationFailure] = []
     var isLoading = false
     var errorMessage: String?
@@ -19,6 +22,14 @@ final class OperatorSalesService {
 
     var totalSales: Int {
         sales.reduce(0) { $0 + $1.count }
+    }
+
+    var totalApplePurchases: Int {
+        appleSales.reduce(0) { $0 + $1.purchases }
+    }
+
+    var totalAppleRefunds: Int {
+        appleSales.reduce(0) { $0 + $1.refunds }
     }
 
     var totalFullAccessSales: Int {
@@ -45,7 +56,10 @@ final class OperatorSalesService {
 
     func fetch(month: String?, settings: OperatorSettingsStore) async {
         guard let baseURL = URL(string: settings.endpoint),
-              var components = URLComponents(url: baseURL.appendingPathComponent("api/admin/sales"), resolvingAgainstBaseURL: false) else {
+              var components = URLComponents(
+                url: baseURL.appendingPathComponent("api/admin/sales"),
+                resolvingAgainstBaseURL: false
+              ) else {
             errorMessage = "Invalid endpoint URL"
             return
         }
@@ -62,8 +76,7 @@ final class OperatorSalesService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.timeoutInterval = 20
-        request.setValue("Bearer \(settings.token)", forHTTPHeaderField: "Authorization")
-
+        authorize(&request, token: settings.token)
         await performRequestAndDecode(request)
     }
 
@@ -78,7 +91,7 @@ final class OperatorSalesService {
         )
         request.httpMethod = "DELETE"
         request.timeoutInterval = 20
-        request.setValue("******", forHTTPHeaderField: "Authorization")
+        authorize(&request, token: settings.token)
 
         isLoading = true
         defer { isLoading = false }
@@ -109,6 +122,58 @@ final class OperatorSalesService {
         }
     }
 
+    func syncAppleSales(settings: OperatorSettingsStore) async {
+        guard !selectedMonth.isEmpty,
+              let baseURL = URL(string: settings.endpoint),
+              var components = URLComponents(
+                url: baseURL.appendingPathComponent("api/admin/sales/apple-sync"),
+                resolvingAgainstBaseURL: false
+              ) else {
+            errorMessage = "Invalid endpoint URL"
+            return
+        }
+        components.queryItems = [URLQueryItem(name: "month", value: selectedMonth)]
+        guard let url = components.url else {
+            errorMessage = "Invalid endpoint URL"
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 120
+        authorize(&request, token: settings.token)
+
+        isLoading = true
+        errorMessage = nil
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                errorMessage = "No server response"
+                isLoading = false
+                return
+            }
+            guard http.statusCode == 200 else {
+                errorMessage = http.statusCode == 503
+                    ? "Apple Sales and Trends credentials are not configured"
+                    : "Apple sales sync failed (\(http.statusCode))"
+                isLoading = false
+                return
+            }
+            isLoading = false
+            await fetch(month: selectedMonth, settings: settings)
+        } catch {
+            isLoading = false
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func authorize(_ request: inout URLRequest, token: String) {
+        request.setValue(
+            ["Bearer", token].joined(separator: " "),
+            forHTTPHeaderField: "Authorization"
+        )
+    }
+
     private func performRequestAndDecode(_ request: URLRequest) async {
         isLoading = true
         defer { isLoading = false }
@@ -129,7 +194,10 @@ final class OperatorSalesService {
             let decoded = try JSONDecoder().decode(OperatorSalesResponse.self, from: data)
             months = decoded.months
             selectedMonth = decoded.selectedMonth
-            sales = decoded.sales
+            sales = decoded.deviceReportedSales ?? decoded.sales
+            appleSales = decoded.appleSales ?? []
+            appleSalesStatus = decoded.appleSalesStatus
+            trialMetrics = decoded.trialMetrics
             verificationFailures = decoded.verificationFailures ?? []
         } catch {
             errorMessage = error.localizedDescription

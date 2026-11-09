@@ -454,6 +454,11 @@ final class EntitlementManager {
 
         Task {
             await SalesReporter.reconcileCurrentEntitlements()
+            await SalesReporter.TrialTelemetryReporter.shared.reconcile(
+                purchaseModel: purchaseModel,
+                trialStartDate: trialStartDate,
+                coreAccessState: coreAccessState
+            )
         }
         
         #if DEBUG
@@ -597,7 +602,8 @@ final class EntitlementManager {
 
     var coreAccessState: CoreAccessState {
 #if DEBUG
-        if isExpiredTrialSimulationEnabled {
+        if isExpiredTrialSimulationEnabled,
+           !cachedEntitlements.contains(WSPProduct.fullAccess.rawValue) {
             return .trialExpired
         }
 #endif
@@ -611,7 +617,8 @@ final class EntitlementManager {
 
     var trialExpirationDate: Date? {
 #if DEBUG
-        if isExpiredTrialSimulationEnabled {
+        if isExpiredTrialSimulationEnabled,
+           !cachedEntitlements.contains(WSPProduct.fullAccess.rawValue) {
             return currentEvaluationDate
         }
 #endif

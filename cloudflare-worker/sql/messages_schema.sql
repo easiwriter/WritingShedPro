@@ -76,3 +76,45 @@ CREATE TABLE IF NOT EXISTS monthly_sales (
 
 CREATE INDEX IF NOT EXISTS idx_monthly_sales_month
 ON monthly_sales(sale_month DESC);
+
+CREATE TABLE IF NOT EXISTS trial_events (
+  trial_hash TEXT PRIMARY KEY,
+  started_at INTEGER NOT NULL,
+  scheduled_end_at INTEGER NOT NULL,
+  observed_expired_at INTEGER,
+  converted_at INTEGER,
+  conversion_transaction_id TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_trial_events_started
+ON trial_events(started_at);
+
+CREATE INDEX IF NOT EXISTS idx_trial_events_scheduled_end
+ON trial_events(scheduled_end_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_trial_events_conversion
+ON trial_events(conversion_transaction_id)
+WHERE conversion_transaction_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS trial_conversion_links (
+  trial_hash TEXT PRIMARY KEY,
+  transaction_id TEXT NOT NULL UNIQUE,
+  converted_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS apple_sales_daily (
+  report_date TEXT NOT NULL,
+  product_id TEXT NOT NULL,
+  purchases INTEGER NOT NULL DEFAULT 0,
+  refunds INTEGER NOT NULL DEFAULT 0,
+  imported_at INTEGER NOT NULL,
+  PRIMARY KEY (report_date, product_id)
+);
+
+CREATE TABLE IF NOT EXISTS apple_sales_report_days (
+  report_date TEXT PRIMARY KEY,
+  imported_at INTEGER NOT NULL
+);

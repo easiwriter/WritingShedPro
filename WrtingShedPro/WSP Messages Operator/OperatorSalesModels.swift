@@ -43,7 +43,52 @@ struct OperatorSalesResponse: Codable {
     let months: [String]
     let selectedMonth: String
     let sales: [OperatorSalesRecord]
+    let appleSales: [OperatorAppleSalesRecord]?
+    let appleSalesStatus: OperatorAppleSalesStatus?
+    let trialMetrics: OperatorTrialMetrics?
+    let deviceReportedSales: [OperatorSalesRecord]?
     let verificationFailures: [OperatorVerificationFailure]?
+}
+
+struct OperatorAppleSalesRecord: Identifiable, Codable, Equatable {
+    let productID: String
+    let purchases: Int
+    let refunds: Int
+    let updatedAt: TimeInterval
+
+    var id: String { productID }
+
+    var displayName: String {
+        switch productID {
+        case "com.writingshedpro.prosewriter": return "Prose Writer"
+        case "com.writingshedpro.poetrywriter": return "Poetry Writer"
+        case "com.writingshedpro.fictionwriter": return "Fiction Writer"
+        case "com.writingshedpro.dramawriter": return "Drama Writer"
+        case "com.writingshedpro.allinbundle": return "All-in Bundle"
+        case "com.writingshedpro.fullaccess": return "Full Access"
+        case "com.writingshedpro.manuscriptanalyst": return "Manuscript Analyst"
+        default: return productID
+        }
+    }
+
+    var netPurchases: Int {
+        purchases - refunds
+    }
+}
+
+struct OperatorAppleSalesStatus: Codable, Equatable {
+    let isConfigured: Bool
+    let importedDays: Int
+    let lastImportedAt: TimeInterval?
+}
+
+struct OperatorTrialMetrics: Codable, Equatable {
+    let month: String
+    let starts: Int
+    let scheduledEnds: Int
+    let observedExpiries: Int
+    let conversions: Int
+    let activeAtMonthEnd: Int
 }
 
 struct OperatorClearVerificationFailuresResponse: Codable {

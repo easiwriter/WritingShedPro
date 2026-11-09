@@ -47,44 +47,101 @@ struct OperatorSalesView: View {
                         ProgressView()
                     }
 
-                    if service.sortedSales.isEmpty && !service.isLoading {
-                        Text("No sales recorded for this month")
+                    if service.appleSales.isEmpty && !service.isLoading {
+                        Text(
+                            service.appleSalesStatus?.isConfigured == false
+                                ? "Apple Sales and Trends is not configured"
+                                : "No Apple purchase reports imported for this month"
+                        )
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(service.sortedSales) { sale in
-                            HStack {
-                                Text(sale.displayName)
-                                Spacer()
-                                Text(sale.count, format: .number)
-                                    .font(.headline)
-                                    .monospacedDigit()
-                            }
-                        }
-
-                        if service.hasFullAccessCohortData {
-                            HStack {
-                                Text("Total Full Access")
-                                    .fontWeight(.semibold)
-                                Spacer()
-                                Text(service.totalFullAccessSales, format: .number)
-                                    .font(.headline)
-                                    .monospacedDigit()
+                        ForEach(service.appleSales) { sale in
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text(sale.displayName)
+                                    Spacer()
+                                    Text(sale.purchases, format: .number)
+                                        .font(.headline)
+                                        .monospacedDigit()
+                                }
+                                if sale.refunds > 0 {
+                                    Text("\(sale.refunds) refund\(sale.refunds == 1 ? "" : "s") • \(sale.netPurchases) net")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
 
                         HStack {
-                            Text("Total")
+                            Text("Total Purchases")
                                 .fontWeight(.semibold)
                             Spacer()
-                            Text(service.totalSales, format: .number)
+                            Text(service.totalApplePurchases, format: .number)
                                 .font(.headline)
                                 .monospacedDigit()
                         }
+                        if service.totalAppleRefunds > 0 {
+                            HStack {
+                                Text("Total Refunds")
+                                Spacer()
+                                Text(service.totalAppleRefunds, format: .number)
+                                    .monospacedDigit()
+                            }
+                        }
+                    }
+
+                    Button("Sync Apple Reports") {
+                        Task {
+                            await service.syncAppleSales(settings: settings)
+                        }
+                    }
+                    .disabled(
+                        service.isLoading
+                            || service.selectedMonth.isEmpty
+                            || service.appleSalesStatus?.isConfigured == false
+                    )
+
+                    if let status = service.appleSalesStatus, status.importedDays > 0 {
+                        Text("\(status.importedDays) daily report\(status.importedDays == 1 ? "" : "s") imported")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 } header: {
-                    Text("Sales")
+                    Text("Apple Purchases")
                 } footer: {
-                    Text("These totals include verified reports received from production app launches; App Store Connect remains authoritative. Unconverted and converted trials are grouped by trial activation month. Direct Full Access purchases are grouped by purchase month.")
+                    Text("Authoritative Sales and Trends reports from Apple. Purchases and refunds are shown separately. Apple publishes daily reports the following day.")
+                }
+
+                Section {
+                    if let metrics = service.trialMetrics {
+                        metricRow("Trials Started", value: metrics.starts)
+                        metricRow("Scheduled 10-Day Ends", value: metrics.scheduledEnds)
+                        metricRow("Observed Expiries", value: metrics.observedExpiries)
+                        metricRow("Converted to Full Access", value: metrics.conversions)
+                        metricRow("Active at Period End", value: metrics.activeAtMonthEnd)
+                    } else if !service.isLoading {
+                        Text("No trial telemetry available")
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("Free Trials")
+                } footer: {
+                    Text("Scheduled ends are calculated from each anonymous trial start. Observed expiries count devices that opened the app after the trial ended. No Apple ID or personal information is collected.")
+                }
+
+                Section {
+                    if service.sortedSales.isEmpty && !service.isLoading {
+                        Text("No device transaction reports for this month")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(service.sortedSales) { sale in
+                            metricRow(sale.displayName, value: sale.count)
+                        }
+                    }
+                } header: {
+                    Text("Device Transaction Telemetry")
+                } footer: {
+                    Text("Diagnostic reports received from app launches. These are not authoritative sales totals and may be incomplete.")
                 }
 
                 Section {
@@ -176,6 +233,17 @@ struct OperatorSalesView: View {
             } message: {
                 Text("This removes diagnostic retry records only. It does not delete recorded sales.")
             }
+        }
+    }
+
+    @ViewBuilder
+    private func metricRow(_ title: String, value: Int) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Text(value, format: .number)
+                .font(.headline)
+                .monospacedDigit()
         }
     }
 }
