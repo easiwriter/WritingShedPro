@@ -8,8 +8,6 @@ const APP_DOWNLOAD_PRODUCT_TYPES = new Set([
     "1EP",
     "1EU",
     "F1",
-    "3",
-    "3F",
 ]);
 const REPORT_PRODUCT_IDS = new Set([
     "com.writingshedpro.prosewriter",
@@ -128,13 +126,15 @@ export function summarizeAppDownloads(text) {
         if (!APP_DOWNLOAD_PRODUCT_TYPES.has(productType)) continue;
 
         const device = row.Device?.trim().toLowerCase();
-        const platform = device?.includes("desktop")
-            || device?.includes("mac")
-            ? "macOS"
-            : "iOS";
+        let platform = "iOS";
+        if (device?.includes("desktop") || device?.includes("mac")) {
+            platform = "macOS";
+        } else if (device?.includes("vision")) {
+            platform = "visionOS";
+        }
 
         const units = Number.parseInt(row.Units, 10);
-        if (!Number.isFinite(units) || units <= 0) continue;
+        if (!Number.isFinite(units) || units === 0) continue;
 
         totals.set(platform, (totals.get(platform) ?? 0) + units);
     }
@@ -172,7 +172,11 @@ export async function downloadDailySalesReport(reportDate, env, fetchImpl = fetc
         },
     });
     if (response.status === 404) {
-        return { isAvailable: false, sales: [], appDownloads: [] };
+        return {
+            isAvailable: false,
+            sales: [],
+            appDownloads: [],
+        };
     }
     if (!response.ok) {
         throw appStoreConnectResponseError(response.status);

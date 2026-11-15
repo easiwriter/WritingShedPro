@@ -2428,6 +2428,7 @@ async function ensureSalesTables(env) {
             )
         `)
         .run();
+
 }
 
 async function ensureTransactionVerificationFailuresTable(env) {
