@@ -32,6 +32,10 @@ final class OperatorSalesService {
         appleSales.reduce(0) { $0 + $1.refunds }
     }
 
+    var totalAppleNetPurchases: Int {
+        totalApplePurchases - totalAppleRefunds
+    }
+
     var totalAppDownloads: Int {
         appDownloads.reduce(0) { $0 + $1.downloads }
     }

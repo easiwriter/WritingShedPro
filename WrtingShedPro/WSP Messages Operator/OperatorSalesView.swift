@@ -69,37 +69,18 @@ struct OperatorSalesView: View {
                     } else {
                         ForEach(service.appleSales) { sale in
                             VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text(sale.displayName)
-                                    Spacer()
-                                    Text(sale.purchases, format: .number)
-                                        .font(.headline)
-                                        .monospacedDigit()
-                                }
-                                if sale.refunds > 0 {
-                                    Text("\(sale.refunds) refund\(sale.refunds == 1 ? "" : "s") • \(sale.netPurchases) net")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                                Text(sale.displayName)
+                                    .fontWeight(.semibold)
+                                metricRow("Purchases", value: sale.purchases)
+                                metricRow("Refunds", value: sale.refunds)
+                                metricRow("Net Purchases", value: sale.netPurchases)
                             }
                         }
 
-                        HStack {
-                            Text("Total Purchases")
-                                .fontWeight(.semibold)
-                            Spacer()
-                            Text(service.totalApplePurchases, format: .number)
-                                .font(.headline)
-                                .monospacedDigit()
-                        }
-                        if service.totalAppleRefunds > 0 {
-                            HStack {
-                                Text("Total Refunds")
-                                Spacer()
-                                Text(service.totalAppleRefunds, format: .number)
-                                    .monospacedDigit()
-                            }
-                        }
+                        metricRow("Total Purchases", value: service.totalApplePurchases)
+                        metricRow("Total Refunds", value: service.totalAppleRefunds)
+                        metricRow("Total Net Purchases", value: service.totalAppleNetPurchases)
+                            .fontWeight(.semibold)
                     }
 
                     Button("Sync Apple Reports") {
@@ -118,7 +99,7 @@ struct OperatorSalesView: View {
                             .foregroundStyle(.secondary)
                     }
                 } header: {
-                    Text("Apple Purchases")
+                    Text("Apple Purchases & Refunds")
                 } footer: {
                     Text("Authoritative Sales and Trends reports from Apple. Purchases and refunds are shown separately. Apple publishes daily reports the following day.")
                 }
