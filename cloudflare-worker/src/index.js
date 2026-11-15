@@ -2009,6 +2009,7 @@ async function handleAdminSales(request, env) {
             `)
             .bind(
                 TRIAL_PRODUCT_ID,
+                TRIAL_PRODUCT_ID,
                 TRIAL_PRODUCT_ID, start,
                 TRIAL_PRODUCT_ID, end,
                 FULL_ACCESS_PRODUCT_ID
