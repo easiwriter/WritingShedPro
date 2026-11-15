@@ -1,5 +1,27 @@
 import Foundation
 
+enum OperatorSalesRange: String, CaseIterable, Hashable, Identifiable {
+    case oneDay = "1d"
+    case sevenDays = "7d"
+    case twoWeeks = "2w"
+    case fiveWeeks = "5w"
+    case thirteenWeeks = "13w"
+    case twentySixWeeks = "26w"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .oneDay: return "1 Day"
+        case .sevenDays: return "7 Days"
+        case .twoWeeks: return "2 Weeks"
+        case .fiveWeeks: return "5 Weeks"
+        case .thirteenWeeks: return "13 Weeks"
+        case .twentySixWeeks: return "26 Weeks"
+        }
+    }
+}
+
 struct OperatorSalesRecord: Identifiable, Codable, Equatable {
     let month: String
     let projectType: String
@@ -40,14 +62,30 @@ struct OperatorSalesRecord: Identifiable, Codable, Equatable {
 }
 
 struct OperatorSalesResponse: Codable {
-    let months: [String]
-    let selectedMonth: String
+    let selectedRange: String
     let sales: [OperatorSalesRecord]
     let appleSales: [OperatorAppleSalesRecord]?
+    let appDownloads: [OperatorAppDownloadRecord]?
     let appleSalesStatus: OperatorAppleSalesStatus?
     let trialMetrics: OperatorTrialMetrics?
     let deviceReportedSales: [OperatorSalesRecord]?
     let verificationFailures: [OperatorVerificationFailure]?
+}
+
+struct OperatorAppDownloadRecord: Identifiable, Codable, Equatable {
+    let platform: String
+    let downloads: Int
+    let updatedAt: TimeInterval
+
+    var id: String { platform }
+
+    var displayName: String {
+        switch platform {
+        case "iOS": return "iOS"
+        case "macOS": return "macOS"
+        default: return platform
+        }
+    }
 }
 
 struct OperatorAppleSalesRecord: Identifiable, Codable, Equatable {
@@ -89,6 +127,9 @@ struct OperatorTrialMetrics: Codable, Equatable {
     let observedExpiries: Int
     let conversions: Int
     let activeAtMonthEnd: Int
+    let trackingStartedAt: TimeInterval?
+    let isAvailable: Bool?
+    let isPartial: Bool?
 }
 
 struct OperatorClearVerificationFailuresResponse: Codable {

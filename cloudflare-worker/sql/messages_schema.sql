@@ -118,3 +118,11 @@ CREATE TABLE IF NOT EXISTS apple_sales_report_days (
   report_date TEXT PRIMARY KEY,
   imported_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS apple_app_downloads_daily (
+  report_date TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  downloads INTEGER NOT NULL DEFAULT 0,
+  imported_at INTEGER NOT NULL,
+  PRIMARY KEY (report_date, platform)
+);

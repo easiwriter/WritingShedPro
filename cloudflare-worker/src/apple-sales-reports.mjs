@@ -1,4 +1,14 @@
 const APP_STORE_CONNECT_BASE_URL = "https://api.appstoreconnect.apple.com";
+const WRITING_SHED_PRO_APPLE_ID = "6747890719";
+const FIRST_APP_DOWNLOAD_PRODUCT_TYPES = new Set([
+    "1",
+    "1F",
+    "1T",
+    "1E",
+    "1EP",
+    "1EU",
+    "F1",
+]);
 const REPORT_PRODUCT_IDS = new Set([
     "com.writingshedpro.prosewriter",
     "com.writingshedpro.poetrywriter",
@@ -14,6 +24,19 @@ export class AppStoreConnectError extends Error {
         super(message);
         this.status = status;
     }
+}
+
+export function appStoreConnectResponseError(status) {
+    if (status === 401 || status === 403) {
+        return new AppStoreConnectError(
+            502,
+            "Apple rejected the Sales and Trends credentials. Check the API key, issuer ID, and Sales and Reports access."
+        );
+    }
+    return new AppStoreConnectError(
+        status,
+        `Apple Sales and Trends request failed (${status})`
+    );
 }
 
 function encodeBase64URL(value) {
@@ -36,11 +59,11 @@ export async function createAppStoreConnectToken(privateKey, keyID, issuerID, no
     const issuedAt = Math.floor(now / 1000);
     const header = encodeBase64URL(JSON.stringify({
         alg: "ES256",
-        kid: keyID,
+        kid: keyID.trim(),
         typ: "JWT",
     }));
     const payload = encodeBase64URL(JSON.stringify({
-        iss: issuerID,
+        iss: issuerID.trim(),
         iat: issuedAt,
         exp: issuedAt + 15 * 60,
         aud: "appstoreconnect-v1",
@@ -77,6 +100,9 @@ export function summarizeSalesReport(text) {
         const productID = row.SKU?.trim();
         if (!REPORT_PRODUCT_IDS.has(productID)) continue;
 
+        const productType = row["Product Type Identifier"]?.trim();
+        if (!productType?.startsWith("IA")) continue;
+
         const units = Number.parseInt(row.Units, 10);
         if (!Number.isFinite(units) || units === 0) continue;
 
@@ -91,6 +117,28 @@ export function summarizeSalesReport(text) {
     return [...totals.values()];
 }
 
+export function summarizeAppDownloads(text) {
+    const totals = new Map();
+    for (const row of parseTSV(text)) {
+        if (row["Apple Identifier"]?.trim() !== WRITING_SHED_PRO_APPLE_ID) continue;
+
+        const productType = row["Product Type Identifier"]?.trim();
+        if (!FIRST_APP_DOWNLOAD_PRODUCT_TYPES.has(productType)) continue;
+
+        const device = row.Device?.trim().toLowerCase();
+        const platform = device?.includes("desktop")
+            || device?.includes("mac")
+            ? "macOS"
+            : "iOS";
+
+        const units = Number.parseInt(row.Units, 10);
+        if (!Number.isFinite(units) || units <= 0) continue;
+
+        totals.set(platform, (totals.get(platform) ?? 0) + units);
+    }
+    return [...totals].map(([platform, downloads]) => ({ platform, downloads }));
+}
+
 export async function downloadDailySalesReport(reportDate, env, fetchImpl = fetch) {
     const required = [
         env.APP_STORE_CONNECT_PRIVATE_KEY,
@@ -98,7 +146,7 @@ export async function downloadDailySalesReport(reportDate, env, fetchImpl = fetc
         env.APP_STORE_CONNECT_ISSUER_ID,
         env.APP_STORE_CONNECT_VENDOR_NUMBER,
     ];
-    if (required.some((value) => typeof value !== "string" || value.length === 0)) {
+    if (required.some((value) => typeof value !== "string" || value.trim().length === 0)) {
         throw new AppStoreConnectError(503, "Apple Sales and Trends is not configured");
     }
 
@@ -112,7 +160,7 @@ export async function downloadDailySalesReport(reportDate, env, fetchImpl = fetc
     url.searchParams.set("filter[reportDate]", reportDate);
     url.searchParams.set("filter[reportSubType]", "SUMMARY");
     url.searchParams.set("filter[reportType]", "SALES");
-    url.searchParams.set("filter[vendorNumber]", env.APP_STORE_CONNECT_VENDOR_NUMBER);
+    url.searchParams.set("filter[vendorNumber]", env.APP_STORE_CONNECT_VENDOR_NUMBER.trim());
     url.searchParams.set("filter[version]", "1_0");
 
     const response = await fetchImpl(url, {
@@ -121,17 +169,17 @@ export async function downloadDailySalesReport(reportDate, env, fetchImpl = fetc
             Accept: "application/a-gzip",
         },
     });
-    if (response.status === 404) return [];
+    if (response.status === 404) return { sales: [], appDownloads: [] };
     if (!response.ok) {
-        throw new AppStoreConnectError(
-            response.status,
-            `Apple Sales and Trends request failed (${response.status})`
-        );
+        throw appStoreConnectResponseError(response.status);
     }
 
     const decompressed = response.body.pipeThrough(new DecompressionStream("gzip"));
     const text = await new Response(decompressed).text();
-    return summarizeSalesReport(text);
+    return {
+        sales: summarizeSalesReport(text),
+        appDownloads: summarizeAppDownloads(text),
+    };
 }
 
 export function reportDatesForMonth(month, now = new Date()) {

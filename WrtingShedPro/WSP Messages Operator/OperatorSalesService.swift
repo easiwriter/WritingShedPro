@@ -3,10 +3,10 @@ import Observation
 
 @Observable
 final class OperatorSalesService {
-    var months: [String] = []
-    var selectedMonth: String = ""
+    var selectedRange: OperatorSalesRange = .fiveWeeks
     var sales: [OperatorSalesRecord] = []
     var appleSales: [OperatorAppleSalesRecord] = []
+    var appDownloads: [OperatorAppDownloadRecord] = []
     var appleSalesStatus: OperatorAppleSalesStatus?
     var trialMetrics: OperatorTrialMetrics?
     var verificationFailures: [OperatorVerificationFailure] = []
@@ -32,6 +32,10 @@ final class OperatorSalesService {
         appleSales.reduce(0) { $0 + $1.refunds }
     }
 
+    var totalAppDownloads: Int {
+        appDownloads.reduce(0) { $0 + $1.downloads }
+    }
+
     var totalFullAccessSales: Int {
         sales.reduce(0) { total, sale in
             switch sale.projectType {
@@ -54,7 +58,7 @@ final class OperatorSalesService {
         }
     }
 
-    func fetch(month: String?, settings: OperatorSettingsStore) async {
+    func fetch(range: OperatorSalesRange? = nil, settings: OperatorSettingsStore) async {
         guard let baseURL = URL(string: settings.endpoint),
               var components = URLComponents(
                 url: baseURL.appendingPathComponent("api/admin/sales"),
@@ -64,9 +68,9 @@ final class OperatorSalesService {
             return
         }
 
-        if let month, !month.isEmpty {
-            components.queryItems = [URLQueryItem(name: "month", value: month)]
-        }
+        components.queryItems = [
+            URLQueryItem(name: "range", value: (range ?? selectedRange).rawValue)
+        ]
 
         guard let url = components.url else {
             errorMessage = "Invalid endpoint URL"
@@ -123,8 +127,7 @@ final class OperatorSalesService {
     }
 
     func syncAppleSales(settings: OperatorSettingsStore) async {
-        guard !selectedMonth.isEmpty,
-              let baseURL = URL(string: settings.endpoint),
+        guard let baseURL = URL(string: settings.endpoint),
               var components = URLComponents(
                 url: baseURL.appendingPathComponent("api/admin/sales/apple-sync"),
                 resolvingAgainstBaseURL: false
@@ -132,7 +135,7 @@ final class OperatorSalesService {
             errorMessage = "Invalid endpoint URL"
             return
         }
-        components.queryItems = [URLQueryItem(name: "month", value: selectedMonth)]
+        components.queryItems = [URLQueryItem(name: "range", value: selectedRange.rawValue)]
         guard let url = components.url else {
             errorMessage = "Invalid endpoint URL"
             return
@@ -146,25 +149,36 @@ final class OperatorSalesService {
         isLoading = true
         errorMessage = nil
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else {
                 errorMessage = "No server response"
                 isLoading = false
                 return
             }
             guard http.statusCode == 200 else {
-                errorMessage = http.statusCode == 503
-                    ? "Apple Sales and Trends credentials are not configured"
-                    : "Apple sales sync failed (\(http.statusCode))"
+                if let serviceError = try? JSONDecoder().decode(
+                    OperatorSalesServiceError.self,
+                    from: data
+                ) {
+                    errorMessage = serviceError.error
+                } else if http.statusCode == 401 {
+                    errorMessage = "Operator authorization failed. Check the Admin API Token."
+                } else {
+                    errorMessage = "Apple sales sync failed (\(http.statusCode))"
+                }
                 isLoading = false
                 return
             }
             isLoading = false
-            await fetch(month: selectedMonth, settings: settings)
+            await fetch(range: selectedRange, settings: settings)
         } catch {
             isLoading = false
             errorMessage = error.localizedDescription
         }
+    }
+
+    private struct OperatorSalesServiceError: Decodable {
+        let error: String
     }
 
     private func authorize(_ request: inout URLRequest, token: String) {
@@ -192,10 +206,14 @@ final class OperatorSalesService {
             }
 
             let decoded = try JSONDecoder().decode(OperatorSalesResponse.self, from: data)
-            months = decoded.months
-            selectedMonth = decoded.selectedMonth
+            guard let responseRange = OperatorSalesRange(rawValue: decoded.selectedRange) else {
+                errorMessage = "The service returned an unsupported sales range"
+                return
+            }
+            selectedRange = responseRange
             sales = decoded.deviceReportedSales ?? decoded.sales
             appleSales = decoded.appleSales ?? []
+            appDownloads = decoded.appDownloads ?? []
             appleSalesStatus = decoded.appleSalesStatus
             trialMetrics = decoded.trialMetrics
             verificationFailures = decoded.verificationFailures ?? []

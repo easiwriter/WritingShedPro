@@ -19,9 +19,15 @@ import {
     isLegacyAnalystRequest,
 } from "./legacy-analyst-upgrade.mjs";
 import {
-    emptyTrialMetrics,
+    buildTrialMetrics,
+    TRIAL_DURATION_MS,
     validateTrialEvent,
 } from "./trial-telemetry.mjs";
+import {
+    isValidSalesRange,
+    reportDatesForSalesRange,
+    salesRangeTimestampRange,
+} from "./sales-ranges.mjs";
 
 // In-memory rate limiting (per-worker instance). For production with
 // multiple edge locations, consider Cloudflare KV or Rate Limiting rules.
@@ -56,6 +62,7 @@ const PRODUCT_SALE_TYPES = new Map([
 
 const TRIAL_PRODUCT_ID = "com.writingshedpro.trial10day";
 const FULL_ACCESS_PRODUCT_ID = "com.writingshedpro.fullaccess";
+const TRIAL_TELEMETRY_STARTED_AT = Date.UTC(2026, 10, 9);
 
 const ALLOWED_ANALYSIS_MODES = new Set(["file", "manuscript"]);
 const ALLOWED_PROJECT_TYPES = new Set(["fiction", "poetry", "drama", "prose"]);
@@ -1835,13 +1842,17 @@ async function handleAdminAppleSalesSync(request, env) {
         return jsonResponse({ error: "Sales service unavailable" }, 500);
     }
 
-    const month = new URL(request.url).searchParams.get("month");
-    if (!isValidSaleMonth(month)) {
-        return jsonResponse({ error: "Invalid month" }, 400);
+    const url = new URL(request.url);
+    const range = url.searchParams.get("range");
+    const month = url.searchParams.get("month");
+    if (!isValidSalesRange(range) && !isValidSaleMonth(month)) {
+        return jsonResponse({ error: "Invalid sales range" }, 400);
     }
 
     try {
-        const result = await syncAppleSalesMonth(env, month, true);
+        const result = isValidSalesRange(range)
+            ? await syncAppleSalesDates(env, reportDatesForSalesRange(range), false)
+            : await syncAppleSalesMonth(env, month, true);
         return jsonResponse({ ok: true, ...result }, 200);
     } catch (error) {
         if (error instanceof AppStoreConnectError) {
@@ -1853,12 +1864,16 @@ async function handleAdminAppleSalesSync(request, env) {
 }
 
 async function syncAppleSalesMonth(env, month, force) {
+    const result = await syncAppleSalesDates(env, reportDatesForMonth(month), force);
+    return { month, ...result };
+}
+
+async function syncAppleSalesDates(env, dates, force) {
     if (!env.MESSAGES_DB) {
         throw new AppStoreConnectError(500, "Sales service unavailable");
     }
     await ensureSalesTables(env);
 
-    const dates = reportDatesForMonth(month);
     let importedDays = 0;
     for (const reportDate of dates) {
         if (!force) {
@@ -1869,12 +1884,15 @@ async function syncAppleSalesMonth(env, month, force) {
             if (existing) continue;
         }
 
-        const summaries = await downloadDailySalesReport(reportDate, env);
+        const report = await downloadDailySalesReport(reportDate, env);
         const statements = [
             env.MESSAGES_DB
                 .prepare("DELETE FROM apple_sales_daily WHERE report_date = ?")
                 .bind(reportDate),
-            ...summaries.map((summary) => env.MESSAGES_DB
+            env.MESSAGES_DB
+                .prepare("DELETE FROM apple_app_downloads_daily WHERE report_date = ?")
+                .bind(reportDate),
+            ...report.sales.map((summary) => env.MESSAGES_DB
                 .prepare(`
                     INSERT INTO apple_sales_daily (
                         report_date, product_id, purchases, refunds, imported_at
@@ -1886,6 +1904,19 @@ async function syncAppleSalesMonth(env, month, force) {
                     summary.productID,
                     summary.purchases,
                     summary.refunds,
+                    Date.now()
+                )),
+            ...report.appDownloads.map((summary) => env.MESSAGES_DB
+                .prepare(`
+                    INSERT INTO apple_app_downloads_daily (
+                        report_date, platform, downloads, imported_at
+                    )
+                    VALUES (?, ?, ?, ?)
+                `)
+                .bind(
+                    reportDate,
+                    summary.platform,
+                    summary.downloads,
                     Date.now()
                 )),
             env.MESSAGES_DB
@@ -1900,7 +1931,7 @@ async function syncAppleSalesMonth(env, month, force) {
         importedDays++;
     }
 
-    return { month, importedDays, availableDays: dates.length };
+    return { importedDays, availableDays: dates.length };
 }
 
 async function handleAdminSales(request, env) {
@@ -1917,61 +1948,75 @@ async function handleAdminSales(request, env) {
     }
 
     const url = new URL(request.url);
-    const requestedMonth = url.searchParams.get("month");
+    const requestedRange = url.searchParams.get("range");
 
     try {
         await ensureSalesTables(env);
 
-        const { results: monthRows } = await env.MESSAGES_DB
-            .prepare(`
-                SELECT sale_month FROM monthly_sales
-                UNION
-                SELECT sale_month FROM sales_events
-                WHERE product_id IN (?, ?)
-                UNION
-                SELECT SUBSTR(report_date, 1, 7) AS sale_month FROM apple_sales_daily
-                UNION
-                SELECT STRFTIME('%Y-%m', started_at / 1000, 'unixepoch') AS sale_month
-                FROM trial_events
-                ORDER BY sale_month DESC
-            `)
-            .bind(TRIAL_PRODUCT_ID, FULL_ACCESS_PRODUCT_ID)
-            .all();
-        const months = (monthRows || []).map((row) => row.sale_month).filter(Boolean);
-        const selectedMonth = isValidSaleMonth(requestedMonth) ? requestedMonth : (months[0] || saleMonthFromTimestamp(Date.now()));
+        const selectedRange = isValidSalesRange(requestedRange) ? requestedRange : "5w";
+        const { start, end } = salesRangeTimestampRange(selectedRange);
+        const startDate = new Date(start).toISOString().slice(0, 10);
+        const endDate = new Date(end).toISOString().slice(0, 10);
 
-        const { results: legacyResults } = await env.MESSAGES_DB
-            .prepare(`
-                SELECT sale_month, project_type, sale_count, updated_at
-                FROM monthly_sales
-                WHERE sale_month = ?
-                ORDER BY project_type ASC
-            `)
-            .bind(selectedMonth)
-            .all();
-
-        const { results: cohortResults } = await env.MESSAGES_DB
+        const { results: verifiedTelemetryResults } = await env.MESSAGES_DB
             .prepare(`
                 SELECT
-                    sale_month,
                     CASE
-                        WHEN product_id = ? AND conversion_transaction_id IS NOT NULL THEN 'convertedTrial'
-                        WHEN product_id = ? THEN 'trial'
-                        ELSE 'fullAccess'
+                        WHEN events.product_id = ?
+                             AND events.conversion_transaction_id IS NOT NULL
+                            THEN 'convertedTrial'
+                        WHEN events.product_id = ? THEN 'trial'
+                        ELSE events.project_type
                     END AS project_type,
                     COUNT(*) AS sale_count,
-                    MAX(COALESCE(conversion_purchase_date, created_at)) AS updated_at
-                FROM sales_events
-                WHERE sale_month = ?
-                  AND product_id IN (?, ?)
-                GROUP BY 1, 2
+                    MAX(COALESCE(events.conversion_purchase_date, events.created_at)) AS updated_at
+                FROM sales_events AS events
+                WHERE (
+                    CASE
+                        WHEN events.product_id = ?
+                             AND events.conversion_transaction_id IS NOT NULL
+                            THEN events.conversion_purchase_date
+                        ELSE events.purchase_date
+                    END
+                ) >= ?
+                  AND (
+                    CASE
+                        WHEN events.product_id = ?
+                             AND events.conversion_transaction_id IS NOT NULL
+                            THEN events.conversion_purchase_date
+                        ELSE events.purchase_date
+                    END
+                  ) < ?
+                  AND (
+                      EXISTS (
+                          SELECT 1
+                          FROM verified_store_transactions AS verified
+                          WHERE verified.transaction_id = events.transaction_id
+                            AND verified.product_id = events.product_id
+                      )
+                      OR (
+                          events.conversion_transaction_id IS NOT NULL
+                          AND EXISTS (
+                              SELECT 1
+                              FROM verified_store_transactions AS conversion
+                              WHERE conversion.transaction_id = events.conversion_transaction_id
+                                AND conversion.product_id = ?
+                          )
+                      )
+                  )
+                GROUP BY 1
                 ORDER BY project_type ASC
             `)
-            .bind(TRIAL_PRODUCT_ID, TRIAL_PRODUCT_ID, selectedMonth, TRIAL_PRODUCT_ID, FULL_ACCESS_PRODUCT_ID)
+            .bind(
+                TRIAL_PRODUCT_ID,
+                TRIAL_PRODUCT_ID, start,
+                TRIAL_PRODUCT_ID, end,
+                FULL_ACCESS_PRODUCT_ID
+            )
             .all();
 
-        const sales = [...(legacyResults || []), ...(cohortResults || [])].map((row) => ({
-            month: row.sale_month,
+        const sales = (verifiedTelemetryResults || []).map((row) => ({
+            month: selectedRange,
             projectType: row.project_type,
             count: row.sale_count,
             updatedAt: row.updated_at,
@@ -1985,11 +2030,11 @@ async function handleAdminSales(request, env) {
                     SUM(refunds) AS refunds,
                     MAX(imported_at) AS updated_at
                 FROM apple_sales_daily
-                WHERE SUBSTR(report_date, 1, 7) = ?
+                WHERE report_date >= ? AND report_date < ?
                 GROUP BY product_id
                 ORDER BY product_id
             `)
-            .bind(selectedMonth)
+            .bind(startDate, endDate)
             .all();
         const appleSales = (appleRows || []).map((row) => ({
             productID: row.product_id,
@@ -1998,7 +2043,25 @@ async function handleAdminSales(request, env) {
             updatedAt: row.updated_at,
         }));
 
-        const { start, end } = saleMonthTimestampRange(selectedMonth);
+        const { results: appDownloadRows } = await env.MESSAGES_DB
+            .prepare(`
+                SELECT
+                    platform,
+                    SUM(downloads) AS downloads,
+                    MAX(imported_at) AS updated_at
+                FROM apple_app_downloads_daily
+                WHERE report_date >= ? AND report_date < ?
+                GROUP BY platform
+                ORDER BY platform
+            `)
+            .bind(startDate, endDate)
+            .all();
+        const appDownloads = (appDownloadRows || []).map((row) => ({
+            platform: row.platform,
+            downloads: row.downloads,
+            updatedAt: row.updated_at,
+        }));
+
         const activeCutoff = Math.min(end - 1, Date.now());
         const trialRow = await env.MESSAGES_DB
             .prepare(`
@@ -2023,22 +2086,65 @@ async function handleAdminSales(request, env) {
                 activeCutoff, activeCutoff, activeCutoff
             )
             .first();
-        const trialMetrics = {
-            ...emptyTrialMetrics(selectedMonth),
-            starts: trialRow?.starts ?? 0,
-            scheduledEnds: trialRow?.scheduled_ends ?? 0,
-            observedExpiries: trialRow?.observed_expiries ?? 0,
-            conversions: trialRow?.conversions ?? 0,
-            activeAtMonthEnd: trialRow?.active_at_month_end ?? 0,
-        };
+        const verifiedTrialRow = await env.MESSAGES_DB
+            .prepare(`
+                SELECT
+                    SUM(CASE
+                        WHEN events.purchase_date >= ? AND events.purchase_date < ?
+                        THEN 1 ELSE 0
+                    END) AS starts,
+                    SUM(CASE
+                        WHEN events.purchase_date + ? >= ?
+                          AND events.purchase_date + ? < ?
+                        THEN 1 ELSE 0
+                    END) AS scheduled_ends,
+                    SUM(CASE
+                        WHEN events.conversion_purchase_date >= ?
+                          AND events.conversion_purchase_date < ?
+                        THEN 1 ELSE 0
+                    END) AS conversions,
+                    SUM(CASE
+                        WHEN events.purchase_date <= ?
+                          AND events.purchase_date + ? > ?
+                          AND (
+                              events.conversion_purchase_date IS NULL
+                              OR events.conversion_purchase_date > ?
+                          )
+                        THEN 1 ELSE 0
+                    END) AS active_at_month_end
+                FROM sales_events AS events
+                WHERE events.product_id = ?
+                  AND EXISTS (
+                      SELECT 1
+                      FROM verified_store_transactions AS verified
+                      WHERE verified.transaction_id = events.transaction_id
+                        AND verified.product_id = events.product_id
+                  )
+            `)
+            .bind(
+                start, end,
+                TRIAL_DURATION_MS, start, TRIAL_DURATION_MS, end,
+                start, end,
+                activeCutoff, TRIAL_DURATION_MS, activeCutoff, activeCutoff,
+                TRIAL_PRODUCT_ID
+            )
+            .first();
+        const trialMetrics = buildTrialMetrics(
+            selectedRange,
+            trialRow,
+            verifiedTrialRow,
+            TRIAL_TELEMETRY_STARTED_AT,
+            start,
+            end
+        );
 
         const appleStatus = await env.MESSAGES_DB
             .prepare(`
                 SELECT COUNT(*) AS imported_days, MAX(imported_at) AS last_imported_at
                 FROM apple_sales_report_days
-                WHERE SUBSTR(report_date, 1, 7) = ?
+                WHERE report_date >= ? AND report_date < ?
             `)
-            .bind(selectedMonth)
+            .bind(startDate, endDate)
             .first();
 
         const { results: failureRows } = await env.MESSAGES_DB
@@ -2074,9 +2180,9 @@ async function handleAdminSales(request, env) {
 
         return jsonResponse(
             {
-                months,
-                selectedMonth,
+                selectedRange,
                 appleSales,
+                appDownloads,
                 appleSalesStatus: {
                     isConfigured: isAppleSalesConfigured(env),
                     importedDays: appleStatus?.imported_days ?? 0,
@@ -2142,14 +2248,6 @@ function saleMonthFromTimestamp(timestamp) {
     const year = date.getUTCFullYear();
     const month = String(date.getUTCMonth() + 1).padStart(2, "0");
     return `${year}-${month}`;
-}
-
-function saleMonthTimestampRange(month) {
-    const [year, monthNumber] = month.split("-").map(Number);
-    return {
-        start: Date.UTC(year, monthNumber - 1, 1),
-        end: Date.UTC(year, monthNumber, 1),
-    };
 }
 
 function isValidSaleMonth(month) {
@@ -2265,6 +2363,18 @@ async function ensureSalesTables(env) {
             CREATE TABLE IF NOT EXISTS apple_sales_report_days (
                 report_date TEXT PRIMARY KEY,
                 imported_at INTEGER NOT NULL
+            )
+        `)
+        .run();
+
+    await env.MESSAGES_DB
+        .prepare(`
+            CREATE TABLE IF NOT EXISTS apple_app_downloads_daily (
+                report_date TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                downloads INTEGER NOT NULL DEFAULT 0,
+                imported_at INTEGER NOT NULL,
+                PRIMARY KEY (report_date, platform)
             )
         `)
         .run();

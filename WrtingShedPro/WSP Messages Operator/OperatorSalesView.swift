@@ -20,26 +20,38 @@ struct OperatorSalesView: View {
                 }
 
                 Section {
-                    if service.months.isEmpty {
-                        Text(service.selectedMonth.isEmpty ? "No sales months found" : service.selectedMonth)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Picker("Month", selection: Binding(
-                            get: { service.selectedMonth },
-                            set: { newValue in
-                                service.selectedMonth = newValue
-                                Task {
-                                    await service.fetch(month: newValue, settings: settings)
-                                }
+                    Picker("Range", selection: Binding(
+                        get: { service.selectedRange },
+                        set: { newValue in
+                            service.selectedRange = newValue
+                            Task {
+                                await service.fetch(range: newValue, settings: settings)
                             }
-                        )) {
-                            ForEach(service.months, id: \.self) { month in
-                                Text(month).tag(month)
-                            }
+                        }
+                    )) {
+                        ForEach(OperatorSalesRange.allCases) { range in
+                            Text(range.displayName).tag(range)
                         }
                     }
                 } header: {
-                    Text("Month")
+                    Text("Trend Range")
+                }
+
+                Section {
+                    if service.appDownloads.isEmpty && !service.isLoading {
+                        Text("No app download reports imported for this range")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(service.appDownloads) { record in
+                            metricRow(record.displayName, value: record.downloads)
+                        }
+                        metricRow("Total Downloads", value: service.totalAppDownloads)
+                            .fontWeight(.semibold)
+                    }
+                } header: {
+                    Text("App Downloads")
+                } footer: {
+                    Text("Free Writing Shed Pro downloads reported by Apple for the selected rolling range.")
                 }
 
                 Section {
@@ -51,7 +63,7 @@ struct OperatorSalesView: View {
                         Text(
                             service.appleSalesStatus?.isConfigured == false
                                 ? "Apple Sales and Trends is not configured"
-                                : "No Apple purchase reports imported for this month"
+                                : "No Apple purchase reports imported for this range"
                         )
                             .foregroundStyle(.secondary)
                     } else {
@@ -97,7 +109,6 @@ struct OperatorSalesView: View {
                     }
                     .disabled(
                         service.isLoading
-                            || service.selectedMonth.isEmpty
                             || service.appleSalesStatus?.isConfigured == false
                     )
 
@@ -114,11 +125,16 @@ struct OperatorSalesView: View {
 
                 Section {
                     if let metrics = service.trialMetrics {
-                        metricRow("Trials Started", value: metrics.starts)
-                        metricRow("Scheduled 10-Day Ends", value: metrics.scheduledEnds)
-                        metricRow("Observed Expiries", value: metrics.observedExpiries)
-                        metricRow("Converted to Full Access", value: metrics.conversions)
-                        metricRow("Active at Period End", value: metrics.activeAtMonthEnd)
+                        if metrics.isAvailable == false {
+                            Text("Trial lifecycle telemetry was not collected for this range")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            metricRow("Trials Started", value: metrics.starts)
+                            metricRow("Scheduled 10-Day Ends", value: metrics.scheduledEnds)
+                            metricRow("Observed Expiries", value: metrics.observedExpiries)
+                            metricRow("Converted to Full Access", value: metrics.conversions)
+                            metricRow("Active at Period End", value: metrics.activeAtMonthEnd)
+                        }
                     } else if !service.isLoading {
                         Text("No trial telemetry available")
                             .foregroundStyle(.secondary)
@@ -126,12 +142,16 @@ struct OperatorSalesView: View {
                 } header: {
                     Text("Free Trials")
                 } footer: {
-                    Text("Scheduled ends are calculated from each anonymous trial start. Observed expiries count devices that opened the app after the trial ended. No Apple ID or personal information is collected.")
+                    if service.trialMetrics?.isPartial == true {
+                        Text("Partial lifecycle coverage: trial starts, scheduled ends, conversions and period-end activity also use verified StoreKit trial transactions. Observed expiries are available only from 9 November 2026.")
+                    } else {
+                        Text("Trial totals combine verified StoreKit transactions with anonymous lifecycle reports without double-counting. No Apple ID or personal information is collected.")
+                    }
                 }
 
                 Section {
                     if service.sortedSales.isEmpty && !service.isLoading {
-                        Text("No device transaction reports for this month")
+                        Text("No device transaction reports for this range")
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(service.sortedSales) { sale in
@@ -141,7 +161,7 @@ struct OperatorSalesView: View {
                 } header: {
                     Text("Device Transaction Telemetry")
                 } footer: {
-                    Text("Diagnostic reports received from app launches. These are not authoritative sales totals and may be incomplete.")
+                    Text("Apple-verified transaction reports received from app launches. Legacy unverified reports are excluded. These are not authoritative sales totals and may be incomplete.")
                 }
 
                 Section {
@@ -197,7 +217,7 @@ struct OperatorSalesView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Refresh") {
                         Task {
-                            await service.fetch(month: service.selectedMonth.isEmpty ? nil : service.selectedMonth, settings: settings)
+                            await service.fetch(range: service.selectedRange, settings: settings)
                         }
                     }
                     .disabled(settings.token.isEmpty)
@@ -205,7 +225,7 @@ struct OperatorSalesView: View {
             }
             .task {
                 if !settings.token.isEmpty {
-                    await service.fetch(month: nil, settings: settings)
+                    await service.fetch(settings: settings)
                 }
             }
             .alert(

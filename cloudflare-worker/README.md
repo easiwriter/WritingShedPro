@@ -173,8 +173,11 @@ trial product cohorts are reported as:
 - `fullAccess`: direct Full Access purchases with no preceding trial, grouped by purchase month.
 
 Device transaction totals are retained as operational diagnostics and are
-displayed separately from authoritative Apple totals. They can be lower when
-customers have not launched a version containing the reporter.
+displayed separately from authoritative Apple totals. Only transactions
+independently verified with Apple's server API are displayed; legacy telemetry
+received before server verification was introduced is excluded. Device totals
+can still be lower when customers have not launched a version containing the
+reporter.
 
 Automatic free trials are reported separately from StoreKit. The admin response
 includes starts, scheduled 10-day ends, expiries observed when the app is opened,
@@ -183,8 +186,12 @@ Scheduled ends do not imply that the customer reopened the app.
 
 The Worker imports authoritative purchase and refund units from Apple's daily
 Sales and Trends Summary Sales reports. Apple publishes daily reports the
-following day. Configure an App Store Connect team API key with access to Sales
-and Trends, plus the vendor number:
+following day. Only in-app purchase product types are counted; free app
+downloads are reported separately by iOS and macOS, even when Apple reports
+them with an SKU matching an in-app product. Configure an App Store Connect
+team API key whose role grants Sales and Reports access, plus the vendor number.
+Do not reuse an In-App Purchase key unless it also has the required App Store
+Connect reporting access:
 
 ```bash
 npx wrangler secret put APP_STORE_CONNECT_KEY_ID

@@ -49,4 +49,50 @@ export function emptyTrialMetrics(month) {
     };
 }
 
+export function buildTrialMetrics(
+    month,
+    lifecycleRow,
+    verifiedTransactionRow,
+    trackingStartedAt,
+    rangeStart,
+    rangeEnd
+) {
+    const count = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
+    const starts = Math.max(
+        count(lifecycleRow?.starts),
+        count(verifiedTransactionRow?.starts)
+    );
+    const scheduledEnds = Math.max(
+        count(lifecycleRow?.scheduled_ends),
+        count(verifiedTransactionRow?.scheduled_ends)
+    );
+    const observedExpiries = count(lifecycleRow?.observed_expiries);
+    const conversions = Math.max(
+        count(lifecycleRow?.conversions),
+        count(verifiedTransactionRow?.conversions)
+    );
+    const activeAtMonthEnd = Math.max(
+        count(lifecycleRow?.active_at_month_end),
+        count(verifiedTransactionRow?.active_at_month_end)
+    );
+    const hasRecordedActivity = starts > 0
+        || scheduledEnds > 0
+        || observedExpiries > 0
+        || conversions > 0
+        || activeAtMonthEnd > 0;
+
+    return {
+        ...emptyTrialMetrics(month),
+        starts,
+        scheduledEnds,
+        observedExpiries,
+        conversions,
+        activeAtMonthEnd,
+        trackingStartedAt,
+        isAvailable: hasRecordedActivity || rangeEnd > trackingStartedAt,
+        isPartial: rangeStart < trackingStartedAt
+            && (hasRecordedActivity || rangeEnd > trackingStartedAt),
+    };
+}
+
 export { TRIAL_DURATION_MS };
