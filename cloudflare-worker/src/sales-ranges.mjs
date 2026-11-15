@@ -29,9 +29,14 @@ export function salesRangeTimestampRangeEndingOn(range, reportDate) {
     const reportTimestamp = Date.parse(`${reportDate}T00:00:00Z`);
     if (!Number.isFinite(reportTimestamp)) return null;
 
-    const end = reportTimestamp + 24 * 60 * 60 * 1000;
+    const dayMilliseconds = 24 * 60 * 60 * 1000;
+    const end = range === "1d"
+        ? reportTimestamp + dayMilliseconds
+        : reportTimestamp
+            - new Date(reportTimestamp).getUTCDay() * dayMilliseconds
+            + dayMilliseconds;
     return {
-        start: end - option.days * 24 * 60 * 60 * 1000,
+        start: end - option.days * dayMilliseconds,
         end,
     };
 }

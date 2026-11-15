@@ -91,8 +91,12 @@ test("anchors Connect-style ranges to the latest published report", () => {
         end: Date.UTC(2026, 10, 14),
     });
     assert.deepEqual(salesRangeTimestampRangeEndingOn("7d", "2026-11-13"), {
-        start: Date.UTC(2026, 10, 7),
-        end: Date.UTC(2026, 10, 14),
+        start: Date.UTC(2026, 10, 2),
+        end: Date.UTC(2026, 10, 9),
+    });
+    assert.deepEqual(salesRangeTimestampRangeEndingOn("2w", "2026-11-13"), {
+        start: Date.UTC(2026, 9, 26),
+        end: Date.UTC(2026, 10, 9),
     });
 });
 
