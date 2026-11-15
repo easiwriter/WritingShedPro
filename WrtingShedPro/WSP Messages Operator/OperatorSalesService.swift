@@ -128,47 +128,80 @@ final class OperatorSalesService {
 
     func syncAppleSales(settings: OperatorSettingsStore) async {
         guard let baseURL = URL(string: settings.endpoint),
-              var components = URLComponents(
+              let baseComponents = URLComponents(
                 url: baseURL.appendingPathComponent("api/admin/sales/apple-sync"),
                 resolvingAgainstBaseURL: false
               ) else {
             errorMessage = "Invalid endpoint URL"
             return
         }
-        components.queryItems = [URLQueryItem(name: "range", value: selectedRange.rawValue)]
-        guard let url = components.url else {
-            errorMessage = "Invalid endpoint URL"
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 120
-        authorize(&request, token: settings.token)
 
         isLoading = true
         errorMessage = nil
+        var cursor: String?
+        var seenCursors = Set<String>()
+
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse else {
-                errorMessage = "No server response"
-                isLoading = false
-                return
-            }
-            guard http.statusCode == 200 else {
-                if let serviceError = try? JSONDecoder().decode(
-                    OperatorSalesServiceError.self,
-                    from: data
-                ) {
-                    errorMessage = serviceError.error
-                } else if http.statusCode == 401 {
-                    errorMessage = "Operator authorization failed. Check the Admin API Token."
-                } else {
-                    errorMessage = "Apple sales sync failed (\(http.statusCode))"
+            repeat {
+                var components = baseComponents
+                components.queryItems = [
+                    URLQueryItem(name: "range", value: selectedRange.rawValue)
+                ]
+                if let cursor {
+                    guard seenCursors.insert(cursor).inserted else {
+                        errorMessage = "Apple sales sync returned a repeated cursor"
+                        isLoading = false
+                        return
+                    }
+                    components.queryItems?.append(
+                        URLQueryItem(name: "cursor", value: cursor)
+                    )
                 }
-                isLoading = false
-                return
-            }
+
+                guard let url = components.url else {
+                    errorMessage = "Invalid endpoint URL"
+                    isLoading = false
+                    return
+                }
+
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.timeoutInterval = 120
+                authorize(&request, token: settings.token)
+
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse else {
+                    errorMessage = "No server response"
+                    isLoading = false
+                    return
+                }
+                guard http.statusCode == 200 else {
+                    if let serviceError = try? JSONDecoder().decode(
+                        OperatorSalesServiceError.self,
+                        from: data
+                    ) {
+                        errorMessage = serviceError.error
+                    } else if http.statusCode == 401 {
+                        errorMessage = "Operator authorization failed. Check the Admin API Token."
+                    } else {
+                        errorMessage = "Apple sales sync failed (\(http.statusCode))"
+                    }
+                    isLoading = false
+                    return
+                }
+
+                let decoded = try JSONDecoder().decode(
+                    OperatorAppleSalesSyncResponse.self,
+                    from: data
+                )
+                guard decoded.ok else {
+                    errorMessage = "The service did not sync Apple sales reports"
+                    isLoading = false
+                    return
+                }
+                cursor = decoded.nextCursor
+            } while cursor != nil
+
             isLoading = false
             await fetch(range: selectedRange, settings: settings)
         } catch {

@@ -1,6 +1,6 @@
 const APP_STORE_CONNECT_BASE_URL = "https://api.appstoreconnect.apple.com";
 const WRITING_SHED_PRO_APPLE_ID = "6747890719";
-const FIRST_APP_DOWNLOAD_PRODUCT_TYPES = new Set([
+const APP_DOWNLOAD_PRODUCT_TYPES = new Set([
     "1",
     "1F",
     "1T",
@@ -8,6 +8,8 @@ const FIRST_APP_DOWNLOAD_PRODUCT_TYPES = new Set([
     "1EP",
     "1EU",
     "F1",
+    "3",
+    "3F",
 ]);
 const REPORT_PRODUCT_IDS = new Set([
     "com.writingshedpro.prosewriter",
@@ -123,7 +125,7 @@ export function summarizeAppDownloads(text) {
         if (row["Apple Identifier"]?.trim() !== WRITING_SHED_PRO_APPLE_ID) continue;
 
         const productType = row["Product Type Identifier"]?.trim();
-        if (!FIRST_APP_DOWNLOAD_PRODUCT_TYPES.has(productType)) continue;
+        if (!APP_DOWNLOAD_PRODUCT_TYPES.has(productType)) continue;
 
         const device = row.Device?.trim().toLowerCase();
         const platform = device?.includes("desktop")

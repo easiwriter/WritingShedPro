@@ -49,13 +49,14 @@ test("summarizes free Writing Shed Pro downloads separately by platform", () => 
         "wsp-app-sku\t7\tF1\tDesktop\t6747890719",
         "wsp-app-sku\t100\t7F\tiPhone\t6747890719",
         "wsp-app-sku\t20\t3F\tDesktop\t6747890719",
+        "wsp-app-sku\t4\t3\tiPhone\t6747890719",
         "com.writingshedpro.manuscriptanalyst\t2\tIAY\tiPhone\t6771675601",
         "wsp-reader-sku\t3\t1F\tiPhone\t6758569999",
     ].join("\n");
 
     assert.deepEqual(summarizeAppDownloads(report), [
-        { platform: "iOS", downloads: 19 },
-        { platform: "macOS", downloads: 7 },
+        { platform: "iOS", downloads: 23 },
+        { platform: "macOS", downloads: 27 },
     ]);
 });
 

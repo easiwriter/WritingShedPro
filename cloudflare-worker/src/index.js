@@ -25,7 +25,7 @@ import {
 } from "./trial-telemetry.mjs";
 import {
     isValidSalesRange,
-    reportDatesForSalesRange,
+    reportDatesForTimestampRange,
     salesRangeTimestampRange,
     salesRangeTimestampRangeEndingOn,
 } from "./sales-ranges.mjs";
@@ -1846,15 +1846,42 @@ async function handleAdminAppleSalesSync(request, env) {
     const url = new URL(request.url);
     const range = url.searchParams.get("range");
     const month = url.searchParams.get("month");
+    const cursor = url.searchParams.get("cursor");
     if (!isValidSalesRange(range) && !isValidSaleMonth(month)) {
         return jsonResponse({ error: "Invalid sales range" }, 400);
     }
+    if (cursor && !/^\d{4}-\d{2}-\d{2}$/.test(cursor)) {
+        return jsonResponse({ error: "Invalid sync cursor" }, 400);
+    }
 
     try {
-        const result = isValidSalesRange(range)
-            ? await syncAppleSalesDates(env, reportDatesForSalesRange(range), false)
-            : await syncAppleSalesMonth(env, month, true);
-        return jsonResponse({ ok: true, ...result }, 200);
+        let result;
+        let nextCursor = null;
+        if (isValidSalesRange(range)) {
+            await ensureSalesTables(env);
+            const latestAppleReport = await env.MESSAGES_DB
+                .prepare("SELECT MAX(report_date) AS report_date FROM apple_sales_report_days")
+                .first();
+            const timestamps = latestAppleReport?.report_date
+                ? salesRangeTimestampRangeEndingOn(range, latestAppleReport.report_date)
+                : salesRangeTimestampRange(range);
+            const allDates = reportDatesForTimestampRange(timestamps);
+            const remainingDates = cursor
+                ? allDates.filter((reportDate) => reportDate >= cursor)
+                : allDates;
+            const dates = remainingDates.slice(0, 10);
+            result = await syncAppleSalesDates(
+                env,
+                dates,
+                true
+            );
+            nextCursor = remainingDates.length > dates.length
+                ? remainingDates[dates.length]
+                : null;
+        } else {
+            result = await syncAppleSalesMonth(env, month, true);
+        }
+        return jsonResponse({ ok: true, ...result, nextCursor }, 200);
     } catch (error) {
         if (error instanceof AppStoreConnectError) {
             return jsonResponse({ error: error.message }, error.status);

@@ -43,6 +43,10 @@ export function salesRangeTimestampRangeEndingOn(range, reportDate) {
 
 export function reportDatesForSalesRange(range, now = new Date()) {
     const timestamps = salesRangeTimestampRange(range, now);
+    return reportDatesForTimestampRange(timestamps);
+}
+
+export function reportDatesForTimestampRange(timestamps) {
     if (!timestamps) return [];
 
     const dates = [];

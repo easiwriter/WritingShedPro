@@ -120,6 +120,11 @@ struct OperatorAppleSalesStatus: Codable, Equatable {
     let lastImportedAt: TimeInterval?
 }
 
+struct OperatorAppleSalesSyncResponse: Codable {
+    let ok: Bool
+    let nextCursor: String?
+}
+
 struct OperatorTrialMetrics: Codable, Equatable {
     let month: String
     let starts: Int
