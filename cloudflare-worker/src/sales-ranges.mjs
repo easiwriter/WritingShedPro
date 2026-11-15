@@ -22,6 +22,20 @@ export function salesRangeTimestampRange(range, now = new Date()) {
     };
 }
 
+export function salesRangeTimestampRangeEndingOn(range, reportDate) {
+    const option = SALES_RANGES.find((candidate) => candidate.id === range);
+    if (!option || !/^\d{4}-\d{2}-\d{2}$/.test(reportDate)) return null;
+
+    const reportTimestamp = Date.parse(`${reportDate}T00:00:00Z`);
+    if (!Number.isFinite(reportTimestamp)) return null;
+
+    const end = reportTimestamp + 24 * 60 * 60 * 1000;
+    return {
+        start: end - option.days * 24 * 60 * 60 * 1000,
+        end,
+    };
+}
+
 export function reportDatesForSalesRange(range, now = new Date()) {
     const timestamps = salesRangeTimestampRange(range, now);
     if (!timestamps) return [];

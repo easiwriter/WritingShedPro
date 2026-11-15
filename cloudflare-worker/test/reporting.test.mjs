@@ -14,6 +14,7 @@ import {
 import {
     reportDatesForSalesRange,
     salesRangeTimestampRange,
+    salesRangeTimestampRangeEndingOn,
 } from "../src/sales-ranges.mjs";
 
 test("summarizes Writing Shed purchases and refunds by product SKU", () => {
@@ -75,12 +76,24 @@ test("builds rolling sales ranges from completed UTC days", () => {
         start: Date.UTC(2026, 10, 8),
         end: Date.UTC(2026, 10, 15),
     });
+
     assert.deepEqual(reportDatesForSalesRange("2w", now), [
         "2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04",
         "2026-11-05", "2026-11-06", "2026-11-07", "2026-11-08",
         "2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12",
         "2026-11-13", "2026-11-14",
     ]);
+});
+
+test("anchors Connect-style ranges to the latest published report", () => {
+    assert.deepEqual(salesRangeTimestampRangeEndingOn("1d", "2026-11-13"), {
+        start: Date.UTC(2026, 10, 13),
+        end: Date.UTC(2026, 10, 14),
+    });
+    assert.deepEqual(salesRangeTimestampRangeEndingOn("7d", "2026-11-13"), {
+        start: Date.UTC(2026, 10, 7),
+        end: Date.UTC(2026, 10, 14),
+    });
 });
 
 test("reports Apple credential rejection as an upstream failure", () => {

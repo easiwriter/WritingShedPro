@@ -169,7 +169,9 @@ export async function downloadDailySalesReport(reportDate, env, fetchImpl = fetc
             Accept: "application/a-gzip",
         },
     });
-    if (response.status === 404) return { sales: [], appDownloads: [] };
+    if (response.status === 404) {
+        return { isAvailable: false, sales: [], appDownloads: [] };
+    }
     if (!response.ok) {
         throw appStoreConnectResponseError(response.status);
     }
@@ -177,6 +179,7 @@ export async function downloadDailySalesReport(reportDate, env, fetchImpl = fetc
     const decompressed = response.body.pipeThrough(new DecompressionStream("gzip"));
     const text = await new Response(decompressed).text();
     return {
+        isAvailable: true,
         sales: summarizeSalesReport(text),
         appDownloads: summarizeAppDownloads(text),
     };

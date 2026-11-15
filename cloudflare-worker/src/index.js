@@ -27,6 +27,7 @@ import {
     isValidSalesRange,
     reportDatesForSalesRange,
     salesRangeTimestampRange,
+    salesRangeTimestampRangeEndingOn,
 } from "./sales-ranges.mjs";
 
 // In-memory rate limiting (per-worker instance). For production with
@@ -1885,6 +1886,21 @@ async function syncAppleSalesDates(env, dates, force) {
         }
 
         const report = await downloadDailySalesReport(reportDate, env);
+        if (!report.isAvailable) {
+            await env.MESSAGES_DB.batch([
+                env.MESSAGES_DB
+                    .prepare("DELETE FROM apple_sales_daily WHERE report_date = ?")
+                    .bind(reportDate),
+                env.MESSAGES_DB
+                    .prepare("DELETE FROM apple_app_downloads_daily WHERE report_date = ?")
+                    .bind(reportDate),
+                env.MESSAGES_DB
+                    .prepare("DELETE FROM apple_sales_report_days WHERE report_date = ?")
+                    .bind(reportDate),
+            ]);
+            continue;
+        }
+
         const statements = [
             env.MESSAGES_DB
                 .prepare("DELETE FROM apple_sales_daily WHERE report_date = ?")
@@ -1954,7 +1970,13 @@ async function handleAdminSales(request, env) {
         await ensureSalesTables(env);
 
         const selectedRange = isValidSalesRange(requestedRange) ? requestedRange : "5w";
-        const { start, end } = salesRangeTimestampRange(selectedRange);
+        const latestAppleReport = await env.MESSAGES_DB
+            .prepare("SELECT MAX(report_date) AS report_date FROM apple_sales_report_days")
+            .first();
+        const range = latestAppleReport?.report_date
+            ? salesRangeTimestampRangeEndingOn(selectedRange, latestAppleReport.report_date)
+            : salesRangeTimestampRange(selectedRange);
+        const { start, end } = range;
         const startDate = new Date(start).toISOString().slice(0, 10);
         const endDate = new Date(end).toISOString().slice(0, 10);
 
