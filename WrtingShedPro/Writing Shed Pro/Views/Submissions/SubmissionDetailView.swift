@@ -44,6 +44,10 @@ struct SubmissionDetailView: View {
     @State private var showEditDates = false
     @State private var showStatusSaveError = false
     @State private var statusSaveErrorMessage = ""
+    @State private var submittedFilesToRemove: [SubmittedFile] = []
+    @State private var showingRemoveFilesConfirmation = false
+    @State private var showRemoveFilesError = false
+    @State private var removeFilesErrorMessage = ""
 
     private var submissionFiles: [SubmittedFile] {
         submission.submittedFiles ?? []
@@ -114,6 +118,25 @@ struct SubmissionDetailView: View {
             Text(statusSaveErrorMessage)
         }
         .confirmationDialog(
+            removeFilesConfirmationTitle,
+            isPresented: $showingRemoveFilesConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(NSLocalizedString("button.remove", comment: "Remove"), role: .destructive) {
+                removeSubmittedFiles()
+            }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                submittedFilesToRemove = []
+            }
+        } message: {
+            Text(removeFilesConfirmationMessage)
+        }
+        .alert(NSLocalizedString("submissions.files.remove.error.title", comment: "Remove submitted files error"), isPresented: $showRemoveFilesError) {
+            Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) { }
+        } message: {
+            Text(removeFilesErrorMessage)
+        }
+        .confirmationDialog(
             NSLocalizedString("submissions.delete.title", comment: "Delete submission"),
             isPresented: $showingDeleteConfirmation,
             titleVisibility: .visible
@@ -138,6 +161,13 @@ struct SubmissionDetailView: View {
         .navigationTitle(Text(NSLocalizedString("submissions.detail.title", comment: "Submission details")))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if hasSubmissionFiles {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    EditButton()
+                        .disabled(!EntitlementManager.shared.canModifyContent)
+                }
+            }
+
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
                     actionsMenu
@@ -202,6 +232,7 @@ struct SubmissionDetailView: View {
                         }
                     )
                 }
+                .onDelete(perform: confirmRemoveSubmittedFiles)
             } else {
                 Text(NSLocalizedString("submissions.no.files", comment: "No files"))
                     .foregroundStyle(.secondary)
@@ -322,6 +353,54 @@ struct SubmissionDetailView: View {
         guard EntitlementManager.shared.canModifyContent else { return }
         modelContext.delete(submission)
         dismiss()
+    }
+
+    private var removeFilesConfirmationTitle: String {
+        if submittedFilesToRemove.count == 1 {
+            return NSLocalizedString("submissions.files.remove.title", comment: "Remove submitted file")
+        }
+        return String(
+            format: NSLocalizedString("submissions.files.remove.multiple.title", comment: "Remove multiple submitted files"),
+            submittedFilesToRemove.count
+        )
+    }
+
+    private var removeFilesConfirmationMessage: String {
+        if submittedFilesToRemove.count == 1 {
+            return NSLocalizedString("submissions.files.remove.message", comment: "Remove submitted file message")
+        }
+        return NSLocalizedString("submissions.files.remove.multiple.message", comment: "Remove submitted files message")
+    }
+
+    private func confirmRemoveSubmittedFiles(at offsets: IndexSet) {
+        guard EntitlementManager.shared.canModifyContent else { return }
+        submittedFilesToRemove = offsets.map { submissionFiles[$0] }
+        showingRemoveFilesConfirmation = !submittedFilesToRemove.isEmpty
+    }
+
+    private func removeSubmittedFiles() {
+        guard EntitlementManager.shared.canModifyContent else {
+            submittedFilesToRemove = []
+            return
+        }
+
+        let submittedFileIDs = Set(submittedFilesToRemove.map(\.id))
+        submission.submittedFiles?.removeAll { submittedFileIDs.contains($0.id) }
+        submission.modifiedDate = Date()
+
+        for submittedFile in submittedFilesToRemove {
+            modelContext.delete(submittedFile)
+        }
+
+        do {
+            try WriteCoalescer.shared.requestSaveAndFlush(reason: "submission-files-remove")
+            submittedFilesToRemove = []
+            NotificationCenter.default.post(name: .projectContentCountsDidChange, object: nil)
+        } catch {
+            submittedFilesToRemove = []
+            removeFilesErrorMessage = error.localizedDescription
+            showRemoveFilesError = true
+        }
     }
     
     // MARK: - Printing

@@ -102,9 +102,13 @@ struct RawDramaAnalystActionSheet: View {
                     isLoading = false
                 }
             } catch let err as ManuscriptAnalystError {
-                error = err.errorDescription ?? "Unknown error"
-                showError = true
                 isLoading = false
+                if case .subscriptionInactive = err {
+                    showPaywall = true
+                } else {
+                    error = err.errorDescription ?? "Unknown error"
+                    showError = true
+                }
             } catch {
                 self.error = error.localizedDescription
                 showError = true

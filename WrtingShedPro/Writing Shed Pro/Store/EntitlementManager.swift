@@ -298,6 +298,11 @@ final class EntitlementManager {
     /// Merged into cachedEntitlements so we don't lose a purchase just because
     /// Transaction.currentEntitlements is slow to update (known iOS StoreKit issue).
     private var locallyVerifiedProductIDs: Set<String> = []
+    private var verifiedAnalystTransaction: (
+        id: String,
+        environment: AppStore.Environment,
+        expirationDate: Date?
+    )?
 
     /// True when: entitlements loaded, no purchases found, AND the device was offline
     /// during the initial load. Clears automatically when purchases are verified online.
@@ -732,15 +737,45 @@ final class EntitlementManager {
         guard WSPProduct.allProductIDs.contains(transaction.productID),
               transaction.revocationDate == nil,
               transaction.expirationDate.map({ $0 > Date() }) ?? true else {
-            locallyVerifiedProductIDs.remove(transaction.productID)
-            cachedEntitlements.remove(transaction.productID)
+            invalidateVerifiedPurchase(transaction.productID)
             return
         }
         recordVerifiedPurchase(transaction.productID)
         if transaction.productID == WSPProduct.tenDayTrial.rawValue {
             recordTrialStartDate(transaction.originalPurchaseDate)
+        } else if transaction.productID == WSPProduct.manuscriptAnalystSubscription.rawValue {
+            verifiedAnalystTransaction = (
+                id: String(transaction.id),
+                environment: transaction.environment,
+                expirationDate: transaction.expirationDate
+            )
         }
         recordTrustedDate(Date())
+    }
+
+    func activeVerifiedAnalystTransaction() -> (
+        id: String,
+        environment: AppStore.Environment
+    )? {
+        guard let transaction = verifiedAnalystTransaction else { return nil }
+        if let expirationDate = transaction.expirationDate,
+           expirationDate <= Date() {
+            invalidateVerifiedPurchase(WSPProduct.manuscriptAnalystSubscription.rawValue)
+            return nil
+        }
+        return (transaction.id, transaction.environment)
+    }
+
+    func invalidateVerifiedPurchase(_ productID: String) {
+        guard WSPProduct.allProductIDs.contains(productID) else { return }
+        locallyVerifiedProductIDs.remove(productID)
+        cachedEntitlements.remove(productID)
+        if productID == WSPProduct.manuscriptAnalystSubscription.rawValue {
+            verifiedAnalystTransaction = nil
+        }
+        #if DEBUG
+        print("🗑️ [EntitlementManager] Invalidated purchase: \(productID)")
+        #endif
     }
 
     // MARK: - Free Tier Limit Checks

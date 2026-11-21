@@ -24,7 +24,7 @@ final class ManuscriptAnalystService {
     }
 
     private var reviewCache: [String: ManuscriptReview] = [:]
-    private let cacheSchemaVersion = "v8"
+    private let cacheSchemaVersion = "v9"
     private let manuscriptFileBoundaryPrefix = "[[WSP_FILE:"
     private let productionEndpoint = "https://wsp-support.wsp-support.workers.dev/api/manuscript-analyst/review"
     private let sandboxEndpoint = "https://wsp-support-testflight.wsp-support.workers.dev/api/manuscript-analyst/review"
@@ -390,6 +390,9 @@ final class ManuscriptAnalystService {
 
     private func callCloudFlareAPI(_ request: ManuscriptAnalystRequest) async throws -> ManuscriptAnalystResponse {
         let transaction = try await activeAnalystTransaction()
+        guard transaction.environment != .xcode else {
+            throw ManuscriptAnalystError.localStoreKitTransactionUnsupported
+        }
         let endpoint = transaction.environment == .sandbox ? sandboxEndpoint : productionEndpoint
         guard let url = URL(string: endpoint) else {
             throw ManuscriptAnalystError.invalidEndpoint
@@ -413,6 +416,7 @@ final class ManuscriptAnalystService {
         }
 
         if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+            invalidateAnalystEntitlement()
             throw ManuscriptAnalystError.subscriptionInactive
         }
 
@@ -437,19 +441,54 @@ final class ManuscriptAnalystService {
     private func activeAnalystTransaction() async throws -> (id: String, environment: AppStore.Environment) {
         let productID = WSPProduct.manuscriptAnalystSubscription.rawValue
 
-        for await result in Transaction.currentEntitlements {
-            guard case .verified(let transaction) = result,
-                  transaction.productID == productID,
-                  transaction.revocationDate == nil else {
-                continue
-            }
-            if let expirationDate = transaction.expirationDate, expirationDate <= Date() {
-                continue
-            }
-            return (String(transaction.id), transaction.environment)
+        if let verifiedTransaction = EntitlementManager.shared.activeVerifiedAnalystTransaction() {
+            return verifiedTransaction
         }
 
+        for await result in Transaction.currentEntitlements {
+            if case .verified(let transaction) = result,
+               let activeTransaction = activeAnalystTransaction(
+                   from: transaction,
+                   productID: productID
+               ) {
+                EntitlementManager.shared.recordVerifiedPurchase(transaction)
+                return activeTransaction
+            }
+        }
+
+        if let latestResult = await Transaction.latest(for: productID),
+           case .verified(let transaction) = latestResult,
+           let activeTransaction = activeAnalystTransaction(
+               from: transaction,
+               productID: productID
+           ) {
+            EntitlementManager.shared.recordVerifiedPurchase(transaction)
+            return activeTransaction
+        }
+
+        invalidateAnalystEntitlement()
         throw ManuscriptAnalystError.subscriptionInactive
+    }
+
+    private func invalidateAnalystEntitlement() {
+        EntitlementManager.shared.invalidateVerifiedPurchase(
+            WSPProduct.manuscriptAnalystSubscription.rawValue
+        )
+    }
+
+    private func activeAnalystTransaction(
+        from transaction: Transaction,
+        productID: String
+    ) -> (id: String, environment: AppStore.Environment)? {
+        guard transaction.productID == productID,
+              transaction.revocationDate == nil else {
+            return nil
+        }
+        if let expirationDate = transaction.expirationDate,
+           expirationDate <= Date() {
+            return nil
+        }
+        return (String(transaction.id), transaction.environment)
     }
 
     private func parseResponse(
@@ -730,6 +769,7 @@ final class ManuscriptAnalystService {
 
 enum ManuscriptAnalystError: LocalizedError {
     case subscriptionInactive
+    case localStoreKitTransactionUnsupported
     case appUpdateRequired
     case projectNotFound
     case noContentToAnalyze
@@ -743,6 +783,11 @@ enum ManuscriptAnalystError: LocalizedError {
         switch self {
         case .subscriptionInactive:
             return NSLocalizedString("analyst.error.subscriptionInactive", comment: "Subscription inactive")
+        case .localStoreKitTransactionUnsupported:
+            return NSLocalizedString(
+                "analyst.error.localStoreKitUnsupported",
+                comment: "Local StoreKit transactions cannot be verified by the Analyst server"
+            )
         case .appUpdateRequired:
             return NSLocalizedString("analyst.error.appUpdateRequired", comment: "App update required")
         case .projectNotFound:

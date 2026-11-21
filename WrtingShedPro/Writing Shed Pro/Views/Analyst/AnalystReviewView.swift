@@ -9,7 +9,7 @@ struct AnalystReviewView: View {
     var onDismiss: (() -> Void)? = nil
     @State private var isArchived: Bool = false
     @State private var selectedCategory: String?
-    @State private var sortBy: SortOption = .severity
+    @State private var sortBy: SortOption = .readingOrder
     @State private var useLargeText = true
     @State private var expandedSuggestionId: String?
     @State private var headerContentHeight: CGFloat = 0
@@ -39,6 +39,11 @@ struct AnalystReviewView: View {
                         if let assessment = review.metadata?.authorshipAssessment {
                             authorshipAssessmentCard(assessment)
                         }
+
+                        Text("Second Reading")
+                            .font(useLargeText ? .title2 : .title3)
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
                         if filteredSuggestions.isEmpty {
                             emptyState
@@ -97,7 +102,7 @@ struct AnalystReviewView: View {
 
             Spacer()
 
-            Text("Review Suggestions")
+            Text("Manuscript Reading")
                 .font(.title3)
                 .fontWeight(.semibold)
 
@@ -146,7 +151,7 @@ struct AnalystReviewView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Analysis Summary")
+                    Text("First Reading")
                         .font(.title3)
                         .fontWeight(.semibold)
                     if shouldShowSentimentBadge {
@@ -158,7 +163,7 @@ struct AnalystReviewView: View {
             .padding(.horizontal)
 
             if shouldPinEditorialNoteAboveScroll {
-                Text("These notes are an editorial reading of the piece, not a definitive judgment. Treat them as revision prompts from a second reader.")
+                Text("This is one attentive reader's response, not a definitive judgment. The detailed second reading below looks more closely at how the piece works.")
                     .font(useLargeText ? .body : .callout)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal)
@@ -168,7 +173,7 @@ struct AnalystReviewView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
                         if !shouldPinEditorialNoteAboveScroll {
-                            Text("These notes are an editorial reading of the piece, not a definitive judgment. Treat them as revision prompts from a second reader.")
+                            Text("This is one attentive reader's response, not a definitive judgment. The detailed second reading below looks more closely at how the piece works.")
                                 .font(useLargeText ? .body : .callout)
                                 .foregroundStyle(.secondary)
                         }
@@ -179,7 +184,7 @@ struct AnalystReviewView: View {
 
                         if let focusOrder = review.suggestedFocusOrder, !focusOrder.isEmpty {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text("Suggested Focus Areas")
+                                Text("What Stands Out")
                                     .font(useLargeText ? .title3 : .headline)
                                     .fontWeight(.semibold)
                                     .foregroundStyle(.primary)
@@ -285,10 +290,10 @@ struct AnalystReviewView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(.green)
-            Text("No Suggestions")
+            Text("No Detailed Reading")
                 .font(.title3)
                 .fontWeight(.semibold)
-            Text("Great work! The analyst found no issues to address.")
+            Text("The first reading contains the complete response for this piece.")
                 .font(useLargeText ? .title3 : .body)
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.center)
@@ -425,12 +430,12 @@ struct AnalystReviewView: View {
         
         // Sort
         switch sortBy {
+        case .readingOrder:
+            break
         case .severity:
             suggestions.sort { severityOrder($0.severity) < severityOrder($1.severity) }
         case .category:
             suggestions.sort { $0.category < $1.category }
-        case .newest:
-            break  // Already in order as stored
         }
         
         return suggestions
@@ -538,7 +543,7 @@ struct AnalystReviewView: View {
     private func makeFlatReviewPlainText() -> String {
         var lines: [String] = []
 
-        lines.append(plainTextBold("Analysis Summary"))
+        lines.append(plainTextBold("First Reading"))
         lines.append(review.summary)
 
         lines.append("")
@@ -547,7 +552,7 @@ struct AnalystReviewView: View {
 
         if let focusOrder = review.suggestedFocusOrder, !focusOrder.isEmpty {
             lines.append("")
-            lines.append(plainTextBold("Suggested Focus Areas"))
+            lines.append(plainTextBold("What Stands Out"))
             for area in focusOrder {
                 lines.append("- \(area)")
             }
@@ -570,31 +575,30 @@ struct AnalystReviewView: View {
         }
 
         lines.append("")
-        lines.append(plainTextBold("Review Suggestions"))
+        lines.append(plainTextBold("Second Reading"))
 
         if filteredSuggestions.isEmpty {
-            lines.append("No Suggestions")
+            lines.append("No additional sections.")
         } else {
             for (index, suggestion) in filteredSuggestions.enumerated() {
                 lines.append("")
-                lines.append(plainTextBold("Suggestion \(index + 1)"))
-                lines.append("Category: \(suggestion.category)")
-                lines.append("Severity: \(suggestion.severity.capitalized)")
+                lines.append(plainTextBold("Section \(index + 1): \(suggestion.category)"))
+                lines.append("Revision priority: \(suggestion.severity.capitalized)")
                 if let location = suggestion.location, !location.isEmpty {
                     lines.append("Location: \(location)")
                 }
                 lines.append("Status: \(suggestion.isAddressed ? "Addressed" : "Unaddressed")")
 
                 lines.append("")
-                lines.append(plainTextBold("Editorial Reading"))
+                lines.append(plainTextBold("Close Reading"))
                 lines.append(suggestion.observation)
 
                 lines.append("")
-                lines.append(plainTextBold("Possible Revision Focus"))
+                lines.append(plainTextBold("Worth Considering"))
                 lines.append(suggestion.suggestion)
 
                 lines.append("")
-                lines.append(plainTextBold("Reasoning"))
+                lines.append(plainTextBold("Why It Matters"))
                 lines.append(suggestion.rationale)
             }
         }
@@ -653,7 +657,7 @@ struct AnalystReviewView: View {
             ))
         }
 
-        appendHeading("Analysis Summary")
+        appendHeading("First Reading")
         appendBody(review.summary)
 
         appendBody("")
@@ -662,7 +666,7 @@ struct AnalystReviewView: View {
 
         if let focusOrder = review.suggestedFocusOrder, !focusOrder.isEmpty {
             appendBody("")
-            appendHeading("Suggested Focus Areas")
+            appendHeading("What Stands Out")
             for area in focusOrder {
                 appendBody("- \(area)")
             }
@@ -685,31 +689,30 @@ struct AnalystReviewView: View {
         }
 
         appendBody("")
-        appendHeading("Review Suggestions")
+        appendHeading("Second Reading")
 
         if filteredSuggestions.isEmpty {
-            appendBody("No Suggestions")
+            appendBody("No additional sections.")
         } else {
             for (index, suggestion) in filteredSuggestions.enumerated() {
                 appendBody("")
-                appendHeading("Suggestion \(index + 1)")
-                appendBody("Category: \(suggestion.category)")
-                appendBody("Severity: \(suggestion.severity.capitalized)")
+                appendHeading("Section \(index + 1): \(suggestion.category)")
+                appendBody("Revision priority: \(suggestion.severity.capitalized)")
                 if let location = suggestion.location, !location.isEmpty {
                     appendBody("Location: \(location)")
                 }
                 appendBody("Status: \(suggestion.isAddressed ? "Addressed" : "Unaddressed")")
 
                 appendBody("")
-                appendHeading("Editorial Reading")
+                appendHeading("Close Reading")
                 appendBody(suggestion.observation)
 
                 appendBody("")
-                appendHeading("Possible Revision Focus")
+                appendHeading("Worth Considering")
                 appendBody(suggestion.suggestion)
 
                 appendBody("")
-                appendHeading("Reasoning")
+                appendHeading("Why It Matters")
                 appendBody(suggestion.rationale)
             }
         }
@@ -718,23 +721,23 @@ struct AnalystReviewView: View {
     }
 
     enum SortOption: Hashable, CaseIterable {
+        case readingOrder
         case severity
         case category
-        case newest
 
         var label: String {
             switch self {
+            case .readingOrder: return "Reading Order"
             case .severity: return "By Severity"
             case .category: return "By Category"
-            case .newest: return "Newest First"
             }
         }
 
         var icon: String {
             switch self {
+            case .readingOrder: return "text.alignleft"
             case .severity: return "exclamationmark.triangle"
             case .category: return "list.bullet"
-            case .newest: return "clock"
             }
         }
     }
@@ -805,7 +808,7 @@ struct SuggestionCard: View {
                             .font(useLargeText ? .title3 : .body)
                             .foregroundStyle(.primary)
                     } header: {
-                        Text("Editorial Reading")
+                        Text("Close Reading")
                             .font(useLargeText ? .headline : .callout)
                             .fontWeight(.semibold)
                             .foregroundStyle(.primary)
@@ -816,7 +819,7 @@ struct SuggestionCard: View {
                             .font(useLargeText ? .title3 : .body)
                             .foregroundStyle(.primary)
                     } header: {
-                        Text("Possible Revision Focus")
+                        Text("Worth Considering")
                             .font(useLargeText ? .headline : .callout)
                             .fontWeight(.semibold)
                             .foregroundStyle(.primary)
@@ -827,7 +830,7 @@ struct SuggestionCard: View {
                             .font(useLargeText ? .body : .callout)
                             .foregroundStyle(.primary)
                     } header: {
-                        Text("Reasoning")
+                        Text("Why It Matters")
                             .font(useLargeText ? .headline : .callout)
                             .fontWeight(.semibold)
                             .foregroundStyle(.primary)

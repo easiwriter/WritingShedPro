@@ -296,7 +296,7 @@ struct ManuscriptAnalystPaywallView: View {
             case .success(let verification):
                 if case .verified(let transaction) = verification {
                     await transaction.finish()
-                    EntitlementManager.shared.recordVerifiedPurchase(transaction.productID)
+                    EntitlementManager.shared.recordVerifiedPurchase(transaction)
                     await EntitlementManager.shared.refreshEntitlements()
                     completeSubscriptionFlow()
                 }

@@ -24,7 +24,7 @@ struct PublicationRowView: View {
                     .fontWeight(.semibold)
                 
                 // Deadline status
-                if publication.hasDeadline {
+                if publication.hasDeadline && !hasSubmissions {
                     deadlineView
                 }
             }
@@ -98,14 +98,20 @@ struct PublicationRowView: View {
             )
         }
         
-        if publication.isDeadlinePassed {
-            label = label + Text(", ") + Text(NSLocalizedString("accessibility.publication.deadline.passed", comment: "Deadline passed"))
-        } else if publication.isDeadlineApproaching, let days = publication.daysUntilDeadline {
-            label = label + Text(", ") + Text(
-                String(format: NSLocalizedString("accessibility.publication.deadline.approaching", comment: "Deadline approaching"), days)
-            )
+        if !hasSubmissions {
+            if publication.isDeadlinePassed {
+                label = label + Text(", ") + Text(NSLocalizedString("accessibility.publication.deadline.passed", comment: "Deadline passed"))
+            } else if publication.isDeadlineApproaching, let days = publication.daysUntilDeadline {
+                label = label + Text(", ") + Text(
+                    String(format: NSLocalizedString("accessibility.publication.deadline.approaching", comment: "Deadline approaching"), days)
+                )
+            }
         }
         
         return label
+    }
+
+    private var hasSubmissions: Bool {
+        publication.submissions?.contains { !$0.isCollection } ?? false
     }
 }

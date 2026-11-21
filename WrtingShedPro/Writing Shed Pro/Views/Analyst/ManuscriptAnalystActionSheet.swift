@@ -95,9 +95,13 @@ struct ManuscriptAnalystActionSheet: View {
                     isLoading = false
                 }
             } catch let err as ManuscriptAnalystError {
-                self.error = err
-                self.showError = true
                 isLoading = false
+                if case .subscriptionInactive = err {
+                    showPaywall = true
+                } else {
+                    self.error = err
+                    self.showError = true
+                }
             } catch {
                 self.error = .networkError(error)
                 self.showError = true

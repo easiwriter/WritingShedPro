@@ -1187,6 +1187,11 @@
 "submissions.files.selected" = "%d file(s) selected";
 "submissions.files.count" = "%d files";
 "submissions.files.count.short" = "%d file(s)";
+"submissions.files.remove.title" = "Remove File?";
+"submissions.files.remove.multiple.title" = "Remove %d Files?";
+"submissions.files.remove.message" = "This removes the file from the submission. The original project file will not be deleted.";
+"submissions.files.remove.multiple.message" = "This removes the selected files from the submission. The original project files will not be deleted.";
+"submissions.files.remove.error.title" = "Unable to Remove File";
 "submissions.untitled" = "Untitled Submission";
 "submissions.date.label" = "Submission Date";
 "submissions.notes.label" = "Notes (optional)";
@@ -3172,6 +3177,7 @@
 
 // MARK: - Manuscript Analyst (Feature 040)
 "analyst.error.subscriptionInactive" = "Manuscript Analyst subscription required. Start your free trial in Settings.";
+"analyst.error.localStoreKitUnsupported" = "Local Xcode StoreKit transactions cannot be verified by the Manuscript Analyst server. Test the subscription with an Apple Sandbox account or TestFlight.";
 "analyst.error.appUpdateRequired" = "Update Writing Shed Pro from the App Store before using Manuscript Analyst.";
 "analyst.error.projectNotFound" = "Could not find the project for this file.";
 "analyst.error.noContent" = "No content to analyze. Add text to your file first.";

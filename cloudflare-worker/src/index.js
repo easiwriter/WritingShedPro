@@ -29,6 +29,7 @@ import {
     salesRangeTimestampRange,
     salesRangeTimestampRangeEndingOn,
 } from "./sales-ranges.mjs";
+import { buildAnalystReadingStyleGuidance } from "./analyst-reading-style.mjs";
 
 // In-memory rate limiting (per-worker instance). For production with
 // multiple edge locations, consider Cloudflare KV or Rate Limiting rules.
@@ -42,7 +43,7 @@ const TRIAL_RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MAX_QUERY_LENGTH = 2000;
 const MAX_DIAGNOSTICS_LENGTH = 12000;
 const MAX_ANALYST_CONTENT_LENGTH = 120000;
-const ANALYST_CACHE_VERSION = "v8";
+const ANALYST_CACHE_VERSION = "v9";
 const ANALYST_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
 const MAX_MESSAGE_TITLE_LENGTH = 200;
 const MAX_MESSAGE_BODY_LENGTH = 4000;
@@ -514,7 +515,7 @@ async function handleManuscriptAnalystReview(request, env) {
             },
             body: JSON.stringify({
                 model: "gpt-4o-mini",
-                max_tokens: 4000,
+                max_tokens: 7000,
                 temperature: 0,
                 seed: stableSeed,
                 response_format: { type: "json_object" },
@@ -2698,11 +2699,11 @@ function buildAnalystSystemPrompt(analysisProfile, projectType, fictionClass, me
     const referenceLabel = usesLineReferences ? "Line" : "Paragraph";
     const referenceLabelLower = referenceLabel.toLowerCase();
     const referenceLabelPluralLower = usesLineReferences ? "lines" : "paragraphs";
-    const basePrompt = `You are an expert editorial assistant specializing in ${analysisProfile} writing. Your role is to provide constructive, specific feedback on writing samples.
+    const basePrompt = `You are an expert, generous second reader specializing in ${analysisProfile} writing. Your role is to provide perceptive, specific, and enjoyable editorial readings of writing samples.
 
 You must provide critique only. Do not rewrite or generate replacement passages for the user.
 
-Feedback should be practical and manual-edit oriented.
+Feedback should combine appreciative close reading with practical, manual-edit-oriented guidance where revision is genuinely warranted.
 
 Treat every claim as an editorial reading, not an objective verdict.
 
@@ -2718,7 +2719,7 @@ Avoid contradictory judgments about the same passage unless you explicitly expla
 
 You provide feedback in JSON format with the following structure:
 {
-    "summary": "a developed editorial reading (4-6 sentences) of the writing's strengths and possible areas for revision, naming specific craft elements rather than generalities",
+    "summary": "the first reading: a warm, developed initial response in 6-10 sentences, using natural paragraphs and naming specific strengths, effects, and possible questions rather than generalities",
   "sentiment": "encouraging|mixed|critical",
   "focusAreas": ["area1", "area2", "area3"],
     "authorshipAssessment": {
@@ -2738,9 +2739,9 @@ You provide feedback in JSON format with the following structure:
       "category": "category_name",
       "severity": "high|medium|low",
             "location": "${referenceLabel} N or ${referenceLabel} N-M (must use source ${referenceLabelPluralLower}) or null",
-            "observation": "a thorough, evidence-grounded editorial reading of what you noticed, quoting a brief phrase from the source and explaining precisely how the passage operates",
-            "suggestion": "a concrete, developed revision focus or craft experiment the author could try, with enough specificity to act on (without rewriting the text for them)",
-            "rationale": "a full explanation of why this may matter for reader experience or authorial intent, tracing the likely effect on the reader"
+            "observation": "a substantial section of the second reading, grounded in evidence, quoting a brief phrase where useful and explaining precisely how the writing operates",
+            "suggestion": "a proportionate point to preserve, test, or reconsider; say plainly when no revision is needed (without rewriting the text)",
+            "rationale": "a full explanation of why this feature matters to the reader's experience or the piece's apparent intentions"
     }
   ]
 }
@@ -2752,14 +2753,15 @@ CRITICAL ${referenceLabel.toUpperCase()}-NUMBER RULES:
 - If no precise location applies, set "location" to null.
 
 OUTPUT QUALITY RULES:
-- Make the summary substantive and specific (4-6 sentences), naming concrete craft elements; avoid grandiose or vague praise.
+- Make the first-reading summary substantive and specific (6-10 sentences), naming concrete craft elements; avoid grandiose or vague praise.
 - Focus areas must be supported by the actual suggestions you provide.
-- BE COMPREHENSIVE. Work through the piece systematically and surface every distinct, well-supported issue you can evidence, across the full range of relevant craft categories. As a guideline, provide at least 6-10 suggestions for a substantial sample, and more for longer texts, whenever the text genuinely supports them. Do not stop after two or three points.
-- Each suggestion's observation, suggestion, and rationale must each be fully developed (aim for 3-5 sentences each), not one-line notes. In the observation, quote the relevant phrase, explain precisely how the passage operates, and name the specific craft mechanism at work. In the rationale, trace the concrete effect on the reader and why it matters.
-- The only legitimate reason to provide few suggestions is a genuinely short or already-polished passage. Never withhold a supported observation for the sake of brevity.
-- Quality still governs: every suggestion must be anchored in textual evidence. Do not invent weak or speculative points purely to inflate the count.
-- Never imply that your reading is the only valid reading of the text.`;
+- BE COMPREHENSIVE. Work through the piece systematically, but do not turn the response into a fault-finding exercise. Cover the full range of craft elements that materially shape this particular piece.
+- Each second-reading section must be fully developed. Aim for 2-5 sentences in each field, adjusting naturally when a concise preservation note is more honest than an invented revision.
+- Quality governs: every section must be anchored in textual evidence. Do not invent weak or speculative points to inflate the count.
+- Never imply that your reading is the only valid reading of the text.
+- Maintain a warm, clear, conversational critical voice. Avoid clinical report language, repetitive templates, and terse one-line verdicts.`;
 
+    const readingStyleGuidance = buildAnalystReadingStyleGuidance(analysisProfile);
     const authorshipGuidance = `
 
 AI-WRITING INDICATORS ASSESSMENT:
@@ -2773,7 +2775,7 @@ AI-WRITING INDICATORS ASSESSMENT:
 - Confidence may only be "low" or "moderate" because text-only detection is inherently unreliable.
 - The summary must clearly acknowledge uncertainty and must not imply misconduct.`;
 
-    const promptWithAuthorshipGuidance = basePrompt + authorshipGuidance;
+    const promptWithAuthorshipGuidance = basePrompt + readingStyleGuidance + authorshipGuidance;
 
     if (analysisProfile === "poetry") {
         const preserveForm = metadata?.preservePoetryForm === true;
@@ -2797,7 +2799,9 @@ POETRY-SPECIFIC GUIDANCE:
 - Evaluate line breaks and their effectiveness
 - Comment on use of literary devices (metaphor, simile, alliteration, etc.)
 - Consider adherence to declared poetic form if applicable
-- De-emphasize plot/character diagnostics unless narrative elements are explicit${declaredForm ? `
+- De-emphasize plot/character diagnostics unless narrative elements are explicit
+- Treat conversational or anecdotal poems as intentional modes when the text supports that reading; do not demand heightened poetic diction
+- Attend to domestic detail, humour, restraint, relationship dynamics, and ordinary experience when they carry the poem's emotional meaning${declaredForm ? `
 - Declared form: ${declaredForm}` : ""}${formConstraintBlock}`;
     } else if (analysisProfile === "prose") {
         return promptWithAuthorshipGuidance + `
@@ -2875,7 +2879,7 @@ function buildAnalystUserPrompt(content, metadata, options, analysisProfile, pro
         prompt += `Focus particularly on: ${options.focusAreas.join(", ")}\n\n`;
     }
     
-    prompt += `Provide structured feedback as JSON. Limit to ${options?.severity === "high" ? "high-severity" : "all"} issues unless severity is specified as 'all'. Be comprehensive and detailed: work through the whole piece, cover the full range of relevant craft categories, provide as many well-evidenced suggestions as the text genuinely supports (aim for at least 6-10 on a substantial sample), and develop each observation, suggestion, and rationale fully (3-5 sentences each). Do not provide rewritten text.`;
+    prompt += `Provide structured feedback as JSON. Make the summary a generous first reading and make the suggestion objects a connected, detailed second reading. Limit revision concerns to ${options?.severity === "high" ? "high-severity concerns" : "all genuinely supported concerns"} unless severity is specified as 'all', but continue to discuss important strengths. Work through the whole piece, cover the craft elements that genuinely matter, and develop each section fully. Do not provide rewritten text.`;
     
     return prompt;
 }

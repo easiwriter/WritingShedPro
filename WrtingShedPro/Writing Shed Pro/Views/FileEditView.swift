@@ -9675,6 +9675,11 @@ struct FileEditView: View {
             #endif
             return
         }
+
+        // Direct formatting commands supersede any older typing snapshot. Leaving
+        // that debounce alive would let it overwrite section marks and other
+        // attribute-only changes when its timer fires.
+        cancelPendingEditorSave()
         
         // Save the current attributed content to the model
         // IMPORTANT: Get the current content from the textView to include all attachments (comments, images)
